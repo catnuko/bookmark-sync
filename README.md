@@ -1,35 +1,44 @@
 # bookmark-sync
 
-Chrome 与 Safari 书签同步工具：Supabase（Postgres）作为后端，配合双端通用浏览器扩展（Manifest V3），扩展直连 Supabase 无需自建服务器。
+Chrome 与 Safari 书签同步工具：Supabase（Postgres + Auth）作为后端，配合双端通用浏览器扩展（Manifest V3），扩展直连 Supabase 无需自建服务器。
+
+登录/注册复用 Supabase 官方的 Auth（邮箱 + 密码 + 自动确认），不自己实现登录系统；每个用户只能读写自己的书签（RLS 行级隔离）。
 
 ## 结构
 
-- `supabase/migrations/` — 数据库迁移脚本（`bsync_bookmarks` / `bsync_sync_secret` 表 + RLS + RPC 函数 `bsync_sync_push` / `bsync_sync_pull`，统一 `bsync_` 前缀与库内其他项目隔离）
-- `extension/` — 浏览器扩展，一套代码同时用于 Chrome 和 Safari（经 `safari-web-extensions-converter` 转换）
+- `supabase/migrations/` — 数据库迁移脚本（`bsync_bookmarks` 表 + RLS + RPC 函数 `bsync_sync_push` / `bsync_sync_pull`，统一 `bsync_` 前缀与库内其他项目隔离）
+- `src/` — 扩展源码：Vue 3 选项页（登录 / 注册 / 同步）+ 后台 service worker + 同步引擎
+- `public/manifest.json` — 扩展清单
+- `extension/` — 构建产物目录，直接加载该目录即可
 
 ## 部署
 
 ### 1. 初始化 Supabase
 
-在 [Supabase Dashboard](https://supabase.com/dashboard) 中打开项目，进入 SQL Editor，执行 `supabase/migrations/0001_init.sql`。
+1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，执行 `supabase/migrations/0001_init.sql`。
+2. 开启注册即用：**Authentication → Providers → Email → 关闭「Confirm email」**（否则注册后需邮件验证）。
+3. 把 `src/lib/supabase.js` 里的 `SUPABASE_URL` 与 `SUPABASE_ANON_KEY` 改成你自己项目的值。
 
-执行前，把脚本里 `bsync_sync_secret` 表中的 `token` 值替换成你自己的同步密钥：
+### 2. 构建扩展
 
-```sql
-insert into public.bsync_sync_secret (k, v)
-values ('token', '你的同步密钥')
-on conflict (k) do nothing;
+```bash
+pnpm install
+pnpm build
 ```
 
-如果没有项目，先在 Supabase 新建一个，并把 `extension/sync.js` 里的 `SUPABASE_URL` 与 `SUPABASE_ANON_KEY` 更新为自己的项目值。
+`pnpm dev` 可本地预览选项页界面（不带扩展 API 也能看 UI）。
 
-### 2. 加载扩展
+### 3. 加载扩展
 
-Chrome：`chrome://extensions` → 开发者模式 → 加载 `extension/` → 在扩展选项页填写与上面一致的「同步密钥」。
-
-Safari：`xcrun safari-web-extension-converter extension/ --project-location ~/Projects/BookmarkSync --app-name BookmarkSync`，用 Xcode 编译运行后在 Safari 中启用。
+- Chrome：`chrome://extensions` → 开发者模式 → 加载已解压的扩展 → 选择 `extension/` → 打开扩展选项页登录后即可同步。
+- Safari：`xcrun safari-web-extension-converter extension/ --project-location ~/Projects/BookmarkSync --app-name BookmarkSync`，用 Xcode 编译运行后在 Safari 中启用。
 
 ## 说明
 
-- 数据隔离：`bsync_sync_push` / `bsync_sync_pull` 为 `security definer` 函数，只有持有正确 `token` 才能读写数据；前端 publishable key（`anon` 角色）无法直接访问表。
+- 数据隔离：`bsync_bookmarks` 启用 RLS，策略为 `auth.uid() = user_id`；`bsync_sync_push` / `bsync_sync_pull` 使用 `security invoker`，RPC 经登录用户 JWT 调用，按用户天然隔离。
+- 会话：登录态存于 `chrome.storage.local`，选项页与后台 service worker 共享，令牌过期自动刷新。
 - 同步协议：快照 diff + 单调递增版本号增量拉取 + 服务端按 URL 去重。
+
+### 从旧「密钥」方案迁移
+
+本版本改为 Supabase Auth。迁移脚本会清理旧的 `bsync_sync_secret` 表与带 token 参数的旧函数；旧密钥写入的书签没有 `user_id`，会被 RLS 忽略，请登录后重新同步。
