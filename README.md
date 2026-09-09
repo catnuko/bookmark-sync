@@ -4,7 +4,7 @@ Chrome 与 Safari 书签同步工具：Supabase（Postgres）作为后端，配�
 
 ## 结构
 
-- `supabase/migrations/` — 数据库迁移脚本（bookmarks 表 + RLS + RPC 函数 `sync_push` / `sync_pull`）
+- `supabase/migrations/` — 数据库迁移脚本（`bsync_bookmarks` / `bsync_sync_secret` 表 + RLS + RPC 函数 `bsync_sync_push` / `bsync_sync_pull`，统一 `bsync_` 前缀与库内其他项目隔离）
 - `extension/` — 浏览器扩展，一套代码同时用于 Chrome 和 Safari（经 `safari-web-extensions-converter` 转换）
 
 ## 部署
@@ -13,10 +13,10 @@ Chrome 与 Safari 书签同步工具：Supabase（Postgres）作为后端，配�
 
 在 [Supabase Dashboard](https://supabase.com/dashboard) 中打开项目，进入 SQL Editor，执行 `supabase/migrations/0001_init.sql`。
 
-执行前，把脚本里 `sync_secret` 表中的 `token` 值替换成你自己的同步密钥：
+执行前，把脚本里 `bsync_sync_secret` 表中的 `token` 值替换成你自己的同步密钥：
 
 ```sql
-insert into public.sync_secret (k, v)
+insert into public.bsync_sync_secret (k, v)
 values ('token', '你的同步密钥')
 on conflict (k) do nothing;
 ```
@@ -31,5 +31,5 @@ Safari：`xcrun safari-web-extension-converter extension/ --project-location ~/P
 
 ## 说明
 
-- 数据隔离：`sync_push` / `sync_pull` 为 `security definer` 函数，只有持有正确 `token` 才能读写数据；前端 publishable key（`anon` 角色）无法直接访问表。
+- 数据隔离：`bsync_sync_push` / `bsync_sync_pull` 为 `security definer` 函数，只有持有正确 `token` 才能读写数据；前端 publishable key（`anon` 角色）无法直接访问表。
 - 同步协议：快照 diff + 单调递增版本号增量拉取 + 服务端按 URL 去重。
