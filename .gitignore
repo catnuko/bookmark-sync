@@ -1,0 +1,9 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物（pnpm build 输出）
+extension/
+
+# TRAE IDE 内部产物
+.trae-html-share-packages/
