@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Bookmark Sync 设置</title>
+  <style>
+    body { font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 420px; margin: 40px auto; padding: 0 16px; color: #222; }
+    h3 { margin: 0 0 8px; }
+    label { display: block; margin: 16px 0 4px; font-size: 13px; color: #555; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+    .btns { display: flex; gap: 8px; margin-top: 20px; }
+    button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+    #save { background: #4B3FE3; color: #fff; }
+    #syncNow { background: #eee; color: #222; }
+    #status { margin-top: 16px; font-size: 13px; color: #666; min-height: 18px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h3>Bookmark Sync</h3>
+  <label for="serverUrl">服务器地址</label>
+  <input id="serverUrl" placeholder="https://your-server.com:8000">
+  <label for="token">访问密钥（与服务端 SYNC_TOKEN 一致）</label>
+  <input id="token" type="password" placeholder="token">
+  <div class="btns">
+    <button id="save">保存</button>
+    <button id="syncNow">立即同步</button>
+  </div>
+  <div id="status"></div>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
