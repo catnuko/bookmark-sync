@@ -1,0 +1,306 @@
+{
+  "brand": {
+    "name": "BookmarkSync",
+    "tagline": "Bookmark Sync"
+  },
+  "nav": {
+    "home": "Home",
+    "features": "Features",
+    "pricing": "Pricing",
+    "download": "Download",
+    "docs": "Docs",
+    "privacy": "Privacy",
+    "terms": "Terms"
+  },
+  "contact": {
+    "supportEmail": "support@bookmarksync.app",
+    "supportLabel": "Support email"
+  },
+  "common": {
+    "free": "Free",
+    "oneTime": "one-time",
+    "lifetime": "Lifetime",
+    "perMonth": "/ mo",
+    "comingSoon": "Coming Soon",
+    "subscribe": "Subscribe",
+    "subscribePlaceholder": "Your email address",
+    "getStarted": "Get Started",
+    "learnMore": "Learn more",
+    "viewAll": "View all",
+    "backToHome": "Back to home",
+    "language": "Language",
+    "chinese": "中文",
+    "english": "English"
+  },
+  "hero": {
+    "badge": "Chrome · Edge · Firefox · Safari",
+    "title": "Cross-browser bookmark sync, never lose them again",
+    "subtitle": "Configure once, all your bookmarks sync across devices and browsers. Rollback from mistakes, migrate freely between accounts.",
+    "ctaPrimary": "Download Free",
+    "ctaSecondary": "View Pricing",
+    "trustBadge": "No credit card · 5MB free storage · Row-level isolation"
+  },
+  "pain": {
+    "eyebrow": "Why you need it",
+    "title": "Common pain points of bookmark management",
+    "subtitle": "Your bookmarks are scattered everywhere — lose them once and they're gone forever.",
+    "items": {
+      "lost": {
+        "title": "Bookmarks silently disappear",
+        "desc": "Mistakes, browser crashes, sync failures — years of curated links gone in a flash."
+      },
+      "crossBrowser": {
+        "title": "Browsers don't talk to each other",
+        "desc": "Chrome bookmarks never reach Safari. Work Edge and home Firefox each keep their own set."
+      },
+      "migration": {
+        "title": "Migrating devices is painful",
+        "desc": "New computer, new account — export to HTML then manually import, folders end up a mess."
+      },
+      "history": {
+        "title": "Once changed, can't go back",
+        "desc": "Accidentally renamed a folder or moved bookmarks — the browser keeps only the latest state, no history to recover."
+      }
+    }
+  },
+  "features": {
+    "eyebrow": "Core features",
+    "title": "One solution for every bookmark problem",
+    "subtitle": "From basic sync to history rollback — covers every scenario of managing your browser bookmarks.",
+    "items": {
+      "sync": {
+        "title": "Real-time cross-browser sync",
+        "desc": "Chrome / Edge / Firefox / Safari bookmarks sync automatically. New, modified, deleted entries take effect in real time."
+      },
+      "history": {
+        "title": "History rollback",
+        "desc": "Premium keeps 100 history snapshots. Restore from any past state whenever you need."
+      },
+      "quota": {
+        "title": "Flexible storage quota",
+        "desc": "Start free with 5MB, upgrade to 20MB — scale as your collection grows."
+      },
+      "privacy": {
+        "title": "Row-level data isolation",
+        "desc": "Supabase RLS row-level security — each user can only read and write their own bookmarks, end-to-end isolated."
+      },
+      "conflict": {
+        "title": "Seamless multi-device sync",
+        "desc": "Sign in on any device to pull the latest bookmark tree. Stay in sync across all your devices with zero friction."
+      },
+      "migration": {
+        "title": "Free cross-account migration",
+        "desc": "Sign in to any account to pull the full bookmark tree — finish device setup in seconds."
+      }
+    }
+  },
+  "browsers": {
+    "eyebrow": "Browser support",
+    "title": "Works with major browsers",
+    "subtitle": "Covers every browser you use daily — install and go.",
+    "chrome": { "name": "Google Chrome", "desc": "Chrome Web Store" },
+    "edge": { "name": "Microsoft Edge", "desc": "Edge Add-ons" },
+    "firefox": { "name": "Mozilla Firefox", "desc": "Firefox Add-ons" },
+    "safari": { "name": "Apple Safari", "desc": "App Store" }
+  },
+  "pricing": {
+    "eyebrow": "Pricing",
+    "title": "Two simple tiers, upgrade as you need",
+    "subtitle": "Start free, pay once for lifetime access. No subscription, no auto-renewal.",
+    "monthly": "monthly",
+    "onetime": "one-time",
+    "popular": "Recommended",
+    "plans": {
+      "free": {
+        "name": "Free",
+        "desc": "For light personal use",
+        "price": "¥0",
+        "unit": "free forever",
+        "cta": "Get Started",
+        "features": [
+          "5MB bookmark storage (~2k-5k entries)",
+          "4-browser sync",
+          "Automatic cross-device sync",
+          "Community support",
+          "Base features (no future add-ons)"
+        ]
+      },
+      "premium": {
+        "name": "Premium",
+        "desc": "Pay once, enjoy all future features forever",
+        "price": "¥99",
+        "unit": "one-time",
+        "cta": "Upgrade Now",
+        "features": [
+          "20MB bookmark storage",
+          "100 history snapshots retained",
+          "History rollback",
+          "All future feature add-ons",
+          "Email support (7-day reply)"
+        ]
+      }
+    },
+    "compare": {
+      "title": "Full feature comparison",
+      "colFeature": "Feature",
+      "colFree": "Free",
+      "colPremium": "Premium",
+      "legalNote": "Payments are processed by Creem. Invoices are issued by Creem. For more details, see:",
+      "rows": [
+        { "feature": "Storage", "free": "5MB", "premium": "20MB" },
+        { "feature": "Supported browsers", "free": "4", "premium": "4" },
+        { "feature": "Automatic cross-device sync", "free": true, "premium": true },
+        { "feature": "History rollback", "free": false, "premium": true },
+        { "feature": "Retained history snapshots", "free": "0", "premium": "100" },
+        { "feature": "Community support", "free": true, "premium": true },
+        { "feature": "Email support", "free": false, "premium": "7-day reply" },
+        { "feature": "Future feature add-ons", "free": "Not included", "premium": "All included" }
+      ]
+    },
+    "faq": {
+      "title": "Pricing FAQ",
+      "items": {
+        "upgrade": {
+          "q": "Can I get new features on the Free tier?",
+          "a": "Free tier features are fixed and do not include future add-ons. Upgrade to Premium to enjoy all future features forever, with no additional payment."
+        },
+        "refund": {
+          "q": "Do you offer refunds?",
+          "a": "No-questions-asked refund within 7 days. Beyond that, refunds are available for serious technical issues. See Terms of Service Section 4 for details."
+        },
+        "freeLimit": {
+          "q": "How many bookmarks fit in 5MB free tier?",
+          "a": "A single bookmark averages 1-2KB, so 5MB holds about 2,000-5,000 entries — plenty for most light users."
+        },
+        "payment": {
+          "q": "What payment methods do you accept?",
+          "a": "Via Creem we support Visa / Mastercard / Alipay / WeChat Pay and other major channels."
+        },
+        "subOrOnetime": {
+          "q": "Why one-time instead of subscription?",
+          "a": "Bookmark sync is a low-resource service with marginal storage costs. One-time matches user expectations and avoids subscription fatigue."
+        }
+      }
+    }
+  },
+  "download": {
+    "eyebrow": "Download",
+    "title": "Choose your browser",
+    "subtitle": "Click the corresponding browser to jump to its app store.",
+    "cta": "Open store",
+    "subscribe": {
+      "title": "Your browser not supported yet?",
+      "subtitle": "Leave your email and we'll notify you the moment it launches.",
+      "submit": "Notify me",
+      "success": "Subscribed! We'll let you know when it launches."
+    }
+  },
+  "docs": {
+    "eyebrow": "Docs",
+    "title": "Documentation",
+    "subtitle": "Quick start, feature deep-dive, troubleshooting — find every answer here.",
+    "comingSoon": "Docs are being written — stay tuned.",
+    "sections": {
+      "quickstart": "Quick Start",
+      "features": "Features",
+      "faq": "FAQ",
+      "troubleshoot": "Troubleshoot"
+    }
+  },
+  "privacy": {
+    "eyebrow": "Privacy",
+    "title": "Privacy Policy",
+    "updatedAt": "Updated September 2026",
+    "intro": "We take your privacy seriously. This policy explains how BookmarkSync collects, stores, and uses your data.",
+    "sections": {
+      "collect": {
+        "title": "What we collect",
+        "body": "Only the minimum data needed to run the service: email address (for sign-in), browser bookmarks (for sync). We do not collect browsing history, do not track usage behavior, and do not embed third-party analytics."
+      },
+      "store": {
+        "title": "How data is stored",
+        "body": "All bookmark data is stored in Supabase (a PostgreSQL-based BaaS) with row-level security (RLS) enabled — each user can only read and write their own data. Login credentials are managed by Supabase Auth; we do not store plaintext passwords."
+      },
+      "use": {
+        "title": "How data is used",
+        "body": "Bookmark data is used solely for cross-browser sync. It will never be used for ads, marketing, user profiling, or any commercial analytics."
+      },
+      "share": {
+        "title": "Do we share with third parties",
+        "body": "No. We do not sell, rent, or trade any of your data. Payment is processed by Creem — we only receive payment success notifications, never your card details."
+      },
+      "delete": {
+        "title": "How to delete data",
+        "body": "You can delete all bookmark data with one click in the extension options page. To delete your account, contact support — we will process it within 7 days."
+      },
+      "contact": {
+        "title": "Contact us",
+        "body": "For any questions about this policy, contact support@bookmarksync.app."
+      }
+    }
+  },
+  "footer": {
+    "tagline": "Cross-browser bookmark cloud sync and backup.",
+    "product": "Product",
+    "resources": "Resources",
+    "legal": "Legal",
+    "copyright": "© 2026 BookmarkSync. All rights reserved."
+  },
+  "terms": {
+    "eyebrow": "Terms",
+    "title": "Terms of Service",
+    "updatedAt": "Updated September 2026",
+    "intro": "Welcome to BookmarkSync. These Terms of Service (\"Terms\") govern your access to and use of the BookmarkSync browser extension, website, and related services (collectively, the \"Service\"). By using the Service, you confirm you have read and agree to these Terms. If you do not agree, do not use the Service.",
+    "sections": {
+      "service": {
+        "title": "1. Service description",
+        "body": "BookmarkSync is a cross-browser bookmark cloud sync and backup tool. It supports bookmark synchronization across Chrome, Edge, Firefox, and Safari, with version rollback (paid tiers) and cross-device migration. Features vary by Free, Pro, and Lifetime tiers — see the Pricing page for details."
+      },
+      "accounts": {
+        "title": "2. Accounts",
+        "body": "Using the Service requires registering an account with a valid email address. You are responsible for your account password and all activity under your account. Notify us immediately at support@bookmarksync.app if you suspect unauthorized access. Transferring or selling accounts is prohibited."
+      },
+      "plans": {
+        "title": "3. Tiers and one-time purchase",
+        "body": "The Service offers Free (¥0), Pro (¥49 one-time), and Lifetime (¥149 one-time) tiers. A one-time purchase grants permanent use of the corresponding tier — it is not a subscription and has no auto-renewal. Upgrading from Pro to Lifetime requires a ¥100 difference payment. All payments are processed by Creem (Armitage Labs OÜ, registered in Estonia) as Merchant of Record. Invoices are issued directly by Creem."
+      },
+      "refund": {
+        "title": "4. Refund policy",
+        "body": "Full unconditional refunds are available within 7 days of purchase. Beyond 7 days, partial or full refunds may be granted for severe technical failures that prevent core functionality. Refund requests must be sent to support@bookmarksync.app and will be answered within 3 business days. Refunds are returned to the original payment method. Abusive refund requests (e.g., requesting a refund immediately after purchase while continuing to use paid features) will be declined."
+      },
+      "acceptable": {
+        "title": "5. Acceptable use",
+        "body": "You agree not to use the Service for any illegal or infringing activity, including but not limited to: storing illegal content, infringing others' intellectual property, uploading malicious code, attempting to reverse-engineer the Service, abusing quotas for large-scale automated data scraping, or interfering with Service operation. Violations may result in account suspension or termination without refund."
+      },
+      "ip": {
+        "title": "6. Intellectual property",
+        "body": "The Service, extension code, brand name, and website content are the intellectual property of BookmarkSync. Bookmark data you store remains the intellectual property of you or the original rights holders; you grant us a non-exclusive, revocable license to store and transmit it as necessary to provide the sync service."
+      },
+      "disclaimer": {
+        "title": "7. Disclaimer",
+        "body": "The Service is provided \"as is\" without guarantees of continuous availability, accuracy, or permanent data preservation. We are not liable for any direct or indirect losses caused by service interruptions, data loss, or cross-browser sync failures. You should periodically export important bookmarks as local backups. To the extent permitted by law, our liability is capped at the amount of your most recent payment."
+      },
+      "termination": {
+        "title": "8. Termination",
+        "body": "You may terminate your account at any time by uninstalling the extension and ceasing use. We may terminate accounts immediately for serious violations (e.g., intellectual property infringement, service abuse, payment fraud) and delete associated data. Paid amounts are non-refundable upon termination (except within the 7-day refund window)."
+      },
+      "changes": {
+        "title": "9. Changes to these Terms",
+        "body": "We may revise these Terms at any time. Material changes will be announced on the website and emailed to registered users. Continued use of the Service constitutes acceptance of the new Terms; if you disagree, stop using the Service. Pricing changes do not affect the existing rights of paid users."
+      },
+      "governing": {
+        "title": "10. Governing law",
+        "body": "These Terms are governed by the laws of the People's Republic of China. Disputes arising from the Service should first be resolved through friendly negotiation; failing that, submitted to the competent court at the location of our operating entity."
+      },
+      "contact": {
+        "title": "11. Contact us",
+        "body": "For any questions about these Terms, contact support@bookmarksync.app. We will respond within 3 business days."
+      }
+    }
+  },
+  "lang": {
+    "switch": "Switch language",
+    "zh": "中文",
+    "en": "English"
+  }
+}

@@ -1,0 +1,306 @@
+{
+  "brand": {
+    "name": "BookmarkSync",
+    "tagline": "书签同步"
+  },
+  "nav": {
+    "home": "首页",
+    "features": "功能",
+    "pricing": "定价",
+    "download": "下载",
+    "docs": "文档",
+    "privacy": "隐私",
+    "terms": "条款"
+  },
+  "contact": {
+    "supportEmail": "support@bookmarksync.app",
+    "supportLabel": "客服邮箱"
+  },
+  "common": {
+    "free": "免费",
+    "oneTime": "一次性",
+    "lifetime": "终身",
+    "perMonth": "/ 月",
+    "comingSoon": "即将支持",
+    "subscribe": "订阅更新",
+    "subscribePlaceholder": "你的邮箱地址",
+    "getStarted": "立即开始",
+    "learnMore": "了解更多",
+    "viewAll": "查看全部",
+    "backToHome": "返回首页",
+    "language": "语言",
+    "chinese": "中文",
+    "english": "English"
+  },
+  "hero": {
+    "badge": "Chrome · Edge · Firefox · Safari",
+    "title": "跨浏览器书签同步，永不丢失",
+    "subtitle": "一次配置，所有设备浏览器书签自动云端同步。误删误改可回滚，换电脑换账号自由迁移。",
+    "ctaPrimary": "免费下载",
+    "ctaSecondary": "查看定价",
+    "trustBadge": "无需信用卡 · 5MB 免费空间 · 数据端到端隔离"
+  },
+  "pain": {
+    "eyebrow": "为什么需要",
+    "title": "书签管理的常见痛点",
+    "subtitle": "你的浏览器书签散落在各处，丢失一次就再也找不回来。",
+    "items": {
+      "lost": {
+        "title": "书签悄无声息地丢失",
+        "desc": "误删、浏览器崩溃、同步失败——多年积累的资料链接说没就没。"
+      },
+      "crossBrowser": {
+        "title": "跨浏览器无法互通",
+        "desc": "Chrome 上的书签同步不到 Safari，工作 Edge 和家用 Firefox 各存一套。"
+      },
+      "migration": {
+        "title": "换设备迁移麻烦",
+        "desc": "新电脑、新账号、跨账号迁移，靠导出 HTML 再手动导入，结构乱成一团。"
+      },
+      "history": {
+        "title": "改了之后回不去",
+        "desc": "误改书签标题或目录位置，浏览器只保留最新状态，无法追溯历史版本。"
+      }
+    }
+  },
+  "features": {
+    "eyebrow": "核心功能",
+    "title": "一套方案，解决所有书签同步问题",
+    "subtitle": "从基础同步到历史回滚，覆盖你管理浏览器书签的全部场景。",
+    "items": {
+      "sync": {
+        "title": "跨浏览器实时同步",
+        "desc": "Chrome / Edge / Firefox / Safari 书签自动云端同步，新增、修改、删除实时生效。"
+      },
+      "history": {
+        "title": "历史版本回滚",
+        "desc": "付费版保留 100 条历史快照，误删误改可随时恢复到任意历史状态。"
+      },
+      "quota": {
+        "title": "灵活空间配额",
+        "desc": "免费 5MB 起步，付费升级至 20MB，按需扩容不止步。"
+      },
+      "privacy": {
+        "title": "行级数据隔离",
+        "desc": "Supabase RLS 行级安全策略，每个用户只能读写自己的书签，端到端隔离。"
+      },
+      "conflict": {
+        "title": "多设备无缝同步",
+        "desc": "任意设备登录即可拉取最新书签结构，多端保持一致，跨设备迁移零门槛。"
+      },
+      "migration": {
+        "title": "跨账号自由迁移",
+        "desc": "登录任意账号即可拉取完整书签结构，新设备秒级完成初始化。"
+      }
+    }
+  },
+  "browsers": {
+    "eyebrow": "浏览器支持",
+    "title": "支持主流浏览器",
+    "subtitle": "覆盖你日常使用的全部浏览器，安装即用。",
+    "chrome": { "name": "Google Chrome", "desc": "Chrome Web Store" },
+    "edge": { "name": "Microsoft Edge", "desc": "Edge Add-ons" },
+    "firefox": { "name": "Mozilla Firefox", "desc": "Firefox Add-ons" },
+    "safari": { "name": "Apple Safari", "desc": "App Store" }
+  },
+  "pricing": {
+    "eyebrow": "定价",
+    "title": "简单两档，按需升级",
+    "subtitle": "免费起步，付费一次买断终身享用。无订阅，无自动续费。",
+    "monthly": "月付",
+    "onetime": "一次性",
+    "popular": "推荐",
+    "plans": {
+      "free": {
+        "name": "Free",
+        "desc": "适合个人轻度使用",
+        "price": "¥0",
+        "unit": "永久免费",
+        "cta": "立即开始",
+        "features": [
+          "5MB 书签空间（约 2k-5k 条）",
+          "4 大浏览器同步",
+          "自动跨设备同步",
+          "社区支持",
+          "基础功能（不包含未来新增）"
+        ]
+      },
+      "premium": {
+        "name": "Premium",
+        "desc": "一次买断，终身享用所有新功能",
+        "price": "¥99",
+        "unit": "一次性买断",
+        "cta": "立即升级",
+        "features": [
+          "20MB 书签空间",
+          "保留 100 条历史快照",
+          "历史版本回滚",
+          "所有未来新增功能",
+          "邮件支持（7 天回复）"
+        ]
+      }
+    },
+    "compare": {
+      "title": "完整功能对比",
+      "colFeature": "功能",
+      "colFree": "Free",
+      "colPremium": "Premium",
+      "legalNote": "支付由 Creem 处理，发票由 Creem 开具。更多细节请见：",
+      "rows": [
+        { "feature": "书签空间", "free": "5MB", "premium": "20MB" },
+        { "feature": "支持的浏览器", "free": "4 个", "premium": "4 个" },
+        { "feature": "自动跨设备同步", "free": true, "premium": true },
+        { "feature": "历史版本回滚", "free": false, "premium": true },
+        { "feature": "保留历史快照数", "free": "0 条", "premium": "100 条" },
+        { "feature": "社区支持", "free": true, "premium": true },
+        { "feature": "邮件支持", "free": false, "premium": "7 天回复" },
+        { "feature": "未来新增功能", "free": "不包含", "premium": "全部包含" }
+      ]
+    },
+    "faq": {
+      "title": "定价常见问题",
+      "items": {
+        "upgrade": {
+          "q": "免费版以后还能升级功能吗？",
+          "a": "免费版功能固定，不包含未来新增功能。升级 Premium 后即可终身享有所有未来新增功能，无需再次付费。"
+        },
+        "refund": {
+          "q": "支持退款吗？",
+          "a": "购买 7 天内无条件退款，超出 7 天如遇严重技术问题无法使用也可申请。详见服务条款第 4 节。"
+        },
+        "freeLimit": {
+          "q": "免费版 5MB 大概能存多少书签？",
+          "a": "单条书签平均 1-2KB，5MB 约可存 2000-5000 条，覆盖大部分轻度用户。"
+        },
+        "payment": {
+          "q": "支持哪些支付方式？",
+          "a": "通过 Creem 支持 Visa / Mastercard / 支付宝 / 微信支付等主流渠道。"
+        },
+        "subOrOnetime": {
+          "q": "为什么是买断而不是订阅？",
+          "a": "书签同步是低资源消耗服务，存储成本边际极低。买断更符合用户预期，也避免了订阅疲劳。"
+        }
+      }
+    }
+  },
+  "download": {
+    "eyebrow": "下载",
+    "title": "选择你的浏览器",
+    "subtitle": "点击下方对应浏览器，跳转至应用商店下载安装。",
+    "cta": "前往商店",
+    "subscribe": {
+      "title": "你的浏览器还没上架？",
+      "subtitle": "留下邮箱，新版上线第一时间通知你。",
+      "submit": "订阅通知",
+      "success": "订阅成功！我们会在新版上线时通知你。"
+    }
+  },
+  "docs": {
+    "eyebrow": "文档",
+    "title": "使用文档",
+    "subtitle": "快速上手、功能详解、故障排查，所有问题在这里找到答案。",
+    "comingSoon": "文档正在编写中，敬请期待。",
+    "sections": {
+      "quickstart": "快速开始",
+      "features": "功能详解",
+      "faq": "常见问题",
+      "troubleshoot": "故障排查"
+    }
+  },
+  "privacy": {
+    "eyebrow": "隐私",
+    "title": "隐私政策",
+    "updatedAt": "更新于 2026 年 9 月",
+    "intro": "我们重视你的隐私。本政策说明 BookmarkSync 收集、存储、使用你数据的方式。",
+    "sections": {
+      "collect": {
+        "title": "我们收集什么",
+        "body": "仅收集维持服务运转所需的最少数据：邮箱地址（用于登录）、浏览器书签数据（用于同步）。不收集浏览历史、不追踪使用行为、不嵌入第三方分析。"
+      },
+      "store": {
+        "title": "数据如何存储",
+        "body": "所有书签数据存储于 Supabase（基于 PostgreSQL 的 BaaS 服务），启用行级安全策略（RLS），每个用户只能读写自己的数据。登录凭证由 Supabase Auth 托管，我们不存储明文密码。"
+      },
+      "use": {
+        "title": "如何使用数据",
+        "body": "书签数据仅用于实现跨浏览器同步功能。不会用于广告、营销、用户画像或任何商业分析。"
+      },
+      "share": {
+        "title": "是否分享给第三方",
+        "body": "不会。我们不会出售、出租、交易你的任何数据。支付处理由 Creem 完成，我们仅收到付款成功通知，不接触你的卡号信息。"
+      },
+      "delete": {
+        "title": "如何删除数据",
+        "body": "你可在插件选项页一键删除全部书签数据。删除账号请联系 support，我们会在 7 天内处理完毕。"
+      },
+      "contact": {
+        "title": "联系我们",
+        "body": "如对本政策有任何疑问，请联系 support@bookmarksync.app。"
+      }
+    }
+  },
+  "footer": {
+    "tagline": "跨浏览器书签云同步与备份工具。",
+    "product": "产品",
+    "resources": "资源",
+    "legal": "法律",
+    "copyright": "© 2026 BookmarkSync. 保留所有权利。"
+  },
+  "terms": {
+    "eyebrow": "条款",
+    "title": "服务条款",
+    "updatedAt": "更新于 2026 年 9 月",
+    "intro": "欢迎使用 BookmarkSync。本服务条款（「条款」）约束你访问与使用 BookmarkSync 浏览器扩展、官网及相关服务（合称「服务」）。使用服务即视为你已阅读并同意本条款。如不同意，请勿使用。",
+    "sections": {
+      "service": {
+        "title": "1. 服务描述",
+        "body": "BookmarkSync 是一款跨浏览器书签云同步与备份工具，支持 Chrome、Edge、Firefox、Safari 之间的书签数据同步、历史版本回滚（付费档位）、跨设备迁移。具体功能因免费版、Pro 版、Lifetime 版而异，详见定价页。"
+      },
+      "accounts": {
+        "title": "2. 账户",
+        "body": "使用服务需注册账户，注册时须提供真实有效的邮箱地址。你对账户密码及账户下发生的一切活动负责，如发现账户被盗用应立即通过 support@bookmarksync.app 通知我们。禁止转让、出售账户。"
+      },
+      "plans": {
+        "title": "3. 付费档位与一次性买断",
+        "body": "服务提供 Free（免费）、Pro（¥49 一次性）和 Lifetime（¥149 一次性）三档。一次性买断指单次付款获得对应档位永久使用权，不构成订阅，无自动续费。Pro 升级 Lifetime 可补差价 ¥100。所有支付由 Creem（Armitage Labs OÜ，注册于爱沙尼亚）作为交易记录商户处理，发票由 Creem 直接开具。"
+      },
+      "refund": {
+        "title": "4. 退款政策",
+        "body": "购买 7 天内可无条件申请全额退款；超过 7 天但遭遇严重技术故障导致核心功能无法使用，可凭故障描述申请部分或全额退款。退款请求请发送至 support@bookmarksync.app，我们将在 3 个工作日内回复并处理。退款将原路退回至支付账户。恶意退款（如购买后立即申请退款但仍继续使用付费功能）将不予受理。"
+      },
+      "acceptable": {
+        "title": "5. 可接受使用",
+        "body": "你承诺不通过服务从事违法或侵权行为，包括但不限于：存储违法内容、侵犯他人知识产权、上传恶意代码、尝试破解或逆向工程服务、滥用配额进行大规模自动化数据搬运、干扰服务正常运行。违反者我们有权暂停或终止账户且不予退款。"
+      },
+      "ip": {
+        "title": "6. 知识产权",
+        "body": "BookmarkSync 服务、扩展代码、品牌名称、官网内容的知识产权归 BookmarkSync 所有。你存储于服务中的书签数据，其知识产权仍归你或原始权利人所有；你授予我们为提供同步服务所必需的非独家、可撤销的存储与传输许可。"
+      },
+      "disclaimer": {
+        "title": "7. 免责声明",
+        "body": "服务按「现状」提供，不保证连续可用、无误或数据永不丢失。我们不因服务中断、数据丢失、跨浏览器同步失败导致的任何直接或间接损失承担责任。你应自行定期导出重要书签做本地备份。法律允许范围内，我方责任以你最近一次支付金额为上限。"
+      },
+      "termination": {
+        "title": "8. 终止",
+        "body": "你可随时通过卸载扩展并停止使用终止账户。严重违反本条款（如侵犯他人知识产权、滥用服务、欺诈支付）我们可立即终止账户并删除数据。付费用户已支付的款项不予退还（7 天退款期除外）。"
+      },
+      "changes": {
+        "title": "9. 条款变更",
+        "body": "我们可随时修订本条款，重大变更将在官网公告并通过邮箱通知注册用户。继续使用服务即视为接受新条款，不接受请停止使用。定价调整不影响已付费用户的既有权益。"
+      },
+      "governing": {
+        "title": "10. 适用法律",
+        "body": "本条款适用中华人民共和国法律。任何因本服务产生的争议，双方应友好协商；协商不成，提交我方运营主体所在地有管辖权的人民法院诉讼解决。"
+      },
+      "contact": {
+        "title": "11. 联系我们",
+        "body": "如对本条款有任何疑问，请联系 support@bookmarksync.app。我们将努力在 3 个工作日内回复。"
+      }
+    }
+  },
+  "lang": {
+    "switch": "切换语言",
+    "zh": "中文",
+    "en": "English"
+  }
+}

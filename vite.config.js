@@ -13,6 +13,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         options: resolve(import.meta.dirname, "options.html"),
+        popup: resolve(import.meta.dirname, "popup.html"),
         background: resolve(import.meta.dirname, "src/background.js"),
       },
       output: {

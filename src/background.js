@@ -1,4 +1,4 @@
-// 后台: 定时触发同步（Chrome MV3 service worker / Safari 16.4+）
+// 后台: 安装/启动时触发一次同步，其余靠 popup 手动触发
 import { api } from "./lib/ext.js";
 import { runSync } from "./sync.js";
 
@@ -19,9 +19,5 @@ async function sync() {
   }
 }
 
-api.alarms.create("bookmark-sync", { periodInMinutes: 2 });
-api.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "bookmark-sync") sync();
-});
 api.runtime.onInstalled.addListener(sync);
 api.runtime.onStartup.addListener(sync);

@@ -4,6 +4,8 @@ node_modules/
 
 # 构建产物（pnpm build 输出）
 extension/
+website/dist/
+website/node_modules/
 
 # TRAE IDE 内部产物
 .trae-html-share-packages/

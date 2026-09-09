@@ -1,36 +1,23 @@
-// 书签同步引擎 —— Chrome / Safari 通用（WebExtension 标准 API）
-// 协议: 快照 diff + 版本号增量拉取 + 服务端按 URL 去重
-// 后端: Supabase（Postgres RPC：bsync_sync_push / bsync_sync_pull，经登录用户 JWT 隔离）
-//
-// 防回环原理: 本轮先计算本地 diff 并推送，再把远端变更应用回本地、
-// 同时更新快照——下轮 diff 时这些条目不再有差异，天然不会乒乓。
+// 书签同步引擎 —— JSON 快照方案（含配额校验 + plan 门控）
+// 每次同步：拉取最新快照 → diff 并应用到本地 → 通过 RPC 推送合并后的新快照
+// 历史快照保留在服务端，可随时恢复到任意版本（Pro / Lifetime 可用）
 
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
 
-const STATE_KEY = "syncState"; // { lastVersion: number, snapshot: { [本地id]: {sid,url,title,folder} } }
-
-// 调用 Postgres RPC；认证 token 由 supabase-js 依据会话自动附加
-async function rpc(fn, args) {
-  const { data, error } = await supabase.rpc(fn, args);
-  if (error) throw new Error(`${fn} 失败: ${error.message}`);
-  return data;
-}
-
-// 读取整棵书签树，展平为 { [本地id]: {url, title, folder} }
+// 读取整棵书签树，展平为 [{id, url, title, folder}]
 async function readLocalTree() {
   const [root] = await api.bookmarks.getTree();
-  const flat = {};
+  const flat = [];
   const walk = (node, prefix) => {
     for (const child of node.children ?? []) {
       if (child.url) {
-        flat[child.id] = { url: child.url, title: child.title ?? "", folder: prefix };
+        flat.push({ id: child.id, url: child.url, title: child.title ?? "", folder: prefix });
       } else {
         walk(child, prefix ? `${prefix}/${child.title ?? ""}` : (child.title ?? ""));
       }
     }
   };
-  // 顶层根归一化: 第一个根 → BAR，其余 → OTHER（规避"书签栏/个人收藏"两端语言差异）
   const roots = root.children ?? [];
   roots.forEach((r, i) => walk(r, i === 0 ? "BAR" : "OTHER"));
   return flat;
@@ -52,94 +39,175 @@ async function ensureFolder(path) {
   return parentId;
 }
 
-// 本地当前树 vs 上次快照 → 新增 / 修改 / 删除
-function diffTree(tree, snapshot) {
-  const adds = [];
-  const mods = [];
-  const dels = [];
-  for (const [lid, cur] of Object.entries(tree)) {
-    const prev = snapshot[lid];
-    if (!prev) {
-      adds.push({ lid, ...cur });
-    } else if (prev.url !== cur.url || prev.title !== cur.title || prev.folder !== cur.folder) {
-      mods.push({ lid, sid: prev.sid, ...cur });
+// 将服务端快照应用到本地：按 URL 匹配，增删改
+async function applySnapshot(serverBookmarks) {
+  const localTree = await readLocalTree();
+  const localByUrl = new Map();
+  for (const b of localTree) {
+    if (!localByUrl.has(b.url)) localByUrl.set(b.url, b);
+  }
+
+  const serverUrls = new Set(serverBookmarks.map((b) => b.url));
+  let changes = 0;
+
+  // 1. 删除本地有但服务端没有的书签
+  for (const b of localTree) {
+    if (!serverUrls.has(b.url)) {
+      await api.bookmarks.remove(b.id).catch(() => {});
+      changes++;
     }
   }
-  for (const [lid, prev] of Object.entries(snapshot)) {
-    if (!(lid in tree)) dels.push({ lid, sid: prev.sid });
+
+  // 2. 创建或更新服务端书签
+  for (const sb of serverBookmarks) {
+    const local = localByUrl.get(sb.url);
+    if (local) {
+      if (local.title !== sb.title) {
+        await api.bookmarks.update(local.id, { title: sb.title });
+        changes++;
+      }
+      if (local.folder !== sb.folder) {
+        await api.bookmarks.move(local.id, { parentId: await ensureFolder(sb.folder) });
+        changes++;
+      }
+    } else {
+      await api.bookmarks.create({
+        parentId: await ensureFolder(sb.folder),
+        title: sb.title,
+        url: sb.url,
+      });
+      changes++;
+    }
   }
-  return { adds, mods, dels };
+
+  return changes;
 }
 
+/**
+ * 获取当前用户档案（plan / used / quota）
+ * @returns {Promise<{plan, quota_bytes, used_bytes, purchased_at} | null>}
+ */
+export async function getProfile() {
+  const { data, error } = await supabase.rpc("bsync_get_profile");
+  if (error) {
+    console.warn("[sync] getProfile failed:", error.message);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * 执行同步
+ * 走 RPC bsync_snapshot_push，含配额检查
+ * @returns {Promise<{ok, pushed, pulled, reason?}>}
+ *   reason 可能值：
+ *     - "unauthenticated" 未登录
+ *     - "quota_exceeded" 空间不足（免费用户超出 5MB）
+ *     - "rpc_error" 其他 RPC 错误
+ */
 export async function runSync() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { ok: false, reason: "未登录" };
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return { ok: false, reason: "unauthenticated" };
 
-  const stored = await api.storage.local.get(STATE_KEY);
-  const state = stored[STATE_KEY] ?? { lastVersion: 0, snapshot: {} };
-  const snapshot = state.snapshot;
+  // 1. 拉取最新快照
+  const { data: latest } = await supabase
+    .from("bsync_snapshots")
+    .select("id, data, created_at")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const tree = await readLocalTree();
-  const { adds, mods, dels } = diffTree(tree, snapshot);
-
-  // 1. 推送本地变更（新增排在最前，响应数组顺序与之一一对应）
-  if (adds.length + mods.length + dels.length > 0) {
-    const items = [
-      ...adds.map((a) => ({ url: a.url, title: a.title, folder: a.folder, deleted: false })),
-      ...mods.map((m) => ({ sid: m.sid, url: m.url, title: m.title, folder: m.folder, deleted: false })),
-      ...dels.map((d) => ({ sid: d.sid, deleted: true })),
-    ];
-    const data = await rpc("bsync_sync_push", { p_items: items });
-    adds.forEach((a, i) => {
-      snapshot[a.lid] = { sid: data.items[i].sid, url: a.url, title: a.title, folder: a.folder };
-    });
-    mods.forEach((m) => {
-      snapshot[m.lid] = { sid: m.sid, url: m.url, title: m.title, folder: m.folder };
-    });
-    dels.forEach((d) => {
-      delete snapshot[d.lid];
-    });
+  let pulled = 0;
+  if (latest?.data) {
+    pulled = await applySnapshot(latest.data);
   }
 
-  // 2. 拉取远端变更并应用到本地
-  const data = await rpc("bsync_sync_pull", { p_since: state.lastVersion });
+  // 2. 通过 RPC 推送合并后的本地树（含配额检查）
+  const localTree = await readLocalTree();
+  const bookmarks = localTree.map(({ url, title, folder }) => ({ url, title, folder }));
 
-  const bySid = new Map(Object.entries(snapshot).map(([lid, v]) => [v.sid, lid]));
+  const { data: pushResult, error } = await supabase.rpc("bsync_snapshot_push", {
+    p_data: bookmarks,
+  });
 
-  for (const it of data.items) {
-    const lid = bySid.get(it.sid);
-    if (it.deleted) {
-      if (lid !== undefined) {
-        await api.bookmarks.remove(lid).catch(() => {});
-        delete snapshot[lid];
-        bySid.delete(it.sid);
-      }
-    } else if (lid !== undefined) {
-      // 已有条目：仅在内容确实不同时才更新（自己刚推送的回显会在这里被跳过）
-      const v = snapshot[lid];
-      if (v.title !== it.title || v.url !== it.url) {
-        await api.bookmarks.update(lid, { title: it.title, url: it.url });
-      }
-      if (v.folder !== it.folder) {
-        await api.bookmarks.move(lid, { parentId: await ensureFolder(it.folder) });
-      }
-      snapshot[lid] = { sid: it.sid, url: it.url, title: it.title, folder: it.folder };
-    } else {
-      // 远端新条目：本地建文件夹路径 + 建书签
-      const node = await api.bookmarks.create({
-        parentId: await ensureFolder(it.folder),
-        title: it.title,
-        url: it.url,
-      });
-      snapshot[node.id] = { sid: it.sid, url: it.url, title: it.title, folder: it.folder };
-      bySid.set(it.sid, node.id);
+  if (error) {
+    // Supabase 把 RAISE EXCEPTION 转成 error.message
+    const msg = error.message || "";
+    if (msg.includes("quota_exceeded")) {
+      return { ok: false, reason: "quota_exceeded" };
     }
+    // 其他错误归为 rpc_error，附带原始信息便于排查
+    return { ok: false, reason: "rpc_error", error: msg };
   }
 
-  await api.storage.local.set({ [STATE_KEY]: { lastVersion: data.version, snapshot } });
   return {
     ok: true,
-    pushed: adds.length + mods.length + dels.length,
-    pulled: data.items.length,
+    pushed: bookmarks.length,
+    pulled,
+    size: pushResult?.size,
+    quota: pushResult?.quota,
+    plan: pushResult?.plan,
   };
+}
+
+export async function listSnapshots(limit = 20) {
+  const { data, error } = await supabase
+    .from("bsync_snapshots")
+    .select("id, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`获取历史失败: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * 恢复历史快照
+ * 走 RPC bsync_snapshot_restore，免费用户抛 plan_locked
+ * @returns {Promise<{ok, changes, createdAt?, reason?}>}
+ *   reason 可能值：
+ *     - "unauthenticated" 未登录
+ *     - "plan_locked" 免费用户，需要升级 Pro
+ *     - "not_found" 快照不存在
+ *     - "rpc_error" 其他错误
+ */
+export async function restoreSnapshot(id) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return { ok: false, reason: "unauthenticated" };
+
+  // 通过 RPC 拉取快照（含 plan 门控）
+  const { data: snapshotData, error } = await supabase.rpc("bsync_snapshot_restore", {
+    p_snapshot_id: id,
+  });
+
+  if (error) {
+    const msg = error.message || "";
+    if (msg.includes("plan_locked")) {
+      return { ok: false, reason: "plan_locked" };
+    }
+    if (msg.includes("not_found")) {
+      return { ok: false, reason: "not_found" };
+    }
+    return { ok: false, reason: "rpc_error", error: msg };
+  }
+
+  // 应用快照到本地
+  const changes = await applySnapshot(snapshotData);
+
+  // 恢复后通过 RPC 推送一份新快照（同样走配额检查，恢复的快照不会超限）
+  const localTree = await readLocalTree();
+  const bookmarks = localTree.map(({ url, title, folder }) => ({ url, title, folder }));
+  await supabase.rpc("bsync_snapshot_push", { p_data: bookmarks });
+
+  // 取快照创建时间用于 UI 提示
+  const { data: meta } = await supabase
+    .from("bsync_snapshots")
+    .select("created_at")
+    .eq("id", id)
+    .single();
+
+  return { ok: true, changes, createdAt: meta?.created_at };
 }

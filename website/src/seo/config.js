@@ -1,0 +1,201 @@
+/**
+ * SEO 配置中心
+ * - 站点级常量
+ * - 路由级 SEO 文案（中英双语，按 locale 切换）
+ * - JSON-LD 结构化数据
+ *
+ * 设计意图：把所有 SEO 文案集中在一处，便于维护、便于翻译、便于增量补充。
+ */
+
+export const SITE = {
+  // 部署上线后改为你的真实域名
+  url: "https://bookmarksync.app",
+  name: "BookmarkSync",
+  defaultLocale: "zh",
+  locales: ["zh", "en"],
+  // 用于面包屑 / og:site_name
+  shortName: "BookmarkSync",
+  // 用于 og:image 和 twitter:image（1200×630 JPEG，已生成在 public/）
+  ogImage: "https://bookmarksync.app/og-image.jpg",
+  // 客服邮箱（与 i18n 的 contact.supportEmail 同步）
+  email: "support@bookmarksync.app",
+  // 社交账号（可选，留空则不输出）
+  twitter: "@bookmarksync",
+};
+
+/**
+ * 路由级 SEO 文案
+ * 每个路由一份，包含 zh / en 两个 locale 的 title + description + keywords
+ */
+export const ROUTE_SEO = {
+  home: {
+    zh: {
+      title: "BookmarkSync · 跨浏览器书签同步与备份工具",
+      description:
+        "跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox / Safari 之间书签自动同步、30 天历史回滚、跨设备迁移。免费 5MB 起步，一次性买断升级，无订阅负担。",
+      keywords:
+        "书签同步,书签备份,跨浏览器书签,Chrome 书签同步,Edge 书签同步,Firefox 书签同步,Safari 书签同步,书签云同步,书签历史回滚,书签跨设备",
+    },
+    en: {
+      title: "BookmarkSync · Cross-browser bookmark sync & backup",
+      description:
+        "Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome / Edge / Firefox / Safari, with 30-day history rollback and cross-device migration. Free 5MB to start, one-time upgrade — no subscription fatigue.",
+      keywords:
+        "bookmark sync,bookmark backup,cross-browser bookmarks,Chrome bookmark sync,Edge bookmark sync,Firefox bookmark sync,Safari bookmark sync,bookmark cloud sync,bookmark rollback,bookmark migration",
+    },
+  },
+  pricing: {
+    zh: {
+      title: "定价 · BookmarkSync | 免费起步，一次买断终身享用",
+      description:
+        "BookmarkSync 定价方案：免费版 5MB 永久免费、Premium 版 ¥99 一次性买断终身享用所有未来新增功能。无订阅、无自动续费。支付由 Creem 处理。",
+      keywords:
+        "BookmarkSync 定价,书签同步价格,书签同步付费,书签同步买断,书签同步 Premium,书签同步一次性",
+    },
+    en: {
+      title: "Pricing · BookmarkSync | Free start, one-time lifetime purchase",
+      description:
+        "BookmarkSync pricing: Free 5MB forever, Premium ¥99 one-time purchase with all future features. No subscription, no auto-renewal. Payments processed by Creem.",
+      keywords:
+        "BookmarkSync pricing,bookmark sync price,bookmark sync plans,bookmark sync one-time,bookmark sync Premium",
+    },
+  },
+  download: {
+    zh: {
+      title: "下载 · BookmarkSync | Chrome / Edge / Firefox / Safari",
+      description:
+        "BookmarkSync 浏览器扩展下载页，点击跳转 Chrome Web Store、Edge Add-ons、Firefox Add-ons、App Store 安装。一次配置，所有设备浏览器书签永不丢失。",
+      keywords:
+        "BookmarkSync 下载,书签同步插件,书签同步扩展,Chrome 书签插件,Edge 书签插件,Firefox 书签插件,Safari 书签插件",
+    },
+    en: {
+      title: "Download · BookmarkSync | Chrome / Edge / Firefox / Safari",
+      description:
+        "Download the BookmarkSync browser extension. Jump to Chrome Web Store, Edge Add-ons, Firefox Add-ons, or App Store. Configure once — never lose bookmarks across devices again.",
+      keywords:
+        "BookmarkSync download,bookmark sync extension,bookmark sync plugin,Chrome bookmark extension,Edge bookmark extension,Firefox bookmark extension,Safari bookmark extension",
+    },
+  },
+  docs: {
+    zh: {
+      title: "使用文档 · BookmarkSync",
+      description:
+        "BookmarkSync 使用文档：快速开始、功能详解、常见问题、故障排查。所有关于书签同步工具的疑问，在这里找到答案。",
+      keywords: "BookmarkSync 文档,书签同步教程,书签同步使用,书签同步 FAQ",
+    },
+    en: {
+      title: "Documentation · BookmarkSync",
+      description:
+        "BookmarkSync documentation: quick start, feature deep-dive, FAQ, troubleshooting. Find every answer about the bookmark sync tool here.",
+      keywords:
+        "BookmarkSync docs,bookmark sync tutorial,bookmark sync usage,bookmark sync FAQ",
+    },
+  },
+  privacy: {
+    zh: {
+      title: "隐私政策 · BookmarkSync",
+      description:
+        "BookmarkSync 隐私政策说明：仅收集邮箱与书签数据用于同步，启用 Supabase RLS 行级隔离，不收集浏览历史、不嵌入第三方分析、不分享给第三方。",
+      keywords: "BookmarkSync 隐私,书签同步隐私,书签同步数据安全",
+    },
+    en: {
+      title: "Privacy Policy · BookmarkSync",
+      description:
+        "BookmarkSync privacy policy: we collect only email and bookmark data for sync, with Supabase RLS row-level isolation. No browsing history, no third-party analytics, no data sharing.",
+      keywords: "BookmarkSync privacy,bookmark sync privacy,bookmark sync data security",
+    },
+  },
+  terms: {
+    zh: {
+      title: "服务条款 · BookmarkSync",
+      description:
+        "BookmarkSync 服务条款：账户、付费档位、一次性买断、退款政策（7 天无条件退款）、可接受使用、知识产权、免责声明、终止、条款变更、适用法律。",
+      keywords: "BookmarkSync 条款,书签同步服务条款,书签同步退款政策",
+    },
+    en: {
+      title: "Terms of Service · BookmarkSync",
+      description:
+        "BookmarkSync Terms of Service: accounts, paid tiers, one-time purchase, refund policy (7-day unconditional), acceptable use, intellectual property, disclaimer, termination.",
+      keywords: "BookmarkSync terms,bookmark sync terms,bookmark sync refund policy",
+    },
+  },
+};
+
+/**
+ * Organization JSON-LD：用于品牌知识图谱 / 富搜索结果
+ */
+export function getOrganizationJsonLd(locale = "zh") {
+  const isZh = locale === "zh";
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE.name,
+    url: SITE.url,
+    email: SITE.email,
+    logo: `${SITE.url}/favicon.svg`,
+    description: isZh
+      ? "跨浏览器书签云同步与备份工具。"
+      : "Cross-browser bookmark cloud sync and backup.",
+    sameAs: [],
+  };
+}
+
+/**
+ * SoftwareApplication JSON-LD：用于在搜索结果中显示产品富片段（评分 / 价格 / 平台）
+ */
+export function getSoftwareAppJsonLd(locale = "zh") {
+  const isZh = locale === "zh";
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: SITE.name,
+    applicationCategory: isZh ? "浏览器扩展 / 生产力" : "BrowserExtension / Productivity",
+    operatingSystem: "Chrome, Edge, Firefox, Safari",
+    url: SITE.url,
+    description: isZh
+      ? "跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox / Safari 之间书签自动同步、100 条历史快照回滚、跨设备迁移。"
+      : "Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome / Edge / Firefox / Safari, with 100 history snapshots rollback.",
+    offers: [
+      {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "CNY",
+        name: "Free",
+        url: `${SITE.url}/pricing`,
+      },
+      {
+        "@type": "Offer",
+        price: "99",
+        priceCurrency: "CNY",
+        name: "Premium",
+        url: `${SITE.url}/pricing`,
+      },
+    ],
+  };
+}
+
+/**
+ * BreadcrumbList JSON-LD：面包屑，用于富搜索结果显示路径
+ */
+export function getBreadcrumbJsonLd(path, locale = "zh") {
+  const isZh = locale === "zh";
+  const labels = {
+    zh: { home: "首页", pricing: "定价", download: "下载", docs: "文档", privacy: "隐私", terms: "条款" },
+    en: { home: "Home", pricing: "Pricing", download: "Download", docs: "Docs", privacy: "Privacy", terms: "Terms" },
+  };
+  const seg = path.split("/").filter(Boolean);
+  const items = [{ name: labels[locale].home, path: "/" }];
+  if (seg.length && seg[0] !== "" && labels[locale][seg[0]]) {
+    items.push({ name: labels[locale][seg[0]], path: `/${seg[0]}` });
+  }
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((it, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: it.name,
+      item: `${SITE.url}${it.path}`,
+    })),
+  };
+}
