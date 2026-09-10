@@ -3,6 +3,13 @@
   "name": "Bookmark Sync",
   "version": "1.0.0",
   "description": "通过 Supabase 在 Chrome / Edge / Firefox 间同步书签",
+  "icons": {
+    "48": "images/icon-48.png",
+    "96": "images/icon-96.png",
+    "128": "images/icon-128.png",
+    "256": "images/icon-256.png",
+    "512": "images/icon-512.png"
+  },
   "permissions": [
     "bookmarks",
     "storage"
@@ -15,14 +22,11 @@
     "type": "module"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
   },
-  "options_page": "options.html",
-  "icons": {
-    "48": "images/icon-48.png",
-    "96": "images/icon-96.png",
-    "128": "images/icon-128.png",
-    "256": "images/icon-256.png",
-    "512": "images/icon-512.png"
-  }
+  "options_page": "options.html"
 }
