@@ -6,7 +6,7 @@ Chrome / Edge / Firefox 书签同步工具：Supabase（Postgres + Auth）作为
 
 ## 结构
 
-- `supabase/migrations/` — 数据库迁移脚本（`bsync_bookmarks` 表 + RLS + RPC 函数 `bsync_sync_push` / `bsync_sync_pull`，统一 `bsync_` 前缀与库内其他项目隔离）
+- `supabase/migrations/` — 数据库迁移脚本（`bsync_bookmarks` / `bsync_snapshots` / `bsync_tombstones` 表 + RLS + RPC 函数 `bsync_snapshot_push` / `bsync_snapshot_pull` / `bsync_snapshot_restore` / `bsync_get_profile`，统一 `bsync_` 前缀与库内其他项目隔离）
 - `src/` — 扩展源码：Vue 3 选项页（登录 / 注册 / 同步）+ 后台 service worker + 同步引擎
 - `public/manifest.json` — Chromium（Chrome / Edge）扩展清单；`public/manifest.firefox.json` — Firefox 版清单（`background.scripts` + gecko id）
 - `public/icons/` — 扩展图标集（16/32/48/128/256/512，manifest 引用）
@@ -18,7 +18,7 @@ Chrome / Edge / Firefox 书签同步工具：Supabase（Postgres + Auth）作为
 
 ### 1. 初始化 Supabase
 
-1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，执行 `supabase/migrations/0001_init.sql`。
+1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，按顺序执行 `supabase/migrations/0001_init.sql` ～ `0005_tombstones.sql`（或本地 `supabase db push`）。
 2. 开启注册即用：**Authentication → Providers → Email → 关闭「Confirm email」**（否则注册后需邮件验证）。
 3. 把 `src/lib/supabase.js` 里的 `SUPABASE_URL` 与 `SUPABASE_ANON_KEY` 改成你自己项目的值。
 
@@ -74,9 +74,9 @@ pnpm build:firefox    # Firefox 产物 -> extension-firefox/
 
 ## 说明
 
-- 数据隔离：`bsync_bookmarks` 启用 RLS，策略为 `auth.uid() = user_id`；`bsync_sync_push` / `bsync_sync_pull` 使用 `security invoker`，RPC 经登录用户 JWT 调用，按用户天然隔离。
+- 数据隔离：`bsync_snapshots` / `bsync_tombstones` / `bsync_bookmarks` 均启用 RLS，策略为 `auth.uid() = user_id`；`bsync_snapshot_push` / `bsync_snapshot_pull` 等使用 `security invoker`，RPC 经登录用户 JWT 调用，按用户天然隔离。
 - 会话：登录态存于 `chrome.storage.local`，选项页与后台 service worker 共享，令牌过期自动刷新。
-- 同步协议：快照 diff + 单调递增版本号增量拉取 + 服务端按 URL 去重。
+- 同步协议：**快照 + 墓碑（并集合并）**。每次同步先拉取最新快照与墓碑列表；新增书签按并集合并（任一设备有而服务端没有的都保留），删除通过墓碑传播（某设备删除某 URL 后，其余设备同步时同样删除且不会被其他设备复活）；原删除设备重新添加同一 URL 时清除自己拥有的墓碑（重加获胜）。设备用持久随机 `deviceId` 标记墓碑来源。删除/重加的并发语义已通过 `scripts/verify-sync-local/` 本地验证：三端初始 {C1,C2,A} → A 删除 A、B 新增 N → C 同步收敛为 {C1,C2,N}。
 
 ### 从旧「密钥」方案迁移
 

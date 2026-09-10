@@ -1,9 +1,62 @@
-// 书签同步引擎 —— JSON 快照方案（含配额校验 + plan 门控）
-// 每次同步：拉取最新快照 → diff 并应用到本地 → 通过 RPC 推送合并后的新快照
-// 历史快照保留在服务端，可随时恢复到任意版本（Pro / Lifetime 可用）
+// 书签同步引擎 —— 并集合并 + 墓碑（快照方案）
+// 并发变更合并规则：
+//   新增：并集 —— 任一设备本地有而服务端没有的书签都会被保留（推送时上传）
+//   删除：墓碑 —— 某设备删除某 URL 后，其余设备同步时同样删除它，且不会被复活
+//   重加：原删除设备重新添加同一 URL → 清除自己拥有的墓碑（重加获胜）
+// 流程：拉取(快照+墓碑) → 应用(并集合并+墓碑清理本地) → 推送(本地树+本地墓碑+deviceId)
 
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
+
+// ============================================================
+// deviceId：每个浏览器安装一个持久随机 ID，用于标记墓碑来源
+// ============================================================
+let cachedDeviceId = null;
+
+export async function getDeviceId() {
+  if (cachedDeviceId) return cachedDeviceId;
+  const { deviceId } = await api.storage.local.get("deviceId");
+  if (deviceId) {
+    cachedDeviceId = deviceId;
+    return deviceId;
+  }
+  const id =
+    globalThis.crypto?.randomUUID?.() ??
+    `dev-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  await api.storage.local.set({ deviceId: id });
+  cachedDeviceId = id;
+  return id;
+}
+
+// ============================================================
+// 本地墓碑：记录本设备删除过的 URL（推送时上传；重加时清除）
+// ============================================================
+const TOMBSTONE_KEY = "localTombstones";
+
+async function readLocalTombstones() {
+  const { [TOMBSTONE_KEY]: list } = await api.storage.local.get(TOMBSTONE_KEY);
+  return Array.isArray(list) ? list : [];
+}
+
+async function writeLocalTombstones(urls) {
+  await api.storage.local.set({ [TOMBSTONE_KEY]: urls });
+}
+
+/** 本地删除某书签 → 记录墓碑（后台 onRemoved 调用） */
+export async function recordTombstone(url) {
+  if (!url) return;
+  const list = await readLocalTombstones();
+  if (list.includes(url)) return;
+  await writeLocalTombstones([...list, url]);
+}
+
+/** 本地重新添加某书签 → 清除墓碑（后台 onCreated 调用，重加获胜） */
+export async function clearTombstone(url) {
+  if (!url) return;
+  const list = await readLocalTombstones();
+  if (!list.includes(url)) return;
+  await writeLocalTombstones(list.filter((u) => u !== url));
+}
 
 // 读取整棵书签树，展平为 [{id, url, title, folder}]
 async function readLocalTree() {
@@ -39,9 +92,14 @@ async function ensureFolder(path) {
   return parentId;
 }
 
-// 将服务端快照应用到本地：按 URL 匹配，增删改
-async function applySnapshot(serverBookmarks) {
+// 将服务端状态应用到本地
+//   merge（默认）：并集合并 —— 本地独有的书签不删除（删除只靠墓碑传播）
+//   restore：完整替换 —— 对齐到历史快照，忽略墓碑（恢复历史版本用）
+async function applySnapshot(serverBookmarks, serverTombstones = [], { restore = false } = {}) {
   const localTree = await readLocalTree();
+  const localTombstones = restore ? [] : await readLocalTombstones();
+  const tombstoneSet = new Set([...serverTombstones, ...localTombstones]);
+
   const localByUrl = new Map();
   for (const b of localTree) {
     if (!localByUrl.has(b.url)) localByUrl.set(b.url, b);
@@ -50,16 +108,20 @@ async function applySnapshot(serverBookmarks) {
   const serverUrls = new Set(serverBookmarks.map((b) => b.url));
   let changes = 0;
 
-  // 1. 删除本地有但服务端没有的书签
+  // 1. 删除本地书签
+  //    merge：本地存在且被任何设备删除过（墓碑）→ 删除传播
+  //    restore：本地有但快照里没有 → 对齐到历史快照
   for (const b of localTree) {
-    if (!serverUrls.has(b.url)) {
+    const shouldRemove = restore ? !serverUrls.has(b.url) : tombstoneSet.has(b.url);
+    if (shouldRemove) {
       await api.bookmarks.remove(b.id).catch(() => {});
       changes++;
     }
   }
 
-  // 2. 创建或更新服务端书签
+  // 2. 创建 / 更新服务端书签
   for (const sb of serverBookmarks) {
+    if (!restore && tombstoneSet.has(sb.url)) continue; // 被删除过 → 跳过，不复活
     const local = localByUrl.get(sb.url);
     if (local) {
       if (local.title !== sb.title) {
@@ -98,7 +160,7 @@ export async function getProfile() {
 
 /**
  * 执行同步
- * 走 RPC bsync_snapshot_push，含配额检查
+ * 拉取 → 并集合并应用 → 通过 RPC 推送（含配额检查 + 墓碑合并）
  * @returns {Promise<{ok, pushed, pulled, reason?}>}
  *   reason 可能值：
  *     - "unauthenticated" 未登录
@@ -111,30 +173,31 @@ export async function runSync() {
   } = await supabase.auth.getSession();
   if (!session) return { ok: false, reason: "unauthenticated" };
 
-  // 1. 拉取最新快照
-  const { data: latest } = await supabase
-    .from("bsync_snapshots")
-    .select("id, data, created_at")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  let pulled = 0;
-  if (latest?.data) {
-    pulled = await applySnapshot(latest.data);
+  // 1. 拉取最新快照 + 墓碑列表
+  const { data: pullData, error: pullError } = await supabase.rpc("bsync_snapshot_pull");
+  if (pullError) {
+    return { ok: false, reason: "rpc_error", error: pullError.message };
   }
+  const serverBookmarks = pullData?.bookmarks ?? [];
+  const serverTombstones = pullData?.tombstones ?? [];
 
-  // 2. 通过 RPC 推送合并后的本地树（含配额检查）
+  // 2. 应用：并集合并（新增保留）+ 墓碑清理本地（删除传播）
+  const pulled = await applySnapshot(serverBookmarks, serverTombstones);
+
+  // 3. 读取本地树 + 本地墓碑，推送合并结果
   const localTree = await readLocalTree();
   const bookmarks = localTree.map(({ url, title, folder }) => ({ url, title, folder }));
+  const tombstones = await readLocalTombstones();
 
-  const { data: pushResult, error } = await supabase.rpc("bsync_snapshot_push", {
+  const { data: pushResult, error: pushError } = await supabase.rpc("bsync_snapshot_push", {
     p_data: bookmarks,
+    p_tombstones: tombstones,
+    p_device: await getDeviceId(),
   });
 
-  if (error) {
+  if (pushError) {
     // Supabase 把 RAISE EXCEPTION 转成 error.message
-    const msg = error.message || "";
+    const msg = pushError.message || "";
     if (msg.includes("quota_exceeded")) {
       return { ok: false, reason: "quota_exceeded" };
     }
@@ -142,10 +205,14 @@ export async function runSync() {
     return { ok: false, reason: "rpc_error", error: msg };
   }
 
+  // 推送成功 → 本地墓碑已并入服务端，清空本地（服务端墓碑继续提供保护）
+  await writeLocalTombstones([]);
+
   return {
     ok: true,
     pushed: bookmarks.length,
     pulled,
+    tombstones: tombstones.length,
     size: pushResult?.size,
     quota: pushResult?.quota,
     plan: pushResult?.plan,
@@ -194,13 +261,21 @@ export async function restoreSnapshot(id) {
     return { ok: false, reason: "rpc_error", error: msg };
   }
 
-  // 应用快照到本地
-  const changes = await applySnapshot(snapshotData);
+  // 恢复快照到本地（完整替换，忽略墓碑）
+  const changes = await applySnapshot(snapshotData, [], { restore: true });
 
   // 恢复后通过 RPC 推送一份新快照（同样走配额检查，恢复的快照不会超限）
   const localTree = await readLocalTree();
   const bookmarks = localTree.map(({ url, title, folder }) => ({ url, title, folder }));
-  await supabase.rpc("bsync_snapshot_push", { p_data: bookmarks });
+  const tombstones = await readLocalTombstones();
+  const { error: pushError } = await supabase.rpc("bsync_snapshot_push", {
+    p_data: bookmarks,
+    p_tombstones: tombstones,
+    p_device: await getDeviceId(),
+  });
+  if (!pushError) {
+    await writeLocalTombstones([]);
+  }
 
   // 取快照创建时间用于 UI 提示
   const { data: meta } = await supabase
