@@ -55,7 +55,7 @@ pnpm build:firefox    # Firefox 产物 -> extension-firefox/
 
 - 开发者注册费 $5 一次性 + Google 账号开启两步验证（硬性）
 - 提交 `extension/` 打包的 zip（manifest 位于根目录）
-- 列表页必填：图标 128×128、截图 ≥1 张（1280×800 或 640×400，最多 5 张）、类别、语言
+- 列表页必填：图标 128×128、截图 ≥1 张（1280×800 或 640×400，最多 5 张，已生成 `store-assets/screenshot-1280x800-options.png` / `screenshot-1280x800-dashboard.png`）、类别、语言
 - 隐私权规范必填：勾选收集的数据（邮箱、书签），逐项填写 `bookmarks` / `storage` / `*.supabase.co` 的用途，与隐私政策一致
 - 审核约数天～数周，更新走同样流程
 
@@ -70,7 +70,7 @@ pnpm build:firefox    # Firefox 产物 -> extension-firefox/
 
 - 提交 `extension/` 的 zip；认证测试需提供测试说明（如登录账号）
 - 隐私政策 URL 必填（收集个人信息时），并逐项申报数据用途
-- 视觉素材：logo（1:1，建议 300×300、最小 128×128，已生成 `store-assets/edge-logo-300x300.png`）、可选 440×280 促销磁贴、截图 1280×800 / 640×400（最多 10 张）
+- 视觉素材：logo（1:1，建议 300×300、最小 128×128，已生成 `store-assets/edge-logo-300x300.png`）、可选 440×280 促销磁贴、截图 1280×800 / 640×400（最多 10 张，已生成 `store-assets/screenshot-1280x800-options.png` / `screenshot-1280x800-dashboard.png`）
 
 ## 说明
 
