@@ -1,0 +1,1 @@
+import{n as e,t}from"./App-BVSqkE1U.js";e(t).mount(`#app`);

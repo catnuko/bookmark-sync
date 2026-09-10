@@ -25,5 +25,16 @@
 - **许可证：BookMacster 是闭源商业软件**（Proprietary，$22.95–24.95 买断），**不可读源码**。可参考行为、不可复用代码。
 - **开源可复用替代（读 Safari Bookmarks.plist，均 MIT/Apache/Artistic）**：`safari_bookmarks_parser`（Ruby，MIT，plist→JSON/YAML + 查重）、`bookmark`（Rust，Apache-2.0，含 MCP server）、`App-bookmarks`(kal247)（Perl，Artistic-2.0，多浏览器导出）、`ReadingListReader`（Python，MIT，读阅读列表）。写原生 macOS App 时可优先参考这些解析器的 plist 结构处理。
 
+## 同步协议：快照 + 墓碑（并集合并）★ 1.1.0 起
+- 问题背景：三端初始 {C1,C2,A}，A 机删除书签 A、B 机新增书签 N，需保证 C 机同步后收敛为 {C1,C2,N}。旧「先拉后推镜像」方案会互吞：拉镜像覆盖本地会丢 B 的新增，推回又会复活 A 的删除。
+- 设计（2026-09-10 定稿，见 `2026-09-10.md` 与 `scripts/verify-sync-local/scenario.sql` 的 8 步验证）：
+  - **新增 = 并集**：任一设备本地有而服务端没有的书签，推送时都保留（不互删）。
+  - **删除 = 墓碑传播**：`bsync_tombstones` 表（主键 `(user_id, url)`）记录删除过的 URL；任何设备同步时遇到墓碑即删除本地对应书签，且**不会被其他设备复活**（粘性删除）。
+  - **重加 = 原删除设备获胜**：墓碑带来源 `device`（持久随机 `deviceId`，存 `chrome.storage.local`）；仅删除者重新推送同一 URL 时清除自己拥有的墓碑，他人重推仍被过滤。
+  - **配额 = 墓碑过滤后快照大小**：`bsync_snapshot_push` 先过滤墓碑再算 `octet_length` 校验 quota；`bsync_touch_used`（security definer）记账，带 `auth.uid() is distinct from p_user` 防越权改他人。
+  - 墓碑上限每用户 2000 条（LRU 按 created_at 裁剪）；快照只存最新一份（历史走 `bsync_snapshots` 多条 + restore RPC，Pro 门控）。
+- 关键文件：迁移 `supabase/migrations/0005_tombstones.sql`（重写 `bsync_snapshot_push(p_data, p_tombstones, p_device)` / `bsync_snapshot_pull()`，**开头 drop 旧签名，须按 0001→0005 顺序执行**）；客户端 `src/sync.js`（runSync = 拉取 → 并集合并应用 → 推送本地树+墓碑+deviceId；`applySnapshot` merge 模式删墓碑/补新/跳过复活）；`src/background.js` 监听 `onRemoved`→记录墓碑、`onCreated`→清除墓碑。
+- 本地验证法：`scripts/verify-sync-local/` = setup.sql（复刻 Supabase anon/authenticated 角色 + auth.uid() 假 JWT）+ scenario.sql（8 步场景）。跑法：`dropdb/createdb bsync_test` → setup.sql → 5 个迁移 → scenario.sql。psql 退出码 3 是最后一个「未登录应报错」预期错误触发 ON_ERROR_STOP，非失败。
+
 ## 用户约定
 - 改代码前先对齐方案；不自动 commit/push（需明确授权）；视觉验证以截图对照参考实现为准。

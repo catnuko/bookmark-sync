@@ -179,8 +179,8 @@ async function restore(id) {
 }
 
 function openUpgrade() {
-  if (chrome?.tabs?.create) {
-    chrome.tabs.create({ url: CREEM_CHECKOUT });
+  if (api.tabs?.create) {
+    api.tabs.create({ url: CREEM_CHECKOUT });
   } else {
     window.open(CREEM_CHECKOUT, "_blank");
   }
