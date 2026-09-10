@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Bookmark Sync",
+  "version": "1.0.0",
+  "description": "通过 Supabase 在 Chrome / Edge / Firefox 间同步书签",
+  "permissions": ["bookmarks", "storage"],
+  "host_permissions": ["https://*.supabase.co/*"],
+  "background": { "scripts": ["background.js"], "type": "module" },
+  "action": { "default_popup": "popup.html" },
+  "options_ui": { "page": "options.html" },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "bookmark-sync@bookmarksync.app",
+      "strict_min_version": "109.0"
+    }
+  }
+}

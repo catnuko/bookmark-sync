@@ -4,6 +4,7 @@ node_modules/
 
 # 构建产物（pnpm build 输出）
 extension/
+extension-firefox/
 website/dist/
 website/node_modules/
 

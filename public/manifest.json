@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bookmark Sync",
   "version": "1.0.0",
-  "description": "通过 Supabase 在 Chrome / Safari 间同步书签",
+  "description": "通过 Supabase 在 Chrome / Edge / Firefox 间同步书签",
   "permissions": ["bookmarks", "storage"],
   "host_permissions": ["https://*.supabase.co/*"],
   "background": { "service_worker": "background.js", "type": "module" },

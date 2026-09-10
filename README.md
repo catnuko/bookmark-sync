@@ -1,6 +1,6 @@
 # bookmark-sync
 
-Chrome 与 Safari 书签同步工具：Supabase（Postgres + Auth）作为后端，配合双端通用浏览器扩展（Manifest V3），扩展直连 Supabase 无需自建服务器。
+Chrome / Edge / Firefox 书签同步工具：Supabase（Postgres + Auth）作为后端，配合跨浏览器通用扩展（Manifest V3），扩展直连 Supabase 无需自建服务器。
 
 登录/注册复用 Supabase 官方的 Auth（邮箱 + 密码 + 自动确认），不自己实现登录系统；每个用户只能读写自己的书签（RLS 行级隔离）。
 
@@ -8,8 +8,9 @@ Chrome 与 Safari 书签同步工具：Supabase（Postgres + Auth）作为后端
 
 - `supabase/migrations/` — 数据库迁移脚本（`bsync_bookmarks` 表 + RLS + RPC 函数 `bsync_sync_push` / `bsync_sync_pull`，统一 `bsync_` 前缀与库内其他项目隔离）
 - `src/` — 扩展源码：Vue 3 选项页（登录 / 注册 / 同步）+ 后台 service worker + 同步引擎
-- `public/manifest.json` — 扩展清单
-- `extension/` — 构建产物目录，直接加载该目录即可
+- `public/manifest.json` — Chromium（Chrome / Edge）扩展清单；`public/manifest.firefox.json` — Firefox 版清单（`background.scripts` + gecko id）
+- `extension/` — Chromium 构建产物目录，直接加载该目录即可
+- `extension-firefox/` — Firefox 构建产物目录（`pnpm build:firefox` 生成）
 
 ## 部署
 
@@ -23,7 +24,8 @@ Chrome 与 Safari 书签同步工具：Supabase（Postgres + Auth）作为后端
 
 ```bash
 pnpm install
-pnpm build
+pnpm build            # Chrome / Edge 产物 -> extension/（macOS 上还会同步并编译 Safari 工程）
+pnpm build:firefox    # Firefox 产物 -> extension-firefox/
 ```
 
 `pnpm dev` 可本地预览选项页界面（不带扩展 API 也能看 UI）。
@@ -31,7 +33,9 @@ pnpm build
 ### 3. 加载扩展
 
 - Chrome：`chrome://extensions` → 开发者模式 → 加载已解压的扩展 → 选择 `extension/` → 打开扩展选项页登录后即可同步。
-- Safari：`xcrun safari-web-extension-converter extension/ --project-location /Users/qiuzhenyu/Documents/projects/bookmark-sync/extension --app-name BookmarkSync`，用 Xcode 编译运行后在 Safari 中启用。
+- Edge：`edge://extensions` → 开发人员模式 → 加载解压缩的扩展 → 选择 `extension/`（Edge 原生兼容 Chrome MV3 扩展）。
+- Firefox：`about:debugging#/runtime/this-firefox` → 「临时载入附加组件」→ 选择 `extension-firefox/manifest.json`（临时加载不需要签名；正式分发请用 `web-ext sign` 或上传 AMO 获取签名 XPI）。
+- Safari：`xcrun safari-web-extension-converter extension/ --project-location /Users/qiuzhenyu/Documents/projects/bookmark-sync/extension --app-name BookmarkSync`，用 Xcode 编译运行后在 Safari 中启用。注意：Safari 不支持 `bookmarks` API，Safari 侧无法进行书签同步。
 
 ## 说明
 
