@@ -9,3 +9,8 @@ website/node_modules/
 
 # TRAE IDE 内部产物
 .trae-html-share-packages/
+
+# Xcode / Safari 扩展编译产物
+bookmark-sync/build/
+xcuserdata/
+.DS_Store

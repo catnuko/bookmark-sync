@@ -1,0 +1,1 @@
+import{i as e,o as t}from"./assets/sync-CzkQbd39.js";async function n(){try{let n=await e();n.ok&&await t.storage.local.set({lastSyncAt:Date.now(),lastSyncStatus:`推送 ${n.pushed} · 拉取 ${n.pulled}`})}catch(e){await t.storage.local.set({lastSyncAt:Date.now(),lastSyncStatus:`失败: ${e?.message??e}`})}}t.runtime.onInstalled.addListener(n),t.runtime.onStartup.addListener(n);

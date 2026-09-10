@@ -1,0 +1,1 @@
+import{n as e,t}from"./App-BuDloZnq.js";e(t,{popup:!0}).mount(`#app`);

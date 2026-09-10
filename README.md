@@ -31,7 +31,7 @@ pnpm build
 ### 3. 加载扩展
 
 - Chrome：`chrome://extensions` → 开发者模式 → 加载已解压的扩展 → 选择 `extension/` → 打开扩展选项页登录后即可同步。
-- Safari：`xcrun safari-web-extension-converter extension/ --project-location ~/Projects/BookmarkSync --app-name BookmarkSync`，用 Xcode 编译运行后在 Safari 中启用。
+- Safari：`xcrun safari-web-extension-converter extension/ --project-location /Users/qiuzhenyu/Documents/projects/bookmark-sync/extension --app-name BookmarkSync`，用 Xcode 编译运行后在 Safari 中启用。
 
 ## 说明
 
