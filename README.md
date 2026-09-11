@@ -1,84 +1,69 @@
 # bookmark-sync
 
-Chrome / Edge / Firefox 书签同步工具：Supabase（Postgres + Auth）作为后端，配合跨浏览器通用扩展（Manifest V3），扩展直连 Supabase 无需自建服务器。
+跨浏览器书签云同步扩展（Manifest V3）。以 Supabase（Postgres + Auth）为后端，扩展直连 Supabase，无需自建服务器。支持 **Chrome / Edge / Firefox**，一套代码多端构建。
 
-登录/注册复用 Supabase 官方的 Auth（邮箱 + 密码 + 自动确认），不自己实现登录系统；每个用户只能读写自己的书签（RLS 行级隔离）。
+- 登录/注册复用 Supabase 官方 Auth（邮箱 + 密码），RLS 行级隔离，每个用户只能读写自己的书签。
+- 同步采用「快照 + 墓碑」协议，支持多设备新增/删除收敛（内部实现见代码，协议细节与验证在 `scripts/verify-sync-local/`）。
 
-## 结构
+## 技术栈
 
-- `supabase/migrations/` — 数据库迁移脚本（`bsync_bookmarks` / `bsync_snapshots` / `bsync_tombstones` 表 + RLS + RPC 函数 `bsync_snapshot_push` / `bsync_snapshot_pull` / `bsync_snapshot_restore` / `bsync_get_profile`，统一 `bsync_` 前缀与库内其他项目隔离）
-- `src/` — 扩展源码：Vue 3 选项页（登录 / 注册 / 同步）+ 后台 service worker + 同步引擎
-- `public/manifest.json` — Chromium（Chrome / Edge）扩展清单；`public/manifest.firefox.json` — Firefox 版清单（`background.scripts` + gecko id）
-- `public/icons/` — 扩展图标集（16/32/48/128/256/512，manifest 引用）
-- `store-assets/` — 商店提交用素材（Edge logo 等，不进扩展包）
-- `extension/` — Chromium 构建产物目录，直接加载该目录即可
-- `extension-firefox/` — Firefox 构建产物目录（`pnpm build:firefox` 生成）
+- 前端：Vue 3 + Vite（选项页 / 弹窗）+ MV3 service worker（后台同步引擎）
+- 后端：Supabase（Postgres + Auth + RLS）
+- 多浏览器：Chromium 通用 manifest + Firefox 专用 manifest 两套构建
 
-## 部署
+## 目录结构
+
+- `src/` — 扩展源码（选项页、service worker、同步引擎）；**这里才是源码真相**
+- `supabase/migrations/` — 数据库迁移（`bsync_*` 表 + RPC，统一 `bsync_` 前缀）
+- `public/` — `manifest.json`（Chromium）；`manifest.firefox.json`（Firefox）；图标
+- `extension/` — Chromium 构建产物（gitignore，勿提交）
+- `extension-firefox/` — Firefox 构建产物（gitignore，勿提交）
+- `scripts/` — 构建钩子与本地验证脚本
+- `website/` — 官网（Vue 3 + Vite，Vercel 部署，独立工程/依赖）
+- `Agent.md` — 开发注意事项（构建命令、CI 关键点、Safari 限制等）
+
+## 快速开始
 
 ### 1. 初始化 Supabase
 
-1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，按顺序执行 `supabase/migrations/0001_init.sql` ～ `0006_revoke_anon_execute.sql`（或本地 `supabase db push`）。
-2. 开启注册即用：**Authentication → Providers → Email → 关闭「Confirm email」**（否则注册后需邮件验证）。
+1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，按顺序执行 `supabase/migrations/0001_init.sql` ～ `0007_pull_latest_by_id.sql`（或本地 `supabase db push`）。
+2. 开启注册即用：**Authentication → Providers → Email → 关闭「Confirm email」**。
 3. 把 `src/lib/supabase.js` 里的 `SUPABASE_URL` 与 `SUPABASE_ANON_KEY` 改成你自己项目的值。
 
-### 2. 构建扩展
+### 2. 构建
 
 ```bash
 pnpm install
-pnpm build            # Chrome / Edge 产物 -> extension/（macOS 上还会同步并编译 Safari 工程）
-pnpm build:firefox    # Firefox 产物 -> extension-firefox/
+npx vite build        # Chrome / Edge -> extension/
+node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
 ```
 
-`pnpm dev` 可本地预览选项页界面（不带扩展 API 也能看 UI）。
+> 说明：也可用 `pnpm build`（含 Safari 同步）与 `pnpm build:firefox`，但 CI 发版只用上面的裸命令，避免触发 Xcode 编译。`pnpm dev` 可本地预览选项页 UI。
 
-### 3. 加载扩展
+### 3. 在浏览器中加载
 
-- Chrome：`chrome://extensions` → 开发者模式 → 加载已解压的扩展 → 选择 `extension/` → 打开扩展选项页登录后即可同步。
-- Edge：`edge://extensions` → 开发人员模式 → 加载解压缩的扩展 → 选择 `extension/`（Edge 原生兼容 Chrome MV3 扩展）。
-- Firefox：`about:debugging#/runtime/this-firefox` → 「临时载入附加组件」→ 选择 `extension-firefox/manifest.json`（临时加载不需要签名；正式分发请用 `web-ext sign` 或上传 AMO 获取签名 XPI）。
-- Safari：Xcode 工程已随仓库提供（`bookmark-sync/bookmark-sync.xcodeproj`，由 Xcode 内置 Safari Web Extension 模板生成）。改完 `src/` 后直接跑 `pnpm build`：它会先构建 `extension/`，再执行 `scripts/sync-extension.sh` 把产物同步进 `Shared (Extension)/Resources/`，最后 `xcodebuild` 编译 macOS target（无 Xcode 时自动跳过）。之后在 Xcode 里 Run 一次，到 Safari「开发」菜单启用扩展并在系统设置中信任即可。
-  **注意**：Safari（含 iOS）至今不支持 `bookmarks` API（Apple 2011 年移除、2020 年引入 WebExtensions 时未实现），扩展侧书签同步在 Safari 上必然失败 —— UI 能打开、能登录，但「立即同步」会报错。Safari 通路需改由**原生 macOS App** 直接读写 `~/Library/Safari/Bookmarks.plist`（需关闭 App Sandbox + 用户授予「完全磁盘访问」），详见 `.workbuddy/memory/` 中的调研记录。
+- Chrome：`chrome://extensions` → 开发者模式 → 加载已解压 → 选 `extension/`。
+- Edge：`edge://extensions` → 开发人员模式 → 加载解压缩 → 选 `extension/`。
+- Firefox：`about:debugging#/runtime/this-firefox` → 「临时载入附加组件」→ 选 `extension-firefox/manifest.json`（正式分发需 AMO 签名）。
 
-## 商店发布检查清单
+加载后打开扩展选项页，登录账号即可同步。
 
-本扩展收集邮箱与书签数据，三家商店均要求提供公开隐私政策 URL（https://bookmarksync.app/privacy）并如实申报数据用途。以下为按商店整理的发布要求与项目现状。
+## 发布（CI 自动发版）
 
-### 共性要求（均已满足）
+推送 `feat:`/`fix:` 提交（Conventional Commits）到 `main` 后，GitHub Actions 自动完成：升级版本号 → 生成 `CHANGELOG.md` → 开 release PR → 合并后打 tag 并发布，产出**两个 zip** 挂到 Release：
 
-- 隐私政策 URL：`https://bookmarksync.app/privacy`（已覆盖收集/存储/使用/第三方分享/删除/联系方式，与扩展实际行为一致）
-- 单一用途：描述即「跨浏览器书签云同步」，功能不越界
-- 最小权限：仅 `bookmarks`（读写书签）+ `storage`（保存会话/同步状态）+ `https://*.supabase.co/*`（与后端通信），无 `tabs`/`<all_urls>`
-- 无远程代码：逻辑全部随包分发，MV3 CSP 合规
-- 图标：`public/icons/` 提供 16/32/48/128（商店列表图标 128×128）
+- `bookmark-sync-chromium-<ver>.zip`（Chrome / Edge）
+- `bookmark-sync-firefox-<ver>.zip`（Firefox）
 
-### Chrome Web Store
+## 已知限制
 
-- 开发者注册费 $5 一次性 + Google 账号开启两步验证（硬性）
-- 提交 `extension/` 打包的 zip（manifest 位于根目录）
-- 列表页必填：图标 128×128、截图 ≥1 张（1280×800 或 640×400，最多 5 张，已生成 `store-assets/screenshot-1280x800-options.png` / `screenshot-1280x800-dashboard.png`）、类别、语言
-- 隐私权规范必填：勾选收集的数据（邮箱、书签），逐项填写 `bookmarks` / `storage` / `*.supabase.co` 的用途，与隐私政策一致
-- 审核约数天～数周，更新走同样流程
+- **Safari 暂不支持**：Safari（含 iOS）不提供 `bookmarks` API，扩展侧书签同步在 Safari 上不可行，当前发布范围不包含 Safari。详见 `Agent.md`。
+- 商店发布要求（隐私政策、AMO 源码包等）见 `Agent.md`。
 
-### Firefox Add-ons（AMO，注册免费）
+## 许可与隐私
 
-- **`data_collection_permissions`**：2025-11-03 起 AMO 校验必填，已在 `manifest.firefox.json` 声明 `authenticationInfo`（邮箱登录）/ `bookmarksInfo`（书签同步）/ `personallyIdentifyingInfo`（邮箱 PII）；安装时 Firefox 展示内建数据收集同意弹窗
-- 列表页：名称 ≤50 字符、摘要 ≤250 字符、详细描述（AMO 渲染 HTML，须写明**传输哪些数据**，以及 Pro/Lifetime 付费为可选的 Creem 买断）、支持邮箱/网站、许可证
-- **源码提交**：产物为压缩 bundle，AMO 要求提交源码包（zip 打包 `src/` + `package.json` 即可）
-- 首次人工审核约 1～2 周；`gecko.id` 一经提交不可更改
+本扩展会收集登录邮箱与书签数据，隐私政策：https://bookmarksync.app/privacy
 
-### Microsoft Edge Add-ons（Partner Center，注册免费）
+## 更多
 
-- 提交 `extension/` 的 zip；认证测试需提供测试说明（如登录账号）
-- 隐私政策 URL 必填（收集个人信息时），并逐项申报数据用途
-- 视觉素材：logo（1:1，建议 300×300、最小 128×128，已生成 `store-assets/edge-logo-300x300.png`）、可选 440×280 促销磁贴、截图 1280×800 / 640×400（最多 10 张，已生成 `store-assets/screenshot-1280x800-options.png` / `screenshot-1280x800-dashboard.png`）
-
-## 说明
-
-- 数据隔离：`bsync_snapshots` / `bsync_tombstones` / `bsync_bookmarks` 均启用 RLS，策略为 `auth.uid() = user_id`；`bsync_snapshot_push` / `bsync_snapshot_pull` 等使用 `security invoker`，RPC 经登录用户 JWT 调用，按用户天然隔离。
-- 会话：登录态存于 `chrome.storage.local`，选项页与后台 service worker 共享，令牌过期自动刷新。
-- 同步协议：**快照 + 墓碑（并集合并）**。每次同步先拉取最新快照与墓碑列表；新增书签按并集合并（任一设备有而服务端没有的都保留），删除通过墓碑传播（某设备删除某 URL 后，其余设备同步时同样删除且不会被其他设备复活）；原删除设备重新添加同一 URL 时清除自己拥有的墓碑（重加获胜）。设备用持久随机 `deviceId` 标记墓碑来源。删除/重加的并发语义已通过 `scripts/verify-sync-local/` 本地验证：三端初始 {C1,C2,A} → A 删除 A、B 新增 N → C 同步收敛为 {C1,C2,N}。
-
-### 从旧「密钥」方案迁移
-
-本版本改为 Supabase Auth。迁移脚本会清理旧的 `bsync_sync_secret` 表与带 token 参数的旧函数；旧密钥写入的书签没有 `user_id`，会被 RLS 忽略，请登录后重新同步。
+- 开发注意事项：见 [Agent.md](Agent.md)（构建命令、CI 发版关键点、同步协议、Safari 硬约束、协作约定）。
