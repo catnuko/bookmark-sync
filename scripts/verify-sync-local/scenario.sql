@@ -1,5 +1,7 @@
 -- ============ 同步协议本地验证（真实 Postgres + 完整迁移） ============
--- 场景：三端初始 {C1, C2, A} → A 删除 A → B 新增 N → C 同步 → 期望收敛 {C1, C2, N}
+-- 新格式：节点带 sync_id / parent_sync_id / type / url / title / order
+-- 场景：三端初始 {C1, C2(folder), A} → A 删除 A → B 新增 N → C 同步 → 期望收敛
+--       随后验证：非删除设备重加被墓碑过滤；原删除设备重加复活。
 \set ON_ERROR_STOP on
 
 -- 0. 模拟用户注册（0003 的 trigger 应自动建 profile）
@@ -15,51 +17,51 @@ where user_id = '11111111-1111-1111-1111-111111111111';
 set role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
 
-\echo '--- [1] 设备A 首次推送初始 {C1,C2,A} ---'
+\echo '--- [1] 设备A 首次推送：文件夹F + 书签 C1,A（挂在根） ---'
 select public.bsync_snapshot_push(
-  '[{"url":"https://c1.example.com","title":"C1","folder":"BAR"},
-    {"url":"https://c2.example.com","title":"C2","folder":"BAR"},
-    {"url":"https://a.example.com","title":"A","folder":"BAR"}]'::jsonb,
+  '[{"sync_id":"sy-folderF","parent_sync_id":"__bar__","type":"folder","title":"F","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-c1","parent_sync_id":"__bar__","type":"bookmark","url":"https://c1.example.com","title":"C1","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-a","parent_sync_id":"sy-folderF","type":"bookmark","url":"https://a.example.com","title":"A","order":0,"updated_at":"2026-01-01T00:00:00Z"}]'::jsonb,
   '[]'::jsonb, 'devA');
 
-\echo '--- [2] 设备A 删除A → 推送 {C1,C2} + 墓碑[A] ---'
+\echo '--- [2] 设备A 删除 A(sy-a) → 推送剩余 + 墓碑[sy-a] ---'
 select public.bsync_snapshot_push(
-  '[{"url":"https://c1.example.com","title":"C1","folder":"BAR"},
-    {"url":"https://c2.example.com","title":"C2","folder":"BAR"}]'::jsonb,
-  '["https://a.example.com"]'::jsonb, 'devA');
+  '[{"sync_id":"sy-folderF","parent_sync_id":"__bar__","type":"folder","title":"F","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-c1","parent_sync_id":"__bar__","type":"bookmark","url":"https://c1.example.com","title":"C1","order":0,"updated_at":"2026-01-01T00:00:00Z"}]'::jsonb,
+  '[{"sync_id":"sy-a","url":"https://a.example.com"}]'::jsonb, 'devA');
 
-\echo '--- [2-check] 服务端状态（期望 bookmarks={C1,C2} tombstone={A}） ---'
+\echo '--- [2-check] 服务端状态（期望 bookmarks 含 F,C1；tombstone 含 sy-a） ---'
 select (public.bsync_snapshot_pull())->>'bookmarks'  as bookmarks,
        (public.bsync_snapshot_pull())->>'tombstones' as tombstones;
 
-\echo '--- [3] 设备B（本地已有A）新增N → 同步后推送 {C1,C2,N} ---'
+\echo '--- [3] 设备B 新增 N → 推送 {F,C1,N}（并集保留） ---'
 select public.bsync_snapshot_push(
-  '[{"url":"https://c1.example.com","title":"C1","folder":"BAR"},
-    {"url":"https://c2.example.com","title":"C2","folder":"BAR"},
-    {"url":"https://n.example.com","title":"N","folder":"BAR"}]'::jsonb,
+  '[{"sync_id":"sy-folderF","parent_sync_id":"__bar__","type":"folder","title":"F","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-c1","parent_sync_id":"__bar__","type":"bookmark","url":"https://c1.example.com","title":"C1","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-n","parent_sync_id":"__bar__","type":"bookmark","url":"https://n.example.com","title":"N","order":1,"updated_at":"2026-01-02T00:00:00Z"}]'::jsonb,
   '[]'::jsonb, 'devB');
 
-\echo '--- [4] 设备C 拉取（期望 bookmarks={C1,C2,N} tombstone={A}） ---'
+\echo '--- [4] 设备C 拉取（期望 bookmarks={F,C1,N} tombstone={sy-a}） ---'
 select (public.bsync_snapshot_pull())->>'bookmarks'  as bookmarks,
        (public.bsync_snapshot_pull())->>'tombstones' as tombstones;
 
-\echo '--- [5] 原删除设备A 重新添加A → 重加获胜（A 回到快照、墓碑清除） ---'
+\echo '--- [5] 非删除设备C 重新添加 A(sy-a) → 应被墓碑过滤（粘性删除，不复活） ---'
 select public.bsync_snapshot_push(
-  '[{"url":"https://c1.example.com","title":"C1","folder":"BAR"},
-    {"url":"https://c2.example.com","title":"C2","folder":"BAR"},
-    {"url":"https://n.example.com","title":"N","folder":"BAR"},
-    {"url":"https://a.example.com","title":"A","folder":"BAR"}]'::jsonb,
-  '[]'::jsonb, 'devA');
-select (public.bsync_snapshot_pull())->>'bookmarks'  as bookmarks,
-       (public.bsync_snapshot_pull())->>'tombstones' as tombstones;
-
-\echo '--- [6] 非删除设备C 重新添加A → 应被墓碑过滤（粘性删除） ---'
-select public.bsync_snapshot_push(
-  '[{"url":"https://c1.example.com","title":"C1","folder":"BAR"},
-    {"url":"https://c2.example.com","title":"C2","folder":"BAR"},
-    {"url":"https://n.example.com","title":"N","folder":"BAR"},
-    {"url":"https://a.example.com","title":"A","folder":"BAR"}]'::jsonb,
+  '[{"sync_id":"sy-folderF","parent_sync_id":"__bar__","type":"folder","title":"F","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-c1","parent_sync_id":"__bar__","type":"bookmark","url":"https://c1.example.com","title":"C1","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-n","parent_sync_id":"__bar__","type":"bookmark","url":"https://n.example.com","title":"N","order":1,"updated_at":"2026-01-02T00:00:00Z"},
+    {"sync_id":"sy-a","parent_sync_id":"sy-folderF","type":"bookmark","url":"https://a.example.com","title":"A","order":0,"updated_at":"2026-01-03T00:00:00Z"}]'::jsonb,
   '[]'::jsonb, 'devC');
+select (public.bsync_snapshot_pull())->>'bookmarks'  as bookmarks,
+       (public.bsync_snapshot_pull())->>'tombstones' as tombstones;
+
+\echo '--- [6] 原删除设备A 重新添加 A(sy-a) → 重加获胜（A 回到快照、墓碑清除） ---'
+select public.bsync_snapshot_push(
+  '[{"sync_id":"sy-folderF","parent_sync_id":"__bar__","type":"folder","title":"F","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-c1","parent_sync_id":"__bar__","type":"bookmark","url":"https://c1.example.com","title":"C1","order":0,"updated_at":"2026-01-01T00:00:00Z"},
+    {"sync_id":"sy-n","parent_sync_id":"__bar__","type":"bookmark","url":"https://n.example.com","title":"N","order":1,"updated_at":"2026-01-02T00:00:00Z"},
+    {"sync_id":"sy-a","parent_sync_id":"sy-folderF","type":"bookmark","url":"https://a.example.com","title":"A","order":0,"updated_at":"2026-01-04T00:00:00Z"}]'::jsonb,
+  '[]'::jsonb, 'devA');
 select (public.bsync_snapshot_pull())->>'bookmarks'  as bookmarks,
        (public.bsync_snapshot_pull())->>'tombstones' as tombstones;
 
