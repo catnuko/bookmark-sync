@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
         }
         const days = Math.max(1, Math.min(Number(body.days) || 30, 3650));
         const expiresAt = new Date(Date.now() + days * 86_400_000).toISOString();
-        const { data, error } = await sb.from('user_profiles').upsert(
+        const { data, error } = await sb.from('lic_user_profiles').upsert(
           {
             user_id: userId,
             plan,
@@ -89,7 +89,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'revoke': {
-        const { data, error } = await sb.from('user_profiles').update({
+        const { data, error } = await sb.from('lic_user_profiles').update({
           subscription_status: 'inactive',
           updated_at: new Date().toISOString(),
         }).eq('user_id', userId)
@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'get': {
-        const { data, error } = await sb.from('user_profiles')
+        const { data, error } = await sb.from('lic_user_profiles')
           .select('user_id, plan, subscription_status, expires_at, updated_at')
           .eq('user_id', userId).maybeSingle();
         if (error) throw error;

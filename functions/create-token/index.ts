@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
   try {
     // 1. 订阅检查
     const { data: profile, error: pErr } = await sb
-      .from('user_profiles')
+      .from('lic_user_profiles')
       .select('plan, subscription_status, expires_at')
       .eq('user_id', userId)
       .maybeSingle();
@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
 
     // 2. 活跃 token 数量上限
     const { count, error: cntErr } = await sb
-      .from('user_tokens')
+      .from('lic_user_tokens')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('is_active', true);
@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
     let token = '';
     for (let i = 0; i < 3; i++) {
       token = generateToken();
-      const { error: insErr } = await sb.from('user_tokens').insert({
+      const { error: insErr } = await sb.from('lic_user_tokens').insert({
         project_id: PROJECT_ID,
         user_id: userId,
         token,
@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: created } = await sb
-      .from('user_tokens')
+      .from('lic_user_tokens')
       .select('token, name, plan, is_active, expire_date, used_count, created_at')
       .eq('user_id', userId)
       .eq('token', token)

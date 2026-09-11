@@ -60,7 +60,7 @@ Deno.serve(async (req: Request) => {
   try {
     // 仅能吊销自己的 token（user_id 条件双重限制）
     const { data: updated, error } = await sb
-      .from('user_tokens')
+      .from('lic_user_tokens')
       .update({ is_active: false })
       .eq('project_id', PROJECT_ID)
       .eq('user_id', userId)

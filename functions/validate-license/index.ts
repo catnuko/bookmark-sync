@@ -51,7 +51,7 @@ async function writeLog(
   result: string,
 ) {
   try {
-    await sb.from('license_usage_logs').insert({
+    await sb.from('lic_usage_logs').insert({
       project_id: PROJECT_ID,
       license_key: key,
       ip,
@@ -70,7 +70,7 @@ async function isRateLimited(
   if (!ip) return false;
   const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
   const { count, error } = await sb
-    .from('license_usage_logs')
+    .from('lic_usage_logs')
     .select('id', { count: 'exact', head: true })
     .eq('project_id', PROJECT_ID)
     .eq('ip', ip)
@@ -119,8 +119,8 @@ Deno.serve(async (req: Request) => {
 
   // 原子校验 + 消费（数据库函数保证并发安全）
   const { data, error } = isTokenMode
-    ? await sb.rpc('consume_token', { p_token: token })
-    : await sb.rpc('consume_license', {
+    ? await sb.rpc('lic_consume_token', { p_token: token })
+    : await sb.rpc('lic_consume_license', {
         p_project: PROJECT_ID,
         p_key: key,
       });

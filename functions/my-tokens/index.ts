@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { data: tokens, error } = await sb
-      .from('user_tokens')
+      .from('lic_user_tokens')
       .select('token, name, plan, is_active, expire_date, used_count, created_at, last_used_at')
       .eq('user_id', userId)
       .eq('project_id', PROJECT_ID)

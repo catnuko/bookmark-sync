@@ -85,7 +85,7 @@ Deno.serve(async (req: Request) => {
         const rows = [];
         for (let i = 0; i < count; i++) {
           const licenseKey = generateKey();
-          const { data, error } = await sb.from('licenses').insert({
+          const { data, error } = await sb.from('lic_licenses').insert({
             project_id: PROJECT_ID,
             license_key: licenseKey,
             expire_date: new Date(Date.now() + days * 86_400_000).toISOString(),
@@ -103,7 +103,7 @@ Deno.serve(async (req: Request) => {
       case 'activate': {
         if (!key) return json({ error: 'license_key is required' }, 400);
         const { data, error } = await sb
-          .from('licenses')
+          .from('lic_licenses')
           .update({ is_active: action === 'activate' })
           .eq('project_id', PROJECT_ID)
           .eq('license_key', key)
@@ -119,7 +119,7 @@ Deno.serve(async (req: Request) => {
         if (!key) return json({ error: 'license_key is required' }, 400);
         const days = Number(body.days) || 0;
         if (days <= 0) return json({ error: 'days must be > 0' }, 400);
-        const { data, error } = await sb.rpc('extend_license', {
+        const { data, error } = await sb.rpc('lic_extend_license', {
           p_project: PROJECT_ID,
           p_key: key,
           p_days: days,
@@ -133,7 +133,7 @@ Deno.serve(async (req: Request) => {
       case 'list': {
         const limit = Math.min(Math.max(Number(body.limit) || 50, 1), 200);
         const { data, error } = await sb
-          .from('licenses')
+          .from('lic_licenses')
           .select('license_key, expire_date, is_active, max_usage, used_count, last_used_at, created_at')
           .eq('project_id', PROJECT_ID)
           .order('created_at', { ascending: false })
