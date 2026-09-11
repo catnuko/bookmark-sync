@@ -28,5 +28,6 @@
 - 禁止：`apply_migration`、`create_table`、`deploy_edge_function`、任何写 SQL。
 
 ## 基线
-- 远端现状已通过 `supabase db pull` 和 `functions download` 同步到本地（见 baseline 提交）。
+- 远端现状已通过 `functions download` + introspect 脚本（Node pg 直连，沙箱无 Docker 故未用 `db pull`）同步到本地（见 baseline 提交）。
+- 基线化补齐了远端绕过迁移直接创建的对象：0008（License/Token 计费系统 7 表 + 8 函数）、0009（废弃 bsync_bookmarks）。
 - 后续远端漂移必须先同步为迁移文件，再继续开发。
