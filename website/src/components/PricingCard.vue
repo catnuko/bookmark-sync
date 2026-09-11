@@ -1,12 +1,19 @@
 <script setup>
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 
 const props = defineProps({
-  plan: { type: String, required: true }, // free / pro / lifetime
+  plan: { type: String, required: true }, // free / plus / pro
   highlighted: { type: Boolean, default: false },
 });
 
-const { t } = useI18n();
+const { t, tm, rt } = useI18n();
+
+// 动态取该档位的特性列表，全部渲染（不再截断）
+const features = computed(() => {
+  const arr = tm(`pricing.plans.${props.plan}.features`);
+  return Array.isArray(arr) ? arr.map((f) => rt(f)) : [];
+});
 </script>
 
 <template>
@@ -32,15 +39,11 @@ const { t } = useI18n();
     </RouterLink>
 
     <ul class="plan-features">
-      <li
-        v-for="(feature, i) in [0,1,2,3,4].slice(0, 4)"
-        :key="i"
-        class="plan-feature"
-      >
+      <li v-for="(feature, i) in features" :key="i" class="plan-feature">
         <svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none">
           <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
-        <span>{{ t(`pricing.plans.${props.plan}.features[${i}]`) }}</span>
+        <span>{{ feature }}</span>
       </li>
     </ul>
   </div>

@@ -32,32 +32,32 @@ export const ROUTE_SEO = {
     zh: {
       title: "BookmarkSync · 跨浏览器书签同步与备份工具",
       description:
-        "跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox / Safari 之间书签自动同步、30 天历史回滚、跨设备迁移。免费 5MB 起步，一次性买断升级，无订阅负担。",
+        "跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox / Safari 之间书签自动同步、多设备一致与跨设备迁移。免费 500 条书签起步，Plus / Pro 按年订阅解锁更多条数。",
       keywords:
-        "书签同步,书签备份,跨浏览器书签,Chrome 书签同步,Edge 书签同步,Firefox 书签同步,Safari 书签同步,书签云同步,书签历史回滚,书签跨设备",
+        "书签同步,书签备份,跨浏览器书签,Chrome 书签同步,Edge 书签同步,Firefox 书签同步,Safari 书签同步,书签云同步,书签多设备同步,书签迁移",
     },
     en: {
       title: "BookmarkSync · Cross-browser bookmark sync & backup",
       description:
-        "Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome / Edge / Firefox / Safari, with 30-day history rollback and cross-device migration. Free 5MB to start, one-time upgrade — no subscription fatigue.",
+        "Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome / Edge / Firefox / Safari with multi-device consistency and cross-device migration. Start free with 500 bookmarks; Plus and Pro are yearly subscriptions for more.",
       keywords:
-        "bookmark sync,bookmark backup,cross-browser bookmarks,Chrome bookmark sync,Edge bookmark sync,Firefox bookmark sync,Safari bookmark sync,bookmark cloud sync,bookmark rollback,bookmark migration",
+        "bookmark sync,bookmark backup,cross-browser bookmarks,Chrome bookmark sync,Edge bookmark sync,Firefox bookmark sync,Safari bookmark sync,bookmark cloud sync,bookmark multi-device sync,bookmark migration",
     },
   },
   pricing: {
     zh: {
-      title: "定价 · BookmarkSync | 免费起步，一次买断终身享用",
+      title: "定价 · BookmarkSync | 免费 500 条，Plus / Pro 按年订阅",
       description:
-        "BookmarkSync 定价方案：免费版 5MB 永久免费、Premium 版 ¥99 一次性买断终身享用所有未来新增功能。无订阅、无自动续费。支付由 Creem 处理。",
+        "BookmarkSync 定价：Free 最多 500 条书签永久免费、Plus $20/年 10,000 条、Pro $50/年 不限数量。三档同步功能完全一致，仅书签数量上限不同。订阅由 Creem 处理。",
       keywords:
-        "BookmarkSync 定价,书签同步价格,书签同步付费,书签同步买断,书签同步 Premium,书签同步一次性",
+        "BookmarkSync 定价,书签同步价格,书签同步付费,书签同步订阅,书签同步 Plus,书签同步 Pro",
     },
     en: {
-      title: "Pricing · BookmarkSync | Free start, one-time lifetime purchase",
+      title: "Pricing · BookmarkSync | Free 500 bookmarks, Plus / Pro yearly",
       description:
-        "BookmarkSync pricing: Free 5MB forever, Premium ¥99 one-time purchase with all future features. No subscription, no auto-renewal. Payments processed by Creem.",
+        "BookmarkSync pricing: Free up to 500 bookmarks, Plus $20/yr for 10,000, Pro $50/yr unlimited. All tiers share identical sync features — only the bookmark limit differs. Subscriptions processed by Creem.",
       keywords:
-        "BookmarkSync pricing,bookmark sync price,bookmark sync plans,bookmark sync one-time,bookmark sync Premium",
+        "BookmarkSync pricing,bookmark sync price,bookmark sync plans,bookmark sync subscription,bookmark sync Plus,bookmark sync Pro",
     },
   },
   download: {
@@ -109,13 +109,13 @@ export const ROUTE_SEO = {
     zh: {
       title: "服务条款 · BookmarkSync",
       description:
-        "BookmarkSync 服务条款：账户、付费档位、一次性买断、退款政策（7 天无条件退款）、可接受使用、知识产权、免责声明、终止、条款变更、适用法律。",
+        "BookmarkSync 服务条款：账户、付费档位、订阅、退款政策（7 天无条件退款）、可接受使用、知识产权、免责声明、终止、条款变更、适用法律。",
       keywords: "BookmarkSync 条款,书签同步服务条款,书签同步退款政策",
     },
     en: {
       title: "Terms of Service · BookmarkSync",
       description:
-        "BookmarkSync Terms of Service: accounts, paid tiers, one-time purchase, refund policy (7-day unconditional), acceptable use, intellectual property, disclaimer, termination.",
+        "BookmarkSync Terms of Service: accounts, paid tiers, subscription, refund policy (7-day unconditional), acceptable use, intellectual property, disclaimer, termination.",
       keywords: "BookmarkSync terms,bookmark sync terms,bookmark sync refund policy",
     },
   },
@@ -153,21 +153,28 @@ export function getSoftwareAppJsonLd(locale = "zh") {
     operatingSystem: "Chrome, Edge, Firefox, Safari",
     url: SITE.url,
     description: isZh
-      ? "跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox / Safari 之间书签自动同步、100 条历史快照回滚、跨设备迁移。"
-      : "Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome / Edge / Firefox / Safari, with 100 history snapshots rollback.",
+      ? "跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox / Safari 之间书签自动同步、多设备一致与跨设备迁移。免费 500 条书签起步。"
+      : "Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome / Edge / Firefox / Safari with multi-device consistency and cross-device migration. Start free with 500 bookmarks.",
     offers: [
       {
         "@type": "Offer",
         price: "0",
-        priceCurrency: "CNY",
+        priceCurrency: "USD",
         name: "Free",
         url: `${SITE.url}/pricing`,
       },
       {
         "@type": "Offer",
-        price: "99",
-        priceCurrency: "CNY",
-        name: "Premium",
+        price: "20",
+        priceCurrency: "USD",
+        name: "Plus",
+        url: `${SITE.url}/pricing`,
+      },
+      {
+        "@type": "Offer",
+        price: "50",
+        priceCurrency: "USD",
+        name: "Pro",
         url: `${SITE.url}/pricing`,
       },
     ],

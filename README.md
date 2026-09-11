@@ -18,7 +18,7 @@ Chrome / Edge / Firefox 书签同步工具：Supabase（Postgres + Auth）作为
 
 ### 1. 初始化 Supabase
 
-1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，按顺序执行 `supabase/migrations/0001_init.sql` ～ `0005_tombstones.sql`（或本地 `supabase db push`）。
+1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，按顺序执行 `supabase/migrations/0001_init.sql` ～ `0006_revoke_anon_execute.sql`（或本地 `supabase db push`）。
 2. 开启注册即用：**Authentication → Providers → Email → 关闭「Confirm email」**（否则注册后需邮件验证）。
 3. 把 `src/lib/supabase.js` 里的 `SUPABASE_URL` 与 `SUPABASE_ANON_KEY` 改成你自己项目的值。
 
@@ -37,7 +37,8 @@ pnpm build:firefox    # Firefox 产物 -> extension-firefox/
 - Chrome：`chrome://extensions` → 开发者模式 → 加载已解压的扩展 → 选择 `extension/` → 打开扩展选项页登录后即可同步。
 - Edge：`edge://extensions` → 开发人员模式 → 加载解压缩的扩展 → 选择 `extension/`（Edge 原生兼容 Chrome MV3 扩展）。
 - Firefox：`about:debugging#/runtime/this-firefox` → 「临时载入附加组件」→ 选择 `extension-firefox/manifest.json`（临时加载不需要签名；正式分发请用 `web-ext sign` 或上传 AMO 获取签名 XPI）。
-- Safari：`xcrun safari-web-extension-converter extension/ --project-location /Users/qiuzhenyu/Documents/projects/bookmark-sync/extension --app-name BookmarkSync`，用 Xcode 编译运行后在 Safari 中启用。注意：Safari 不支持 `bookmarks` API，Safari 侧无法进行书签同步。
+- Safari：Xcode 工程已随仓库提供（`bookmark-sync/bookmark-sync.xcodeproj`，由 Xcode 内置 Safari Web Extension 模板生成）。改完 `src/` 后直接跑 `pnpm build`：它会先构建 `extension/`，再执行 `scripts/sync-extension.sh` 把产物同步进 `Shared (Extension)/Resources/`，最后 `xcodebuild` 编译 macOS target（无 Xcode 时自动跳过）。之后在 Xcode 里 Run 一次，到 Safari「开发」菜单启用扩展并在系统设置中信任即可。
+  **注意**：Safari（含 iOS）至今不支持 `bookmarks` API（Apple 2011 年移除、2020 年引入 WebExtensions 时未实现），扩展侧书签同步在 Safari 上必然失败 —— UI 能打开、能登录，但「立即同步」会报错。Safari 通路需改由**原生 macOS App** 直接读写 `~/Library/Safari/Bookmarks.plist`（需关闭 App Sandbox + 用户授予「完全磁盘访问」），详见 `.workbuddy/memory/` 中的调研记录。
 
 ## 商店发布检查清单
 

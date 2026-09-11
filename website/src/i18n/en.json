@@ -35,10 +35,10 @@
   "hero": {
     "badge": "Chrome · Edge · Firefox · Safari",
     "title": "Cross-browser bookmark sync, never lose them again",
-    "subtitle": "Configure once, all your bookmarks sync across devices and browsers. Rollback from mistakes, migrate freely between accounts.",
+    "subtitle": "Configure once and all your bookmarks sync across devices and browsers. Move to a new computer, browser, or account with the full bookmark tree intact.",
     "ctaPrimary": "Download Free",
     "ctaSecondary": "View Pricing",
-    "trustBadge": "No credit card · 5MB free storage · Row-level isolation"
+    "trustBadge": "No credit card · 500 bookmarks free · Multi-device sync"
   },
   "pain": {
     "eyebrow": "Why you need it",
@@ -58,27 +58,27 @@
         "desc": "New computer, new account — export to HTML then manually import, folders end up a mess."
       },
       "history": {
-        "title": "Once changed, can't go back",
-        "desc": "Accidentally renamed a folder or moved bookmarks — the browser keeps only the latest state, no history to recover."
+        "title": "Devices drift out of sync",
+        "desc": "A bookmark deleted on computer A reappears on computer B; new bookmarks take forever to show up elsewhere."
       }
     }
   },
   "features": {
     "eyebrow": "Core features",
     "title": "One solution for every bookmark problem",
-    "subtitle": "From basic sync to history rollback — covers every scenario of managing your browser bookmarks.",
+    "subtitle": "From cross-browser sync to multi-device consistency — covers every scenario of managing your browser bookmarks.",
     "items": {
       "sync": {
         "title": "Real-time cross-browser sync",
         "desc": "Chrome / Edge / Firefox / Safari bookmarks sync automatically. New, modified, deleted entries take effect in real time."
       },
       "history": {
-        "title": "History rollback",
-        "desc": "Premium keeps 100 history snapshots. Restore from any past state whenever you need."
+        "title": "Precise delete sync",
+        "desc": "Deletes propagate across devices via tombstones — removed bookmarks never reappear from stale data, so every device stays consistent."
       },
       "quota": {
-        "title": "Flexible storage quota",
-        "desc": "Start free with 5MB, upgrade to 20MB — scale as your collection grows."
+        "title": "Tiered by bookmark count",
+        "desc": "Start free with 500, scale to 10,000 on Plus, or go unlimited on Pro. All tiers share identical sync features — upgrade only for headroom."
       },
       "privacy": {
         "title": "Row-level data isolation",
@@ -105,38 +105,52 @@
   },
   "pricing": {
     "eyebrow": "Pricing",
-    "title": "Two simple tiers, upgrade as you need",
-    "subtitle": "Start free, pay once for lifetime access. No subscription, no auto-renewal.",
+    "title": "Three simple tiers, pay only for more bookmarks",
+    "subtitle": "Free covers up to 500 bookmarks; Plus and Pro are yearly subscriptions for more. All tiers share identical sync features.",
     "monthly": "monthly",
     "onetime": "one-time",
     "popular": "Recommended",
     "plans": {
       "free": {
         "name": "Free",
-        "desc": "For light personal use",
-        "price": "¥0",
+        "desc": "Light personal use, free forever",
+        "price": "$0",
         "unit": "free forever",
         "cta": "Get Started",
         "features": [
-          "5MB bookmark storage (~2k-5k entries)",
-          "4-browser sync",
-          "Automatic cross-device sync",
-          "Community support",
-          "Base features (no future add-ons)"
+          "Up to 500 bookmarks",
+          "Cross-browser / multi-device sync",
+          "Precise delete sync",
+          "Automatic cloud sync",
+          "Community support"
         ]
       },
-      "premium": {
-        "name": "Premium",
-        "desc": "Pay once, enjoy all future features forever",
-        "price": "¥99",
-        "unit": "one-time",
-        "cta": "Upgrade Now",
+      "plus": {
+        "name": "Plus",
+        "desc": "Daily driver, 10,000 bookmarks",
+        "price": "$20",
+        "unit": "/ yr",
+        "cta": "Subscribe to Plus",
         "features": [
-          "20MB bookmark storage",
-          "100 history snapshots retained",
-          "History rollback",
-          "All future feature add-ons",
-          "Email support (7-day reply)"
+          "Up to 10,000 bookmarks",
+          "Cross-browser / multi-device sync",
+          "Identical features to Free",
+          "Precise delete sync",
+          "Email support"
+        ]
+      },
+      "pro": {
+        "name": "Pro",
+        "desc": "Heavy collector, unlimited",
+        "price": "$50",
+        "unit": "/ yr",
+        "cta": "Subscribe to Pro",
+        "features": [
+          "Unlimited bookmarks",
+          "Cross-browser / multi-device sync",
+          "Identical features to Free",
+          "Precise delete sync",
+          "Priority support"
         ]
       }
     },
@@ -144,41 +158,42 @@
       "title": "Full feature comparison",
       "colFeature": "Feature",
       "colFree": "Free",
-      "colPremium": "Premium",
-      "legalNote": "Payments are processed by Creem. Invoices are issued by Creem. For more details, see:",
+      "colPlus": "Plus",
+      "colPro": "Pro",
+      "legalNote": "Subscriptions are processed by Creem. Invoices are issued by Creem. Cancel anytime. For more details, see:",
       "rows": [
-        { "feature": "Storage", "free": "5MB", "premium": "20MB" },
-        { "feature": "Supported browsers", "free": "4", "premium": "4" },
-        { "feature": "Automatic cross-device sync", "free": true, "premium": true },
-        { "feature": "History rollback", "free": false, "premium": true },
-        { "feature": "Retained history snapshots", "free": "0", "premium": "100" },
-        { "feature": "Community support", "free": true, "premium": true },
-        { "feature": "Email support", "free": false, "premium": "7-day reply" },
-        { "feature": "Future feature add-ons", "free": "Not included", "premium": "All included" }
+        { "feature": "Bookmark limit", "free": "500", "plus": "10,000", "pro": "Unlimited" },
+        { "feature": "Price", "free": "Free", "plus": "$20 / yr", "pro": "$50 / yr" },
+        { "feature": "Supported browsers", "free": "4", "plus": "4", "pro": "4" },
+        { "feature": "Cross-browser sync", "free": true, "plus": true, "pro": true },
+        { "feature": "Multi-device sync", "free": true, "plus": true, "pro": true },
+        { "feature": "Precise delete sync", "free": true, "plus": true, "pro": true },
+        { "feature": "Automatic cloud sync", "free": true, "plus": true, "pro": true },
+        { "feature": "Support channel", "free": "Community", "plus": "Email", "pro": "Priority" }
       ]
     },
     "faq": {
       "title": "Pricing FAQ",
       "items": {
         "upgrade": {
-          "q": "Can I get new features on the Free tier?",
-          "a": "Free tier features are fixed and do not include future add-ons. Upgrade to Premium to enjoy all future features forever, with no additional payment."
+          "q": "Do the tiers differ in features?",
+          "a": "No. All three tiers have identical sync capabilities — cross-browser sync, multi-device consistency, precise delete sync and more. The only difference is the bookmark limit. You upgrade purely for more headroom."
         },
         "refund": {
           "q": "Do you offer refunds?",
-          "a": "No-questions-asked refund within 7 days. Beyond that, refunds are available for serious technical issues. See Terms of Service Section 4 for details."
+          "a": "No-questions-asked refund within 7 days of your first subscription. Beyond that, refunds are available for serious technical issues. See Terms of Service Section 4 for details."
         },
         "freeLimit": {
-          "q": "How many bookmarks fit in 5MB free tier?",
-          "a": "A single bookmark averages 1-2KB, so 5MB holds about 2,000-5,000 entries — plenty for most light users."
+          "q": "How many bookmarks does each tier hold?",
+          "a": "Free holds up to 500, Plus up to 10,000, and Pro is unlimited. We count bookmarks rather than storage because a single bookmark is only about 200 bytes — counting is far more intuitive."
         },
         "payment": {
           "q": "What payment methods do you accept?",
           "a": "Via Creem we support Visa / Mastercard / Alipay / WeChat Pay and other major channels."
         },
         "subOrOnetime": {
-          "q": "Why one-time instead of subscription?",
-          "a": "Bookmark sync is a low-resource service with marginal storage costs. One-time matches user expectations and avoids subscription fatigue."
+          "q": "Why a subscription instead of a one-time purchase?",
+          "a": "Sync continuously consumes server and bandwidth resources. A subscription keeps revenue aligned with cost and lets us maintain the service long term. Plus is $20/yr and Pro is $50/yr, cancel anytime, and you keep access until the end of the current billing period."
         }
       }
     }
@@ -254,19 +269,19 @@
     "sections": {
       "service": {
         "title": "1. Service description",
-        "body": "BookmarkSync is a cross-browser bookmark cloud sync and backup tool. It supports bookmark synchronization across Chrome, Edge, Firefox, and Safari, with version rollback (paid tiers) and cross-device migration. Features vary by Free, Pro, and Lifetime tiers — see the Pricing page for details."
+        "body": "BookmarkSync is a cross-browser bookmark cloud sync and backup tool. It supports bookmark synchronization across Chrome, Edge, Firefox, and Safari, multi-device consistency, and cross-device migration. The Service offers Free, Plus, and Pro tiers that differ only in the bookmark limit — all other sync features are identical. See the Pricing page for details."
       },
       "accounts": {
         "title": "2. Accounts",
         "body": "Using the Service requires registering an account with a valid email address. You are responsible for your account password and all activity under your account. Notify us immediately at support@bookmarksync.app if you suspect unauthorized access. Transferring or selling accounts is prohibited."
       },
       "plans": {
-        "title": "3. Tiers and one-time purchase",
-        "body": "The Service offers Free (¥0), Pro (¥49 one-time), and Lifetime (¥149 one-time) tiers. A one-time purchase grants permanent use of the corresponding tier — it is not a subscription and has no auto-renewal. Upgrading from Pro to Lifetime requires a ¥100 difference payment. All payments are processed by Creem (Armitage Labs OÜ, registered in Estonia) as Merchant of Record. Invoices are issued directly by Creem."
+        "title": "3. Tiers and subscription",
+        "body": "The Service offers Free (up to 500 bookmarks), Plus ($20/yr, up to 10,000 bookmarks), and Pro ($50/yr, unlimited bookmarks) tiers. All three share identical sync features; only the bookmark limit differs. Plus and Pro are yearly subscriptions that auto-renew and can be cancelled at any time — after cancelling you retain access until the end of the current billing period. All payments are processed by Creem (Armitage Labs OÜ, registered in Estonia) as Merchant of Record. Invoices are issued directly by Creem."
       },
       "refund": {
         "title": "4. Refund policy",
-        "body": "Full unconditional refunds are available within 7 days of purchase. Beyond 7 days, partial or full refunds may be granted for severe technical failures that prevent core functionality. Refund requests must be sent to support@bookmarksync.app and will be answered within 3 business days. Refunds are returned to the original payment method. Abusive refund requests (e.g., requesting a refund immediately after purchase while continuing to use paid features) will be declined."
+        "body": "Full unconditional refunds are available within 7 days of your first subscription. Beyond 7 days, partial or full refunds may be granted for severe technical failures that prevent core functionality. Refund requests must be sent to support@bookmarksync.app and will be answered within 3 business days. Refunds are returned to the original payment method. Abusive refund requests (e.g., requesting a refund immediately after subscribing while continuing to use paid features) will be declined."
       },
       "acceptable": {
         "title": "5. Acceptable use",
@@ -286,7 +301,7 @@
       },
       "changes": {
         "title": "9. Changes to these Terms",
-        "body": "We may revise these Terms at any time. Material changes will be announced on the website and emailed to registered users. Continued use of the Service constitutes acceptance of the new Terms; if you disagree, stop using the Service. Pricing changes do not affect the existing rights of paid users."
+        "body": "We may revise these Terms at any time. Material changes will be announced on the website and emailed to registered users. Continued use of the Service constitutes acceptance of the new Terms; if you disagree, stop using the Service. Pricing changes do not affect the rights of subscribers during their current billing period."
       },
       "governing": {
         "title": "10. Governing law",

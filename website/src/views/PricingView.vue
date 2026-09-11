@@ -8,7 +8,8 @@ const { t, tm, rt } = useI18n();
 
 const plans = [
   { plan: "free", highlighted: false },
-  { plan: "premium", highlighted: true },
+  { plan: "plus", highlighted: true },
+  { plan: "pro", highlighted: false },
 ];
 
 // 解析 i18n 对比表行，把 boolean / string 都还原成可渲染格式
@@ -16,12 +17,18 @@ const compareRows = computed(() =>
   tm("pricing.compare.rows").map((row) => ({
     feature: rt(row.feature),
     free: row.free,
-    premium: row.premium,
+    plus: row.plus,
+    pro: row.pro,
   }))
 );
 
 function isBool(v) {
   return typeof v === "boolean";
+}
+
+function cellValue(v) {
+  if (isBool(v)) return v ? "yes" : "no";
+  return "text";
 }
 </script>
 
@@ -59,21 +66,27 @@ function isBool(v) {
               <tr>
                 <th class="col-feature">{{ t("pricing.compare.colFeature") }}</th>
                 <th>{{ t("pricing.compare.colFree") }}</th>
-                <th class="col-highlight">{{ t("pricing.compare.colPremium") }}</th>
+                <th class="col-highlight">{{ t("pricing.compare.colPlus") }}</th>
+                <th>{{ t("pricing.compare.colPro") }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(row, i) in compareRows" :key="i">
                 <td class="col-feature">{{ row.feature }}</td>
                 <td>
-                  <span v-if="isBool(row.free) && row.free" class="cell-yes">✓</span>
-                  <span v-else-if="isBool(row.free)" class="cell-no">—</span>
+                  <span v-if="cellValue(row.free) === 'yes'" class="cell-yes">✓</span>
+                  <span v-else-if="cellValue(row.free) === 'no'" class="cell-no">—</span>
                   <span v-else class="cell-text">{{ row.free }}</span>
                 </td>
                 <td class="col-highlight">
-                  <span v-if="isBool(row.premium) && row.premium" class="cell-yes">✓</span>
-                  <span v-else-if="isBool(row.premium)" class="cell-no">—</span>
-                  <span v-else class="cell-text">{{ row.premium }}</span>
+                  <span v-if="cellValue(row.plus) === 'yes'" class="cell-yes">✓</span>
+                  <span v-else-if="cellValue(row.plus) === 'no'" class="cell-no">—</span>
+                  <span v-else class="cell-text">{{ row.plus }}</span>
+                </td>
+                <td>
+                  <span v-if="cellValue(row.pro) === 'yes'" class="cell-yes">✓</span>
+                  <span v-else-if="cellValue(row.pro) === 'no'" class="cell-no">—</span>
+                  <span v-else class="cell-text">{{ row.pro }}</span>
                 </td>
               </tr>
             </tbody>
@@ -114,9 +127,9 @@ function isBool(v) {
 
 .plans-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-5);
-  max-width: 720px;
+  max-width: 1080px;
   margin: 0 auto;
   align-items: stretch;
 }
@@ -139,7 +152,7 @@ function isBool(v) {
 .compare-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 560px;
+  min-width: 680px;
 }
 
 .compare-table thead th {

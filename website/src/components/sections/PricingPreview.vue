@@ -6,7 +6,8 @@ const { t } = useI18n();
 
 const plans = [
   { plan: "free", highlighted: false },
-  { plan: "premium", highlighted: true },
+  { plan: "plus", highlighted: true },
+  { plan: "pro", highlighted: false },
 ];
 </script>
 
@@ -55,9 +56,9 @@ const plans = [
 
 .plans-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-5);
-  max-width: 720px;
+  max-width: 1080px;
   margin: 0 auto;
   align-items: stretch;
 }

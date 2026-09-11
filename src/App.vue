@@ -20,13 +20,16 @@ const showHistory = ref(false);
 const profile = ref(null); // { plan, quota_bytes, used_bytes, purchased_at }
 const showUpgradeModal = ref(false);
 
-// Creem checkout URL 占位（接入 Creem 后替换为真实链接）
-const CREEM_CHECKOUT = "https://bookmarksync.app/pricing#creem-premium";
+// Creem 定价页（订阅制 Plus / Pro；接入 Creem webhook 后由其翻转 plan）
+const CREEM_CHECKOUT = "https://bookmarksync.app/pricing";
 
 const userEmail = computed(() => session.value?.user?.email ?? "");
 
 const planLabel = computed(() => {
-  return profile.value?.plan === "premium" ? "Premium" : "Free";
+  const p = profile.value?.plan;
+  if (p === "pro" || p === "lifetime") return "Pro";
+  if (p === "plus" || p === "premium") return "Plus";
+  return "Free";
 });
 
 const usedMB = computed(() => (profile.value?.used_bytes ?? 0) / 1024 / 1024);
@@ -122,7 +125,7 @@ async function syncNow() {
     if (!r.ok && r.reason === "quota_exceeded") {
       // 空间不足，弹升级 modal
       showUpgradeModal.value = true;
-      refreshStatus("空间不足，请升级到 Premium");
+      refreshStatus("空间不足，请升级到 Plus 或 Pro");
       return;
     }
     await api.storage.local.set({
@@ -157,7 +160,7 @@ async function restore(id) {
     if (!r.ok && r.reason === "plan_locked") {
       // 免费用户，弹升级 modal
       showUpgradeModal.value = true;
-      refreshStatus("历史回滚是 Premium 专属功能");
+      refreshStatus("历史回滚是付费档位（Plus / Pro）专属功能");
       return;
     }
     if (!r.ok) {
@@ -227,7 +230,7 @@ function openUpgrade() {
       </div>
       <p v-if="!snapshots.length" class="muted">暂无历史记录</p>
       <p v-if="profile?.plan === 'free'" class="muted hint">
-        历史回滚是 Pro 专属功能，点击恢复可查看升级选项
+        历史回滚是付费档位专属功能，点击恢复可查看升级选项
       </p>
     </div>
 
@@ -256,20 +259,30 @@ function openUpgrade() {
   <Transition name="modal">
     <div v-if="showUpgradeModal" class="modal-mask" @click.self="showUpgradeModal = false">
       <div class="modal">
-        <h4>升级 Premium 解锁完整功能</h4>
+        <h4>升级解锁更多书签</h4>
         <div class="modal-option" @click="openUpgrade()">
           <div class="modal-opt-head">
-            <span class="plan-tag premium">Premium</span>
-            <span class="modal-price">¥99</span>
+            <span class="plan-tag plus">Plus</span>
+            <span class="modal-price">$20<span class="modal-unit">/年</span></span>
           </div>
           <ul>
-            <li>20 MB 书签空间</li>
-            <li>100 条历史快照</li>
-            <li>历史版本回滚</li>
-            <li>所有未来新增功能</li>
-            <li>邮件支持（7 天回复）</li>
+            <li>最多 10,000 条书签</li>
+            <li>多设备同步</li>
+            <li>与免费版功能完全一致</li>
           </ul>
-          <button class="primary small">立即升级</button>
+          <button class="primary small">订阅 Plus</button>
+        </div>
+        <div class="modal-option" @click="openUpgrade()">
+          <div class="modal-opt-head">
+            <span class="plan-tag pro">Pro</span>
+            <span class="modal-price">$50<span class="modal-unit">/年</span></span>
+          </div>
+          <ul>
+            <li>书签数量无限</li>
+            <li>多设备同步</li>
+            <li>与免费版功能完全一致</li>
+          </ul>
+          <button class="primary small">订阅 Pro</button>
         </div>
         <button class="ghost small" @click="showUpgradeModal = false">稍后再说</button>
       </div>
@@ -316,6 +329,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .quota-text { font-size: 12px; color: #666; }
 .plan-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
 .plan-tag.free { background: #e0e0e0; color: #555; }
+.plan-tag.plus { background: #4B3FE3; color: #fff; }
+.plan-tag.pro { background: #000; color: #fff; }
+.plan-tag.lifetime { background: #000; color: #fff; }
 .plan-tag.premium { background: #000; color: #fff; }
 .quota-bar { height: 6px; background: #ddd; border-radius: 3px; overflow: hidden; }
 .quota-fill { height: 100%; background: #4B3FE3; transition: width 0.3s; }
@@ -329,8 +345,10 @@ button:disabled { opacity: 0.5; cursor: default; }
 .modal-option:hover { border-color: #000; }
 .modal-opt-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .modal-price { font-size: 16px; font-weight: 700; }
+.modal-unit { font-size: 11px; font-weight: 400; margin-left: 2px; }
 .modal-option ul { margin: 0 0 12px 0; padding-left: 18px; font-size: 12px; color: #555; text-align: left; }
 .modal-option li { margin: 2px 0; }
+.modal-option .primary { display: block; width: 100%; }
 
 /* Modal 过渡 */
 .modal-enter-active, .modal-leave-active { transition: opacity 0.2s; }
