@@ -146,18 +146,28 @@ async function readLocalTree() {
 }
 
 // 把本地扁平树转成 sync 节点数组（分配 / 对齐 sync_id，建立 parent_sync_id）
-async function toSyncNodes(localFlat, maps, remoteNodes) {
-  const remByIdentity = new Map();
-  for (const r of remoteNodes)
-    remByIdentity.set(await nodeIdentity({ type: r.type, title: r.title, url: r.url, path: rootLabel(r) }), r.sync_id);
+// 身份对齐优先级：本地映射 > 远端身份 > baseline 身份 > 新建
+// 对齐 baseline 是为了处理离线场景：离线删除后重建相同内容时，能恢复原 sync_id，避免产生重复节点
+async function toSyncNodes(localFlat, maps, remoteNodes, baselineNodes) {
+  const identityToSync = new Map();
+  // 先填充远端身份（远端是权威来源）
+  for (const r of remoteNodes) {
+    const ident = await nodeIdentity({ type: r.type, title: r.title, url: r.url, path: rootLabel(r) });
+    if (!identityToSync.has(ident)) identityToSync.set(ident, r.sync_id);
+  }
+  // 再填充 baseline 身份（兜底：离线删除后重建的相同内容能找回原 sync_id）
+  for (const b of baselineNodes ?? []) {
+    const ident = await nodeIdentity({ type: b.type, title: b.title, url: b.url, path: rootLabel(b) });
+    if (!identityToSync.has(ident)) identityToSync.set(ident, b.sync_id);
+  }
 
-  // nativeId → sync_id（优先用映射；其次按身份对齐远端；最后新建）
+  // nativeId → sync_id（优先用映射；其次按身份对齐；最后新建）
   const nativeToSync = new Map();
   for (const ln of localFlat) {
     let sid = maps.byNative[ln.nativeId];
     if (!sid) {
       const ident = await nodeIdentity(ln);
-      sid = remByIdentity.get(ident);
+      sid = identityToSync.get(ident);
       if (sid) maps.byIdentity[ident] = sid;
       else {
         sid = newSyncId();
@@ -258,24 +268,35 @@ async function applyNodes(nodes, maps, { restore = false } = {}) {
 
   let changes = 0;
 
+  // 拓扑排序：根级（parent 为 ROOT_*）在前，子文件夹随父，书签最后
+  // 这样创建时父文件夹已存在，避免子节点找不到父
+  const depth = (n) => {
+    if (n.parent_sync_id === ROOT_BAR || n.parent_sync_id === ROOT_OTHER) return 0;
+    const parent = nodes.find((x) => x.sync_id === n.parent_sync_id);
+    return parent ? 1 + depth(parent) : 0;
+  };
+  const sortedNodes = [...nodes].sort((a, b) => {
+    const da = depth(a), db = depth(b);
+    if (da !== db) return da - db;
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
+
   // 1) 删除本地多余节点（目标里没有的）
   for (const ln of localFlat) {
     const sid = maps.byNative[ln.nativeId];
     const keep = sid
       ? targetSyncIds.has(sid)
-      : nodes.some((n) => n.type === ln.type && n.url === ln.url && n.title === ln.title && (n.parent_sync_id ?? "") === rootOf(ln));
+      : sortedNodes.some((n) => n.type === ln.type && n.url === ln.url && n.title === ln.title && (n.parent_sync_id ?? "") === rootOf(ln));
     if (!keep) {
       await api.bookmarks.remove(ln.nativeId).catch(() => {});
       changes++;
     }
   }
 
-  // 2) 建 / 更新
-  for (const n of nodes) {
-    if (!n.sync_id || n.type === "folder") {
-      // 文件夹若无 sync_id 且为根级标签，忽略（根桶不进入同步节点）
-      continue;
-    }
+  // 2) 建 / 更新（文件夹和书签都处理，拓扑顺序保证父先建）
+  for (const n of sortedNodes) {
+    if (!n.sync_id) continue;
+
     let nativeId = maps.byNative[n.sync_id];
     if (!nativeId) {
       const ident = await nodeIdentity({ type: n.type, title: n.title, url: n.url, path: rootLabel(n) });
@@ -299,14 +320,16 @@ async function applyNodes(nodes, maps, { restore = false } = {}) {
         changes++;
       }
     } else {
+      // 创建：文件夹不带 url，书签带 url
       const created = await api.bookmarks.create({
         parentId: parentNative,
         index: n.order ?? 0,
         title: n.title ?? "",
-        url: n.type === "bookmark" ? n.url : undefined,
+        ...(n.type === "bookmark" ? { url: n.url } : {}),
       });
       maps.byNative[created.id] = n.sync_id;
       maps.bySync[n.sync_id] = created.id;
+      if (n.type === "folder") folderBySync.set(n.sync_id, created.id);
       changes++;
     }
   }
@@ -339,9 +362,10 @@ async function resolveParentNative(n, folderBySync, maps) {
 async function computeLocalTombstones(baselineNodes, remoteNodes, remoteTombstones) {
   const localFlat = await readLocalTree();
   const maps = await loadMaps();
+  // 收集本地当前所有已映射的 sync_id（有映射才参与删除判定，无映射的新建节点不产生墓碑）
   const localSyncIds = new Set();
   for (const ln of localFlat) {
-    const sid = maps.byNative[ln.nativeId] ?? maps.bySync ? null : maps.byNative[ln.nativeId];
+    const sid = maps.byNative[ln.nativeId];
     if (sid) localSyncIds.add(sid);
   }
   const remoteSyncIds = new Set(remoteNodes.map((r) => r.sync_id));
@@ -390,7 +414,7 @@ export async function runSync() {
   const localFlat = await readLocalTree();
   const maps = await loadMaps();
   const baseline = await loadBaseline();
-  const localNodes = await toSyncNodes(localFlat, maps, remoteNodes);
+  const localNodes = await toSyncNodes(localFlat, maps, remoteNodes, baseline.nodes);
 
   // 3. 三态合并
   const merged = mergeStates(baseline.nodes, localNodes, remoteNodes);
@@ -411,9 +435,11 @@ export async function runSync() {
     return { ok: false, reason: "rpc_error", error: msg };
   }
 
-  // 6. 成功后清空持久墓碑、记录基线
+  // 6. 成功后重新拉取服务端实际快照作为 baseline
+  //    （服务端会过滤墓碑，merged ≠ 服务端实际存储；用实际快照才能正确区分下次的"删除"与"未推送"）
+  const { data: afterPull } = await supabase.rpc("bsync_snapshot_pull");
   await saveLocalTombstones([]);
-  await saveBaseline(merged);
+  await saveBaseline(afterPull?.bookmarks ?? []);
 
   return {
     ok: true,
@@ -453,7 +479,7 @@ export async function restoreSnapshot(id) {
 
   const localFlat = await readLocalTree();
   const baseline = await loadBaseline();
-  const nodes = await toSyncNodes(localFlat, maps, snapshotData ?? []);
+  const nodes = await toSyncNodes(localFlat, maps, snapshotData ?? [], baseline.nodes);
   const { error: pushError } = await supabase.rpc("bsync_snapshot_push", {
     p_data: nodes,
     p_tombstones: [],
