@@ -41,6 +41,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: node
+          # ⚠ 临时锁定：首个 Release 固定发 0.1.0（开发期版本）。
+          #   首个 v0.1.0 发布成功后，请删除此行，之后按约定式提交正常自动升级。
+          release-as: 0.1.0
 
   build:
     needs: release-please
