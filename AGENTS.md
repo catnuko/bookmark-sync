@@ -8,7 +8,7 @@ snaply 共享 Supabase 项目（ref: `cwtqnsbpcetvqopdkcou`）的**唯一写路�
 - secrets：`supabase secrets set`（不写入代码）
 
 ## 多租户规范
-- **接入/注册表/规范条文见 [supabase/TENANTS.md](supabase/TENANTS.md)**，新租户先读它再动代码。
+- **接入/注册表/规范条文见 [TENANTS.md](TENANTS.md)**，新租户先读它再动代码。
 - 应用仓库通过 git submodule 内置本仓库的 `supabase/` 目录；**不要在应用仓库里直接改本仓库代码**，改动在这里提交或提 PR，应用仓库用 `git submodule update --remote` 同步。
 
 ## 禁止
