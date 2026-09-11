@@ -1,0 +1,101 @@
+name: Build & Release
+
+# 触发方式：推送 v* 标签时自动打包并发布；也可手动选版本号重发一次。
+# 每次发布产出一个 GitHub Release，内含两个包：
+#   - Chromium 包（Chrome / Edge 共用）
+#   - Firefox 包
+# 一次性覆盖三个浏览器，Safari 不参与。
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "手动发布时的版本号，如 1.2.1（不填则用包内定义的版本）"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── 版本号 ──────────────────────────────────────────────────────────
+      - name: Resolve version
+        id: version
+        run: |
+          VER="${{ github.event.inputs.version }}"
+          if [ -z "$VER" ]; then
+            # 标签触发时用标签名（形如 v1.2.1）
+            VER="${{ github.ref_name }}"
+          fi
+          VER="${VER#v}" # 去掉开头的 v，统一用数字版本号
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VER"
+
+      # ── 构建 ────────────────────────────────────────────────────────────
+      # 注意：不用 pnpm build（会顺带做 Safari 的 Xcode 同步/编译），
+      # 这里只跑 vite build + 手工跑 Firefox 脚本。
+      - name: Build Chromium (Chrome/Edge)
+        run: npx vite build
+
+      - name: Build Firefox
+        run: node scripts/build-firefox.mjs
+
+      - name: Package zips
+        run: |
+          VER="${{ steps.version.outputs.ver }}"
+          mkdir -p dist
+          (cd extension && zip -r "../dist/bookmark-sync-chromium-$VER.zip" .)
+          (cd extension-firefox && zip -r "../dist/bookmark-sync-firefox-$VER.zip" .)
+          echo "--- artifacts ---"
+          ls -l dist/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bookmark-sync-${{ steps.version.outputs.ver }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Ensure tag exists (manual release only)
+        run: |
+          VER="${{ steps.version.outputs.ver }}"
+          if ! git rev-parse "v$VER" >/dev/null 2>&1; then
+            git tag "v$VER"
+            git push origin "v$VER"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.ver }}
+          name: v${{ steps.version.outputs.ver }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            dist/bookmark-sync-chromium-${{ steps.version.outputs.ver }}.zip
+            dist/bookmark-sync-firefox-${{ steps.version.outputs.ver }}.zip
