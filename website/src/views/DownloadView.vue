@@ -8,14 +8,12 @@ const browsers = [
   { key: "chrome", color: "#4285F4", url: "https://chromewebstore.google.com", available: true },
   { key: "edge", color: "#0078D7", url: "https://microsoftedge.microsoft.com/addons", available: true },
   { key: "firefox", color: "#FF7139", url: "https://addons.mozilla.org", available: true },
-  { key: "safari", color: "#1D1D1F", url: "https://apps.apple.com", available: true },
 ];
 
 const iconPaths = {
   chrome: "M12 2a10 10 0 11-5 18.66L9 13l3-1V2z",
   edge: "M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
   firefox: "M12 2C8 2 5 5 5 9c0 4 3 7 7 7s7-3 7-7",
-  safari: "M12 2a10 10 0 100 20 10 10 0 000-20z",
 };
 
 const email = ref("");

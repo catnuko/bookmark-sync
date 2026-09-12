@@ -33,17 +33,17 @@
     "english": "English"
   },
   "hero": {
-    "badge": "Chrome · Edge · Firefox · Safari",
-    "title": "Cross-browser bookmark sync, never lose them again",
-    "subtitle": "Configure once and all your bookmarks sync across devices and browsers. Move to a new computer, browser, or account with the full bookmark tree intact.",
+    "badge": "Chrome · Edge · Firefox",
+    "title": "Reorganize folders all you want — not a single bookmark is lost",
+    "subtitle": "BookmarkSync syncs your bookmarks across browsers and devices with a true tree structure: rename, move, or reorder folders and every child stays put — deleted bookmarks never reappear, the same URL can live in several folders, and simultaneous edits on many devices merge cleanly instead of overwriting.",
     "ctaPrimary": "Download Free",
     "ctaSecondary": "View Pricing",
-    "trustBadge": "No credit card · 500 bookmarks free · Multi-device sync"
+    "trustBadge": "No credit card · 500 bookmarks free · True-tree sync"
   },
   "pain": {
     "eyebrow": "Why you need it",
-    "title": "Common pain points of bookmark management",
-    "subtitle": "Your bookmarks are scattered everywhere — lose them once and they're gone forever.",
+    "title": "The real pains of bookmark management",
+    "subtitle": "Your bookmarks are scattered everywhere — once lost, duplicated, or scrambled, they're hard to get back.",
     "items": {
       "lost": {
         "title": "Bookmarks silently disappear",
@@ -51,62 +51,61 @@
       },
       "crossBrowser": {
         "title": "Browsers don't talk to each other",
-        "desc": "Chrome bookmarks never reach Safari. Work Edge and home Firefox each keep their own set."
+        "desc": "Chrome, Edge, and Firefox each keep their own set, and the same bookmarks never line up across them."
       },
       "migration": {
-        "title": "Migrating devices is painful",
-        "desc": "New computer, new account — export to HTML then manually import, folders end up a mess."
+        "title": "One reorganization scrambles everything",
+        "desc": "Rename, move, or merge a folder and children often vanish or the hierarchy turns into a mess — fixing it is a nightmare."
       },
       "history": {
-        "title": "Devices drift out of sync",
-        "desc": "A bookmark deleted on computer A reappears on computer B; new bookmarks take forever to show up elsewhere."
+        "title": "Deletes resurrect and edits overwrite",
+        "desc": "A bookmark you deleted on computer A comes back; two devices edit at once and one side silently overwrites the other."
       }
     }
   },
   "features": {
-    "eyebrow": "Core features",
-    "title": "One solution for every bookmark problem",
-    "subtitle": "From cross-browser sync to multi-device consistency — covers every scenario of managing your browser bookmarks.",
+    "eyebrow": "Core capabilities",
+    "title": "An engine built for real sync scenarios",
+    "subtitle": "More than a cloud backup — intelligent sync that actually preserves your bookmark structure.",
     "items": {
       "sync": {
-        "title": "Real-time cross-browser sync",
-        "desc": "Chrome / Edge / Firefox / Safari bookmarks sync automatically. New, modified, deleted entries take effect in real time."
+        "title": "True tree structure, hierarchy never breaks",
+        "desc": "Sync keeps the tree as-is instead of flattening it into path strings. Rename, move, or reorder folders and every child and level is preserved — no more \"renamed a folder and its children vanished\"."
       },
       "history": {
-        "title": "Precise delete sync",
-        "desc": "Deletes propagate across devices via tombstones — removed bookmarks never reappear from stale data, so every device stays consistent."
+        "title": "Precise deletes, they never come back",
+        "desc": "Deletes propagate across devices via tombstones. A bookmark removed on device A will never resurrect on device B from stale data."
       },
       "quota": {
-        "title": "Tiered by bookmark count",
-        "desc": "Start free with 500, scale to 10,000 on Plus, or go unlimited on Pro. All tiers share identical sync features — upgrade only for headroom."
+        "title": "Tiered by count, only for capacity",
+        "desc": "Start with 500 free, 10,000 on Plus, unlimited on Pro. All tiers share identical sync features — upgrade purely for headroom."
       },
       "privacy": {
-        "title": "Row-level data isolation",
-        "desc": "Supabase RLS row-level security — each user can only read and write their own bookmarks, end-to-end isolated."
+        "title": "Content encryption, your choice",
+        "desc": "Plaintext by default and ready out of the box; privacy-sensitive users can enable optional end-to-end encryption so bookmarks are encrypted on your device before upload — even the server can't read them."
       },
       "conflict": {
-        "title": "Seamless multi-device sync",
-        "desc": "Sign in on any device to pull the latest bookmark tree. Stay in sync across all your devices with zero friction."
+        "title": "Automatic merge, nothing overwritten",
+        "desc": "Two devices editing, deleting, and adding at once are reconciled by intelligent three-way merge — both sides' additions survive, nothing is blindly overwritten or lost. Offline edits merge in the moment you reconnect."
       },
       "migration": {
         "title": "Free cross-account migration",
-        "desc": "Sign in to any account to pull the full bookmark tree — finish device setup in seconds."
+        "desc": "Sign in to any account to pull the full bookmark tree. New devices and new accounts initialize in seconds — no HTML exports, no manual cleanup."
       }
     }
   },
   "browsers": {
     "eyebrow": "Browser support",
     "title": "Works with major browsers",
-    "subtitle": "Covers every browser you use daily — install and go.",
+    "subtitle": "Install once — one setup unlocks all your bookmarks in the browsers you use daily.",
     "chrome": { "name": "Google Chrome", "desc": "Chrome Web Store" },
     "edge": { "name": "Microsoft Edge", "desc": "Edge Add-ons" },
-    "firefox": { "name": "Mozilla Firefox", "desc": "Firefox Add-ons" },
-    "safari": { "name": "Apple Safari", "desc": "App Store" }
+    "firefox": { "name": "Mozilla Firefox", "desc": "Firefox Add-ons" }
   },
   "pricing": {
     "eyebrow": "Pricing",
-    "title": "Three simple tiers, pay only for more bookmarks",
-    "subtitle": "Free covers up to 500 bookmarks; Plus and Pro are yearly subscriptions for more. All tiers share identical sync features.",
+    "title": "Identical sync on every tier, pay only for capacity",
+    "subtitle": "Free covers 500 bookmarks; Plus and Pro are yearly subscriptions for more. Whichever tier you choose, you get the full set of true-tree sync, precise deletes, and multi-device merging.",
     "monthly": "monthly",
     "onetime": "one-time",
     "popular": "Recommended",
@@ -119,9 +118,11 @@
         "cta": "Get Started",
         "features": [
           "Up to 500 bookmarks",
+          "True-tree sync — rename/move folders, no lost children",
+          "Precise deletes, never reappear",
+          "Automatic merge, nothing overwritten",
+          "Same URL in multiple folders",
           "Cross-browser / multi-device sync",
-          "Precise delete sync",
-          "Automatic cloud sync",
           "Community support"
         ]
       },
@@ -133,9 +134,11 @@
         "cta": "Subscribe to Plus",
         "features": [
           "Up to 10,000 bookmarks",
+          "True-tree sync — rename/move folders, no lost children",
+          "Precise deletes, never reappear",
+          "Automatic merge, nothing overwritten",
+          "Same URL in multiple folders",
           "Cross-browser / multi-device sync",
-          "Identical features to Free",
-          "Precise delete sync",
           "Email support"
         ]
       },
@@ -147,9 +150,11 @@
         "cta": "Subscribe to Pro",
         "features": [
           "Unlimited bookmarks",
+          "True-tree sync — rename/move folders, no lost children",
+          "Precise deletes, never reappear",
+          "Automatic merge, nothing overwritten",
+          "Same URL in multiple folders",
           "Cross-browser / multi-device sync",
-          "Identical features to Free",
-          "Precise delete sync",
           "Priority support"
         ]
       }
@@ -164,11 +169,14 @@
       "rows": [
         { "feature": "Bookmark limit", "free": "500", "plus": "10,000", "pro": "Unlimited" },
         { "feature": "Price", "free": "Free", "plus": "$20 / yr", "pro": "$50 / yr" },
-        { "feature": "Supported browsers", "free": "4", "plus": "4", "pro": "4" },
-        { "feature": "Cross-browser sync", "free": true, "plus": true, "pro": true },
-        { "feature": "Multi-device sync", "free": true, "plus": true, "pro": true },
-        { "feature": "Precise delete sync", "free": true, "plus": true, "pro": true },
+        { "feature": "Supported browsers", "free": "3", "plus": "3", "pro": "3" },
+        { "feature": "True-tree sync (rename/move, no lost children)", "free": true, "plus": true, "pro": true },
+        { "feature": "Same URL in multiple folders", "free": true, "plus": true, "pro": true },
+        { "feature": "Precise deletes, never reappear", "free": true, "plus": true, "pro": true },
+        { "feature": "Automatic merge, nothing overwritten", "free": true, "plus": true, "pro": true },
+        { "feature": "Cross-browser / multi-device sync", "free": true, "plus": true, "pro": true },
         { "feature": "Automatic cloud sync", "free": true, "plus": true, "pro": true },
+        { "feature": "Optional end-to-end encryption", "free": true, "plus": true, "pro": true },
         { "feature": "Support channel", "free": "Community", "plus": "Email", "pro": "Priority" }
       ]
     },
@@ -269,7 +277,7 @@
     "sections": {
       "service": {
         "title": "1. Service description",
-        "body": "BookmarkSync is a cross-browser bookmark cloud sync and backup tool. It supports bookmark synchronization across Chrome, Edge, Firefox, and Safari, multi-device consistency, and cross-device migration. The Service offers Free, Plus, and Pro tiers that differ only in the bookmark limit — all other sync features are identical. See the Pricing page for details."
+        "body": "BookmarkSync is a cross-browser bookmark cloud sync and backup tool. It supports bookmark synchronization across Chrome, Edge, and Firefox, with true-tree sync — renaming or moving folders never loses children — plus precise delete sync, multi-device merge, and optional end-to-end encryption. The Service offers Free, Plus, and Pro tiers that differ only in the bookmark limit — all other sync features are identical. See the Pricing page for details."
       },
       "accounts": {
         "title": "2. Accounts",

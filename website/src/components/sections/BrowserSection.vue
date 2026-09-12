@@ -7,15 +7,13 @@ const browsers = [
   { key: "chrome", color: "#4285F4", url: "https://chromewebstore.google.com", available: true },
   { key: "edge", color: "#0078D7", url: "https://microsoftedge.microsoft.com/addons", available: true },
   { key: "firefox", color: "#FF7139", url: "https://addons.mozilla.org", available: true },
-  { key: "safari", color: "#1D1D1F", url: "https://apps.apple.com", available: true },
 ];
 
-// 浏器图标统一用一个简洁的圆形书签符号，颜色用品牌色区分
+// 浏览器图标统一用一个简洁的圆形书签符号，颜色用品牌色区分
 const iconPaths = {
   chrome: "M12 2a10 10 0 11-5 18.66L9 13l3-1V2zM12 2v10l9-3M3 22l9-9",
   edge: "M21 12a9 9 0 11-18 0 9 9 0 0118 0zM12 3a6 6 0 00-6 6c0 4 3 5 6 5s6 1 6 5a6 6 0 00-6-12z",
-  firefox: "M12 2C8 2 5 5 5 9c0 4 3 7 7 7s7-3 7-7c0 4-3 7-7 7",
-  safari: "M12 2a10 10 0 100 20 10 10 0 000-20zM12 7l4 8-8-4 4-4z",
+  firefox: "M12 2C8 2 5 5 5 9c0 4 3 7 7 7s7-3 7-7",
 };
 </script>
 
