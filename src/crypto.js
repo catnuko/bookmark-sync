@@ -118,12 +118,13 @@ export async function setKeyFromPassphrase(passphrase) {
   return true;
 }
 
-// ---- 加密模式开关（可选项）：'e2ee'（默认，加密） | 'plain'（明文，不加密）----
+// ---- 加密模式开关（可选项）：'plain'（默认，明文） | 'e2ee'（加密）----
+// 默认明文（关闭 E2EE）：用户更省事、不在乎隐私的默认选择；需要加密时手动开启。
 const MODE_KEY = "encryptMode";
 
 export async function getEncryptMode() {
   const res = await api.storage.local.get(MODE_KEY);
-  return res[MODE_KEY] === "plain" ? "plain" : "e2ee";
+  return res[MODE_KEY] === "e2ee" ? "e2ee" : "plain";
 }
 
 export async function setEncryptMode(mode) {

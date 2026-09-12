@@ -23,7 +23,7 @@ const keyValue = ref("");
 const keyImportInput = ref("");
 const keyMsg = ref("");
 const keyPhraseInput = ref("");
-const encryptMode = ref("e2ee");
+const encryptMode = ref("plain");
 
 // 付费档案 + 升级 modal
 const profile = ref(null); // { plan, quota_bytes, used_bytes, purchased_at }
@@ -312,8 +312,8 @@ async function doSetKeyByPhrase() {
     <div v-if="showKeyManage" class="key-manage">
       <div class="key-mode">
         <span class="muted">同步方式：</span>
-        <span class="mode-pill" :class="{ on: encryptMode === 'e2ee' }" @click="changeEncryptMode('e2ee')">加密同步（推荐）</span>
-        <span class="mode-pill" :class="{ on: encryptMode === 'plain' }" @click="changeEncryptMode('plain')">明文同步</span>
+        <span class="mode-pill" :class="{ on: encryptMode === 'e2ee' }" @click="changeEncryptMode('e2ee')">加密同步</span>
+        <span class="mode-pill" :class="{ on: encryptMode === 'plain' }" @click="changeEncryptMode('plain')">明文同步（默认）</span>
       </div>
       <p class="muted">加密同步：书签内容端到端加密，服务器看不到你的收藏，换设备需同一把密钥或口令。明文同步：内容以明文存服务器，更省事但不保护内容隐私。</p>
       <template v-if="encryptMode === 'e2ee'">
