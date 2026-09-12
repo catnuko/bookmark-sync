@@ -13,7 +13,7 @@
     "terms": "条款"
   },
   "contact": {
-    "supportEmail": "support@bookmarksync.app",
+    "supportEmail": "support{'@'}bookmarksync.app",
     "supportLabel": "客服邮箱"
   },
   "common": {
@@ -258,7 +258,7 @@
       },
       "contact": {
         "title": "联系我们",
-        "body": "如对本政策有任何疑问，请联系 support@bookmarksync.app。"
+        "body": "如对本政策有任何疑问，请联系 support{'@'}bookmarksync.app。"
       }
     }
   },
@@ -281,7 +281,7 @@
       },
       "accounts": {
         "title": "2. 账户",
-        "body": "使用服务需注册账户，注册时须提供真实有效的邮箱地址。你对账户密码及账户下发生的一切活动负责，如发现账户被盗用应立即通过 support@bookmarksync.app 通知我们。禁止转让、出售账户。"
+        "body": "使用服务需注册账户，注册时须提供真实有效的邮箱地址。你对账户密码及账户下发生的一切活动负责，如发现账户被盗用应立即通过 support{'@'}bookmarksync.app 通知我们。禁止转让、出售账户。"
       },
       "plans": {
         "title": "3. 付费档位与订阅",
@@ -289,7 +289,7 @@
       },
       "refund": {
         "title": "4. 退款政策",
-        "body": "首次订阅 7 天内可无条件申请全额退款；超过 7 天但遭遇严重技术故障导致核心功能无法使用，可凭故障描述申请部分或全额退款。退款请求请发送至 support@bookmarksync.app，我们将在 3 个工作日内回复并处理。退款将原路退回至支付账户。恶意退款（如订阅后立即申请退款但仍继续使用付费功能）将不予受理。"
+        "body": "首次订阅 7 天内可无条件申请全额退款；超过 7 天但遭遇严重技术故障导致核心功能无法使用，可凭故障描述申请部分或全额退款。退款请求请发送至 support{'@'}bookmarksync.app，我们将在 3 个工作日内回复并处理。退款将原路退回至支付账户。恶意退款（如订阅后立即申请退款但仍继续使用付费功能）将不予受理。"
       },
       "acceptable": {
         "title": "5. 可接受使用",
@@ -317,7 +317,7 @@
       },
       "contact": {
         "title": "11. 联系我们",
-        "body": "如对本条款有任何疑问，请联系 support@bookmarksync.app。我们将努力在 3 个工作日内回复。"
+        "body": "如对本条款有任何疑问，请联系 support{'@'}bookmarksync.app。我们将努力在 3 个工作日内回复。"
       }
     }
   },
