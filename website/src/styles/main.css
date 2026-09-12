@@ -16,6 +16,9 @@
   --color-text-muted: #71717a;
   --color-text-faint: #a1a1aa;
 
+  /* 页头半透明背景（毛玻璃底下那层） */
+  --color-header-bg: rgba(255, 255, 255, 0.85);
+
   /* 强调色：电光蓝（仅用于 CTA、链接、关键状态） */
   --color-accent: #0066ff;
   --color-accent-hover: #0052cc;
@@ -74,10 +77,8 @@
   --transition: 200ms var(--ease-out);
 }
 
-/* 深色模式（后续可启用，目前预留） */
-@media (prefers-color-scheme: dark) {
-  :root.theme-auto-dark,
-  :root[data-theme="dark"] {
+/* 深色模式：由 ThemeToggle 写入 html[data-theme]，默认跟随系统（见 src/theme.js） */
+:root[data-theme="dark"] {
     --color-bg: #09090b;
     --color-bg-soft: #111113;
     --color-bg-muted: #1a1a1d;
@@ -90,13 +91,21 @@
     --color-accent: #3b82f6;
     --color-accent-hover: #60a5fa;
     --color-accent-soft: rgba(59, 130, 246, 0.12);
-  }
+    --color-header-bg: rgba(9, 9, 11, 0.85);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 html {

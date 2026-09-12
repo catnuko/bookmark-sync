@@ -30,11 +30,8 @@ const features = computed(() => {
       <span class="plan-unit">{{ t(`pricing.plans.${props.plan}.unit`) }}</span>
     </div>
 
-    <RouterLink
-      :to="props.plan === 'free' ? '/download' : '/pricing'"
-      class="btn plan-cta"
-      :class="props.highlighted ? 'btn-primary' : 'btn-outline'"
-    >
+    <!-- 付费档：订阅在扩展内完成（登录后创建 Creem 收银台会话），官网引导先装扩展 -->
+    <RouterLink to="/download" class="btn plan-cta" :class="props.highlighted ? 'btn-primary' : 'btn-outline'">
       {{ t(`pricing.plans.${props.plan}.cta`) }}
     </RouterLink>
 

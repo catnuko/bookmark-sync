@@ -9,12 +9,9 @@ const productLinks = [
   { label: "nav.download", to: "/download" },
 ];
 
-const resourceLinks = [
-  { label: "nav.docs", to: "/docs" },
-  { label: "nav.privacy", to: "/privacy" },
-  { label: "nav.terms", to: "/terms" },
-];
+const resourceLinks = [{ label: "nav.docs", to: "/docs" }];
 
+// 法律链接弱化处理：只在底部版权行以小字号呈现
 const legalLinks = [
   { label: "nav.privacy", to: "/privacy" },
   { label: "nav.terms", to: "/terms" },
@@ -56,23 +53,23 @@ const legalLinks = [
             {{ t(link.label) }}
           </RouterLink>
         </div>
-
-        <div class="footer-col">
-          <h4 class="footer-title">{{ t("footer.legal") }}</h4>
-          <RouterLink
-            v-for="link in legalLinks"
-            :key="link.label"
-            :to="link.to"
-            class="footer-link"
-          >
-            {{ t(link.label) }}
-          </RouterLink>
-        </div>
       </div>
     </div>
 
     <div class="container footer-bottom">
-      <p class="copyright">{{ t("footer.copyright") }}</p>
+      <div class="footer-bottom-left">
+        <p class="copyright">{{ t("footer.copyright") }}</p>
+        <nav class="legal-links" aria-label="Legal">
+          <RouterLink
+            v-for="link in legalLinks"
+            :key="link.label"
+            :to="link.to"
+            class="legal-link"
+          >
+            {{ t(link.label) }}
+          </RouterLink>
+        </nav>
+      </div>
       <a
         :href="`mailto:${t('contact.supportEmail')}`"
         class="footer-support"
@@ -127,7 +124,7 @@ const legalLinks = [
 
 .footer-cols {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-8);
 }
 
@@ -165,6 +162,29 @@ const legalLinks = [
   flex-wrap: wrap;
 }
 
+.footer-bottom-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.legal-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.legal-link {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  transition: color var(--transition);
+}
+
+.legal-link:hover {
+  color: var(--color-text-muted);
+}
+
 .copyright {
   font-size: var(--text-xs);
   color: var(--color-text-faint);
@@ -190,7 +210,7 @@ const legalLinks = [
     gap: var(--space-8);
   }
   .footer-cols {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: var(--space-4);
   }
 }

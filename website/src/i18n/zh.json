@@ -35,7 +35,7 @@
   "hero": {
     "badge": "Chrome · Edge · Firefox",
     "title": "文件夹怎么整理，书签都一条不丢",
-    "subtitle": "BookmarkSync 用真树结构跨浏览器、跨设备同步书签：给文件夹改名、移动、重排，子项和层级完整保留；删掉的书签永不复活；同一网址可存在多个文件夹；多台设备同时改动自动合并，互不覆盖。",
+    "subtitle": "装上扩展、登录账号，Chrome、Edge、Firefox 的书签就汇成同一棵树。保持你现有的整理习惯就好，剩下的交给同步引擎。",
     "ctaPrimary": "免费下载",
     "ctaSecondary": "查看定价",
     "trustBadge": "无需信用卡 · 免费 500 条书签 · 真树同步不丢不重"
@@ -98,9 +98,18 @@
     "eyebrow": "浏览器支持",
     "title": "支持主流浏览器",
     "subtitle": "安装即用，同一把钥匙解锁你常用浏览器的全部书签。",
-    "chrome": { "name": "Google Chrome", "desc": "Chrome Web Store" },
-    "edge": { "name": "Microsoft Edge", "desc": "Edge Add-ons" },
-    "firefox": { "name": "Mozilla Firefox", "desc": "Firefox Add-ons" }
+    "chrome": {
+      "name": "Google Chrome",
+      "desc": "Chrome Web Store"
+    },
+    "edge": {
+      "name": "Microsoft Edge",
+      "desc": "Edge Add-ons"
+    },
+    "firefox": {
+      "name": "Mozilla Firefox",
+      "desc": "Firefox Add-ons"
+    }
   },
   "pricing": {
     "eyebrow": "定价",
@@ -167,17 +176,72 @@
       "colPro": "Pro",
       "legalNote": "订阅由 Creem 处理，发票由 Creem 开具，可随时取消。更多细节请见：",
       "rows": [
-        { "feature": "书签数量上限", "free": "500 条", "plus": "10,000 条", "pro": "无限" },
-        { "feature": "价格", "free": "免费", "plus": "$20 / 年", "pro": "$50 / 年" },
-        { "feature": "支持的浏览器", "free": "3 个", "plus": "3 个", "pro": "3 个" },
-        { "feature": "真树结构（改名/移动不丢子项）", "free": true, "plus": true, "pro": true },
-        { "feature": "同一网址可存多个文件夹", "free": true, "plus": true, "pro": true },
-        { "feature": "精准删除，永不复活", "free": true, "plus": true, "pro": true },
-        { "feature": "多端自动合并不覆盖", "free": true, "plus": true, "pro": true },
-        { "feature": "跨浏览器 / 多设备同步", "free": true, "plus": true, "pro": true },
-        { "feature": "自动云端同步", "free": true, "plus": true, "pro": true },
-        { "feature": "可选端到端加密", "free": true, "plus": true, "pro": true },
-        { "feature": "支持渠道", "free": "社区", "plus": "邮件", "pro": "优先" }
+        {
+          "feature": "书签数量上限",
+          "free": "500 条",
+          "plus": "10,000 条",
+          "pro": "无限"
+        },
+        {
+          "feature": "价格",
+          "free": "免费",
+          "plus": "$20 / 年",
+          "pro": "$50 / 年"
+        },
+        {
+          "feature": "支持的浏览器",
+          "free": "3 个",
+          "plus": "3 个",
+          "pro": "3 个"
+        },
+        {
+          "feature": "真树结构（改名/移动不丢子项）",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "同一网址可存多个文件夹",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "精准删除，永不复活",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "多端自动合并不覆盖",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "跨浏览器 / 多设备同步",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "自动云端同步",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "可选端到端加密",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "支持渠道",
+          "free": "社区",
+          "plus": "邮件",
+          "pro": "优先"
+        }
       ]
     },
     "faq": {
@@ -325,5 +389,8 @@
     "switch": "切换语言",
     "zh": "中文",
     "en": "English"
+  },
+  "theme": {
+    "switch": "切换深浅色模式"
   }
 }

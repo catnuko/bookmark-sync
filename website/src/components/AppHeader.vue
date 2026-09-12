@@ -2,16 +2,17 @@
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { toggleLocale } from "../i18n";
+import ThemeToggle from "./ThemeToggle.vue";
+import LanguageToggle from "./LanguageToggle.vue";
 
 const { t } = useI18n();
 
+// 隐私/条款入口在页脚，页首导航只放主功能页
 const navItems = [
   { key: "nav.home", to: "/" },
   { key: "nav.pricing", to: "/pricing" },
   { key: "nav.download", to: "/download" },
   { key: "nav.docs", to: "/docs" },
-  { key: "nav.privacy", to: "/privacy" },
-  { key: "nav.terms", to: "/terms" },
 ];
 
 const mobileOpen = ref(false);
@@ -38,6 +39,7 @@ const mobileOpen = ref(false);
       </nav>
 
       <div class="header-actions">
+        <ThemeToggle />
         <LanguageToggle />
         <RouterLink to="/download" class="btn btn-primary header-cta">
           {{ t("hero.ctaPrimary") }}
@@ -84,7 +86,7 @@ const mobileOpen = ref(false);
   left: 0;
   right: 0;
   height: var(--header-height);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--color-header-bg);
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
   border-bottom: 1px solid var(--color-border);

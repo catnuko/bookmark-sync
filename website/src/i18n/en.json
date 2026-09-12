@@ -35,7 +35,7 @@
   "hero": {
     "badge": "Chrome · Edge · Firefox",
     "title": "Reorganize folders all you want — not a single bookmark is lost",
-    "subtitle": "BookmarkSync syncs your bookmarks across browsers and devices with a true tree structure: rename, move, or reorder folders and every child stays put — deleted bookmarks never reappear, the same URL can live in several folders, and simultaneous edits on many devices merge cleanly instead of overwriting.",
+    "subtitle": "Install the extension, sign in, and your Chrome, Edge, and Firefox bookmarks become one tree. Keep organizing the way you always have — the sync engine handles the rest.",
     "ctaPrimary": "Download Free",
     "ctaSecondary": "View Pricing",
     "trustBadge": "No credit card · 500 bookmarks free · True-tree sync"
@@ -98,9 +98,18 @@
     "eyebrow": "Browser support",
     "title": "Works with major browsers",
     "subtitle": "Install once — one setup unlocks all your bookmarks in the browsers you use daily.",
-    "chrome": { "name": "Google Chrome", "desc": "Chrome Web Store" },
-    "edge": { "name": "Microsoft Edge", "desc": "Edge Add-ons" },
-    "firefox": { "name": "Mozilla Firefox", "desc": "Firefox Add-ons" }
+    "chrome": {
+      "name": "Google Chrome",
+      "desc": "Chrome Web Store"
+    },
+    "edge": {
+      "name": "Microsoft Edge",
+      "desc": "Edge Add-ons"
+    },
+    "firefox": {
+      "name": "Mozilla Firefox",
+      "desc": "Firefox Add-ons"
+    }
   },
   "pricing": {
     "eyebrow": "Pricing",
@@ -167,17 +176,72 @@
       "colPro": "Pro",
       "legalNote": "Subscriptions are processed by Creem. Invoices are issued by Creem. Cancel anytime. For more details, see:",
       "rows": [
-        { "feature": "Bookmark limit", "free": "500", "plus": "10,000", "pro": "Unlimited" },
-        { "feature": "Price", "free": "Free", "plus": "$20 / yr", "pro": "$50 / yr" },
-        { "feature": "Supported browsers", "free": "3", "plus": "3", "pro": "3" },
-        { "feature": "True-tree sync (rename/move, no lost children)", "free": true, "plus": true, "pro": true },
-        { "feature": "Same URL in multiple folders", "free": true, "plus": true, "pro": true },
-        { "feature": "Precise deletes, never reappear", "free": true, "plus": true, "pro": true },
-        { "feature": "Automatic merge, nothing overwritten", "free": true, "plus": true, "pro": true },
-        { "feature": "Cross-browser / multi-device sync", "free": true, "plus": true, "pro": true },
-        { "feature": "Automatic cloud sync", "free": true, "plus": true, "pro": true },
-        { "feature": "Optional end-to-end encryption", "free": true, "plus": true, "pro": true },
-        { "feature": "Support channel", "free": "Community", "plus": "Email", "pro": "Priority" }
+        {
+          "feature": "Bookmark limit",
+          "free": "500",
+          "plus": "10,000",
+          "pro": "Unlimited"
+        },
+        {
+          "feature": "Price",
+          "free": "Free",
+          "plus": "$20 / yr",
+          "pro": "$50 / yr"
+        },
+        {
+          "feature": "Supported browsers",
+          "free": "3",
+          "plus": "3",
+          "pro": "3"
+        },
+        {
+          "feature": "True-tree sync (rename/move, no lost children)",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "Same URL in multiple folders",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "Precise deletes, never reappear",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "Automatic merge, nothing overwritten",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "Cross-browser / multi-device sync",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "Automatic cloud sync",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "Optional end-to-end encryption",
+          "free": true,
+          "plus": true,
+          "pro": true
+        },
+        {
+          "feature": "Support channel",
+          "free": "Community",
+          "plus": "Email",
+          "pro": "Priority"
+        }
       ]
     },
     "faq": {
@@ -325,5 +389,8 @@
     "switch": "Switch language",
     "zh": "中文",
     "en": "English"
+  },
+  "theme": {
+    "switch": "Toggle dark mode"
   }
 }

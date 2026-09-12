@@ -3,11 +3,13 @@ import { createHead } from "@unhead/vue";
 import App from "./App.vue";
 import { router } from "./router";
 import { i18n, setLocale } from "./i18n";
+import { getTheme, applyTheme } from "./theme";
 import "./styles/main.css";
 
-// 同步 html lang 属性（SPA 阶段在客户端执行；SSR/SSG 时由 i18n 模块自身判断环境）
+// 同步 html lang 属性与主题（SPA 阶段在客户端执行；SSR/SSG 时由 i18n 模块自身判断环境）
 if (typeof window !== "undefined") {
   setLocale(i18n.global.locale.value);
+  applyTheme(getTheme());
 }
 
 const app = createApp(App);
