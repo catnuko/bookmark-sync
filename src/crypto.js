@@ -118,6 +118,18 @@ export async function setKeyFromPassphrase(passphrase) {
   return true;
 }
 
+// ---- 加密模式开关（可选项）：'e2ee'（默认，加密） | 'plain'（明文，不加密）----
+const MODE_KEY = "encryptMode";
+
+export async function getEncryptMode() {
+  const res = await api.storage.local.get(MODE_KEY);
+  return res[MODE_KEY] === "plain" ? "plain" : "e2ee";
+}
+
+export async function setEncryptMode(mode) {
+  await api.storage.local.set({ [MODE_KEY]: mode === "plain" ? "plain" : "e2ee" });
+}
+
 // ---- 加解密 ----
 // CryptoKey 句柄按密钥内容缓存（导入新密钥后必须用新句柄，不能复用旧的）
 const keyCache = new Map();

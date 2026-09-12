@@ -21,7 +21,7 @@
 
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
-import { ensureKey, decryptNodes, encryptNodes } from "./crypto.js";
+import { ensureKey, decryptNodes, encryptNodes, isEncrypted, getEncryptMode } from "./crypto.js";
 
 // ============================================================
 // 根节点常量（跨浏览器根标识统一）
@@ -405,27 +405,44 @@ export async function runSync() {
   const { data: session } = await supabase.auth.getSession();
   if (!session) return { ok: false, reason: "unauthenticated" };
 
-  // E2EE：确保本设备有密钥；后续所有字段处理都在"明文域"进行。
-  //       只在与服务端交换的边界（pull 解密 / push 加密）加解密。
-  const keyBytes = await ensureKey();
+  // 加密模式（可选项）：账号级，默认 E2EE。
+  // 形态自动跟随 —— 以服务端已有数据形态为准，仅当首推（无远端数据）时用本地开关决定，
+  // 保证同一账号多设备不会"一台加密一台明文"互相污染。
+  //   - 远端是密文 → 解密路径（需密钥，缺则提示 decrypt_error）
+  //   - 远端是明文 → 明文路径（不做加解密，等于关闭 E2EE）
+  //   - 远端为空   → 按本地开关初始化首份数据
 
-  // 1. 拉取远端 → 解密成明文域
+  // 1. 拉取远端
   const { data: pullData, error: pullError } = await supabase.rpc("bsync_snapshot_pull");
   if (pullError) return { ok: false, reason: "rpc_error", error: pullError.message };
-  const remoteNodes = await decryptNodes(pullData?.bookmarks ?? [], keyBytes);
-  if (remoteNodes == null) {
-    return { ok: false, reason: "decrypt_error", error: "服务端数据无法解密，请检查是否已导入正确的同步密钥" };
-  }
+  const rawRemote = pullData?.bookmarks ?? [];
   const remoteTombstones = pullData?.tombstones ?? [];
+
+  const remoteIsCipher = rawRemote.some((n) => isEncrypted(n?.title) || isEncrypted(n?.url));
+  const localMode = await getEncryptMode();
+  const e2ee = remoteIsCipher || (rawRemote.length === 0 && localMode === "e2ee");
 
   // 2. 本地 → sync 表示
   const localFlat = await readLocalTree();
   const maps = await loadMaps();
   const baseline = await loadBaseline();
-  // baseline（本地图）始终存明文；但历史可能存了密文，需先解回明文域再参与合并
-  const baselineNodes = await decryptNodes(baseline.nodes, keyBytes);
-  if (baselineNodes == null) {
-    return { ok: false, reason: "decrypt_error", error: "本地基线数据无法解密，请检查同步密钥" };
+
+  let keyBytes = null;
+  let remoteNodes;
+  if (e2ee) {
+    keyBytes = await ensureKey();
+    remoteNodes = await decryptNodes(rawRemote, keyBytes);
+    if (remoteNodes == null) {
+      return { ok: false, reason: "decrypt_error", error: "服务端数据无法解密，请检查是否已导入正确的同步密钥或口令" };
+    }
+  } else {
+    remoteNodes = rawRemote;
+  }
+
+  // baseline（本地图）始终存明文域：解密失败仅发生在 e2ee 往返，明文域本身无需密钥
+  const baselineNodes = e2ee ? await decryptNodes(baseline.nodes, keyBytes) : baseline.nodes;
+  if (e2ee && baselineNodes == null) {
+    return { ok: false, reason: "decrypt_error", error: "本地基线数据无法解密，请检查同步密钥或口令" };
   }
   const localNodes = await toSyncNodes(localFlat, maps, remoteNodes, baselineNodes);
 
@@ -435,11 +452,11 @@ export async function runSync() {
   // 4. 应用到本地
   const pulled = await applyNodes(merged, maps);
 
-  // 5. 计算并推送墓碑 + 合并结果（title/url 加密后上传，服务端看不到内容）
+  // 5. 计算并推送墓碑 + 合并结果（e2ee 时 title/url 加密上传，明文模式原样上传）
   const tombstones = await computeLocalTombstones(baselineNodes, remoteNodes, remoteTombstones);
-  const encryptedMerged = await encryptNodes(merged, keyBytes);
+  const pushPayload = e2ee ? await encryptNodes(merged, keyBytes) : merged;
   const { data: pushResult, error: pushError } = await supabase.rpc("bsync_snapshot_push", {
-    p_data: encryptedMerged,
+    p_data: pushPayload,
     p_tombstones: tombstones,
     p_device: await getDeviceId(),
   });
@@ -453,14 +470,16 @@ export async function runSync() {
   //    （服务端会过滤墓碑，merged ≠ 服务端实际存储；用实际快照才能正确区分下次的"删除"与"未推送"）
   const { data: afterPull } = await supabase.rpc("bsync_snapshot_pull");
   await saveLocalTombstones([]);
-  const afterNodes = await decryptNodes(afterPull?.bookmarks ?? [], keyBytes);
-  await saveBaseline(afterNodes ?? []); // baseline 存明文，供下次明文域可比
+  const afterRaw = afterPull?.bookmarks ?? [];
+  const afterNodes = e2ee ? await decryptNodes(afterRaw, keyBytes) : afterRaw;
+  await saveBaseline(afterNodes ?? []); // baseline 存明文域
 
   return {
     ok: true,
     pushed: merged.length,
     pulled,
     tombstones: tombstones.length,
+    encrypted: e2ee,
     size: pushResult?.size,
     quota: pushResult?.quota,
     plan: pushResult?.plan,
@@ -490,11 +509,19 @@ export async function restoreSnapshot(id) {
     return { ok: false, reason: "rpc_error", error: msg };
   }
 
-  // E2EE：历史快照改为解密后再应用，重新推送时再加密
-  const keyBytes = await ensureKey();
-  const restoredNodes = await decryptNodes(snapshotData ?? [], keyBytes);
-  if (restoredNodes == null) {
-    return { ok: false, reason: "decrypt_error", error: "历史快照无法解密，请检查是否已导入正确的同步密钥" };
+  // E2EE 可选项：跟随数据形态。历史快照若是密文则解密，明文则原样。
+  const restoredRaw = snapshotData ?? [];
+  const snapIsCipher = restoredRaw.some((n) => isEncrypted(n?.title) || isEncrypted(n?.url));
+  let keyBytes = null;
+  let restoredNodes;
+  if (snapIsCipher) {
+    keyBytes = await ensureKey();
+    restoredNodes = await decryptNodes(restoredRaw, keyBytes);
+    if (restoredNodes == null) {
+      return { ok: false, reason: "decrypt_error", error: "历史快照无法解密，请检查是否已导入正确的同步密钥或口令" };
+    }
+  } else {
+    restoredNodes = restoredRaw;
   }
 
   const maps = await loadMaps();
@@ -502,15 +529,15 @@ export async function restoreSnapshot(id) {
 
   const localFlat = await readLocalTree();
   const baseline = await loadBaseline();
-  const baselineNodes = await decryptNodes(baseline.nodes, keyBytes);
+  const baselineNodes = snapIsCipher ? await decryptNodes(baseline.nodes, keyBytes) : baseline.nodes;
   const nodes = await toSyncNodes(localFlat, maps, restoredNodes ?? [], baselineNodes ?? []);
-  const encryptedNodes = await encryptNodes(nodes, keyBytes);
+  const pushPayload = snapIsCipher ? await encryptNodes(nodes, keyBytes) : nodes;
   const { error: pushError } = await supabase.rpc("bsync_snapshot_push", {
-    p_data: encryptedNodes,
+    p_data: pushPayload,
     p_tombstones: [],
     p_device: await getDeviceId(),
   });
-  if (!pushError) await saveBaseline(nodes); // baseline 存明文
+  if (!pushError) await saveBaseline(nodes); // baseline 存明文域
 
   const { data: meta } = await supabase
     .from("bsync_snapshots")

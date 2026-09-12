@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
 import { runSync, listSnapshots, restoreSnapshot, getProfile } from "./sync.js";
-import { exportKey, importKey, hasKey, setKeyFromPassphrase } from "./crypto.js";
+import { exportKey, importKey, hasKey, setKeyFromPassphrase, getEncryptMode, setEncryptMode } from "./crypto.js";
 
 const props = defineProps({ popup: { type: Boolean, default: false } });
 
@@ -22,8 +22,8 @@ const showKeyManage = ref(false);
 const keyValue = ref("");
 const keyImportInput = ref("");
 const keyMsg = ref("");
-// 口令派生（可选方式）
 const keyPhraseInput = ref("");
+const encryptMode = ref("e2ee");
 
 // 付费档案 + 升级 modal
 const profile = ref(null); // { plan, quota_bytes, used_bytes, purchased_at }
@@ -206,12 +206,24 @@ function openUpgrade() {
 async function toggleKeyManage() {
   showKeyManage.value = !showKeyManage.value;
   if (showKeyManage.value) {
-    keyMsg.value = (await hasKey()) ? "" : "本设备尚无密钥，首次同步时会自动生成。";
+    encryptMode.value = await getEncryptMode();
+    keyMsg.value = (await hasKey()) ? "" : "本设备尚无密钥，首次同步时会按下方设置自动生成。";
     try {
       keyValue.value = await exportKey();
     } catch {
       keyValue.value = "";
     }
+  }
+}
+
+async function changeEncryptMode(mode) {
+  encryptMode.value = mode;
+  await setEncryptMode(mode);
+  if (mode === "e2ee") {
+    keyValue.value = await exportKey();
+    keyMsg.value = "已启用端到端加密。新装设备需导入密钥或输入同一口令才能解密。";
+  } else {
+    keyMsg.value = "已切换为明文模式（服务器可读内容）。若该账号已有加密数据，请勿在此开启明文，否则会解密失败。";
   }
 }
 
@@ -298,7 +310,13 @@ async function doSetKeyByPhrase() {
     </div>
 
     <div v-if="showKeyManage" class="key-manage">
-      <p class="muted">书签内容已端到端加密，服务器看不到你的收藏。换设备时用同一把密钥才能解密。</p>
+      <div class="key-mode">
+        <span class="muted">同步方式：</span>
+        <span class="mode-pill" :class="{ on: encryptMode === 'e2ee' }" @click="changeEncryptMode('e2ee')">加密同步（推荐）</span>
+        <span class="mode-pill" :class="{ on: encryptMode === 'plain' }" @click="changeEncryptMode('plain')">明文同步</span>
+      </div>
+      <p class="muted">加密同步：书签内容端到端加密，服务器看不到你的收藏，换设备需同一把密钥或口令。明文同步：内容以明文存服务器，更省事但不保护内容隐私。</p>
+      <template v-if="encryptMode === 'e2ee'">
       <div v-if="keyValue" class="key-box">
         <span class="key-text">{{ keyValue }}</span>
         <button class="small" @click="copyKey">复制</button>
@@ -315,6 +333,7 @@ async function doSetKeyByPhrase() {
         </div>
       </div>
       <p class="muted hint">{{ keyMsg }}</p>
+      </template>
     </div>
 
     <div class="status">{{ status }}</div>
@@ -439,6 +458,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 /* 同步密钥（E2EE）管理 */
 .key-manage { margin-top: 12px; padding: 10px; background: #f7f7f7; border-radius: 8px; }
+.key-mode { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.mode-pill { cursor: pointer; padding: 3px 10px; border-radius: 999px; font-size: 12px; border: 1px solid #ccc; color: #666; user-select: none; }
+.mode-pill.on { background: #2f6feb; border-color: #2f6feb; color: #fff; }
 .key-box { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .key-text { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #333; word-break: break-all; background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 6px; }
 .key-import { display: flex; gap: 8px; }
