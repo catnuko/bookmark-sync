@@ -28,9 +28,58 @@ const encryptMode = ref("plain");
 // 付费档案 + 升级 modal
 const profile = ref(null); // { plan, quota_bytes, used_bytes, purchased_at }
 const showUpgradeModal = ref(false);
+const checkoutBusy = ref(false);
 
-// Creem 定价页（订阅制 Plus / Pro；接入 Creem webhook 后由其翻转 plan）
-const CREEM_CHECKOUT = "https://bookmarksync.app/pricing";
+// Creem 订阅：调边缘函数创建收银台会话，支付结果由 creem-webhook 翻转服务端 plan
+async function startCheckout(plan) {
+  if (checkoutBusy.value) return;
+  checkoutBusy.value = true;
+  status.value = "正在创建支付会话…";
+  try {
+    const { data, error } = await supabase.functions.invoke("creem-checkout", {
+      body: { plan },
+    });
+    const url = data?.checkout_url;
+    if (error || !url) {
+      status.value = `创建支付会话失败: ${data?.message ?? error?.message ?? "请稍后重试"}`;
+      return;
+    }
+    status.value = "已打开支付页面，完成后回到这里点「立即同步」即可生效";
+    if (api.tabs?.create) {
+      await api.tabs.create({ url });
+    } else {
+      window.open(url, "_blank");
+    }
+    showUpgradeModal.value = false;
+  } catch (e) {
+    status.value = `创建支付会话失败: ${e?.message ?? e}`;
+  } finally {
+    checkoutBusy.value = false;
+  }
+}
+
+// 管理/取消订阅：打开 Creem 客户门户（门户内点 Cancel Subscription，webhook 同步状态）
+async function manageSubscription() {
+  status.value = "正在打开订阅管理页…";
+  try {
+    const { data, error } = await supabase.functions.invoke("creem-portal", {
+      body: {},
+    });
+    const url = data?.portal_url;
+    if (error || !url) {
+      status.value = `打开订阅管理失败: ${data?.message ?? error?.message ?? "请稍后重试"}`;
+      return;
+    }
+    status.value = "";
+    if (api.tabs?.create) {
+      await api.tabs.create({ url });
+    } else {
+      window.open(url, "_blank");
+    }
+  } catch (e) {
+    status.value = `打开订阅管理失败: ${e?.message ?? e}`;
+  }
+}
 
 const userEmail = computed(() => session.value?.user?.email ?? "");
 
@@ -196,11 +245,7 @@ async function restore(id) {
 }
 
 function openUpgrade() {
-  if (api.tabs?.create) {
-    api.tabs.create({ url: CREEM_CHECKOUT });
-  } else {
-    window.open(CREEM_CHECKOUT, "_blank");
-  }
+  showUpgradeModal.value = true;
 }
 
 async function toggleKeyManage() {
@@ -283,6 +328,7 @@ async function doSetKeyByPhrase() {
         <button v-if="!profile || profile.plan === 'free'" class="small upgrade" @click="openUpgrade()">
           升级
         </button>
+        <button v-else class="small" @click="manageSubscription">管理订阅</button>
       </div>
       <div class="quota-bar">
         <div class="quota-fill" :class="{ urgent: quotaUrgent }" :style="{ width: usagePct + '%' }"></div>
@@ -362,7 +408,7 @@ async function doSetKeyByPhrase() {
     <div v-if="showUpgradeModal" class="modal-mask" @click.self="showUpgradeModal = false">
       <div class="modal">
         <h4>升级解锁更多书签</h4>
-        <div class="modal-option" @click="openUpgrade()">
+        <div class="modal-option" @click="startCheckout('plus')">
           <div class="modal-opt-head">
             <span class="plan-tag plus">Plus</span>
             <span class="modal-price">$20<span class="modal-unit">/年</span></span>
@@ -372,9 +418,9 @@ async function doSetKeyByPhrase() {
             <li>多设备同步</li>
             <li>与免费版功能完全一致</li>
           </ul>
-          <button class="primary small">订阅 Plus</button>
+          <button class="primary small" :disabled="checkoutBusy">{{ checkoutBusy ? "跳转中…" : "订阅 Plus" }}</button>
         </div>
-        <div class="modal-option" @click="openUpgrade()">
+        <div class="modal-option" @click="startCheckout('pro')">
           <div class="modal-opt-head">
             <span class="plan-tag pro">Pro</span>
             <span class="modal-price">$50<span class="modal-unit">/年</span></span>
@@ -384,7 +430,7 @@ async function doSetKeyByPhrase() {
             <li>多设备同步</li>
             <li>与免费版功能完全一致</li>
           </ul>
-          <button class="primary small">订阅 Pro</button>
+          <button class="primary small" :disabled="checkoutBusy">{{ checkoutBusy ? "跳转中…" : "订阅 Pro" }}</button>
         </div>
         <button class="ghost small" @click="showUpgradeModal = false">稍后再说</button>
       </div>
