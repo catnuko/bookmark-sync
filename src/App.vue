@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
 import { runSync, listSnapshots, restoreSnapshot, getProfile } from "./sync.js";
-import { exportKey, importKey, hasKey } from "./crypto.js";
+import { exportKey, importKey, hasKey, setKeyFromPassphrase } from "./crypto.js";
 
 const props = defineProps({ popup: { type: Boolean, default: false } });
 
@@ -22,6 +22,8 @@ const showKeyManage = ref(false);
 const keyValue = ref("");
 const keyImportInput = ref("");
 const keyMsg = ref("");
+// 口令派生（可选方式）
+const keyPhraseInput = ref("");
 
 // 付费档案 + 升级 modal
 const profile = ref(null); // { plan, quota_bytes, used_bytes, purchased_at }
@@ -231,6 +233,23 @@ async function doImportKey() {
     keyMsg.value = "密钥格式不正确，请确认粘贴的是完整的 44 字符密钥。";
   }
 }
+
+async function doSetKeyByPhrase() {
+  const phrase = keyPhraseInput.value;
+  if (!phrase || phrase.length < 8) {
+    keyMsg.value = "口令至少 8 位，且要够长/独特才安全。";
+    return;
+  }
+  const ok = await setKeyFromPassphrase(phrase);
+  if (ok) {
+    keyMsg.value = "已用口令设定密钥。新装一台设备时，输入同一口令即可解密同步数据。";
+    keyPhraseInput.value = "";
+    keyValue.value = "";
+    keyValue.value = await exportKey();
+  } else {
+    keyMsg.value = "口令长度不足，未设置。";
+  }
+}
 </script>
 
 <template>
@@ -287,6 +306,13 @@ async function doImportKey() {
       <div class="key-import">
         <input v-model="keyImportInput" placeholder="粘贴密钥（新设备导入）" autocomplete="off" spellcheck="false" />
         <button class="small primary" :disabled="!keyImportInput" @click="doImportKey">导入</button>
+      </div>
+      <div class="key-phrase">
+        <span class="muted phrase-hint">或用同一句口令（推荐，免记长串）：</span>
+        <div class="key-import">
+          <input v-model="keyPhraseInput" type="password" placeholder="设置/输入同步口令（至少 8 位）" autocomplete="new-password" />
+          <button class="small" :disabled="!keyPhraseInput" @click="doSetKeyByPhrase">用口令设定</button>
+        </div>
       </div>
       <p class="muted hint">{{ keyMsg }}</p>
     </div>
@@ -417,4 +443,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 .key-text { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #333; word-break: break-all; background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 6px; }
 .key-import { display: flex; gap: 8px; }
 .key-import input { flex: 1; padding: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.key-phrase { margin-top: 10px; }
+.phrase-hint { display: block; margin-bottom: 4px; }
 </style>

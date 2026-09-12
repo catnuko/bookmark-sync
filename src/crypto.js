@@ -20,6 +20,9 @@ import { api } from "./lib/ext.js";
 
 const KEY_STORAGE_KEY = "e2eeKey"; // base64url(32 字节)
 const E2EE_PREFIX = "v1.";
+// 口令派生（可选方式）：固定盐 + PBKDF2-SHA256，任一设备输入同一口令即得同一密钥。
+// 客户端已缓存口令时数据仍对称加密；口令误判由 decrypt_error 兜底提示。
+const PBKDF2_SALT = "bookmark-sync-e2ee-v1";
 
 // ---- base64url 编解码（WebCrypto 环境无 Buffer）----
 function bytesToB64url(bytes) {
@@ -87,6 +90,32 @@ export async function importKey(b64) {
 
 export async function hasKey() {
   return !!(await loadKeyBytes());
+}
+
+// 可选方式：用口令派生密钥并设为当前密钥。
+// 口令 → PBKDF2-SHA256（固定盐）→ 32 字节密钥。任一设备输入同一口令即得同一密钥，
+// 无需复制长密钥串。失败（口令过短）返回 false。
+export async function setKeyFromPassphrase(passphrase) {
+  const text = String(passphrase ?? "");
+  if (text.length < 8) return false;
+  const material = await globalThis.crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(text),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  const key = await globalThis.crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: new TextEncoder().encode(PBKDF2_SALT), iterations: 210000, hash: "SHA-256" },
+    material,
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  const raw = await globalThis.crypto.subtle.exportKey("raw", key);
+  keyCache.clear();
+  await saveKeyBytes(new Uint8Array(raw));
+  return true;
 }
 
 // ---- 加解密 ----
