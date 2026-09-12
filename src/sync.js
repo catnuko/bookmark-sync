@@ -21,6 +21,7 @@
 
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
+import { ensureKey, decryptNodes, encryptNodes } from "./crypto.js";
 
 // ============================================================
 // 根节点常量（跨浏览器根标识统一）
@@ -404,28 +405,41 @@ export async function runSync() {
   const { data: session } = await supabase.auth.getSession();
   if (!session) return { ok: false, reason: "unauthenticated" };
 
-  // 1. 拉取远端
+  // E2EE：确保本设备有密钥；后续所有字段处理都在"明文域"进行。
+  //       只在与服务端交换的边界（pull 解密 / push 加密）加解密。
+  const keyBytes = await ensureKey();
+
+  // 1. 拉取远端 → 解密成明文域
   const { data: pullData, error: pullError } = await supabase.rpc("bsync_snapshot_pull");
   if (pullError) return { ok: false, reason: "rpc_error", error: pullError.message };
-  const remoteNodes = pullData?.bookmarks ?? [];
+  const remoteNodes = await decryptNodes(pullData?.bookmarks ?? [], keyBytes);
+  if (remoteNodes == null) {
+    return { ok: false, reason: "decrypt_error", error: "服务端数据无法解密，请检查是否已导入正确的同步密钥" };
+  }
   const remoteTombstones = pullData?.tombstones ?? [];
 
   // 2. 本地 → sync 表示
   const localFlat = await readLocalTree();
   const maps = await loadMaps();
   const baseline = await loadBaseline();
-  const localNodes = await toSyncNodes(localFlat, maps, remoteNodes, baseline.nodes);
+  // baseline（本地图）始终存明文；但历史可能存了密文，需先解回明文域再参与合并
+  const baselineNodes = await decryptNodes(baseline.nodes, keyBytes);
+  if (baselineNodes == null) {
+    return { ok: false, reason: "decrypt_error", error: "本地基线数据无法解密，请检查同步密钥" };
+  }
+  const localNodes = await toSyncNodes(localFlat, maps, remoteNodes, baselineNodes);
 
-  // 3. 三态合并
-  const merged = mergeStates(baseline.nodes, localNodes, remoteNodes);
+  // 3. 三态合并（全部在明文域）
+  const merged = mergeStates(baselineNodes, localNodes, remoteNodes);
 
   // 4. 应用到本地
   const pulled = await applyNodes(merged, maps);
 
-  // 5. 计算并推送墓碑 + 合并结果
-  const tombstones = await computeLocalTombstones(baseline.nodes, remoteNodes, remoteTombstones);
+  // 5. 计算并推送墓碑 + 合并结果（title/url 加密后上传，服务端看不到内容）
+  const tombstones = await computeLocalTombstones(baselineNodes, remoteNodes, remoteTombstones);
+  const encryptedMerged = await encryptNodes(merged, keyBytes);
   const { data: pushResult, error: pushError } = await supabase.rpc("bsync_snapshot_push", {
-    p_data: merged,
+    p_data: encryptedMerged,
     p_tombstones: tombstones,
     p_device: await getDeviceId(),
   });
@@ -439,7 +453,8 @@ export async function runSync() {
   //    （服务端会过滤墓碑，merged ≠ 服务端实际存储；用实际快照才能正确区分下次的"删除"与"未推送"）
   const { data: afterPull } = await supabase.rpc("bsync_snapshot_pull");
   await saveLocalTombstones([]);
-  await saveBaseline(afterPull?.bookmarks ?? []);
+  const afterNodes = await decryptNodes(afterPull?.bookmarks ?? [], keyBytes);
+  await saveBaseline(afterNodes ?? []); // baseline 存明文，供下次明文域可比
 
   return {
     ok: true,
@@ -474,18 +489,28 @@ export async function restoreSnapshot(id) {
     if (msg.includes("not_found")) return { ok: false, reason: "not_found" };
     return { ok: false, reason: "rpc_error", error: msg };
   }
+
+  // E2EE：历史快照改为解密后再应用，重新推送时再加密
+  const keyBytes = await ensureKey();
+  const restoredNodes = await decryptNodes(snapshotData ?? [], keyBytes);
+  if (restoredNodes == null) {
+    return { ok: false, reason: "decrypt_error", error: "历史快照无法解密，请检查是否已导入正确的同步密钥" };
+  }
+
   const maps = await loadMaps();
-  const changes = await applyNodes(snapshotData ?? [], maps, { restore: true });
+  const changes = await applyNodes(restoredNodes, maps, { restore: true });
 
   const localFlat = await readLocalTree();
   const baseline = await loadBaseline();
-  const nodes = await toSyncNodes(localFlat, maps, snapshotData ?? [], baseline.nodes);
+  const baselineNodes = await decryptNodes(baseline.nodes, keyBytes);
+  const nodes = await toSyncNodes(localFlat, maps, restoredNodes ?? [], baselineNodes ?? []);
+  const encryptedNodes = await encryptNodes(nodes, keyBytes);
   const { error: pushError } = await supabase.rpc("bsync_snapshot_push", {
-    p_data: nodes,
+    p_data: encryptedNodes,
     p_tombstones: [],
     p_device: await getDeviceId(),
   });
-  if (!pushError) await saveBaseline(nodes);
+  if (!pushError) await saveBaseline(nodes); // baseline 存明文
 
   const { data: meta } = await supabase
     .from("bsync_snapshots")

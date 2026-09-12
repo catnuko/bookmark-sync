@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
 import { runSync, listSnapshots, restoreSnapshot, getProfile } from "./sync.js";
+import { exportKey, importKey, hasKey } from "./crypto.js";
 
 const props = defineProps({ popup: { type: Boolean, default: false } });
 
@@ -15,6 +16,12 @@ const syncBusy = ref(false);
 const status = ref("");
 const snapshots = ref([]);
 const showHistory = ref(false);
+
+// 同步密钥（E2EE）管理：换设备时导出并在新设备导入同一密钥
+const showKeyManage = ref(false);
+const keyValue = ref("");
+const keyImportInput = ref("");
+const keyMsg = ref("");
 
 // 付费档案 + 升级 modal
 const profile = ref(null); // { plan, quota_bytes, used_bytes, purchased_at }
@@ -128,6 +135,11 @@ async function syncNow() {
       refreshStatus("空间不足，请升级到 Plus 或 Pro");
       return;
     }
+    if (!r.ok && r.reason === "decrypt_error") {
+      // 端到端加密：密钥不匹配 / 数据损坏，引导用户导入密钥
+      refreshStatus(r.error ?? "数据无法解密，请检查同步密钥");
+      return;
+    }
     await api.storage.local.set({
       lastSyncAt: Date.now(),
       lastSyncStatus: r.ok ? `推送 ${r.pushed} · 拉取 ${r.pulled}` : r.reason,
@@ -188,6 +200,37 @@ function openUpgrade() {
     window.open(CREEM_CHECKOUT, "_blank");
   }
 }
+
+async function toggleKeyManage() {
+  showKeyManage.value = !showKeyManage.value;
+  if (showKeyManage.value) {
+    keyMsg.value = (await hasKey()) ? "" : "本设备尚无密钥，首次同步时会自动生成。";
+    try {
+      keyValue.value = await exportKey();
+    } catch {
+      keyValue.value = "";
+    }
+  }
+}
+
+async function copyKey() {
+  if (!keyValue.value) return;
+  try {
+    if (navigator.clipboard) await navigator.clipboard.writeText(keyValue.value);
+  } catch {}
+  keyMsg.value = "密钥已复制，请妥善保管（丢失后无法解密既有数据）。";
+}
+
+async function doImportKey() {
+  const ok = await importKey(keyImportInput.value);
+  if (ok) {
+    keyMsg.value = "密钥已导入。同步时即可解密换设备同步来的书签。";
+    keyImportInput.value = "";
+    keyValue.value = await exportKey();
+  } else {
+    keyMsg.value = "密钥格式不正确，请确认粘贴的是完整的 44 字符密钥。";
+  }
+}
 </script>
 
 <template>
@@ -221,6 +264,7 @@ function openUpgrade() {
     </div>
     <div class="btns">
       <button class="ghost" @click="loadHistory">{{ showHistory ? "收起历史" : "历史记录" }}</button>
+      <button class="ghost" @click="toggleKeyManage">同步密钥</button>
     </div>
 
     <div v-if="showHistory" class="history">
@@ -232,6 +276,19 @@ function openUpgrade() {
       <p v-if="profile?.plan === 'free'" class="muted hint">
         历史回滚是付费档位专属功能，点击恢复可查看升级选项
       </p>
+    </div>
+
+    <div v-if="showKeyManage" class="key-manage">
+      <p class="muted">书签内容已端到端加密，服务器看不到你的收藏。换设备时用同一把密钥才能解密。</p>
+      <div v-if="keyValue" class="key-box">
+        <span class="key-text">{{ keyValue }}</span>
+        <button class="small" @click="copyKey">复制</button>
+      </div>
+      <div class="key-import">
+        <input v-model="keyImportInput" placeholder="粘贴密钥（新设备导入）" autocomplete="off" spellcheck="false" />
+        <button class="small primary" :disabled="!keyImportInput" @click="doImportKey">导入</button>
+      </div>
+      <p class="muted hint">{{ keyMsg }}</p>
     </div>
 
     <div class="status">{{ status }}</div>
@@ -353,4 +410,11 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* Modal 过渡 */
 .modal-enter-active, .modal-leave-active { transition: opacity 0.2s; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
+
+/* 同步密钥（E2EE）管理 */
+.key-manage { margin-top: 12px; padding: 10px; background: #f7f7f7; border-radius: 8px; }
+.key-box { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.key-text { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #333; word-break: break-all; background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 6px; }
+.key-import { display: flex; gap: 8px; }
+.key-import input { flex: 1; padding: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 </style>
