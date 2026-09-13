@@ -1,5 +1,5 @@
 // ============================================================
-// creem-checkout — 登录用户发起 Creem 订阅支付
+// bsync-creem-checkout — 登录用户发起 Creem 订阅支付
 //
 // 鉴权：verify_jwt=true（Supabase 网关验签），函数内 getUser()
 //   再次确认真实用户身份（同 create-token 约定）。

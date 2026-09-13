@@ -1,5 +1,5 @@
 // ============================================================
-// creem-webhook — Creem 支付事件回调（订阅开通/续费/取消的唯一写路径）
+// bsync-creem-webhook — Creem 支付事件回调（订阅开通/续费/取消的唯一写路径）
 //
 // 鉴权：verify_jwt=false（部署时 --no-verify-jwt），靠验签：
 //   creem-signature = HMAC-SHA256(rawBody, CREEM_WEBHOOK_SECRET) 的 hex

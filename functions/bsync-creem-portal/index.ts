@@ -1,7 +1,7 @@
 // ============================================================
-// creem-portal — 登录用户打开 Creem 客户门户（取消/管理订阅）
+// bsync-creem-portal — 登录用户打开 Creem 客户门户（取消/管理订阅）
 //
-// 鉴权：verify_jwt=true + getUser()（同 creem-checkout 约定）。
+// 鉴权：verify_jwt=true + getUser()（同 bsync-creem-checkout 约定）。
 //
 // 流程：
 //   1. 取当前登录用户

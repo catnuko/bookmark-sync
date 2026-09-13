@@ -27,7 +27,8 @@
 - license 专属表（0011 迁移重命名）：`lic_licenses` / `lic_usage_logs` / `lic_user_tokens` / `lic_user_profiles`
 - license 专属函数（0011 迁移重命名）：`lic_consume_license` / `lic_extend_license` / `lic_consume_token`
 - 余额函数（共享，无前缀）：`add_balance` / `consume_balance` / `get_balance` / `is_project_member` / `ensure_membership`
-- 边缘函数（7 个）：`create-token` / `generate-license` / `grant-subscription` / `my-tokens` / `redeem-card` / `revoke-token` / `validate-license`
+- 订阅边缘函数（带 bsync- 前缀）：`bsync-creem-checkout` / `bsync-creem-portal` / `bsync-creem-webhook`
+- License 边缘函数（待改前缀，有外部调用方）：`create-token` / `generate-license` / `grant-subscription` / `my-tokens` / `redeem-card` / `revoke-token` / `validate-license`
 - 存储桶：无（若新增，桶名带前缀并在此登记）
 
 ## 接入规范（所有仓库必须遵守）
