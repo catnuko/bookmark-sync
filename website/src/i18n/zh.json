@@ -268,7 +268,8 @@
           "a": "书签同步会持续消耗服务器与带宽资源，订阅让收入与成本匹配，也保证我们能长期维护。Plus $20/年、Pro $50/年，随时可取消，取消后当前计费周期结束前仍可使用。"
         }
       }
-    }
+    },
+    "legalNote": "订阅按年计费，可随时在 Creem 客户门户取消。付款即表示同意"
   },
   "download": {
     "eyebrow": "下载",
@@ -392,5 +393,23 @@
   },
   "theme": {
     "switch": "切换深浅色模式"
+  },
+  "account": {
+    "loginTitle": "登录账户",
+    "registerTitle": "注册账户",
+    "loginSub": "订阅前请先登录（与扩展端同一账号）",
+    "email": "邮箱",
+    "password": "密码",
+    "login": "登录",
+    "register": "注册",
+    "toRegister": "还没有账号？注册一个",
+    "toLogin": "已有账号？去登录",
+    "emailConfirmSent": "确认邮件已发送，请先到邮箱完成验证后再登录。",
+    "processing": "处理中…",
+    "manageSub": "管理 / 取消订阅",
+    "renewsOn": "当前订阅有效期至 {date}，可在 Creem 门户中管理或取消。",
+    "checkoutFailed": "发起订阅失败，请稍后重试。",
+    "portalFailed": "打开订阅管理失败，请稍后重试。",
+    "close": "关闭"
   }
 }

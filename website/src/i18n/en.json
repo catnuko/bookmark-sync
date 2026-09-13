@@ -268,7 +268,8 @@
           "a": "Sync continuously consumes server and bandwidth resources. A subscription keeps revenue aligned with cost and lets us maintain the service long term. Plus is $20/yr and Pro is $50/yr, cancel anytime, and you keep access until the end of the current billing period."
         }
       }
-    }
+    },
+    "legalNote": "Subscriptions are billed yearly and can be canceled anytime in the Creem customer portal. By paying you agree to the "
   },
   "download": {
     "eyebrow": "Download",
@@ -392,5 +393,23 @@
   },
   "theme": {
     "switch": "Toggle dark mode"
+  },
+  "account": {
+    "loginTitle": "Sign in",
+    "registerTitle": "Create account",
+    "loginSub": "Sign in before subscribing (same account as the extension)",
+    "email": "Email",
+    "password": "Password",
+    "login": "Sign in",
+    "register": "Sign up",
+    "toRegister": "No account yet? Create one",
+    "toLogin": "Already have an account? Sign in",
+    "emailConfirmSent": "A confirmation email has been sent. Please verify before signing in.",
+    "processing": "Processing…",
+    "manageSub": "Manage / cancel subscription",
+    "renewsOn": "Active until {date}. Manage or cancel in the Creem portal.",
+    "checkoutFailed": "Failed to start checkout. Please try again later.",
+    "portalFailed": "Failed to open the subscription portal. Please try again later.",
+    "close": "Close"
   }
 }

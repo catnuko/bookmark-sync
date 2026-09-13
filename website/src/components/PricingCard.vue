@@ -1,6 +1,8 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { account, startCheckout, openPortal, hasActiveSubscription } from "../lib/account.js";
+import AccountDialog from "./AccountDialog.vue";
 
 const props = defineProps({
   plan: { type: String, required: true }, // free / plus / pro
@@ -14,6 +16,47 @@ const features = computed(() => {
   const arr = tm(`pricing.plans.${props.plan}.features`);
   return Array.isArray(arr) ? arr.map((f) => rt(f)) : [];
 });
+
+// 付费档 CTA：
+//   未登录 => 弹登录；当前档位订阅有效 => 打开 Creem 门户管理/取消；否则发起订阅。
+const busy = ref(false);
+const showLogin = ref(false);
+const error = ref("");
+
+const isPaid = computed(() => props.plan !== "free");
+const isCurrentPlan = computed(
+  () => hasActiveSubscription() && account.subscription?.plan === props.plan
+);
+
+async function onPaidCta() {
+  if (busy.value) return;
+  error.value = "";
+  if (!account.user) {
+    showLogin.value = true;
+    return;
+  }
+  if (isCurrentPlan.value) {
+    busy.value = true;
+    try {
+      const url = await openPortal();
+      window.open(url, "_blank", "noopener");
+    } catch (e) {
+      error.value = e?.message || t("account.portalFailed");
+    } finally {
+      busy.value = false;
+    }
+    return;
+  }
+  busy.value = true;
+  try {
+    const url = await startCheckout(props.plan);
+    window.open(url, "_blank", "noopener");
+  } catch (e) {
+    error.value = e?.message || t("account.checkoutFailed");
+  } finally {
+    busy.value = false;
+  }
+}
 </script>
 
 <template>
@@ -30,10 +73,28 @@ const features = computed(() => {
       <span class="plan-unit">{{ t(`pricing.plans.${props.plan}.unit`) }}</span>
     </div>
 
-    <!-- 付费档：订阅在扩展内完成（登录后创建 Creem 收银台会话），官网引导先装扩展 -->
-    <RouterLink to="/download" class="btn plan-cta" :class="props.highlighted ? 'btn-primary' : 'btn-outline'">
+    <!-- 免费档：引导装扩展；付费档：登录后直接在官网订阅 / 管理订阅 -->
+    <RouterLink v-if="!isPaid" to="/download" class="btn plan-cta btn-outline">
       {{ t(`pricing.plans.${props.plan}.cta`) }}
     </RouterLink>
+    <template v-else>
+      <button
+        class="btn plan-cta"
+        :class="props.highlighted ? 'btn-primary' : 'btn-outline'"
+        :disabled="busy"
+        @click="onPaidCta"
+      >
+        <template v-if="busy">{{ t("account.processing") }}</template>
+        <template v-else-if="isCurrentPlan">{{ t("account.manageSub") }}</template>
+        <template v-else>{{ t(`pricing.plans.${props.plan}.cta`) }}</template>
+      </button>
+      <p v-if="isCurrentPlan && account.subscription?.current_period_end" class="plan-sub-status">
+        {{ t("account.renewsOn", { date: new Date(account.subscription.current_period_end).toLocaleDateString() }) }}
+      </p>
+      <p v-if="error" class="plan-cta-error">{{ error }}</p>
+    </template>
+
+    <AccountDialog v-if="showLogin" @close="showLogin = false" />
 
     <ul class="plan-features">
       <li v-for="(feature, i) in features" :key="i" class="plan-feature">
@@ -119,6 +180,18 @@ const features = computed(() => {
   width: 100%;
   margin-bottom: var(--space-6);
   padding: 0.75rem 1.25rem;
+}
+
+.plan-sub-status {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin: calc(-1 * var(--space-4)) 0 var(--space-4);
+}
+
+.plan-cta-error {
+  font-size: var(--text-xs);
+  color: #dc2626;
+  margin: calc(-1 * var(--space-4)) 0 var(--space-4);
 }
 
 .plan-features {
