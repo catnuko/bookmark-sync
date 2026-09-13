@@ -10,6 +10,11 @@ async function sync() {
         lastSyncAt: Date.now(),
         lastSyncStatus: `推送 ${r.pushed} · 拉取 ${r.pulled}`,
       });
+    } else if (r.reason === "merge_confirm_needed") {
+      // 账号下已有其他活跃设备，需用户在扩展界面确认后才同步（避免书签树被静默合并）
+      await api.storage.local.set({
+        lastSyncStatus: "等待确认: 此账号已在其他设备同步，请在扩展中确认后同步",
+      });
     } else {
       await api.storage.local.set({
         lastSyncAt: Date.now(),

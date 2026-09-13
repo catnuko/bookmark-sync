@@ -2,7 +2,12 @@
 import { ref, computed, onMounted } from "vue";
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
-import { runSync, listSnapshots, restoreSnapshot, getProfile } from "./sync.js";
+import {
+  runSync, listSnapshots, restoreSnapshot, getProfile,
+  getActiveSpace, switchSpace, createSpace, deleteSpace, renameSpace,
+  listDevices, getDeviceName, setDeviceName, removeDevice,
+  getDeviceId, acknowledgeMerge,
+} from "./sync.js";
 import { exportKey, importKey, hasKey, setKeyFromPassphrase, getEncryptMode, setEncryptMode } from "./crypto.js";
 
 const props = defineProps({ popup: { type: Boolean, default: false } });
@@ -29,6 +34,121 @@ const encryptMode = ref("plain");
 const profile = ref(null); // { plan, quota_bytes, used_bytes, purchased_at }
 const showUpgradeModal = ref(false);
 const checkoutBusy = ref(false);
+
+// 同步空间 + 设备管理
+const showSpaceDevice = ref(false);
+const spaces = ref([]);
+const activeSpace = ref(null);
+const devices = ref([]);
+const myDeviceId = ref("");
+const deviceNameInput = ref("");
+const newSpaceName = ref("");
+const spaceBusy = ref(false);
+
+// 多设备合并确认 modal（账号下已有其他活跃设备时，首次同步前知情确认）
+const showMergeModal = ref(false);
+const mergeDevices = ref([]);
+
+async function refreshSpacesDevices() {
+  try {
+    const { spaces: sp, active } = await getActiveSpace();
+    spaces.value = sp;
+    activeSpace.value = active;
+    devices.value = await listDevices();
+    myDeviceId.value = await getDeviceId();
+    deviceNameInput.value = await getDeviceName();
+  } catch (e) {
+    console.warn("[app] refreshSpacesDevices failed:", e?.message ?? e);
+  }
+}
+
+function toggleSpaceDevice() {
+  showSpaceDevice.value = !showSpaceDevice.value;
+  if (showSpaceDevice.value && session.value) refreshSpacesDevices();
+}
+
+async function doSwitchSpace(sp) {
+  if (sp.id === activeSpace.value?.id) return;
+  await switchSpace(sp.id);
+  await refreshSpacesDevices();
+  refreshStatus(
+    `已切换到空间「${sp.name}」。下次同步将与该空间的数据按并集合并（本设备书签会并入该空间）。`
+  );
+}
+
+async function doCreateSpace() {
+  if (!newSpaceName.value.trim() || spaceBusy.value) return;
+  spaceBusy.value = true;
+  try {
+    const r = await createSpace(newSpaceName.value);
+    if (!r.ok && r.reason === "plan_locked") {
+      showUpgradeModal.value = true;
+      refreshStatus("空间数量已达当前档位上限，升级可获得更多空间");
+      return;
+    }
+    if (!r.ok && r.reason === "duplicate") {
+      refreshStatus("已存在同名空间");
+      return;
+    }
+    if (!r.ok) {
+      refreshStatus(`创建失败: ${r.error ?? r.reason}`);
+      return;
+    }
+    newSpaceName.value = "";
+    await refreshSpacesDevices();
+    refreshStatus("空间已创建，点击空间名即可切换");
+  } finally {
+    spaceBusy.value = false;
+  }
+}
+
+async function doRenameSpace(sp) {
+  const name = window.prompt?.(`重命名空间「${sp.name}」`, sp.name);
+  if (!name || !name.trim()) return;
+  const r = await renameSpace(sp.id, name);
+  if (!r.ok) {
+    refreshStatus(`重命名失败: ${r.error ?? r.reason}`);
+    return;
+  }
+  await refreshSpacesDevices();
+}
+
+async function doDeleteSpace(sp) {
+  if (!window.confirm?.(`删除空间「${sp.name}」？该空间的书签数据和删除记录将一并清空，本机书签不受影响。`)) return;
+  const r = await deleteSpace(sp.id);
+  if (!r.ok && r.reason === "cannot_delete_default") {
+    refreshStatus("默认空间不可删除");
+    return;
+  }
+  if (!r.ok) {
+    refreshStatus(`删除失败: ${r.error ?? r.reason}`);
+    return;
+  }
+  await refreshSpacesDevices();
+  refreshStatus(`空间「${sp.name}」已删除`);
+}
+
+async function doRenameDevice() {
+  await setDeviceName(deviceNameInput.value);
+  await refreshSpacesDevices();
+  refreshStatus("设备名称已保存");
+}
+
+async function doRemoveDevice(d) {
+  if (
+    !window.confirm?.(
+      `移除设备「${d.name || d.device_id.slice(0, 8)}」？将注销该设备并清除它制造的删除记录（此前它删除的书签不会再被强制同步删除）。`
+    )
+  )
+    return;
+  try {
+    await removeDevice(d.device_id);
+    await refreshSpacesDevices();
+    refreshStatus("设备已移除");
+  } catch (e) {
+    refreshStatus(`移除失败: ${e?.message ?? e}`);
+  }
+}
 
 // Creem 订阅：调边缘函数创建收银台会话，支付结果由 creem-webhook 翻转服务端 plan
 async function startCheckout(plan) {
@@ -120,14 +240,19 @@ onMounted(async () => {
   if (session.value) {
     await refreshStatus();
     await refreshProfile();
+    await refreshSpacesDevices();
   }
   supabase.auth.onAuthStateChange(async (_e, s) => {
     session.value = s;
     if (s) {
       await refreshStatus();
       await refreshProfile();
+      await refreshSpacesDevices();
     } else {
       profile.value = null;
+      spaces.value = [];
+      devices.value = [];
+      activeSpace.value = null;
     }
   });
 });
@@ -168,18 +293,37 @@ async function submit() {
   }
 }
 
+async function confirmMerge() {
+  showMergeModal.value = false;
+  await acknowledgeMerge();
+  await syncNow({ force: true });
+}
+
 async function logout() {
   await supabase.auth.signOut();
   session.value = null;
   profile.value = null;
+  spaces.value = [];
+  devices.value = [];
+  activeSpace.value = null;
+  showSpaceDevice.value = false;
   status.value = "已退出登录";
 }
 
-async function syncNow() {
+async function syncNow(opts = {}) {
+  // 注意：模板 @click 直传时 opts 可能是事件对象，统一归一化为 force 布尔
+  const force = opts === true || !!opts?.force;
   syncBusy.value = true;
   refreshStatus("同步中…");
   try {
-    const r = await runSync();
+    const r = await runSync({ force });
+    if (!r.ok && r.reason === "merge_confirm_needed") {
+      // 账号下已有其他活跃设备：先知情确认，再放行合并
+      mergeDevices.value = r.devices ?? [];
+      showMergeModal.value = true;
+      refreshStatus("检测到其他设备正在使用此账号，请确认是否合并书签");
+      return;
+    }
     if (!r.ok && r.reason === "quota_exceeded") {
       // 空间不足，弹升级 modal
       showUpgradeModal.value = true;
@@ -196,8 +340,11 @@ async function syncNow() {
       lastSyncStatus: r.ok ? `推送 ${r.pushed} · 拉取 ${r.pulled}` : r.reason,
     });
     refreshStatus(r.ok ? `完成: 推送 ${r.pushed} · 拉取 ${r.pulled}` : r.reason);
-    // 同步后刷新配额显示
-    if (r.ok) await refreshProfile();
+    // 同步后刷新配额与空间/设备状态（push 会登记本设备）
+    if (r.ok) {
+      await refreshProfile();
+      await refreshSpacesDevices();
+    }
   } catch (e) {
     refreshStatus(`失败: ${e?.message ?? e}`);
   } finally {
@@ -342,7 +489,11 @@ async function doSetKeyByPhrase() {
     <div class="btns">
       <button class="ghost" @click="loadHistory">{{ showHistory ? "收起历史" : "历史记录" }}</button>
       <button class="ghost" @click="toggleKeyManage">同步密钥</button>
+      <button class="ghost" @click="toggleSpaceDevice">空间 / 设备</button>
     </div>
+    <p v-if="activeSpace && spaces.length > 1" class="muted">
+      当前空间：{{ activeSpace.name }}
+    </p>
 
     <div v-if="showHistory" class="history">
       <div v-for="s in snapshots" :key="s.id" class="history-item">
@@ -382,7 +533,48 @@ async function doSetKeyByPhrase() {
       </template>
     </div>
 
-    <div class="status">{{ status }}</div>
+    <!-- 空间 / 设备管理 -->
+    <div v-if="showSpaceDevice" class="key-manage">
+      <div class="sd-title">同步空间</div>
+      <p class="muted">每个空间是一棵独立书签树。Chrome 多用户资料可分别绑定不同空间（如工作/个人），避免书签混在一起。</p>
+      <div v-for="s in spaces" :key="s.id" class="sd-row">
+        <span
+          class="sd-name"
+          :class="{ on: activeSpace?.id === s.id }"
+          title="点击切换到该空间"
+          @click="doSwitchSpace(s)"
+        >
+          {{ s.name }}<span v-if="s.is_default" class="muted">（默认）</span>
+        </span>
+        <button class="small" @click="doRenameSpace(s)">改名</button>
+        <button v-if="!s.is_default" class="small" @click="doDeleteSpace(s)">删除</button>
+      </div>
+      <div class="key-import">
+        <input v-model="newSpaceName" placeholder="新空间名称" maxlength="50" @keyup.enter="doCreateSpace" />
+        <button class="small primary" :disabled="!newSpaceName.trim() || spaceBusy" @click="doCreateSpace">创建</button>
+      </div>
+      <p class="muted hint">空间数量：Free 1 个 · Plus 3 个 · Pro/Lifetime 10 个</p>
+
+      <div class="sd-title">设备</div>
+      <div v-for="d in devices" :key="d.device_id" class="sd-row">
+        <span class="sd-name">
+          {{ d.name || d.device_id.slice(0, 8) }}
+          <span v-if="d.device_id === myDeviceId" class="this-tag">本设备</span>
+        </span>
+        <span class="muted sd-time">{{ fmt(d.last_sync_at) }}</span>
+        <button v-if="d.device_id !== myDeviceId" class="small" @click="doRemoveDevice(d)">移除</button>
+      </div>
+      <p v-if="!devices.length" class="muted">尚无设备记录，完成一次同步后自动登记。</p>
+      <div class="key-import">
+        <input v-model="deviceNameInput" placeholder="本设备显示名称" maxlength="50" @keyup.enter="doRenameDevice" />
+        <button class="small primary" @click="doRenameDevice">保存名称</button>
+      </div>
+    </div>
+
+    <div class="status">
+      {{ status }}
+      <span v-if="activeSpace && spaces.length > 1"> · 空间: {{ activeSpace.name }}</span>
+    </div>
   </div>
 
   <div v-else>
@@ -433,6 +625,28 @@ async function doSetKeyByPhrase() {
           <button class="primary small" :disabled="checkoutBusy">{{ checkoutBusy ? "跳转中…" : "订阅 Pro" }}</button>
         </div>
         <button class="ghost small" @click="showUpgradeModal = false">稍后再说</button>
+      </div>
+    </div>
+  </Transition>
+
+  <!-- 多设备合并确认 Modal -->
+  <Transition name="modal">
+    <div v-if="showMergeModal" class="modal-mask" @click.self="showMergeModal = false">
+      <div class="modal">
+        <h4>此账号已在其他设备上同步</h4>
+        <p class="muted">
+          同步会把以下设备的书签与本设备合并（新增双方保留，删除双向生效）。
+          如果两台设备本应是两套独立书签，建议先在「空间 / 设备」里为它们绑定不同空间。
+        </p>
+        <ul class="merge-list">
+          <li v-for="d in mergeDevices" :key="d.device_id ?? d.name">
+            {{ d.name }} · 上次同步 {{ fmt(d.last_sync_at) }}
+          </li>
+        </ul>
+        <div class="btns">
+          <button class="primary" @click="confirmMerge">我知道了，合并同步</button>
+          <button class="ghost" @click="showMergeModal = false">先不同步</button>
+        </div>
       </div>
     </div>
   </Transition>
@@ -513,4 +727,16 @@ button:disabled { opacity: 0.5; cursor: default; }
 .key-import input { flex: 1; padding: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .key-phrase { margin-top: 10px; }
 .phrase-hint { display: block; margin-bottom: 4px; }
+
+/* 空间 / 设备管理 */
+.sd-title { font-weight: 600; margin: 10px 0 4px; font-size: 14px; }
+.sd-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+.sd-name { flex: 1; font-size: 13px; cursor: pointer; word-break: break-all; }
+.sd-name.on { color: #4B3FE3; font-weight: 600; }
+.sd-time { font-size: 11px; white-space: nowrap; }
+.this-tag { font-size: 10px; background: #e6f4ea; color: #137333; border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
+.merge-list { margin: 8px 0 12px; padding-left: 18px; font-size: 13px; color: #444; text-align: left; }
+.merge-list li { margin: 2px 0; }
+.modal .btns button { flex: 1; }
+.modal .muted { text-align: left; }
 </style>

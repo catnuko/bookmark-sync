@@ -49,6 +49,166 @@ export async function getDeviceId() {
   return id;
 }
 
+// ============================================================
+// 同步空间：同一账号多棵独立书签树（工作/个人…）
+// - activeSpaceId 为空 → 服务端默认空间（老用户行为完全不变）
+// - maps / baseline / 本地墓碑按空间命名存储；默认空间回退读老键
+// ============================================================
+const SPACE_KEY = "activeSpaceId";
+
+// 本次同步操作生效的空间上下文（runSync / restoreSnapshot 内设置，
+// 供 maps/baseline/墓碑的命名空间读写使用）
+let spaceCtx = null; // { id, legacyFallback }
+
+function spaceScopedKey(base) {
+  return spaceCtx?.id ? `${base}:${spaceCtx.id}` : base;
+}
+
+export async function listSpaces() {
+  const { data, error } = await supabase
+    .from("bsync_spaces")
+    .select("id, name, is_default, created_at")
+    .order("is_default", { ascending: false })
+    .order("created_at");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+// UI 用：空间列表 + 当前生效空间（显式选择 > 默认空间 > 第一个）
+export async function getActiveSpace() {
+  const spaces = await listSpaces();
+  const { activeSpaceId } = await api.storage.local.get(SPACE_KEY);
+  const active =
+    spaces.find((s) => s.id === activeSpaceId) ??
+    spaces.find((s) => s.is_default) ??
+    spaces[0] ??
+    null;
+  return { spaces, active, explicitId: activeSpaceId ?? null };
+}
+
+export async function switchSpace(id) {
+  const spaces = await listSpaces();
+  if (!spaces.some((s) => s.id === id)) throw new Error("空间不存在");
+  await api.storage.local.set({ [SPACE_KEY]: id });
+  spaceCtx = null;
+}
+
+export async function createSpace(name) {
+  const { data, error } = await supabase.rpc("bsync_space_create", { p_name: name });
+  if (error) {
+    const msg = error.message || "";
+    if (msg.includes("plan_locked")) return { ok: false, reason: "plan_locked" };
+    if (msg.includes("invalid_name")) return { ok: false, reason: "invalid_name" };
+    if (msg.includes("duplicate key")) return { ok: false, reason: "duplicate" };
+    return { ok: false, reason: "rpc_error", error: msg };
+  }
+  return { ok: true, space: data };
+}
+
+export async function deleteSpace(id) {
+  const { error } = await supabase.rpc("bsync_space_delete", { p_space: id });
+  if (error) {
+    const msg = error.message || "";
+    if (msg.includes("cannot_delete_default")) return { ok: false, reason: "cannot_delete_default" };
+    return { ok: false, reason: "rpc_error", error: msg };
+  }
+  const { activeSpaceId } = await api.storage.local.get(SPACE_KEY);
+  if (activeSpaceId === id) await api.storage.local.remove(SPACE_KEY);
+  spaceCtx = null;
+  return { ok: true };
+}
+
+export async function renameSpace(id, name) {
+  const { error } = await supabase.rpc("bsync_space_rename", { p_space: id, p_name: name });
+  if (error) {
+    const msg = error.message || "";
+    if (msg.includes("invalid_name")) return { ok: false, reason: "invalid_name" };
+    return { ok: false, reason: "rpc_error", error: msg };
+  }
+  return { ok: true };
+}
+
+// 当前生效空间的服务端 id（列表过滤历史快照等只读查询用）
+export async function getActiveSpaceId() {
+  const { activeSpaceId } = await api.storage.local.get(SPACE_KEY);
+  if (activeSpaceId) return activeSpaceId;
+  const spaces = await listSpaces();
+  return spaces.find((s) => s.is_default)?.id ?? null;
+}
+
+// ============================================================
+// 设备注册表：设备管理 + 多设备合并前的知情确认
+// ============================================================
+const DEVICE_NAME_KEY = "deviceName";
+
+export async function listDevices() {
+  const { data, error } = await supabase
+    .from("bsync_devices")
+    .select("device_id, name, last_space_id, last_sync_at, created_at")
+    .order("last_sync_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function getDeviceName() {
+  const { deviceName } = await api.storage.local.get(DEVICE_NAME_KEY);
+  return deviceName ?? "";
+}
+
+// 改名：本地持久化 + 服务端注册表同步（未登录只存本地，登录后首次 push 会带上去）
+export async function setDeviceName(name) {
+  const trimmed = (name ?? "").trim().slice(0, 50);
+  await api.storage.local.set({ [DEVICE_NAME_KEY]: trimmed });
+  const { data: session } = await supabase.auth.getSession();
+  if (session?.user) {
+    await supabase.rpc("bsync_device_rename", {
+      p_device: await getDeviceId(),
+      p_name: trimmed,
+    });
+  }
+}
+
+export async function removeDevice(deviceId) {
+  const { error } = await supabase.rpc("bsync_device_remove", { p_device: deviceId });
+  if (error) throw new Error(error.message);
+}
+
+// 近 N 天内同步过的其他设备（合并确认弹窗的依据）
+async function otherActiveDevices(days = 30) {
+  const mine = await getDeviceId();
+  const since = new Date(Date.now() - days * 86400_000).toISOString();
+  const { data, error } = await supabase
+    .from("bsync_devices")
+    .select("device_id, name, last_sync_at")
+    .neq("device_id", mine)
+    .gte("last_sync_at", since)
+    .order("last_sync_at", { ascending: false });
+  if (error) return [];
+  return data ?? [];
+}
+
+// ============================================================
+// 多设备合并确认：账号下已有其他活跃设备且未确认过 → 阻断同步等待确认
+// 确认状态按账号记录（mergeAck:<userId>）
+// ============================================================
+async function mergeAckKey() {
+  const { data: session } = await supabase.auth.getSession();
+  const uid = session?.session?.user?.id;
+  return uid ? `mergeAck:${uid}` : null;
+}
+
+export async function isMergeAcknowledged() {
+  const key = await mergeAckKey();
+  if (!key) return true;
+  const res = await api.storage.local.get(key);
+  return !!res[key];
+}
+
+export async function acknowledgeMerge() {
+  const key = await mergeAckKey();
+  if (key) await api.storage.local.set({ [key]: true });
+}
+
 // 生成稳定 sync_id（section 前缀 + 时间基 + 随机后缀）
 function newSyncId() {
   const ts = Date.now().toString(36);
@@ -86,26 +246,39 @@ const MAPPING_KEY = "syncIdMaps";
 const BASELINE_KEY = "lastSyncBaseline";
 const LOCAL_TOMB_KEY = "localTombstones"; // [{sync_id, url}] 本设备删除过的节点
 
+// 键按空间命名（spaceCtx 生效时加 :spaceId 后缀）；默认空间且无空间键时回退老键，
+// 保证存量用户切换到「显式选择默认空间」后基线/映射不丢失
+async function scopedGet(base) {
+  const scoped = spaceScopedKey(base);
+  const res = await api.storage.local.get([scoped, base]);
+  if (res[scoped] !== undefined) return res[scoped];
+  if (spaceCtx?.legacyFallback && res[base] !== undefined) return res[base];
+  return undefined;
+}
+
+async function scopedSet(base, value) {
+  await api.storage.local.set({ [spaceScopedKey(base)]: value });
+}
+
 async function loadMaps() {
-  const res = await api.storage.local.get(MAPPING_KEY);
-  return res[MAPPING_KEY] ?? { byNative: {}, bySync: {}, byIdentity: {} };
+  const m = await scopedGet(MAPPING_KEY);
+  return m ?? { byNative: {}, bySync: {}, byIdentity: {} };
 }
 async function saveMaps(m) {
-  await api.storage.local.set({ [MAPPING_KEY]: m });
+  await scopedSet(MAPPING_KEY, m);
 }
 async function loadBaseline() {
-  const res = await api.storage.local.get(BASELINE_KEY);
-  return { nodes: res[BASELINE_KEY]?.nodes ?? [], at: res[BASELINE_KEY]?.at ?? 0 };
+  const b = await scopedGet(BASELINE_KEY);
+  return { nodes: b?.nodes ?? [], at: b?.at ?? 0 };
 }
 async function saveBaseline(nodes) {
-  await api.storage.local.set({ [BASELINE_KEY]: { nodes, at: Date.now() } });
+  await scopedSet(BASELINE_KEY, { nodes, at: Date.now() });
 }
 async function loadLocalTombstones() {
-  const res = await api.storage.local.get(LOCAL_TOMB_KEY);
-  return res[LOCAL_TOMB_KEY] ?? [];
+  return (await scopedGet(LOCAL_TOMB_KEY)) ?? [];
 }
 async function saveLocalTombstones(list) {
-  await api.storage.local.set({ [LOCAL_TOMB_KEY]: list });
+  await scopedSet(LOCAL_TOMB_KEY, list);
 }
 
 // ============================================================
@@ -399,99 +572,142 @@ export async function getProfile() {
 
 /**
  * 执行同步
- * @returns {Promise<{ok, pushed, pulled, reason?, size?, quota?, plan?, tombstones?}>}
+ * @param {{force?: boolean}} opts force=true 跳过多设备合并确认（UI 确认后重入）
+ * @returns {Promise<{ok, pushed, pulled, reason?, size?, quota?, plan?, tombstones?, spaceId?, devices?}>}
  */
-export async function runSync() {
+export async function runSync(opts = {}) {
   const { data: session } = await supabase.auth.getSession();
   if (!session) return { ok: false, reason: "unauthenticated" };
 
-  // 加密模式（可选项）：账号级，默认 E2EE。
-  // 形态自动跟随 —— 以服务端已有数据形态为准，仅当首推（无远端数据）时用本地开关决定，
-  // 保证同一账号多设备不会"一台加密一台明文"互相污染。
-  //   - 远端是密文 → 解密路径（需密钥，缺则提示 decrypt_error）
-  //   - 远端是明文 → 明文路径（不做加解密，等于关闭 E2EE）
-  //   - 远端为空   → 按本地开关初始化首份数据
-
-  // 1. 拉取远端
-  const { data: pullData, error: pullError } = await supabase.rpc("bsync_snapshot_pull");
-  if (pullError) return { ok: false, reason: "rpc_error", error: pullError.message };
-  const rawRemote = pullData?.bookmarks ?? [];
-  const remoteTombstones = pullData?.tombstones ?? [];
-
-  const remoteIsCipher = rawRemote.some((n) => isEncrypted(n?.title) || isEncrypted(n?.url));
-  const localMode = await getEncryptMode();
-  const e2ee = remoteIsCipher || (rawRemote.length === 0 && localMode === "e2ee");
-
-  // 2. 本地 → sync 表示
-  const localFlat = await readLocalTree();
-  const maps = await loadMaps();
-  const baseline = await loadBaseline();
-
-  let keyBytes = null;
-  let remoteNodes;
-  if (e2ee) {
-    keyBytes = await ensureKey();
-    remoteNodes = await decryptNodes(rawRemote, keyBytes);
-    if (remoteNodes == null) {
-      return { ok: false, reason: "decrypt_error", error: "服务端数据无法解密，请检查是否已导入正确的同步密钥或口令" };
-    }
-  } else {
-    remoteNodes = rawRemote;
-  }
-
-  // baseline（本地图）始终存明文域：解密失败仅发生在 e2ee 往返，明文域本身无需密钥
-  const baselineNodes = e2ee ? await decryptNodes(baseline.nodes, keyBytes) : baseline.nodes;
-  if (e2ee && baselineNodes == null) {
-    return { ok: false, reason: "decrypt_error", error: "本地基线数据无法解密，请检查同步密钥或口令" };
-  }
-  const localNodes = await toSyncNodes(localFlat, maps, remoteNodes, baselineNodes);
-
-  // 3. 三态合并（全部在明文域）
-  const merged = mergeStates(baselineNodes, localNodes, remoteNodes);
-
-  // 4. 应用到本地
-  const pulled = await applyNodes(merged, maps);
-
-  // 5. 计算并推送墓碑 + 合并结果（e2ee 时 title/url 加密上传，明文模式原样上传）
-  const tombstones = await computeLocalTombstones(baselineNodes, remoteNodes, remoteTombstones);
-  const pushPayload = e2ee ? await encryptNodes(merged, keyBytes) : merged;
-  const { data: pushResult, error: pushError } = await supabase.rpc("bsync_snapshot_push", {
-    p_data: pushPayload,
-    p_tombstones: tombstones,
-    p_device: await getDeviceId(),
+  // 解析同步空间：显式选择 > 服务端默认空间（pull 返回实际生效的 space_id）
+  const { activeSpaceId } = await api.storage.local.get(SPACE_KEY);
+  const { data: pullData, error: pullError } = await supabase.rpc("bsync_snapshot_pull", {
+    p_space: activeSpaceId ?? null,
   });
-  if (pushError) {
-    const msg = pushError.message || "";
-    if (msg.includes("quota_exceeded")) return { ok: false, reason: "quota_exceeded" };
-    return { ok: false, reason: "rpc_error", error: msg };
+  if (pullError) return { ok: false, reason: "rpc_error", error: pullError.message };
+  const spaceId = pullData?.space_id ?? null;
+
+  // 空间上下文决定 maps / baseline / 本地墓碑的存储命名空间；
+  // 生效空间是默认空间时允许回退读老键（存量用户无感升级）
+  let legacyFallback = true;
+  try {
+    const spaces = await listSpaces();
+    const sp = spaces.find((s) => s.id === spaceId);
+    legacyFallback = !sp || sp.is_default;
+  } catch {}
+  spaceCtx = { id: spaceId, legacyFallback };
+
+  try {
+    // 多设备合并确认：账号下近 30 天有其他活跃设备且本账号未确认过 →
+    // 阻断同步等待用户知情（避免 Chrome 多资料登同一账号时书签树被静默混合）
+    if (!opts.force) {
+      const others = await otherActiveDevices();
+      if (others.length && !(await isMergeAcknowledged())) {
+        return {
+          ok: false,
+          reason: "merge_confirm_needed",
+          devices: others.map((d) => ({
+            name: d.name || d.device_id.slice(0, 8),
+            last_sync_at: d.last_sync_at,
+          })),
+        };
+      }
+    }
+
+    // 加密模式（可选项）：账号级，默认 E2EE。
+    // 形态自动跟随 —— 以服务端已有数据形态为准，仅当首推（无远端数据）时用本地开关决定，
+    // 保证同一账号多设备不会"一台加密一台明文"互相污染。
+    //   - 远端是密文 → 解密路径（需密钥，缺则提示 decrypt_error）
+    //   - 远端是明文 → 明文路径（不做加解密，等于关闭 E2EE）
+    //   - 远端为空   → 按本地开关初始化首份数据
+
+    // 1. 拉取远端（已在上方完成）
+    const rawRemote = pullData?.bookmarks ?? [];
+    const remoteTombstones = pullData?.tombstones ?? [];
+
+    const remoteIsCipher = rawRemote.some((n) => isEncrypted(n?.title) || isEncrypted(n?.url));
+    const localMode = await getEncryptMode();
+    const e2ee = remoteIsCipher || (rawRemote.length === 0 && localMode === "e2ee");
+
+    // 2. 本地 → sync 表示
+    const localFlat = await readLocalTree();
+    const maps = await loadMaps();
+    const baseline = await loadBaseline();
+
+    let keyBytes = null;
+    let remoteNodes;
+    if (e2ee) {
+      keyBytes = await ensureKey();
+      remoteNodes = await decryptNodes(rawRemote, keyBytes);
+      if (remoteNodes == null) {
+        return { ok: false, reason: "decrypt_error", error: "服务端数据无法解密，请检查是否已导入正确的同步密钥或口令" };
+      }
+    } else {
+      remoteNodes = rawRemote;
+    }
+
+    // baseline（本地图）始终存明文域：解密失败仅发生在 e2ee 往返，明文域本身无需密钥
+    const baselineNodes = e2ee ? await decryptNodes(baseline.nodes, keyBytes) : baseline.nodes;
+    if (e2ee && baselineNodes == null) {
+      return { ok: false, reason: "decrypt_error", error: "本地基线数据无法解密，请检查同步密钥或口令" };
+    }
+    const localNodes = await toSyncNodes(localFlat, maps, remoteNodes, baselineNodes);
+
+    // 3. 三态合并（全部在明文域）
+    const merged = mergeStates(baselineNodes, localNodes, remoteNodes);
+
+    // 4. 应用到本地
+    const pulled = await applyNodes(merged, maps);
+
+    // 5. 计算并推送墓碑 + 合并结果（e2ee 时 title/url 加密上传，明文模式原样上传）
+    const tombstones = await computeLocalTombstones(baselineNodes, remoteNodes, remoteTombstones);
+    const pushPayload = e2ee ? await encryptNodes(merged, keyBytes) : merged;
+    const { data: pushResult, error: pushError } = await supabase.rpc("bsync_snapshot_push", {
+      p_data: pushPayload,
+      p_tombstones: tombstones,
+      p_device: await getDeviceId(),
+      p_space: spaceId,
+      p_device_name: (await getDeviceName()) || null,
+    });
+    if (pushError) {
+      const msg = pushError.message || "";
+      if (msg.includes("quota_exceeded")) return { ok: false, reason: "quota_exceeded" };
+      return { ok: false, reason: "rpc_error", error: msg };
+    }
+
+    // 6. 成功后重新拉取服务端实际快照作为 baseline
+    //    （服务端会过滤墓碑，merged ≠ 服务端实际存储；用实际快照才能正确区分下次的"删除"与"未推送"）
+    const { data: afterPull } = await supabase.rpc("bsync_snapshot_pull", { p_space: spaceId });
+    await saveLocalTombstones([]);
+    const afterRaw = afterPull?.bookmarks ?? [];
+    const afterNodes = e2ee ? await decryptNodes(afterRaw, keyBytes) : afterRaw;
+    await saveBaseline(afterNodes ?? []); // baseline 存明文域
+
+    return {
+      ok: true,
+      pushed: merged.length,
+      pulled,
+      tombstones: tombstones.length,
+      encrypted: e2ee,
+      size: pushResult?.size,
+      quota: pushResult?.quota,
+      plan: pushResult?.plan,
+      spaceId,
+    };
+  } finally {
+    spaceCtx = null;
   }
-
-  // 6. 成功后重新拉取服务端实际快照作为 baseline
-  //    （服务端会过滤墓碑，merged ≠ 服务端实际存储；用实际快照才能正确区分下次的"删除"与"未推送"）
-  const { data: afterPull } = await supabase.rpc("bsync_snapshot_pull");
-  await saveLocalTombstones([]);
-  const afterRaw = afterPull?.bookmarks ?? [];
-  const afterNodes = e2ee ? await decryptNodes(afterRaw, keyBytes) : afterRaw;
-  await saveBaseline(afterNodes ?? []); // baseline 存明文域
-
-  return {
-    ok: true,
-    pushed: merged.length,
-    pulled,
-    tombstones: tombstones.length,
-    encrypted: e2ee,
-    size: pushResult?.size,
-    quota: pushResult?.quota,
-    plan: pushResult?.plan,
-  };
 }
 
 export async function listSnapshots(limit = 20) {
-  const { data, error } = await supabase
+  let query = supabase
     .from("bsync_snapshots")
     .select("id, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
+  const spaceId = await getActiveSpaceId();
+  if (spaceId) query = query.eq("space_id", spaceId);
+  const { data, error } = await query;
   if (error) throw new Error(`获取历史失败: ${error.message}`);
   return data ?? [];
 }
@@ -499,52 +715,69 @@ export async function listSnapshots(limit = 20) {
 export async function restoreSnapshot(id) {
   const { data: session } = await supabase.auth.getSession();
   if (!session) return { ok: false, reason: "unauthenticated" };
-  const { data: snapshotData, error } = await supabase.rpc("bsync_snapshot_restore", {
-    p_snapshot_id: id,
-  });
-  if (error) {
-    const msg = error.message || "";
-    if (msg.includes("plan_locked")) return { ok: false, reason: "plan_locked" };
-    if (msg.includes("not_found")) return { ok: false, reason: "not_found" };
-    return { ok: false, reason: "rpc_error", error: msg };
-  }
 
-  // E2EE 可选项：跟随数据形态。历史快照若是密文则解密，明文则原样。
-  const restoredRaw = snapshotData ?? [];
-  const snapIsCipher = restoredRaw.some((n) => isEncrypted(n?.title) || isEncrypted(n?.url));
-  let keyBytes = null;
-  let restoredNodes;
-  if (snapIsCipher) {
-    keyBytes = await ensureKey();
-    restoredNodes = await decryptNodes(restoredRaw, keyBytes);
-    if (restoredNodes == null) {
-      return { ok: false, reason: "decrypt_error", error: "历史快照无法解密，请检查是否已导入正确的同步密钥或口令" };
+  // 恢复同样按当前生效空间进行（历史列表已按空间过滤）
+  const spaceId = await getActiveSpaceId();
+  let legacyFallback = true;
+  try {
+    const spaces = await listSpaces();
+    const sp = spaces.find((s) => s.id === spaceId);
+    legacyFallback = !sp || sp.is_default;
+  } catch {}
+  spaceCtx = { id: spaceId, legacyFallback };
+
+  try {
+    const { data: snapshotData, error } = await supabase.rpc("bsync_snapshot_restore", {
+      p_snapshot_id: id,
+    });
+    if (error) {
+      const msg = error.message || "";
+      if (msg.includes("plan_locked")) return { ok: false, reason: "plan_locked" };
+      if (msg.includes("not_found")) return { ok: false, reason: "not_found" };
+      return { ok: false, reason: "rpc_error", error: msg };
     }
-  } else {
-    restoredNodes = restoredRaw;
+
+    // E2EE 可选项：跟随数据形态。历史快照若是密文则解密，明文则原样。
+    const restoredRaw = snapshotData ?? [];
+    const snapIsCipher = restoredRaw.some((n) => isEncrypted(n?.title) || isEncrypted(n?.url));
+    let keyBytes = null;
+    let restoredNodes;
+    if (snapIsCipher) {
+      keyBytes = await ensureKey();
+      restoredNodes = await decryptNodes(restoredRaw, keyBytes);
+      if (restoredNodes == null) {
+        return { ok: false, reason: "decrypt_error", error: "历史快照无法解密，请检查是否已导入正确的同步密钥或口令" };
+      }
+    } else {
+      restoredNodes = restoredRaw;
+    }
+
+    const maps = await loadMaps();
+    const changes = await applyNodes(restoredNodes, maps, { restore: true });
+
+    const localFlat = await readLocalTree();
+    const baseline = await loadBaseline();
+    const baselineNodes = snapIsCipher ? await decryptNodes(baseline.nodes, keyBytes) : baseline.nodes;
+    const nodes = await toSyncNodes(localFlat, maps, restoredNodes ?? [], baselineNodes ?? []);
+    const pushPayload = snapIsCipher ? await encryptNodes(nodes, keyBytes) : nodes;
+    const { error: pushError } = await supabase.rpc("bsync_snapshot_push", {
+      p_data: pushPayload,
+      p_tombstones: [],
+      p_device: await getDeviceId(),
+      p_space: spaceId,
+      p_device_name: (await getDeviceName()) || null,
+    });
+    if (!pushError) await saveBaseline(nodes); // baseline 存明文域
+
+    const { data: meta } = await supabase
+      .from("bsync_snapshots")
+      .select("created_at")
+      .eq("id", id)
+      .single();
+    return { ok: true, changes, createdAt: meta?.created_at };
+  } finally {
+    spaceCtx = null;
   }
-
-  const maps = await loadMaps();
-  const changes = await applyNodes(restoredNodes, maps, { restore: true });
-
-  const localFlat = await readLocalTree();
-  const baseline = await loadBaseline();
-  const baselineNodes = snapIsCipher ? await decryptNodes(baseline.nodes, keyBytes) : baseline.nodes;
-  const nodes = await toSyncNodes(localFlat, maps, restoredNodes ?? [], baselineNodes ?? []);
-  const pushPayload = snapIsCipher ? await encryptNodes(nodes, keyBytes) : nodes;
-  const { error: pushError } = await supabase.rpc("bsync_snapshot_push", {
-    p_data: pushPayload,
-    p_tombstones: [],
-    p_device: await getDeviceId(),
-  });
-  if (!pushError) await saveBaseline(nodes); // baseline 存明文域
-
-  const { data: meta } = await supabase
-    .from("bsync_snapshots")
-    .select("created_at")
-    .eq("id", id)
-    .single();
-  return { ok: true, changes, createdAt: meta?.created_at };
 }
 
 // 为兼容 background.js 的事件墓碑语义留存（新引擎不依赖其单独维护）
