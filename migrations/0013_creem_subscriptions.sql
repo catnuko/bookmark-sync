@@ -16,6 +16,8 @@
 -- ============================================================
 
 alter table public.bsync_profiles drop constraint if exists bsync_profiles_plan_check;
+-- 归一化遗留值（如手动标记用过的 premium）：加新 CHECK 前先收敛到合法枚举，否则约束创建失败
+update public.bsync_profiles set plan = 'free' where plan not in ('free', 'plus', 'pro', 'lifetime');
 alter table public.bsync_profiles
     add constraint bsync_profiles_plan_check
     check (plan in ('free', 'plus', 'pro', 'lifetime'));
