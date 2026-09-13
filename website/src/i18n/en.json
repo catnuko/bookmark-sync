@@ -13,7 +13,7 @@
     "terms": "Terms"
   },
   "contact": {
-    "supportEmail": "support{'@'}bookmarksync.app",
+    "supportEmail": "support{'@'}bookmark-sync.top",
     "supportLabel": "Support email"
   },
   "common": {
@@ -323,7 +323,7 @@
       },
       "contact": {
         "title": "Contact us",
-        "body": "For any questions about this policy, contact support{'@'}bookmarksync.app."
+        "body": "For any questions about this policy, contact support{'@'}bookmark-sync.top."
       }
     }
   },
@@ -346,7 +346,7 @@
       },
       "accounts": {
         "title": "2. Accounts",
-        "body": "Using the Service requires registering an account with a valid email address. You are responsible for your account password and all activity under your account. Notify us immediately at support{'@'}bookmarksync.app if you suspect unauthorized access. Transferring or selling accounts is prohibited."
+        "body": "Using the Service requires registering an account with a valid email address. You are responsible for your account password and all activity under your account. Notify us immediately at support{'@'}bookmark-sync.top if you suspect unauthorized access. Transferring or selling accounts is prohibited."
       },
       "plans": {
         "title": "3. Tiers and subscription",
@@ -354,7 +354,7 @@
       },
       "refund": {
         "title": "4. Refund policy",
-        "body": "Full unconditional refunds are available within 7 days of your first subscription. Beyond 7 days, partial or full refunds may be granted for severe technical failures that prevent core functionality. Refund requests must be sent to support{'@'}bookmarksync.app and will be answered within 3 business days. Refunds are returned to the original payment method. Abusive refund requests (e.g., requesting a refund immediately after subscribing while continuing to use paid features) will be declined."
+        "body": "Full unconditional refunds are available within 7 days of your first subscription. Beyond 7 days, partial or full refunds may be granted for severe technical failures that prevent core functionality. Refund requests must be sent to support{'@'}bookmark-sync.top and will be answered within 3 business days. Refunds are returned to the original payment method. Abusive refund requests (e.g., requesting a refund immediately after subscribing while continuing to use paid features) will be declined."
       },
       "acceptable": {
         "title": "5. Acceptable use",
@@ -382,7 +382,7 @@
       },
       "contact": {
         "title": "11. Contact us",
-        "body": "For any questions about these Terms, contact support{'@'}bookmarksync.app. We will respond within 3 business days."
+        "body": "For any questions about these Terms, contact support{'@'}bookmark-sync.top. We will respond within 3 business days."
       }
     }
   },
