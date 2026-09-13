@@ -76,13 +76,13 @@ async function invoke(name, body) {
 
 // 发起订阅：返回 Creem 收银台 URL（新窗口打开）
 export async function startCheckout(plan) {
-  const data = await invoke("creem-checkout", { plan });
+  const data = await invoke("bsync-creem-checkout", { plan });
   return data.checkout_url;
 }
 
 // 管理/取消订阅：返回 Creem 客户门户 URL（门户内可 Cancel Subscription）
 export async function openPortal() {
-  const data = await invoke("creem-portal", {});
+  const data = await invoke("bsync-creem-portal", {});
   return data.portal_url;
 }
 

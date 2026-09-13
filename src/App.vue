@@ -156,7 +156,7 @@ async function startCheckout(plan) {
   checkoutBusy.value = true;
   status.value = "正在创建支付会话…";
   try {
-    const { data, error } = await supabase.functions.invoke("creem-checkout", {
+    const { data, error } = await supabase.functions.invoke("bsync-creem-checkout", {
       body: { plan },
     });
     const url = data?.checkout_url;
@@ -182,7 +182,7 @@ async function startCheckout(plan) {
 async function manageSubscription() {
   status.value = "正在打开订阅管理页…";
   try {
-    const { data, error } = await supabase.functions.invoke("creem-portal", {
+    const { data, error } = await supabase.functions.invoke("bsync-creem-portal", {
       body: {},
     });
     const url = data?.portal_url;
