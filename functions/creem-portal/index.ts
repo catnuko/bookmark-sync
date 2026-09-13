@@ -22,7 +22,7 @@ const CREEM_API_BASE = Deno.env.get('CREEM_API_BASE') || 'https://api.creem.io';
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
 };
 
 function json(data: unknown, status = 200): Response {
