@@ -10,15 +10,17 @@ async function sync() {
         lastSyncAt: Date.now(),
         lastSyncStatus: `推送 ${r.pushed} · 拉取 ${r.pulled}`,
       });
-    } else if (r.reason === "merge_confirm_needed") {
-      // 账号下已有其他活跃设备，需用户在扩展界面确认后才同步（避免书签树被静默合并）
+    } else if (r.reason === "first_sync_confirm_needed") {
+      // 本设备第一次与该空间同步且需要决策（后台不代选，打开扩展时弹决策 UI）
       await api.storage.local.set({
-        lastSyncStatus: "等待确认: 此账号已在其他设备同步，请在扩展中确认后同步",
+        lastSyncStatus: r.remoteEncrypted
+          ? "等待同步密钥: 云端数据已加密，请在扩展中导入密钥后再同步"
+          : "等待确认(首同步): 本机与云端都有书签，请在扩展中确认如何同步",
       });
     } else {
       await api.storage.local.set({
         lastSyncAt: Date.now(),
-        lastSyncStatus: `未同步: ${r.reason ?? "未知"}`,
+        lastSyncStatus: `未同步: ${r.reason ?? "未知"}${r.error ? ` (${r.error})` : ""}`,
       });
     }
   } catch (e) {
