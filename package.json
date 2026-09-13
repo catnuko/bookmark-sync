@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build && node scripts/post-build-safari.mjs",
     "build:firefox": "vite build && node scripts/build-firefox.mjs",
+    "build:all": "node scripts/build-all.mjs",
+    "package": "vite build && node scripts/build-firefox.mjs && node scripts/package-zips.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

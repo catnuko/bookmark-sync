@@ -15,3 +15,9 @@ website/node_modules/
 bookmark-sync/build/
 xcuserdata/
 .DS_Store
+
+# 本地打包产物（pnpm package 输出）
+/dist/
+
+# workbuddy 本地工作记忆（不入库）
+/.workbuddy/
