@@ -26,7 +26,7 @@ const PRODUCT_BY_PLAN: Record<string, string> = {
   pro: Deno.env.get('CREEM_PRODUCT_PRO') || '',
 };
 const SUCCESS_URL =
-  Deno.env.get('CREEM_SUCCESS_URL') || 'https://bookmarksync.app/pricing?checkout=success';
+  Deno.env.get('CREEM_SUCCESS_URL') || 'https://www.bookmark-sync.top/pricing?checkout=success';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
