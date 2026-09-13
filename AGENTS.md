@@ -79,7 +79,7 @@
 
 ## 5. 商店发布注意
 
-- 三家商店都要求公开隐私政策 URL（`https://bookmarksync.app/privacy`）。
+- 三家商店都要求公开隐私政策 URL（`https://www.bookmark-sync.top/privacy`）。
 - AMO：`manifest.firefox.json` 已声明 `data_collection_permissions`（邮箱/书签/PII）；审核要交**源码包**（打包 `src/`+`package.json`），产物是压缩 bundle；`gecko.id` 一经提交不可改。
 - Chrome/Edge 提交 `extension/` 的 zip。
 

@@ -9,14 +9,14 @@
 
 export const SITE = {
   // 部署上线后改为你的真实域名
-  url: "https://bookmarksync.app",
+  url: "https://www.bookmark-sync.top",
   name: "BookmarkSync",
   defaultLocale: "zh",
   locales: ["zh", "en"],
   // 用于面包屑 / og:site_name
   shortName: "BookmarkSync",
   // 用于 og:image 和 twitter:image（1200×630 JPEG，已生成在 public/）
-  ogImage: "https://bookmarksync.app/og-image.jpg",
+  ogImage: "https://www.bookmark-sync.top/og-image.jpg",
   // 客服邮箱（与 i18n 的 contact.supportEmail 同步）
   email: "support@bookmark-sync.top",
   // 社交账号（可选，留空则不输出）

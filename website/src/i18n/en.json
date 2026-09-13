@@ -127,10 +127,11 @@
         "cta": "Get Started",
         "features": [
           "Up to 500 bookmarks",
-          "True-tree sync — rename/move folders, no lost children",
-          "Precise deletes, never reappear",
-          "Automatic merge, nothing overwritten",
-          "Same URL in multiple folders",
+          "1 sync space",
+          "Unlimited devices",
+          "True-tree sync — rename/move folders without losing items",
+          "Precise deletion, never resurrected",
+          "Multi-device auto-merge, never overwrite",
           "Cross-browser / multi-device sync",
           "Community support"
         ]
@@ -143,10 +144,11 @@
         "cta": "Subscribe to Plus",
         "features": [
           "Up to 10,000 bookmarks",
-          "True-tree sync — rename/move folders, no lost children",
-          "Precise deletes, never reappear",
-          "Automatic merge, nothing overwritten",
-          "Same URL in multiple folders",
+          "3 sync spaces",
+          "Unlimited devices",
+          "True-tree sync — rename/move folders without losing items",
+          "Precise deletion, never resurrected",
+          "Multi-device auto-merge, never overwrite",
           "Cross-browser / multi-device sync",
           "Email support"
         ]
@@ -159,10 +161,11 @@
         "cta": "Subscribe to Pro",
         "features": [
           "Unlimited bookmarks",
-          "True-tree sync — rename/move folders, no lost children",
-          "Precise deletes, never reappear",
-          "Automatic merge, nothing overwritten",
-          "Same URL in multiple folders",
+          "10 sync spaces",
+          "Unlimited devices",
+          "True-tree sync — rename/move folders without losing items",
+          "Precise deletion, never resurrected",
+          "Multi-device auto-merge, never overwrite",
           "Cross-browser / multi-device sync",
           "Priority support"
         ]
@@ -180,6 +183,18 @@
           "feature": "Bookmark limit",
           "free": "500",
           "plus": "10,000",
+          "pro": "Unlimited"
+        },
+        {
+          "feature": "Sync spaces",
+          "free": "1",
+          "plus": "3",
+          "pro": "10"
+        },
+        {
+          "feature": "Devices",
+          "free": "Unlimited",
+          "plus": "Unlimited",
           "pro": "Unlimited"
         },
         {
@@ -249,7 +264,7 @@
       "items": {
         "upgrade": {
           "q": "Do the tiers differ in features?",
-          "a": "No. All three tiers have identical sync capabilities — cross-browser sync, multi-device consistency, precise delete sync and more. The only difference is the bookmark limit. You upgrade purely for more headroom."
+          "a": "No. All three tiers share identical features — true-tree sync (renaming/moving folders never loses items), precise deletion, multi-device auto-merge, and optional end-to-end encryption. The only differences are capacity: bookmark count and sync spaces (Free 1 / Plus 3 / Pro 10). Device count is unlimited on every tier."
         },
         "refund": {
           "q": "Do you offer refunds?",
@@ -257,7 +272,7 @@
         },
         "freeLimit": {
           "q": "How many bookmarks does each tier hold?",
-          "a": "Free holds up to 500, Plus up to 10,000, and Pro is unlimited. We count bookmarks rather than storage because a single bookmark is only about 200 bytes — counting is far more intuitive."
+          "a": "Bookmarks: Free up to 500, Plus up to 10,000, Pro unlimited. Sync spaces: Free 1, Plus 3, Pro 10. Device count is unlimited on all tiers."
         },
         "payment": {
           "q": "What payment methods do you accept?",

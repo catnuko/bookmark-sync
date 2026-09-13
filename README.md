@@ -62,7 +62,7 @@ node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
 
 ## 许可与隐私
 
-本扩展会收集登录邮箱与书签数据，隐私政策：https://bookmarksync.app/privacy
+本扩展会收集登录邮箱与书签数据，隐私政策：https://www.bookmark-sync.top/privacy
 
 ## 更多
 

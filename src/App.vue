@@ -607,7 +607,8 @@ async function doSetKeyByPhrase() {
           </div>
           <ul>
             <li>最多 10,000 条书签</li>
-            <li>多设备同步</li>
+            <li>3 个同步空间</li>
+            <li>设备数量不限</li>
             <li>与免费版功能完全一致</li>
           </ul>
           <button class="primary small" :disabled="checkoutBusy">{{ checkoutBusy ? "跳转中…" : "订阅 Plus" }}</button>
@@ -619,7 +620,8 @@ async function doSetKeyByPhrase() {
           </div>
           <ul>
             <li>书签数量无限</li>
-            <li>多设备同步</li>
+            <li>10 个同步空间</li>
+            <li>设备数量不限</li>
             <li>与免费版功能完全一致</li>
           </ul>
           <button class="primary small" :disabled="checkoutBusy">{{ checkoutBusy ? "跳转中…" : "订阅 Pro" }}</button>

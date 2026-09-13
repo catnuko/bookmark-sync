@@ -9,7 +9,7 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 
-const SITE_URL = "https://bookmarksync.app";
+const SITE_URL = "https://www.bookmark-sync.top";
 const LOCALES = ["zh", "en"];
 
 const ROUTES = [
