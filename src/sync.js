@@ -232,11 +232,32 @@ async function hashText(s) {
     .join("");
 }
 
-// 节点内容身份：path + type + title + url 的哈希（结构化，跨浏览器稳定）
-async function nodeIdentity(node) {
-  const path = node.path ?? "";
+// 节点内容身份：根桶 + type + title + url 的哈希（结构化，跨浏览器稳定）
+// 桶标签由调用方显式传入（本地节点用 rootSync，sync 表示节点用 assignBuckets）。
+// 不能用本地 path 判桶：服务端节点没有 path、只有 parent_sync_id，
+// 文件夹子项两端会算出不同身份（BAR vs OTHER）导致永远对不齐、反复换 sync_id。
+// 兼容性：旧格式对文件夹子项本就对不上（本地 "BAR/文件夹|hash" vs 服务端 "OTHER|hash"），
+// 仅根级节点（path === "BAR"）的 identity 字符串在新格式下保持不变。
+async function nodeIdentity(node, bucket) {
+  const root = bucket ?? (node.rootSync === ROOT_OTHER ? "OTHER" : "BAR");
   const content = JSON.stringify([node.type ?? "bookmark", node.title ?? "", node.url ?? ""]);
-  return `${path}|${await hashText(content)}`;
+  return `${root}|${await hashText(content)}`;
+}
+
+// 为 sync 表示节点数组（远端快照 / 三态合并结果）计算每个节点的根桶。
+// 快照保持先序（父先于子），单趟递推：根级按 parent_sync_id，子级继承父桶。
+function assignBuckets(nodes) {
+  const bucketBySid = new Map();
+  const buckets = new Map();
+  for (const n of nodes) {
+    let bucket;
+    if (n.parent_sync_id === ROOT_BAR) bucket = "BAR";
+    else if (n.parent_sync_id === ROOT_OTHER) bucket = "OTHER";
+    else bucket = bucketBySid.get(n.parent_sync_id) ?? "OTHER";
+    buckets.set(n, bucket);
+    if (n.sync_id) bucketBySid.set(n.sync_id, bucket);
+  }
+  return buckets;
 }
 
 // ============================================================
@@ -325,13 +346,15 @@ async function readLocalTree() {
 async function toSyncNodes(localFlat, maps, remoteNodes, baselineNodes) {
   const identityToSync = new Map();
   // 先填充远端身份（远端是权威来源）
+  const remoteBuckets = assignBuckets(remoteNodes);
   for (const r of remoteNodes) {
-    const ident = await nodeIdentity({ type: r.type, title: r.title, url: r.url, path: rootLabel(r) });
+    const ident = await nodeIdentity(r, remoteBuckets.get(r));
     if (!identityToSync.has(ident)) identityToSync.set(ident, r.sync_id);
   }
   // 再填充 baseline 身份（兜底：离线删除后重建的相同内容能找回原 sync_id）
+  const baseBuckets = assignBuckets(baselineNodes ?? []);
   for (const b of baselineNodes ?? []) {
-    const ident = await nodeIdentity({ type: b.type, title: b.title, url: b.url, path: rootLabel(b) });
+    const ident = await nodeIdentity(b, baseBuckets.get(b));
     if (!identityToSync.has(ident)) identityToSync.set(ident, b.sync_id);
   }
 
@@ -340,7 +363,7 @@ async function toSyncNodes(localFlat, maps, remoteNodes, baselineNodes) {
   for (const ln of localFlat) {
     let sid = maps.byNative[ln.nativeId];
     if (!sid) {
-      const ident = await nodeIdentity(ln);
+      const ident = await nodeIdentity(ln, ln.rootSync === ROOT_OTHER ? "OTHER" : "BAR");
       sid = identityToSync.get(ident);
       if (sid) maps.byIdentity[ident] = sid;
       else {
@@ -349,6 +372,9 @@ async function toSyncNodes(localFlat, maps, remoteNodes, baselineNodes) {
       }
     }
     nativeToSync.set(ln.nativeId, sid);
+    // 映射必须当场落盘：此前只写 byIdentity，本地已有节点（identity 对齐来的）
+    // 永远进不了 byNative，下一轮同步全部变成「无映射节点」而被误删
+    maps.byNative[ln.nativeId] = sid;
   }
   await saveMaps(maps);
 
@@ -437,8 +463,14 @@ async function applyNodes(nodes, maps, { restore = false } = {}) {
   }
 
   const targetSyncIds = new Set(nodes.filter((n) => n.sync_id).map((n) => n.sync_id));
+  const mergedBuckets = assignBuckets(nodes);
   const locByIdentity = new Map();
-  for (const ln of localFlat) locByIdentity.set(await nodeIdentity(ln), ln.nativeId);
+  for (const ln of localFlat) {
+    locByIdentity.set(
+      await nodeIdentity(ln, ln.rootSync === ROOT_OTHER ? "OTHER" : "BAR"),
+      ln.nativeId
+    );
+  }
 
   let changes = 0;
 
@@ -458,9 +490,18 @@ async function applyNodes(nodes, maps, { restore = false } = {}) {
   // 1) 删除本地多余节点（目标里没有的）
   for (const ln of localFlat) {
     const sid = maps.byNative[ln.nativeId];
-    const keep = sid
-      ? targetSyncIds.has(sid)
-      : sortedNodes.some((n) => n.type === ln.type && n.url === ln.url && n.title === ln.title && (n.parent_sync_id ?? "") === rootOf(ln));
+    // 无映射节点按「同桶 + 同内容」匹配：文件夹内书签的父是文件夹而非根，
+    // 旧的 parent_sync_id === 根 判定会把它们全部误删
+    const keep =
+      sid === undefined
+        ? sortedNodes.some(
+            (n) =>
+              n.type === ln.type &&
+              n.url === ln.url &&
+              n.title === ln.title &&
+              mergedBuckets.get(n) === (ln.rootSync === ROOT_OTHER ? "OTHER" : "BAR")
+          )
+        : targetSyncIds.has(sid);
     if (!keep) {
       await api.bookmarks.remove(ln.nativeId).catch(() => {});
       changes++;
@@ -473,7 +514,7 @@ async function applyNodes(nodes, maps, { restore = false } = {}) {
 
     let nativeId = maps.byNative[n.sync_id];
     if (!nativeId) {
-      const ident = await nodeIdentity({ type: n.type, title: n.title, url: n.url, path: rootLabel(n) });
+      const ident = await nodeIdentity({ type: n.type, title: n.title, url: n.url }, mergedBuckets.get(n));
       nativeId = locByIdentity.get(ident);
     }
 
@@ -512,12 +553,6 @@ async function applyNodes(nodes, maps, { restore = false } = {}) {
   return changes;
 }
 
-function rootLabel(n) {
-  return (n.parent_sync_id === ROOT_BAR || n.path?.startsWith?.("BAR")) ? "BAR" : "OTHER";
-}
-function rootOf(ln) {
-  return ln.path?.startsWith?.("BAR") ? ROOT_BAR : ROOT_OTHER;
-}
 async function currentParentNative(nativeId) {
   const [row] = await api.bookmarks.get(nativeId).catch(() => []);
   return row?.parentId ?? null;
