@@ -41,9 +41,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: node
-          # ⚠ 临时锁定：本次固定发 1.1.0，与已上架 AMO 的 Firefox 扩展版本对齐。
-          #   v1.1.0 发布成功后删除此行，之后按约定式提交正常自动升级。
-          release-as: 1.1.0
 
   build:
     needs: release-please
