@@ -619,7 +619,8 @@ async function doSetKeyByPhrase() {
   }
   const ok = await setKeyFromPassphrase(phrase);
   if (ok) {
-    keyMsg.value = "已用口令设定密钥。新装一台设备时，输入同一口令即可解密同步数据。";
+    keyMsg.value =
+      "已用口令设定密钥。新装一台设备时，输入同一口令即可解密同步数据。⚠️ 请务必牢记口令：忘记口令将无法解密既有数据，且无法找回。";
     keyPhraseInput.value = "";
     keyValue.value = "";
     keyValue.value = await exportKey();
@@ -786,6 +787,9 @@ async function doSetKeyByPhrase() {
             />
             <button class="btn-sm" :disabled="!keyPhraseInput" @click="doSetKeyByPhrase">设定</button>
           </div>
+          <p class="panel-warn">
+            ⚠️ <b>重要：请牢记你设定的口令。</b>口令是解密云端数据的唯一钥匙，插件和服务器都无法找回——<b>忘记口令将无法解密既有数据，等同于数据丢失</b>。
+          </p>
         </template>
         <p v-if="keyMsg" class="panel-hint">{{ keyMsg }}</p>
       </div>
@@ -978,6 +982,9 @@ async function doSetKeyByPhrase() {
             />
             <button class="btn-sm" :disabled="!firstSyncPhraseInput" @click="phraseFirstSyncKey">设定</button>
           </div>
+          <p class="panel-warn">
+            ⚠️ <b>请牢记你输入的口令。</b>口令是解密云端数据的唯一钥匙，插件和服务器都无法找回——<b>忘记口令将无法解密既有数据，等同于数据丢失</b>。
+          </p>
           <p v-if="firstSyncKeyMsg" class="panel-hint">{{ firstSyncKeyMsg }}</p>
         </template>
         <template v-else>
@@ -1390,6 +1397,20 @@ button {
   color: var(--fg-3);
   line-height: 1.5;
   word-break: break-all;
+}
+.panel-warn {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #7a4d00;
+  background: #fff7e0;
+  border: 1px solid #f2cf7a;
+  border-radius: 8px;
+  word-break: break-all;
+}
+.panel-warn b {
+  color: #a35a00;
 }
 
 /* ---------- 行 ---------- */
