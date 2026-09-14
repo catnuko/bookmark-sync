@@ -1,0 +1,5 @@
+# website 是独立部署到 Vercel 的项目，拥有自己的 pnpm-lock.yaml。
+# 此文件让 pnpm 将 website 视为独立的 workspace 根，
+# 避免被上层 bookmark-sync workspace（../pnpm-workspace.yaml）接管而漏装依赖。
+packages:
+  - "."
