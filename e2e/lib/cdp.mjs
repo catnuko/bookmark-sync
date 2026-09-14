@@ -85,8 +85,13 @@ export async function waitForExtensionSw(port, timeoutMs = 45000) {
   while (Date.now() < deadline) {
     try {
       const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+      // 匹配本扩展的 SW：background.js。Edge 内置扩展用 background.rollup.js，
+      // 直接取第一个 service_worker 会抓错 id → popup.html ERR_FILE_NOT_FOUND。
       const sw = targets.find(
-        (t) => t.type === 'service_worker' && t.url.startsWith('chrome-extension://'),
+        (t) =>
+          t.type === 'service_worker' &&
+          t.url.startsWith('chrome-extension://') &&
+          t.url.includes('/background.js'),
       );
       if (sw) return { extId: new URL(sw.url).host, sw };
     } catch {}

@@ -96,6 +96,20 @@
 
 **设计要点**：Chromium 端 MENU_UUID 无固定 chromeId → 动态容器 + storage 持久化 id；删除自动重建（与 Chrome 固定根不可删语义一致）；事件层把容器当固定根（不产生 op）但容器内普通节点正常同步。
 
+### 2.8 Edge 三浏览器联合验证（本会话，完成）
+
+**验收**：`e2e/e2e-triple-sync.mjs` 一次全绿：Chromium × Firefox × Edge 三方收敛（A1/B1/C1 三端各恰 1）、菜单双向（Firefox `menu________` ↔ Chromium/Edge「书签菜单」文件夹，M1/M2 各恰 1）、Edge 场景3（SIGTERM 优雅重启同 profile → 书签保留）；回归 95/95 + two-device + ff-sync + gc 全绿。
+
+| 项 | 内容 |
+|---|---|
+| Edge 二进制 | 无 root（/opt 只读、sudo 被 no-new-privileges 拦）→ 微软仓库 `packages.microsoft.com/repos/edge`（代理 `http://127.0.0.1:8118`）下载 `microsoft-edge-stable_153.0.4234.32` deb（192MB），`dpkg-deb -x` 解包到 `/home/user/tools/msedge/opt/microsoft/msedge/msedge` |
+| 复用路径 | Edge 是 Chromium 系 → 复用 `launchChromium`（`CHROME_BIN` 指向 msedge）；根 id 仍是数字 `"0"/"1"/"2"/"3"`、UA `Edg/` → `IS_FIREFOX=false`；扩展 id 与 Chromium 相同（同路径 hash） |
+| **修复** | `cdp.mjs` `waitForExtensionSw` 原先取第一个 `service_worker` target——Edge 内置扩展（`background.rollup.js`）先出现会抓错 id → popup ERR_FILE_NOT_FOUND；改为匹配 `/background.js`（本扩展 SW） |
+| 端差异 | Edge 中文 UI 根标题是「收藏夹栏/其他收藏夹」（Chromium「书签栏/其他书签」），但根 id 不变 → backward 映射按 id 工作，同步不受影响 |
+| 全新 FF profile | 首次同步会把 Firefox 预置书签（Mozilla Firefox 等）播种同步到其他端（完整播种全部根子树，2.7 预期行为）；E2E 断言不受影响 |
+
+**命令**：`EMAIL=… PASSWORD=… E2E_RESET=1 node e2e/e2e-triple-sync.mjs`（`EDGE_BIN` 可覆盖默认 `/home/user/tools/msedge/opt/microsoft/msedge/msedge`）。
+
 ---
 
 ## 3. 当前状态（验证结果）
@@ -108,6 +122,7 @@
 - ✅ **P1 Firefox 跨浏览器同步 PASS**（见 2.5）：`e2e/e2e-ff-sync.mjs` 2 次连跑，Chromium↔Firefox 双向收敛 true、op_log 恰 2 条；`ff-smoke.mjs` 单端 PASS；Chromium 双端回归 PASS。核心修复：跨浏览器根 id 适配（backward 按环境）、Firefox 特殊根不播种、postMessage 测试桥
 - ✅ **P3 产品化缺口 PASS**（见 2.6）：快照+GC 全链路（单测 92/92 + `e2e/e2e-gc.mjs` 真实 Chromium×3 一次全绿：op_log 345 行→0、快照落库、第三端从快照重建收敛、GC 后增量仍通）；E2EE 密钥导入 UI 确认已有；共存策略 UI（"共存与存储"面板）完成；迁移 0018 已推送（supabase 子模块 `1179b5d`）
 - ✅ **Firefox 书签菜单参与同步 PASS**（见 2.7）：`e2e/e2e-ff-sync.mjs` 菜单场景双向收敛、单测 95/95、双端与 GC 回归全绿
+- ✅ **Edge 三浏览器联合验证 PASS**（见 2.8）：`e2e/e2e-triple-sync.mjs` 一次全绿——Chromium × Firefox × Edge 三方收敛 + 菜单双向 + Edge 冷重启保留；全套回归 95/95
 
 ---
 
@@ -133,7 +148,7 @@
 - ✅ `bsync_snapshots` 表启用（快照 + GC，防 op_log 无限增长）：0018 迁移（`bsync_snapshot_pull`/`bsync_op_maybe_gc`/`bsync_profile_set_used`）+ Replica 快照能力 + transport/syncEngine/sync.js 接线；单测 9 + E2E（e2e-gc.mjs 三端）全绿，见 2.6
 - ✅ 操作级 E2EE 的密钥导入 UI（新设备加入流程）：探查确认 App.vue 已有完整面板（导出/导入/口令），无需新做
 - ✅ 与原生 Chrome Sync 共存策略：App.vue"共存与存储"面板（二选一提示 + GC 阈值配置 + lastGcAt 展示）
-- 可选后续：更多浏览器矩阵（Safari/Edge 验证）；Safari 产物同步适配（build-all 已有骨架）
+- 可选后续：Safari 验证与产物同步适配（build-all 已有骨架）（build-all 已有骨架）
 
 ---
 
@@ -212,8 +227,8 @@ git push origin refactor/plan
 ## 7. 建议的新会话第一个动作
 
 1. 读本文件 → 跑 `npx vitest run` 确认基线（92/92）→ `git log --oneline -3` 确认最新提交
-2. **P0/P1/P2/P3 全部完成，Firefox 书签菜单已参与同步**。剩余可选后续：
-   - 更多浏览器矩阵（Safari/Edge 验证）；Safari 产物同步适配
+2. **P0/P1/P2/P3 全部完成，Firefox 书签菜单已参与同步，Edge 三端联合验证通过**。剩余可选后续：
+   - Safari 验证与产物同步适配
    - GC 阈值默认值（当前 2000）按真实使用量调优；快照版本化（schema 演进）
    - used_count 上报时机（当前每次 runSync 后）
 3. 每完成一个任务提交一次（分支 refactor/plan），验收标准见各任务

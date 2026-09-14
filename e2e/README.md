@@ -24,6 +24,7 @@ Xvfb :99 -screen 0 1440x900x24 &
 | `e2e-two-device.mjs` | **双 Chromium 双向同步**：A 建书签 → B 拉到并 reverseApply 写回本机 chrome → B 建书签 → A 拉到 → 双端收敛 + **场景 3（SW 冷重启保留）** |
 | `ff-smoke.mjs` | **Firefox 单端**：桥通道 login → sync → create → getTree（根 guid 适配验证） |
 | `e2e-ff-sync.mjs` | **Chromium × Firefox 跨浏览器双向同步（P1+P3 验收）**：A1/B1 各恰 1 个、op_log 恰 2 条；**书签菜单同步**（Firefox `menu________` ↔ Chromium「书签菜单」文件夹，M1/M2 各恰 1） |
+| `e2e-triple-sync.mjs` | **三浏览器联合验证（P3 验收）**：Chromium × Firefox × Edge 三方收敛（A1/B1/C1 各端各恰 1）+ 菜单双向（Firefox menu ↔ Chromium/Edge 菜单文件夹）+ Edge 场景3 冷重启保留。Edge 二进制 `EDGE_BIN`（默认 `/home/user/tools/msedge/opt/microsoft/msedge/msedge`，Chromium 系复用 launchChromium） |
 | `e2e-gc.mjs` | **快照 + op-log GC（P3 验收，Chromium×3）**：A 建书签同步触发 GC（注入 `crdt.gcThreshold=1`）→ op_log 截断 + 快照落库 → C 新设备从快照重建收敛 → GC 后增量仍通 → 终态计数===1 |
 | `supabase-check.mjs [--detail]` | 只读：查空间/设备/op_log 数量与密文结构 |
 
