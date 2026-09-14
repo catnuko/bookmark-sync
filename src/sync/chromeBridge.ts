@@ -213,20 +213,32 @@ export function computePosition(
  * `coordinator` may be a lazy getter: in the MV3 service worker it is
  * registered at top level (before login/space selection), so handlers resolve
  * the coordinator lazily and no-op when it is not yet available.
+ *
+ * The getter may also return a Promise: sync.js uses this for "lazy boot" —
+ * when a local event (e.g. a deletion) arrives while the service worker is
+ * cold and the coordinator is not yet created, the getter asynchronously
+ * boots it (active space + device + key + restored cursor/counter) instead of
+ * silently dropping the event. Dropping a deletion there meant the tombstone
+ * never reached the server and the next full replay resurrected the node.
  */
 export function captureLocalEvents(
   chrome: ChromeBookmarksAPI,
-  coordinator: SyncCoordinator | (() => SyncCoordinator | null),
+  coordinator:
+    | SyncCoordinator
+    | (() => SyncCoordinator | null | Promise<SyncCoordinator | null>),
   bridge: IdBridge,
   onLocalOp?: () => void,
 ): { suppressed: { value: boolean } } {
   const suppressed = { value: false };
-  const getC = (): SyncCoordinator | null =>
-    typeof coordinator === 'function' ? coordinator() : coordinator;
+  const getC = async (): Promise<SyncCoordinator | null> => {
+    const c =
+      typeof coordinator === 'function' ? coordinator() : coordinator;
+    return c instanceof Promise ? await c : c;
+  };
 
   const onCreated = async (id: string, node: ChromeTreeNode) => {
     if (suppressed.value) return;
-    const c = getC();
+    const c = await getC();
     if (!c) return;
     if (fixedRootUuid(id)) return; // never track chrome's own roots
     const mapped = bridge.toUuid(id);
@@ -246,7 +258,7 @@ export function captureLocalEvents(
 
   const onChanged = async (id: string, change: { title: string; url?: string }) => {
     if (suppressed.value) return;
-    const c = getC();
+    const c = await getC();
     if (!c) return;
     const uuid = bridge.toUuid(id);
     if (!uuid || PROTECTED_UUIDS.has(uuid)) return;
@@ -262,7 +274,7 @@ export function captureLocalEvents(
     move: { parentId: string; oldParentId: string; index: number; oldIndex: number },
   ) => {
     if (suppressed.value) return;
-    const c = getC();
+    const c = await getC();
     if (!c) return;
     const uuid = bridge.toUuid(id);
     const newParent = move.parentId ? bridge.toUuid(move.parentId) : null;
@@ -277,7 +289,7 @@ export function captureLocalEvents(
 
   const onRemoved = async (id: string) => {
     if (suppressed.value) return;
-    const c = getC();
+    const c = await getC();
     if (!c) return;
     const uuid = bridge.toUuid(id);
     if (!uuid || PROTECTED_UUIDS.has(uuid)) return;

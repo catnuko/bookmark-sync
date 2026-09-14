@@ -31,6 +31,18 @@ export interface SyncCoordinatorOptions {
   key: CryptoKey;
   /** starting pull cursor (global op_log id already applied locally). */
   afterId?: number;
+  /**
+   * Restored per-device Lamport counter (persisted alongside afterId).
+   *
+   * MV3 service workers are terminated on idle; a fresh in-memory replica
+   * starts its counter at the fixed-root value (5). Without restoring the
+   * counter, the first local op after a cold start reuses a seq that the
+   * PREVIOUS SW instance already pushed for this device, and the server's
+   * ON CONFLICT (space_id, device_id, seq) DO NOTHING silently drops it —
+   * a deletion tombstone never reaches the server and the deleted node is
+   * resurrected by the next full replay.
+   */
+  initialCounter?: number;
 }
 
 export interface PullOutcome {
@@ -62,6 +74,13 @@ export class SyncCoordinator {
     // Fixed root structure must exist before any user node is attached
     // (getVisibleTree / reverseApply depend on it).
     this.replica.ensureRoots();
+    // Cold-start guard: never let a fresh replica reuse seqs this device
+    // already pushed (ON CONFLICT DO NOTHING would silently drop the op).
+    // This is deliberately applied AFTER ensureRoots() so the roots' fixed
+    // timestamps (1..5) stay untouched.
+    if (opts.initialCounter != null && opts.initialCounter > 0) {
+      this.replica.counter = Math.max(this.replica.counter, opts.initialCounter);
+    }
   }
 
   // ── Local mutations: apply to CRDT, enqueue for push ──────────────────────
@@ -106,10 +125,13 @@ export class SyncCoordinator {
       const envelope = await encryptMoveOp(op, this.key, this.spaceId);
       batch.push({ seq: op.t.counter, op: envelope, cid: null });
     }
-    const sent = this.pendingPush.length;
-    this.pendingPush = [];
+    // Only drop the queue AFTER a successful push. Clearing it first meant a
+    // transient transport failure (network blip, RLS hiccup) permanently lost
+    // the ops — including deletion tombstones — with no way to retry, and the
+    // next full replay would resurrect the "deleted" nodes.
     await this.transport.push(this.spaceId, this.deviceId, batch);
-    return sent;
+    this.pendingPush = [];
+    return batch.length;
   }
 
   // ── Pull ────────────────────────────────────────────────────────────────

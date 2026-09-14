@@ -27,6 +27,8 @@ import { IS_FIREFOX } from "./sync/index.js";
 
 const DEVICE_ID_KEY = "crdt.deviceId";
 const AFTER_ID_KEY = "crdt.afterId";
+/** 本设备 Lamport 计数器（与 afterId 一起持久化，冷启动恢复防 seq 冲突）。 */
+const COUNTER_KEY = "crdt.counter";
 const IDMAP_KEY = "crdt.idmap";
 const SEEDED_KEY = "crdt.seeded";
 /** op-log GC 阈值（storage 键可覆盖；E2E 注入小阈值验证 GC 链路）。 */
@@ -178,7 +180,9 @@ export async function runSync(_opts = {}) {
     await ensureBridgeReady(); // 冷启动：idMap 必须先恢复，否则 reverseApply 会重复建书签
     await reverseApplyIntoChrome(coordinator);
 
-    // 4) 推本地 → 远端
+    // 4) 推本地 → 远端（推送前先落盘计数器，防冷启动 seq 冲突；push 失败
+    //    时 op 留在 pendingPush，下轮同步重试，不会静默丢墓碑）
+    await api.storage.local.set({ [COUNTER_KEY]: coordinator.replica.counter });
     const pushed = await coordinator.flushPush();
 
     // 5) op-log GC：本机树完整后，若服务端行数超阈值 → 落快照 + 截断。
@@ -227,12 +231,37 @@ export function registerLocalEventBridge() {
   if (bridgeRegistered) return;
   bridgeRegistered = true;
   const bridge = getOrCreateBridge();
+  // 冷启动防丢事件：coordinator 未就绪（SW 刚被事件唤醒、runSync 尚未跑）时
+  // 懒启动一个 coordinator，而不是静默丢弃本地事件。否则 SW 冷窗口内的删除
+  // 不产生墓碑，「立即同步」的全量重放会把已删除节点拉回来。
   _eventGuard = captureLocalEvents(
     globalThis.chrome?.bookmarks,
-    () => getCoordinatorCached(),
+    () => getCoordinatorCached() ?? bootCoordinatorForEvent(),
     bridge,
     flushSoon,
   );
+}
+
+/** 惰性单例：事件到达时 coordinator 未创建 → 启动一个（登录态 + 空间 + 密钥）。 */
+let _bootPromise = null;
+function bootCoordinatorForEvent() {
+  if (_coordinator) return _coordinator;
+  if (!_bootPromise) {
+    _bootPromise = (async () => {
+      try {
+        const { active } = await getActiveSpace();
+        if (!active) return null; // 未登录/无空间：无可同步对象，事件跳过是正确行为
+        const deviceId = await getDeviceId();
+        const key = await keyManager.ensureKey();
+        return await getCoordinator(active.id, deviceId, key);
+      } catch {
+        return null; // 网络/权限失败：本事件放弃，下轮 runSync 兜底
+      } finally {
+        _bootPromise = null;
+      }
+    })();
+  }
+  return _bootPromise;
 }
 
 /** 反向应用：把合并后的 CRDT 可见树写回 chrome.bookmarks（远端→本机）。 */
@@ -285,10 +314,14 @@ function getCoordinatorCached() {
 /** 获取（必要时创建）跨事件/同步共用的 coordinator 单例。 */
 export async function getCoordinator(spaceId, deviceId, key) {
   if (_coordinator && _coordinator.spaceId === spaceId) return _coordinator;
-  const afterIdRes = await api.storage.local.get(AFTER_ID_KEY);
-  const afterId = Number(afterIdRes[AFTER_ID_KEY] ?? 0);
+  const stored = await api.storage.local.get([AFTER_ID_KEY, COUNTER_KEY]);
+  const afterId = Number(stored[AFTER_ID_KEY] ?? 0);
+  // 冷启动恢复本设备已推送过的最大 seq：新 replica 的计数器从固定根（5）
+  // 重新开始，若不恢复，首个本地 op（如删除墓碑）会与旧 SW 实例已推送的
+  // (device, seq) 冲突，服务端 ON CONFLICT DO NOTHING 静默丢弃 → 删除失效。
+  const initialCounter = Number(stored[COUNTER_KEY] ?? 0);
   const transport = new SupabaseOpLogTransport(supabase);
-  _coordinator = new SyncCoordinator({ spaceId, deviceId, transport, key, afterId });
+  _coordinator = new SyncCoordinator({ spaceId, deviceId, transport, key, afterId, initialCounter });
   return _coordinator;
 }
 
@@ -370,12 +403,15 @@ export function flushSoon() {
     try {
       const c = getCoordinatorCached();
       if (!c) return;
+      // 推送前先落盘计数器：即使推送后 SW 立刻被回收，下次冷启动恢复的
+      // 计数器也覆盖了这批 op 的 seq（防与历史 seq 冲突被服务端静默丢弃）。
+      await api.storage.local.set({ [COUNTER_KEY]: c.replica.counter });
       const pushed = await c.flushPush();
       await api.storage.local.set({ [AFTER_ID_KEY]: c.afterId });
       if (pushed > 0) {
         await api.storage.local.set({ lastSyncAt: Date.now(), lastSyncStatus: `推送 ${pushed} 条` });
       }
-    } catch { /* 下轮 runSync 兜底 */ }
+    } catch { /* 推送失败时 op 保留在 pendingPush，下轮 runSync / flushSoon 重试 */ }
   }, 2000);
 }
 
