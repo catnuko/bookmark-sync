@@ -38,7 +38,7 @@
     "subtitle": "Install the extension, sign in, and your Chrome, Edge, and Firefox bookmarks become one tree. Keep organizing the way you always have — the sync engine handles the rest.",
     "ctaPrimary": "Download Free",
     "ctaSecondary": "View Pricing",
-    "trustBadge": "No credit card · 500 bookmarks free · End-to-end encryption on by default · True-tree sync"
+    "trustBadge": "No credit card · 500 bookmarks free · End-to-end encryption on by default · Reorder once, synced everywhere"
   },
   "pain": {
     "eyebrow": "Why you need it",
@@ -95,6 +95,10 @@
       "migration": {
         "title": "Free cross-account migration",
         "desc": "Sign in to any account to pull the full bookmark tree. New devices and new accounts initialize in seconds — no HTML exports, no manual cleanup."
+      },
+      "order": {
+        "title": "Order follows you — reorder once, everywhere",
+        "desc": "Drag to reorder folders and bookmarks on one device, and every other device keeps the same order. The engine converges on fractional sort keys instead of scrambling your arrangement into an internal ID order — what you see is what stays."
       }
     }
   },
@@ -285,6 +289,10 @@
         "subOrOnetime": {
           "q": "Why a subscription instead of a one-time purchase?",
           "a": "Sync continuously consumes server and bandwidth resources. A subscription keeps revenue aligned with cost and lets us maintain the service long term. Plus is $20/yr and Pro is $50/yr, cancel anytime, and you keep access until the end of the current billing period."
+        },
+        "order": {
+          "q": "Will sync scramble my bookmark and folder order?",
+          "a": "No. Every bookmark carries a sort key and sync converges on it: reorder by dragging on one device, and the others follow. If two devices insert at the same spot concurrently, they still converge to one deterministic order (tie-broken by unique ID) — no overwrites, no random shuffling."
         }
       }
     },
