@@ -101,4 +101,4 @@
 - `purgeTombstones`（墓碑清理）未移植——暂不需要，海量删除场景再补。
 - 10k 节点基准（bench/）未带。
 - Safari 验证与产物同步适配（`build-all` 已有骨架，Xcode 工程在 `bookmark-sync/` 子目录，`sync-extension.sh` 幂等同步）。
-- 旧 .workbuddy 内容：`guideline.md`（Move Tree CRDT/HLC 理论方案）、`new-device-first-sync/`（首同步决策流）在 git 历史 `e1c892e` 可查；`memory/` 为运行时个人记忆，保持 gitignore 忽略。
+- 本目录（`memory/`）为项目**通用记忆库，所有 agent 可读**（原 `.workbuddy/`，2026-09-14 更名）。历史内容 `guideline.md`、`new-device-first-sync/` 在 git 历史 `e1c892e` 的 `.workbuddy/` 下可查；个人每日记忆放 `memory/memory/`，保持 gitignore 忽略。
