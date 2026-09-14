@@ -58,6 +58,9 @@ export class SyncCoordinator {
     this.afterId = opts.afterId ?? 0;
     // deviceId doubles as the CRDT replicaId.
     this.replica = new Replica(opts.deviceId);
+    // Fixed root structure must exist before any user node is attached
+    // (getVisibleTree / reverseApply depend on it).
+    this.replica.ensureRoots();
   }
 
   // ── Local mutations: apply to CRDT, enqueue for push ──────────────────────

@@ -538,10 +538,14 @@ async function syncNow(opts = {}) {
     refreshStatus(
       r.ok ? `完成: 推送 ${r.pushed} · 拉取 ${r.pulled}` : `${r.reason}${r.error ? ` (${r.error})` : ""}`
     );
-    // 同步后刷新配额与空间/设备状态（push 会登记本设备）
+    // 同步后刷新配额与空间/设备状态（push 会登记本设备）。
+    // 兜底超时：popup 的 supabase 查询偶尔挂起（网络/会话竞争），
+    // 不能让「同步中…」永久卡住——同步本身已完成（storage 已更新）。
     if (r.ok) {
-      await refreshProfile();
-      await refreshSpacesDevices();
+      await Promise.race([
+        Promise.all([refreshProfile(), refreshSpacesDevices()]),
+        new Promise((resolve) => setTimeout(resolve, 15000)),
+      ]);
     }
   } catch (e) {
     refreshStatus(`失败: ${e?.message ?? e}`);

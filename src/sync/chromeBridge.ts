@@ -31,7 +31,8 @@ import type { SyncCoordinator } from './syncEngine.js';
 /** Minimal chrome.bookmarks surface we depend on (ease of testing). */
 export interface ChromeBookmarksAPI {
   getTree(): Promise<ChromeTreeNode[]>;
-  create(parentId: string, createProps: { title?: string; url?: string }): Promise<ChromeTreeNode>;
+  /** NOTE: 真实 chrome.bookmarks.create 是单对象签名 create(details)。 */
+  create(props: { parentId: string; title?: string; url?: string; index?: number }): Promise<ChromeTreeNode>;
   move(id: string, moveProps: { parentId: string; index?: number }): Promise<ChromeTreeNode>;
   update(id: string, changes: { title?: string; url?: string }): Promise<ChromeTreeNode>;
   remove(id: string): Promise<void>;
@@ -196,19 +197,190 @@ export function captureLocalEvents(
 }
 
 /**
- * Best-effort reverse-apply: after a pull, reconcile the visible CRDT tree
- * onto chrome. This is a convergence helper, not a full diff engine.
+ * Reverse-apply CRDT state -> chrome.bookmarks (Phase C-2, wired in sync.js).
  *
- * TODO(real-chrome): implement a proper reachability-based diff (see reference
- * extension/reverseApply.ts). For the initial rollout we rely on per-op
- * reverse application inside pull; this function only refreshes roots.
+ * After pulling remote ops, the local browser tree must be brought in line
+ * with the merged CRDT tree. Algorithm (mirrors the reference implementation
+ * verified on real Chromium in bookmark-crdt-sync):
+ *
+ *   1. Reachability: BFS from ROOT_UUID over the visible CRDT tree. Nodes
+ *      under a trashed folder are unreachable and must disappear from Chrome.
+ *   2. For each reachable user node (BFS order, parents before children),
+ *      ensure it exists in Chrome under the right parent at the right index
+ *      with the right title/url. Fixed roots ("0"/"1"/"2"/"3") are skipped.
+ *   3. For Chrome nodes whose CRDT uuid is unreachable (and mapped), remove.
+ *
+ * The caller MUST set the event guard (`suppressed`) while this runs, because
+ * chrome.create/move/update fire events we do not want to re-ingest as local
+ * ops (the event-loop guard).
+ */
+
+/** chrome ids we must never create/delete/move/update. */
+const PROTECTED_CHROME_IDS = new Set([CHROME_ROOT_ID, '1', '2', '3']);
+/** CRDT uuids we never apply chrome mutations to. */
+const PROTECTED_UUIDS = new Set([ROOT_UUID, BOOKMARKS_BAR_UUID, OTHER_BOOKMARKS_UUID, MOBILE_UUID]);
+
+interface ChromeNodeInfo {
+  chromeId: string;
+  parentId: string | null;
+  title: string;
+  url?: string;
+  depth: number;
+}
+
+/**
+ * Best-effort reverse-apply: reconcile the visible CRDT tree onto chrome.
+ * Idempotent; safe to run after every pull.
  */
 export async function reverseApply(
-  _chrome: ChromeBookmarksAPI,
-  _coordinator: SyncCoordinator,
-  _bridge: IdBridge,
+  chrome: ChromeBookmarksAPI,
+  coordinator: SyncCoordinator,
+  bridge: IdBridge,
 ): Promise<void> {
-  // Placeholder: the per-op reverse application is intentionally minimal in
-  // this phase. Real-world reconciliation needs the reference's reachability
-  // BFS and is marked TODO pending on-device verification.
+  // 1. Reachability set + children map from the visible CRDT tree.
+  const { reachable, childrenByParent } = buildReachable(coordinator);
+
+  // 2. Flatten current Chrome tree for comparison.
+  const chromeNodes = await flattenChromeTree(chrome);
+
+  // 3. Ensure reachable nodes exist (BFS: parents before children).
+  await ensureReachableNodes(chrome, bridge, childrenByParent, reachable);
+
+  // 4. Remove Chrome nodes whose CRDT uuid is unreachable (and mapped).
+  await removeTrashedNodes(chrome, bridge, reachable, chromeNodes);
+}
+
+/** Build the reachable set and a parent -> children map from the CRDT. */
+function buildReachable(coordinator: SyncCoordinator): {
+  reachable: Set<string>;
+  childrenByParent: Map<string, Array<{ child: string; meta: Metadata }>>;
+} {
+  const childrenByParent = new Map<string, Array<{ child: string; meta: Metadata }>>();
+  for (const edge of coordinator.replica.getVisibleTree()) {
+    const arr = childrenByParent.get(edge.parent);
+    if (arr) arr.push({ child: edge.child, meta: edge.meta });
+    else childrenByParent.set(edge.parent, [{ child: edge.child, meta: edge.meta }]);
+  }
+  // BFS from ROOT_UUID; trashed subtrees are unreachable and dropped.
+  const reachable = new Set<string>();
+  const queue: string[] = [ROOT_UUID];
+  while (queue.length > 0) {
+    const u = queue.shift()!;
+    if (reachable.has(u)) continue;
+    reachable.add(u);
+    for (const c of childrenByParent.get(u) ?? []) queue.push(c.child);
+  }
+  return { reachable, childrenByParent };
+}
+
+/** Flatten chrome.getTree() into a chromeId -> info map (with depth). */
+async function flattenChromeTree(chrome: ChromeBookmarksAPI): Promise<Map<string, ChromeNodeInfo>> {
+  const roots = await chrome.getTree();
+  const out = new Map<string, ChromeNodeInfo>();
+  const walk = (node: ChromeTreeNode, parentId: string | null, depth: number) => {
+    out.set(node.id, {
+      chromeId: node.id,
+      parentId,
+      title: node.title,
+      url: node.url,
+      depth,
+    });
+    for (const c of node.children ?? []) walk(c, node.id, depth + 1);
+  };
+  for (const r of roots) walk(r, null, 0);
+  return out;
+}
+
+/**
+ * Walk reachable nodes in BFS order. For each user node (not a protected
+ * root), create it in Chrome if missing, otherwise align parent/index and
+ * title/url. Siblings are ordered by fractional position (lexicographic).
+ */
+async function ensureReachableNodes(
+  chrome: ChromeBookmarksAPI,
+  bridge: IdBridge,
+  childrenByParent: Map<string, Array<{ child: string; meta: Metadata }>>,
+  reachable: Set<string>,
+): Promise<void> {
+  const queue: string[] = [ROOT_UUID];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const parentUuid = queue.shift()!;
+    if (visited.has(parentUuid)) continue;
+    visited.add(parentUuid);
+
+    const kids = childrenByParent.get(parentUuid) ?? [];
+    kids.sort((a, b) => {
+      const pa = a.meta.position ?? '';
+      const pb = b.meta.position ?? '';
+      if (pa !== pb) return pa < pb ? -1 : 1;
+      return a.child < b.child ? -1 : 1;
+    });
+
+    for (let i = 0; i < kids.length; i++) {
+      const { child: childUuid, meta } = kids[i];
+      if (!reachable.has(childUuid)) continue;
+      queue.push(childUuid);
+      if (PROTECTED_UUIDS.has(childUuid)) continue;
+
+      const parentChromeId = bridge.toChromeId(parentUuid);
+      if (!parentChromeId) continue; // parent not yet mapped; skip
+
+      const existingChromeId = bridge.toChromeId(childUuid);
+      const title = (meta.title as string) ?? '';
+      const url = meta.url as string | undefined;
+
+      if (!existingChromeId) {
+        // Create in Chrome (real API takes a single details object).
+        const created = await chrome.create({
+          parentId: parentChromeId,
+          title,
+          ...(url !== undefined ? { url } : {}),
+          index: i,
+        });
+        bridge.map(created.id, childUuid);
+      } else {
+        // Align parent/index and metadata. The node may exist in Chrome but
+        // under a different parent (remote move) — move it to the target.
+        let current = (await chrome.getChildren(parentChromeId)).find((n) => n.id === existingChromeId);
+        if (!current || current.parentId !== parentChromeId || current.index !== i) {
+          await chrome.move(existingChromeId, { parentId: parentChromeId, index: i });
+          current = (await chrome.getChildren(parentChromeId)).find((n) => n.id === existingChromeId) ?? current;
+        }
+        if (current && (current.title !== title || current.url !== url)) {
+          await chrome.update(existingChromeId, {
+            title,
+            ...(url !== undefined ? { url } : {}),
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Remove Chrome nodes whose mapped CRDT uuid is unreachable (i.e. trashed).
+ * Only touches nodes that have a uuid mapping; unmapped Chrome nodes (e.g.
+ * bookmarks created outside this extension) are left alone to avoid data
+ * loss. Deletion is deepest-first so removeTree handles subtrees.
+ */
+async function removeTrashedNodes(
+  chrome: ChromeBookmarksAPI,
+  bridge: IdBridge,
+  reachable: Set<string>,
+  chromeNodes: Map<string, ChromeNodeInfo>,
+): Promise<void> {
+  const toDelete: ChromeNodeInfo[] = [];
+  for (const info of chromeNodes.values()) {
+    if (PROTECTED_CHROME_IDS.has(info.chromeId)) continue;
+    const uuid = bridge.toUuid(info.chromeId);
+    if (uuid === null) continue; // unmapped: leave alone
+    if (!reachable.has(uuid)) toDelete.push(info);
+  }
+  toDelete.sort((a, b) => b.depth - a.depth); // deepest first
+  for (const info of toDelete) {
+    if (!chromeNodes.has(info.chromeId)) continue; // already removed via ancestor
+    await chrome.removeTree(info.chromeId);
+    chromeNodes.delete(info.chromeId);
+  }
 }

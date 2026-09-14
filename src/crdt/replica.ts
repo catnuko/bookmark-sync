@@ -8,6 +8,19 @@ import { ROOT_NODE_ID, TRASH_NODE_ID } from './types.js';
 import { apply_op, emptyState, logMoveToOp } from './moveCrdt.js';
 import { ancestor } from './tree.js';
 import { cmpTimestamp } from './timestamp.js';
+import {
+  ROOT_UUID,
+  BOOKMARKS_BAR_UUID,
+  OTHER_BOOKMARKS_UUID,
+  MOBILE_UUID,
+} from './storage/index.js';
+
+/**
+ * Fixed replicaId used for the deterministic root-structure ops. Every device
+ * builds the same roots with the same timestamps, so the root prefix of the
+ * op log is identical across replicas and never needs to be synced.
+ */
+const ROOT_REPLICA_ID = '00000000-0000-4000-8000-00000000dead';
 
 /**
  * A single replica of the Move-CRDT (§5.1, p.9).
@@ -53,6 +66,33 @@ export class Replica {
     this.replicaId = replicaId;
     this.counter = 0;
     this.state = emptyState();
+  }
+
+  /**
+   * Build the fixed root structure (ROOT_NODE_ID → ROOT_UUID → bar/other/mobile)
+   * with deterministic timestamps. Idempotent; called once per replica.
+   *
+   * These ops are intentionally NOT pushed to the server: every device
+   * constructs the same roots locally (same ids, same timestamps), so they
+   * never need to be synced. User bookmarks hang off BOOKMARKS_BAR_UUID etc.,
+   * which makes getVisibleTree() (BFS from ROOT_NODE_ID) see the whole tree.
+   */
+  ensureRoots(): void {
+    if (this.state.tree.has(ROOT_UUID)) return;
+    const ts = (counter: number): Timestamp => ({ counter, replicaId: ROOT_REPLICA_ID });
+    const roots: Array<[string, string, Metadata]> = [
+      [ROOT_UUID, ROOT_NODE_ID, { title: '__root__' }],
+      [BOOKMARKS_BAR_UUID, ROOT_UUID, { title: '书签栏' }],
+      [OTHER_BOOKMARKS_UUID, ROOT_UUID, { title: '其他书签' }],
+      [MOBILE_UUID, ROOT_UUID, { title: '移动设备书签' }],
+    ];
+    roots.forEach(([id, parent, meta], i) => {
+      const op: MoveOp = { t: ts(i + 1), p: parent, m: meta, c: id };
+      this.state = apply_op(op, this.state);
+    });
+    // Roots occupy counters 1..4; keep local counters above them.
+    this.counter = Math.max(this.counter, roots.length);
+    this.bumpVersion();
   }
 
   /** Mark the tree dirty (call after any mutation that changes edges). */

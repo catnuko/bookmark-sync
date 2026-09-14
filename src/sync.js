@@ -18,6 +18,7 @@ import {
   MemoryOpLogTransport,
   captureLocalEvents,
   IdBridge,
+  reverseApply,
 } from "./sync/index.js";
 import { KeyManager } from "./sync/index.js";
 import { ROOT_UUID } from "./crdt/index.js";
@@ -153,7 +154,11 @@ export async function runSync(_opts = {}) {
       await seedExistingTree(coordinator);
     }
 
-    // 3) 推本地 → 远端
+    // 3) 反向应用：把合并后的 CRDT 可见树写回本机 chrome.bookmarks
+    //    （远端新书签/移动/删除在本机生效；事件守卫防回环）
+    await reverseApplyIntoChrome(coordinator);
+
+    // 4) 推本地 → 远端
     const pushed = await coordinator.flushPush();
 
     await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
@@ -169,18 +174,34 @@ export async function runSync(_opts = {}) {
 let bridgeRegistered = false;
 let _coordinator = null; // 惰性单例（按 spaceId 缓存）
 let _bridge = null;
+let _eventGuard = { value: false }; // captureLocalEvents 返回的 suppressed 标志
 const seededRef = { value: false };
 
 export function registerLocalEventBridge() {
   if (bridgeRegistered) return;
   bridgeRegistered = true;
   const bridge = getOrCreateBridge();
-  captureLocalEvents(
+  _eventGuard = captureLocalEvents(
     globalThis.chrome?.bookmarks,
     () => getCoordinatorCached(),
     bridge,
     flushSoon,
   );
+}
+
+/** 反向应用：把合并后的 CRDT 可见树写回 chrome.bookmarks（远端→本机）。 */
+async function reverseApplyIntoChrome(coordinator) {
+  const chrome = globalThis.chrome?.bookmarks;
+  if (!chrome) return;
+  const bridge = getOrCreateBridge();
+  const guard = _eventGuard ?? { value: false };
+  guard.value = true; // 抑制事件回环（create/move/update 会触发 onCreated 等）
+  try {
+    await reverseApply(chrome, coordinator, bridge);
+    await api.storage.local.set({ [IDMAP_KEY]: bridge.snapshot() });
+  } finally {
+    guard.value = false;
+  }
 }
 
 function getCoordinatorCached() {
