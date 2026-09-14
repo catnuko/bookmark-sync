@@ -76,7 +76,7 @@ export class IdBridge {
   private forward = new Map<string, string>(); // chromeId -> uuid
   private backward = new Map<string, string>(); // uuid -> chromeId
 
-  constructor() {
+  constructor(private readonly onChange?: () => void) {
     // Seed fixed roots.
     for (const [cid, uuid] of [
       [CHROME_ROOT_ID, ROOT_UUID],
@@ -100,6 +100,20 @@ export class IdBridge {
   map(chromeId: string, uuid: string): void {
     this.forward.set(chromeId, uuid);
     this.backward.set(uuid, chromeId);
+    this.onChange?.();
+  }
+
+  /** Durable snapshot: chromeId -> uuid (fixed roots included). */
+  snapshot(): Record<string, string> {
+    return Object.fromEntries(this.forward);
+  }
+
+  /** Rehydrate a previously persisted snapshot (fixed roots re-seeded anyway). */
+  load(map: Record<string, string>): void {
+    for (const [cid, uuid] of Object.entries(map)) {
+      this.forward.set(cid, uuid);
+      this.backward.set(uuid, cid);
+    }
   }
 }
 
@@ -107,32 +121,45 @@ export class IdBridge {
  * Wire chrome events into the coordinator. Returns a disposer that detaches
  * the listeners. A `suppressed` flag (toggled around reverse-apply) makes
  * handlers no-op so our own chrome API calls don't echo back as local ops.
+ *
+ * `coordinator` may be a lazy getter: in the MV3 service worker it is
+ * registered at top level (before login/space selection), so handlers resolve
+ * the coordinator lazily and no-op when it is not yet available.
  */
 export function captureLocalEvents(
   chrome: ChromeBookmarksAPI,
-  coordinator: SyncCoordinator,
+  coordinator: SyncCoordinator | (() => SyncCoordinator | null),
   bridge: IdBridge,
+  onLocalOp?: () => void,
 ): { suppressed: { value: boolean } } {
   const suppressed = { value: false };
+  const getC = (): SyncCoordinator | null =>
+    typeof coordinator === 'function' ? coordinator() : coordinator;
 
   const onCreated = async (id: string, node: ChromeTreeNode) => {
     if (suppressed.value) return;
+    const c = getC();
+    if (!c) return;
     if (fixedRootUuid(id)) return; // never track chrome's own roots
     const parentUuid = node.parentId ? bridge.toUuid(node.parentId) : null;
     if (!parentUuid) return; // parent not yet mapped; skip (will arrive later)
     const uuid = globalThis.crypto.randomUUID();
     bridge.map(id, uuid);
     const meta: Metadata = { title: node.title, ...(node.url ? { url: node.url } : {}) };
-    coordinator.createNode(parentUuid, meta);
+    c.createNodeWithId(uuid, parentUuid, meta);
+    onLocalOp?.();
   };
 
   const onChanged = async (id: string, change: { title: string; url?: string }) => {
     if (suppressed.value) return;
+    const c = getC();
+    if (!c) return;
     const uuid = bridge.toUuid(id);
-    const parent = uuid ? coordinator.replica.getParent(uuid) : null;
+    const parent = uuid ? c.replica.getParent(uuid) : null;
     if (!uuid || !parent) return;
-    const current = coordinator.replica.getNodeMeta(uuid) ?? {};
-    coordinator.moveNode(uuid, parent, { ...current, title: change.title, url: change.url });
+    const current = c.replica.getNodeMeta(uuid) ?? {};
+    c.moveNode(uuid, parent, { ...current, title: change.title, url: change.url });
+    onLocalOp?.();
   };
 
   const onMoved = async (
@@ -140,18 +167,24 @@ export function captureLocalEvents(
     move: { parentId: string; oldParentId: string; index: number; oldIndex: number },
   ) => {
     if (suppressed.value) return;
+    const c = getC();
+    if (!c) return;
     const uuid = bridge.toUuid(id);
     const newParent = move.parentId ? bridge.toUuid(move.parentId) : null;
     if (!uuid || !newParent) return;
-    const current = coordinator.replica.getNodeMeta(uuid) ?? {};
-    coordinator.moveNode(uuid, newParent, { ...current });
+    const current = c.replica.getNodeMeta(uuid) ?? {};
+    c.moveNode(uuid, newParent, { ...current });
+    onLocalOp?.();
   };
 
   const onRemoved = async (id: string) => {
     if (suppressed.value) return;
+    const c = getC();
+    if (!c) return;
     const uuid = bridge.toUuid(id);
     if (!uuid) return;
-    coordinator.deleteNode(uuid);
+    c.deleteNode(uuid);
+    onLocalOp?.();
   };
 
   chrome.onCreated.addListener(onCreated);

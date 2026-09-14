@@ -16,11 +16,16 @@ import {
   SupabaseOpLogTransport,
   SyncCoordinator,
   MemoryOpLogTransport,
+  captureLocalEvents,
+  IdBridge,
 } from "./sync/index.js";
 import { KeyManager } from "./sync/index.js";
+import { ROOT_UUID } from "./crdt/index.js";
 
 const DEVICE_ID_KEY = "crdt.deviceId";
 const AFTER_ID_KEY = "crdt.afterId";
+const IDMAP_KEY = "crdt.idmap";
+const SEEDED_KEY = "crdt.seeded";
 
 const keyManager = new KeyManager({
   async get(key) { return (await api.storage.local.get(key))[key]; },
@@ -120,9 +125,9 @@ export async function pullOverwriteLocal() { return { ok: true }; }
 // ---- 同步主入口 ----
 // 返回 { ok, pushed, pulled, reason?, error? }
 //
-// TODO(first-run-bootstrap): 首次在空本机跑起来时，需要把现有 chrome 书签树
-// 「播种」成一批本地 MoveOp（createNodeWithId）。当前版本假设本机尚无数据，
-// 真正的播种逻辑见 chromeBridge.ts，待真机验证后接入。
+// 事件桥（registerLocalEventBridge）在 SW 顶层注册 chrome.bookmarks 监听，
+// 本地变更 → coordinator 入队 → flushSoon 去抖推送；本函数负责周期/手动全量
+// 同步：拉远端 → 播种（仅云端为空且本机未播种时）→ 推本地。
 export async function runSync(_opts = {}) {
   try {
     const { active } = await getActiveSpace();
@@ -138,29 +143,125 @@ export async function runSync(_opts = {}) {
       p_name: await detectDeviceName(),
     });
 
-    const afterIdRes = await api.storage.local.get(AFTER_ID_KEY);
-    const afterId = Number(afterIdRes[AFTER_ID_KEY] ?? 0);
-
-    const transport = new SupabaseOpLogTransport(supabase);
-    const coordinator = new SyncCoordinator({
-      spaceId: active.id,
-      deviceId,
-      transport,
-      key,
-      afterId,
-    });
+    const coordinator = await getCoordinator(active.id, deviceId, key);
 
     // 1) 拉远端 → 本地 CRDT
     const pull = await coordinator.pull();
-    // 2) 推本地 → 远端
+
+    // 2) 播种：云端无历史 && 本机未播种过 → 把现有 chrome 书签树转成 MoveOp
+    if (pull.applied === 0 && coordinator.afterId === 0) {
+      await seedExistingTree(coordinator);
+    }
+
+    // 3) 推本地 → 远端
     const pushed = await coordinator.flushPush();
 
     await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
-
-    return { ok: true, pushed, pulled: pull.applied };
+    return { ok: true, pushed, pulled: pull.applied, seeded: seededRef.value };
   } catch (e) {
     return { ok: false, reason: "error", error: e?.message ?? String(e) };
   }
+}
+
+// ---- 事件桥接线（background.js 顶层调用）----
+// MV3 要求 chrome.* 事件监听在 SW 顶层注册；coordinator 未就绪（未登录/无空间）
+// 时事件安全跳过，下次 runSync 的播种兜底。
+let bridgeRegistered = false;
+let _coordinator = null; // 惰性单例（按 spaceId 缓存）
+let _bridge = null;
+const seededRef = { value: false };
+
+export function registerLocalEventBridge() {
+  if (bridgeRegistered) return;
+  bridgeRegistered = true;
+  const bridge = getOrCreateBridge();
+  captureLocalEvents(
+    globalThis.chrome?.bookmarks,
+    () => getCoordinatorCached(),
+    bridge,
+    flushSoon,
+  );
+}
+
+function getCoordinatorCached() {
+  return _coordinator;
+}
+
+/** 获取（必要时创建）跨事件/同步共用的 coordinator 单例。 */
+export async function getCoordinator(spaceId, deviceId, key) {
+  if (_coordinator && _coordinator.spaceId === spaceId) return _coordinator;
+  const afterIdRes = await api.storage.local.get(AFTER_ID_KEY);
+  const afterId = Number(afterIdRes[AFTER_ID_KEY] ?? 0);
+  const transport = new SupabaseOpLogTransport(supabase);
+  _coordinator = new SyncCoordinator({ spaceId, deviceId, transport, key, afterId });
+  return _coordinator;
+}
+
+/** chromeId↔uuid 映射桥：内存 + chrome.storage.local 持久化（重启不丢）。 */
+function getOrCreateBridge() {
+  if (_bridge) return _bridge;
+  _bridge = new IdBridge(() => {
+    // 持久化快照（防抖到微任务避免高频写）
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      api.storage.local.set({ [IDMAP_KEY]: _bridge.snapshot() }).catch(() => {});
+    }, 300);
+  });
+  api.storage.local.get(IDMAP_KEY).then((r) => {
+    if (r[IDMAP_KEY]) _bridge.load(r[IDMAP_KEY]);
+  }).catch(() => {});
+  api.storage.local.get(SEEDED_KEY).then((r) => { seededRef.value = !!r[SEEDED_KEY]; }).catch(() => {});
+  return _bridge;
+}
+let persistTimer = null;
+
+/**
+ * 播种：把现有 chrome 书签树转成一批 MoveOp（仅首设备/云端空时调用）。
+ * 幂等：已映射的 chromeId 跳过；未映射的生成 uuid 并 createNodeWithId。
+ */
+export async function seedExistingTree(coordinator) {
+  if (seededRef.value) return { seeded: false };
+  const bridge = getOrCreateBridge();
+  if (!globalThis.chrome?.bookmarks) return { seeded: false, reason: "no-chrome-bookmarks" };
+  const tree = await globalThis.chrome.bookmarks.getTree();
+  let seeded = 0;
+  const walk = async (node, parentUuid) => {
+    const existing = bridge.toUuid(node.id);
+    if (existing) {
+      // 根节点直接续走子树
+      for (const child of node.children ?? []) await walk(child, existing);
+      return;
+    }
+    const uuid = globalThis.crypto.randomUUID();
+    bridge.map(node.id, uuid);
+    const meta = { title: node.title, ...(node.url ? { url: node.url } : {}) };
+    coordinator.createNodeWithId(uuid, parentUuid, meta);
+    seeded++;
+    for (const child of node.children ?? []) await walk(child, uuid);
+  };
+  for (const root of tree ?? []) await walk(root, ROOT_UUID);
+  await api.storage.local.set({ [SEEDED_KEY]: true });
+  seededRef.value = true;
+  await api.storage.local.set({ [IDMAP_KEY]: bridge.snapshot() });
+  return { seeded };
+}
+
+/** 事件入队后去抖 flush（2s），实现「自动无感同步」。 */
+let flushTimer = null;
+export function flushSoon() {
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = setTimeout(async () => {
+    flushTimer = null;
+    try {
+      const c = getCoordinatorCached();
+      if (!c) return;
+      const pushed = await c.flushPush();
+      await api.storage.local.set({ [AFTER_ID_KEY]: c.afterId });
+      if (pushed > 0) {
+        await api.storage.local.set({ lastSyncAt: Date.now(), lastSyncStatus: `推送 ${pushed} 条` });
+      }
+    } catch { /* 下轮 runSync 兜底 */ }
+  }, 2000);
 }
 
 // 简易设备名：从 UA 推断浏览器 + 平台。

@@ -74,6 +74,14 @@ export class SyncCoordinator {
     return id;
   }
 
+  /** Create with an explicit node id (used by the chrome bridge so that the
+   *  chromeId->uuid mapping matches the CRDT node id). */
+  createNodeWithId(nodeId: string, parentId: string, meta: Metadata): string {
+    this.replica.createNodeWithId(nodeId, parentId, meta);
+    this.enqueueLastOp();
+    return nodeId;
+  }
+
   moveNode(nodeId: string, newParentId: string, meta?: Metadata): void {
     this.replica.moveNode(nodeId, newParentId, meta);
     this.enqueueLastOp();

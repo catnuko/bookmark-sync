@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
 import {
-  runSync, getProfile, countServerBookmarks,
+  getProfile, countServerBookmarks,
   getActiveSpace, switchSpace, createSpace, deleteSpace, renameSpace,
   listDevices, removeDevice, getDeviceId,
   acknowledgeFirstSync, pullOverwriteLocal,
@@ -490,7 +490,21 @@ async function syncNow(opts = {}) {
   syncBusy.value = true;
   refreshStatus("同步中…");
   try {
-    const r = await runSync({ force });
+    // 同步在 SW 内执行（SW 是同步权威，事件桥与 coordinator 同 realm）。
+    // 60s 兜底超时，避免 SW 未启动时无限「同步中…」。
+    const msgResult = new Promise((resolve) => {
+      try {
+        api.runtime.sendMessage({ type: "bsync-sync", force }, (resp) => {
+          resolve(resp ?? { ok: false, reason: "no_response" });
+        });
+      } catch (e) {
+        resolve({ ok: false, reason: "error", error: String(e) });
+      }
+    });
+    const timeout = new Promise((resolve) =>
+      setTimeout(() => resolve({ ok: false, reason: "timeout", error: "Service Worker 未响应" }), 60000)
+    );
+    const r = await Promise.race([msgResult, timeout]);
     if (!r.ok && r.reason === "first_sync_confirm_needed") {
       // 本设备第一次与该空间同步且需要决策（双方都有书签 / 云端密文待导密钥）
       firstSyncInfo.value = r;
