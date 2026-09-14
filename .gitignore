@@ -25,9 +25,8 @@ bookmark-sync/Shared (Extension)/Resources/assets/
 # 临时上传图片
 .uploads/
 
-# Agent 运行时记忆（设计文档已迁移至 docs/design/）
+# Agent 运行时记忆（个人每日记忆不进 git；专题复盘文档收录，如 refactor-v2-move-crdt.md）
 .workbuddy/memory/
-.workbuddy/
 
 # E2E 浏览器运行期 profile（Chromium 会在其中写 .fuse / SingletonLock 等）
 e2e/.profiles/
