@@ -32,5 +32,6 @@ export {
   captureLocalEvents,
   reverseApply,
   IdBridge,
+  IS_FIREFOX,
 } from './chromeBridge.js';
 export type { ChromeBookmarksAPI, ChromeTreeNode } from './chromeBridge.js';

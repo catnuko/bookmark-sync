@@ -1,7 +1,25 @@
 import { describe, it, expect } from 'vitest';
-import { Replica, ROOT_NODE_ID, TRASH_NODE_ID } from '../../src/crdt/index.js';
+import {
+  Replica,
+  ROOT_NODE_ID,
+  ROOT_UUID,
+  MENU_UUID,
+  TRASH_NODE_ID,
+} from '../../src/crdt/index.js';
 
 describe('Replica wrapper', () => {
+  it('builds the fixed roots including MENU_UUID (书签菜单)', () => {
+    const r = new Replica('R1');
+    r.ensureRoots();
+    expect(r.getParent(MENU_UUID)).toBe(ROOT_UUID);
+    // 菜单根之下可正常创建用户节点
+    const m = r.createNode(MENU_UUID, { title: '菜单书签' });
+    expect(r.getParent(m)).toBe(MENU_UUID);
+    // 只有固定根时仍视为 bare（冷启动保护语义不变）
+    const r2 = new Replica('R2');
+    expect(r2.isBare()).toBe(true);
+  });
+
   it('creates globally unique node ids (UUIDs)', () => {
     const r = new Replica('R1');
     const ids = new Set<string>();

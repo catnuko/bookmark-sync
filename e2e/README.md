@@ -12,7 +12,7 @@ echo "sbp_你的token" > ~/.supabase_access_token   # Supabase Management API to
 # Xvfb（Linux 无头环境必需）：
 Xvfb :99 -screen 0 1440x900x24 &
 # Firefox 环境（P1）：
-/opt/ff/firefox/firefox                          # Firefox 155.0.1（官方 tarball，代理下载）
+/home/user/tools/ff/firefox/firefox                          # Firefox 155.0.1（官方 tarball，代理下载）
 /home/user/tools/geckodriver                     # geckodriver 0.36.0
 ```
 
@@ -23,7 +23,7 @@ Xvfb :99 -screen 0 1440x900x24 &
 | `e2e-single.mjs` | 单设备闭环：登录 → 同步 → 建书签 → op_log 增长 → **op 全为 AES-GCM 密文信封** |
 | `e2e-two-device.mjs` | **双 Chromium 双向同步**：A 建书签 → B 拉到并 reverseApply 写回本机 chrome → B 建书签 → A 拉到 → 双端收敛 + **场景 3（SW 冷重启保留）** |
 | `ff-smoke.mjs` | **Firefox 单端**：桥通道 login → sync → create → getTree（根 guid 适配验证） |
-| `e2e-ff-sync.mjs` | **Chromium × Firefox 跨浏览器双向同步（P1 验收）**：A1/B1 各恰 1 个、op_log 恰 2 条 |
+| `e2e-ff-sync.mjs` | **Chromium × Firefox 跨浏览器双向同步（P1+P3 验收）**：A1/B1 各恰 1 个、op_log 恰 2 条；**书签菜单同步**（Firefox `menu________` ↔ Chromium「书签菜单」文件夹，M1/M2 各恰 1） |
 | `e2e-gc.mjs` | **快照 + op-log GC（P3 验收，Chromium×3）**：A 建书签同步触发 GC（注入 `crdt.gcThreshold=1`）→ op_log 截断 + 快照落库 → C 新设备从快照重建收敛 → GC 后增量仍通 → 终态计数===1 |
 | `supabase-check.mjs [--detail]` | 只读：查空间/设备/op_log 数量与密文结构 |
 
@@ -49,7 +49,7 @@ EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-gc.mjs   # 自清 op
 | `EXT_DIR` | `<repo>/extension` | 要加载的扩展目录 |
 | `CDP_PORT` | `9345` | 单设备脚本端口（双设备用 9345/9346） |
 | `PROFILE_DIR` | `<repo>/e2e/.profiles/<port>` | Chromium profile |
-| `FF_BIN` | `/opt/ff/firefox/firefox` | Firefox 二进制 |
+| `FF_BIN` | `/home/user/tools/ff/firefox/firefox` | Firefox 二进制 |
 | `GECKODRIVER_BIN` | `/home/user/tools/geckodriver` | geckodriver 路径 |
 | `SUPABASE_PROJECT` | `cwtqnsbpcetvqopdkcou` | 项目 ref |
 | `DISPLAY` | `:99` | Xvfb 显示号 |

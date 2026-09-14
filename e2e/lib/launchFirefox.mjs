@@ -29,7 +29,8 @@ import { Bidi, sleep } from './bidi.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const GECKODRIVER_BIN = process.env.GECKODRIVER_BIN ?? '/home/user/tools/geckodriver';
-const DEFAULT_FF_BIN = process.env.FF_BIN ?? '/opt/ff/firefox/firefox';
+// /opt 只读（容器无 root）→ 放用户目录；可用 FF_BIN 覆盖
+const DEFAULT_FF_BIN = process.env.FF_BIN ?? '/home/user/tools/ff/firefox/firefox';
 /** 固定扩展 UUID（moz-extension://<uuid>/ 的 host），避免临时扩展 id 随机。 */
 export const FF_EXT_UUID = process.env.FF_EXT_UUID ?? '11111111-1111-1111-1111-111111111111';
 

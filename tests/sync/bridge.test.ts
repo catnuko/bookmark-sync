@@ -18,8 +18,10 @@ import {
 import {
   generateKey,
   ROOT_NODE_ID,
+  ROOT_UUID,
   BOOKMARKS_BAR_UUID,
   OTHER_BOOKMARKS_UUID,
+  MENU_UUID,
   TRASH_NODE_ID,
 } from '../../src/crdt/index.js';
 
@@ -30,6 +32,7 @@ function makeChrome() {
   const listeners: Record<string, Array<(...args: never[]) => void>> = {};
   const api: ChromeBookmarksAPI = {
     getTree: async () => [],
+    get: async () => [],
     create: async () => ({ id: 'x', title: '', parentId: '1' }),
     move: async () => ({ id: 'x', title: '', parentId: '1' }),
     update: async () => ({ id: 'x', title: '' }),
@@ -145,5 +148,48 @@ describe('captureLocalEvents wiring', () => {
     chrome.emit('created', 'b5', { id: 'b5', parentId: '1', title: 'echo' });
     await new Promise((r) => setTimeout(r, 10));
     expect(await coordinator.flushPush()).toBe(0);
+  });
+
+  it('menu________ maps to MENU_UUID in forward; events on fixed-root containers are skipped', async () => {
+    const bridge = new IdBridge();
+    // Firefox menu 根：forward 预置（跨环境全集）
+    expect(bridge.toUuid('menu________')).toBe(MENU_UUID);
+    // Chromium 端：MENU_UUID 无固定 chromeId（动态容器，backward 不预置）
+    expect(bridge.toChromeId(MENU_UUID)).toBeNull();
+
+    captureLocalEvents(chrome.api, coordinator, bridge);
+    // 模拟 Chromium 端「书签菜单」动态容器：映射到 MENU_UUID 后，
+    // 其 create/change/move/remove 事件都不得产生 CRDT op（固定根语义）。
+    bridge.map('dyn-menu', MENU_UUID);
+    chrome.emit('created', 'dyn-menu', { id: 'dyn-menu', parentId: '1', title: '书签菜单' });
+    chrome.emit('changed', 'dyn-menu', { title: '改名了' });
+    chrome.emit('moved', 'dyn-menu', { parentId: '1', oldParentId: '1', index: 2, oldIndex: 0 });
+    chrome.emit('removed', 'dyn-menu', { removedNode: { id: 'dyn-menu', title: '书签菜单' } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(await coordinator.flushPush()).toBe(0);
+    // 固定根未被 CRDT 删除（还在树上）
+    expect(coordinator.replica.getParent(MENU_UUID)).toBe(ROOT_UUID);
+
+    // 但 MENU_UUID 之下的普通书签（Firefox 菜单内容）正常入 CRDT
+    chrome.emit('created', 'm1', { id: 'm1', parentId: 'menu________', title: '菜单书签', url: 'https://menu' });
+    await new Promise((r) => setTimeout(r, 10));
+    const mUuid = bridge.toUuid('m1');
+    expect(mUuid).toBeTruthy();
+    expect(coordinator.replica.getParent(mUuid!)).toBe(MENU_UUID);
+    expect(await coordinator.flushPush()).toBe(1);
+  });
+
+  it('IdBridge.load skips cross-environment fixed roots but keeps dynamic menu container', async () => {
+    const bridge = new IdBridge();
+    bridge.map('dyn-menu', MENU_UUID);
+    bridge.map('999', '11111111-1111-4111-8111-111111111111');
+    const snap = bridge.snapshot();
+
+    const fresh = new IdBridge();
+    fresh.load(snap);
+    expect(fresh.toUuid('dyn-menu')).toBe(MENU_UUID);
+    expect(fresh.toUuid('999')).toBe('11111111-1111-4111-8111-111111111111');
+    expect(fresh.toUuid('menu________')).toBe(MENU_UUID); // forward 全集仍在
+    expect(fresh.toChromeId(MENU_UUID)).toBe('dyn-menu'); // backward 不被跨环境根覆盖
   });
 });

@@ -38,12 +38,17 @@ export interface UuidMappingRow {
  *     └─ ROOT_UUID                      (Chrome root node id "0")
  *          ├─ BOOKMARKS_BAR_UUID        (Chrome "1", folderType 'bookmarks-bar')
  *          ├─ OTHER_BOOKMARKS_UUID      (Chrome "2", folderType 'other')
- *          └─ MOBILE_UUID               (Chrome "3", folderType 'mobile')
+ *          ├─ MOBILE_UUID               (Chrome "3", folderType 'mobile')
+ *          └─ MENU_UUID                 (Firefox "menu________" 书签菜单;
+ *                                        Chromium 端映射 bsync 自动管理的
+ *                                        「书签菜单」文件夹，无固定 chromeId)
  */
 export const ROOT_UUID = '00000000-0000-4000-8000-000000000000';
 export const BOOKMARKS_BAR_UUID = '00000000-0000-4000-8000-000000000001';
 export const OTHER_BOOKMARKS_UUID = '00000000-0000-4000-8000-000000000002';
 export const MOBILE_UUID = '00000000-0000-4000-8000-000000000003';
+/** 书签菜单固定根（Firefox menu________；Chromium 端为 bsync 管理的文件夹）。 */
+export const MENU_UUID = '00000000-0000-4000-8000-000000000004';
 
 /**
  * chromeId of Chrome's root and its three standard children.

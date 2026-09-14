@@ -10,9 +10,14 @@
  *     └─ ROOT_UUID                    (chrome root id "0")
  *          ├─ BOOKMARKS_BAR_UUID      (chrome "1", folderType 'bookmarks-bar')
  *          ├─ OTHER_BOOKMARKS_UUID    (chrome "2", folderType 'other')
- *          └─ MOBILE_UUID             (chrome "3", folderType 'mobile')
+ *          ├─ MOBILE_UUID             (chrome "3", folderType 'mobile')
+ *          └─ MENU_UUID               (Firefox "menu________" 书签菜单；
+ *                                      Chromium 端 = bsync 自动管理的
+ *                                      「书签菜单」文件夹，动态 chromeId)
  *
  * We never create/delete the special roots; only ordinary nodes are mapped.
+ * MENU_UUID 在 Chromium 端的动态容器由 sync.js ensureMenuFolder 创建并映射，
+ * 事件层把「已映射到固定根的动态 id」当固定根处理（不产生 CRDT op）。
  *
  * TODO(real-chrome): verify numeric ids "1"/"2"/"3" map to bar/other/mobile on
  * a real profile; fall back to node.folderType (Chrome 134+) if they differ.
@@ -24,6 +29,7 @@ import {
   BOOKMARKS_BAR_UUID,
   OTHER_BOOKMARKS_UUID,
   MOBILE_UUID,
+  MENU_UUID,
   CHROME_ROOT_ID,
 } from '../crdt/index.js';
 import type { SyncCoordinator } from './syncEngine.js';
@@ -31,6 +37,7 @@ import type { SyncCoordinator } from './syncEngine.js';
 /** Minimal chrome.bookmarks surface we depend on (ease of testing). */
 export interface ChromeBookmarksAPI {
   getTree(): Promise<ChromeTreeNode[]>;
+  get(id: string | string[]): Promise<ChromeTreeNode[]>;
   /** NOTE: 真实 chrome.bookmarks.create 是单对象签名 create(details)。 */
   create(props: { parentId: string; title?: string; url?: string; index?: number }): Promise<ChromeTreeNode>;
   move(id: string, moveProps: { parentId: string; index?: number }): Promise<ChromeTreeNode>;
@@ -61,8 +68,8 @@ export interface ChromeTreeNode {
 /**
  * chromeId -> fixed root UUID, or null for ordinary nodes.
  * 跨浏览器根 id：Chrome 用数字 "0"/"1"/"2"/"3"，Firefox 用 guid
- * （root________ / toolbar_____ / unfiled_____ / mobile______）。
- * Firefox 的 menu________（书签菜单）不映射（暂不同步，reverseApply 不动它）。
+ * （root________ / menu________ / toolbar_____ / unfiled_____ / mobile______）。
+ * Firefox 的 menu________（书签菜单）映射 MENU_UUID（P3 后参与同步）。
  */
 function fixedRootUuid(chromeId: string): string | null {
   switch (chromeId) {
@@ -74,6 +81,7 @@ function fixedRootUuid(chromeId: string): string | null {
     case 'unfiled_____': return OTHER_BOOKMARKS_UUID; // Firefox 其他书签
     case '3': return MOBILE_UUID; // Chrome 移动书签
     case 'mobile______': return MOBILE_UUID; // Firefox 移动书签
+    case 'menu________': return MENU_UUID; // Firefox 书签菜单
     default: return null;
   }
 }
@@ -92,6 +100,7 @@ const ALL_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['unfiled_____', OTHER_BOOKMARKS_UUID],
   ['3', MOBILE_UUID],
   ['mobile______', MOBILE_UUID],
+  ['menu________', MENU_UUID],
 ];
 /** Chrome 环境的根（backward 用）。 */
 const CHROME_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
@@ -100,9 +109,10 @@ const CHROME_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['2', OTHER_BOOKMARKS_UUID],
   ['3', MOBILE_UUID],
 ];
-/** Firefox 环境的根（backward 用；menu________ 不映射 CRDT 固定根）。 */
+/** Firefox 环境的根（backward 用；menu________ 映射 MENU_UUID）。 */
 const FF_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['root________', ROOT_UUID],
+  ['menu________', MENU_UUID],
   ['toolbar_____', BOOKMARKS_BAR_UUID],
   ['unfiled_____', OTHER_BOOKMARKS_UUID],
   ['mobile______', MOBILE_UUID],
@@ -183,6 +193,8 @@ export function captureLocalEvents(
     const c = getC();
     if (!c) return;
     if (fixedRootUuid(id)) return; // never track chrome's own roots
+    const mapped = bridge.toUuid(id);
+    if (mapped && PROTECTED_UUIDS.has(mapped)) return; // 固定根的动态容器（如 Chromium「书签菜单」）
     const parentUuid = node.parentId ? bridge.toUuid(node.parentId) : null;
     if (!parentUuid) return; // parent not yet mapped; skip (will arrive later)
     const uuid = globalThis.crypto.randomUUID();
@@ -197,8 +209,9 @@ export function captureLocalEvents(
     const c = getC();
     if (!c) return;
     const uuid = bridge.toUuid(id);
-    const parent = uuid ? c.replica.getParent(uuid) : null;
-    if (!uuid || !parent) return;
+    if (!uuid || PROTECTED_UUIDS.has(uuid)) return;
+    const parent = c.replica.getParent(uuid);
+    if (!parent) return;
     const current = c.replica.getNodeMeta(uuid) ?? {};
     c.moveNode(uuid, parent, { ...current, title: change.title, url: change.url });
     onLocalOp?.();
@@ -213,7 +226,7 @@ export function captureLocalEvents(
     if (!c) return;
     const uuid = bridge.toUuid(id);
     const newParent = move.parentId ? bridge.toUuid(move.parentId) : null;
-    if (!uuid || !newParent) return;
+    if (!uuid || PROTECTED_UUIDS.has(uuid) || !newParent) return;
     const current = c.replica.getNodeMeta(uuid) ?? {};
     c.moveNode(uuid, newParent, { ...current });
     onLocalOp?.();
@@ -224,7 +237,7 @@ export function captureLocalEvents(
     const c = getC();
     if (!c) return;
     const uuid = bridge.toUuid(id);
-    if (!uuid) return;
+    if (!uuid || PROTECTED_UUIDS.has(uuid)) return;
     c.deleteNode(uuid);
     onLocalOp?.();
   };
@@ -262,7 +275,13 @@ const PROTECTED_CHROME_IDS = new Set([
   'root________', 'menu________', 'toolbar_____', 'unfiled_____', 'mobile______', // Firefox 根
 ]);
 /** CRDT uuids we never apply chrome mutations to. */
-const PROTECTED_UUIDS = new Set([ROOT_UUID, BOOKMARKS_BAR_UUID, OTHER_BOOKMARKS_UUID, MOBILE_UUID]);
+const PROTECTED_UUIDS = new Set([
+  ROOT_UUID,
+  BOOKMARKS_BAR_UUID,
+  OTHER_BOOKMARKS_UUID,
+  MOBILE_UUID,
+  MENU_UUID,
+]);
 
 interface ChromeNodeInfo {
   chromeId: string;

@@ -21,7 +21,8 @@ import {
   reverseApply,
 } from "./sync/index.js";
 import { KeyManager } from "./sync/index.js";
-import { ROOT_UUID } from "./crdt/index.js";
+import { ROOT_UUID, MENU_UUID } from "./crdt/index.js";
+import { IS_FIREFOX } from "./sync/index.js";
 
 const DEVICE_ID_KEY = "crdt.deviceId";
 const AFTER_ID_KEY = "crdt.afterId";
@@ -31,14 +32,9 @@ const SEEDED_KEY = "crdt.seeded";
 const GC_THRESHOLD_KEY = "crdt.gcThreshold";
 const DEFAULT_GC_THRESHOLD = 2000;
 
-/** Firefox 特殊根 guid（不映射 CRDT 固定根、不播种、reverseApply 不动）。 */
-const FIREFOX_ROOT_IDS = new Set([
-  "root________",
-  "menu________",
-  "toolbar_____",
-  "unfiled_____",
-  "mobile______",
-]);
+/** Chromium 端 MENU_UUID（书签菜单）动态容器的持久化 chromeId。 */
+const MENU_FOLDER_KEY = "crdt.menuFolderId";
+const MENU_FOLDER_TITLE = "书签菜单";
 
 const keyManager = new KeyManager({
   async get(key) { return (await api.storage.local.get(key))[key]; },
@@ -249,11 +245,36 @@ async function reverseApplyIntoChrome(coordinator) {
   // reverseApply 回环（每次同步复制一批书签）的根因。
   guard.suppressed.value = true; // 抑制事件回环（create/move/update 会触发 onCreated 等）
   try {
+    // Chromium 端：MENU_UUID 没有原生根，先确保「书签菜单」容器存在并映射
+    // （reverseApply 跳过固定根，不会自己创建它）。Firefox 端为原生 menu________。
+    await ensureMenuFolder(bridge);
     await reverseApply(chrome, coordinator, bridge);
     await api.storage.local.set({ [IDMAP_KEY]: bridge.snapshot() });
   } finally {
     guard.suppressed.value = false;
   }
+}
+
+/**
+ * Chromium 端 MENU_UUID 容器生命周期：书签栏下自动创建「书签菜单」文件夹并
+ * 绑定 MENU_UUID。用户删除后下一轮 reverseApply 前自动重建（映射更新到新 id）。
+ * 创建发生在事件守卫内（onCreated 被抑制），不会回环成 CRDT op。
+ */
+async function ensureMenuFolder(bridge) {
+  if (IS_FIREFOX) return; // Firefox 端 menu________ 是原生根，无需容器
+  const chrome = globalThis.chrome?.bookmarks;
+  if (!chrome) return;
+  const saved = await api.storage.local.get(MENU_FOLDER_KEY);
+  const savedId = saved[MENU_FOLDER_KEY];
+  if (savedId) {
+    try {
+      const nodes = await chrome.get(savedId);
+      if (nodes && nodes[0] && nodes[0].id === savedId) return; // 仍在
+    } catch { /* 已被删除 → 重建 */ }
+  }
+  const created = await chrome.create({ parentId: "1", title: MENU_FOLDER_TITLE });
+  bridge.map(created.id, MENU_UUID);
+  await api.storage.local.set({ [MENU_FOLDER_KEY]: created.id });
 }
 
 function getCoordinatorCached() {
@@ -314,10 +335,10 @@ export async function seedExistingTree(coordinator) {
   const tree = await globalThis.chrome.bookmarks.getTree();
   let seeded = 0;
   const walk = async (node, parentUuid) => {
-    if (FIREFOX_ROOT_IDS.has(node.id)) return; // Firefox 特殊根：不播种（reverseApply 也不会动它们）
     const existing = bridge.toUuid(node.id);
     if (existing) {
-      // 根节点直接续走子树
+      // 固定根（Chrome "0".."3" / Firefox root/menu/toolbar/unfiled/mobile）
+      // 直接续走子树：它们不产生新 op，其下用户节点正常播种
       for (const child of node.children ?? []) await walk(child, existing);
       return;
     }

@@ -13,6 +13,7 @@ import {
   BOOKMARKS_BAR_UUID,
   OTHER_BOOKMARKS_UUID,
   MOBILE_UUID,
+  MENU_UUID,
 } from './storage/index.js';
 
 /**
@@ -69,7 +70,7 @@ export class Replica {
   }
 
   /**
-   * Build the fixed root structure (ROOT_NODE_ID → ROOT_UUID → bar/other/mobile)
+   * Build the fixed root structure (ROOT_NODE_ID → ROOT_UUID → bar/other/mobile/menu)
    * with deterministic timestamps. Idempotent; called once per replica.
    *
    * These ops are intentionally NOT pushed to the server: every device
@@ -85,12 +86,13 @@ export class Replica {
       [BOOKMARKS_BAR_UUID, ROOT_UUID, { title: '书签栏' }],
       [OTHER_BOOKMARKS_UUID, ROOT_UUID, { title: '其他书签' }],
       [MOBILE_UUID, ROOT_UUID, { title: '移动设备书签' }],
+      [MENU_UUID, ROOT_UUID, { title: '书签菜单' }],
     ];
     roots.forEach(([id, parent, meta], i) => {
       const op: MoveOp = { t: ts(i + 1), p: parent, m: meta, c: id };
       this.state = apply_op(op, this.state);
     });
-    // Roots occupy counters 1..4; keep local counters above them.
+    // Roots occupy counters 1..5; keep local counters above them.
     this.counter = Math.max(this.counter, roots.length);
     this.bumpVersion();
   }
@@ -303,6 +305,7 @@ export class Replica {
       BOOKMARKS_BAR_UUID,
       OTHER_BOOKMARKS_UUID,
       MOBILE_UUID,
+      MENU_UUID,
     ]);
     return this.getVisibleTree().every((e) => PROTECTED.has(e.child));
   }
@@ -343,6 +346,9 @@ export class Replica {
     this.state = { log: [], tree };
     this.gcWatermark = snap?.w ?? null;
     this.counter = Math.max(this.counter, (snap?.w?.counter ?? 0) + 1);
+    // 旧快照（MENU_UUID 固定根出现前生成）可能缺固定根：补齐，保证
+    // createNodeWithId(parent=MENU_UUID) 与 reverseApply 始终有容器。
+    this.ensureRoots();
     this.bumpVersion();
   }
 }

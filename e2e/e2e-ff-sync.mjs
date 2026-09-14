@@ -161,9 +161,69 @@ if (!converged || ops !== 2) {
   process.exit(1);
 }
 
+// ── 菜单同步（P3 后）：Firefox menu________ ↔ Chromium「书签菜单」文件夹 ──
+// 场景 M1：Firefox 在 menu________ 建书签 → Chromium 的「书签菜单」文件夹出现
+const titleM1 = `M-FF-${Date.now() % 100000}`;
+const m1 = await bridgeCall(bidi, ctx, 'bookmarks.create', {
+  parentId: 'menu________', title: titleM1, url: 'https://e2e-menu-ff.example.com/' + Date.now(),
+});
+console.log('[ffsync] B 在 menu________ 建书签:', m1.ok ? m1.node?.id : JSON.stringify(m1));
+if (!m1.ok) process.exit(1);
+await sleep(8000); // 等事件桥 flush
+await bridgeCall(bidi, ctx, 'sync', {});
+
+await clickSyncAndWait(pageA);
+const treeAM = flattenTree(await getTree(swA));
+const menuFolder = treeAM.find((n) => n.title === '书签菜单');
+console.log('[ffsync] A 的「书签菜单」文件夹:', menuFolder ? `${menuFolder.id}（parent=${menuFolder.parentId}）` : '缺失!');
+if (!menuFolder) {
+  console.error('FAIL: Chromium 端没有自动创建「书签菜单」文件夹');
+  process.exit(1);
+}
+const aHasM1 = count(treeAM, titleM1) === 1;
+console.log('[ffsync] A 的菜单文件夹含 M1:', aHasM1);
+if (!aHasM1) {
+  console.error('FAIL: Firefox 菜单书签未同步到 Chromium 菜单文件夹');
+  process.exit(1);
+}
+
+// 场景 M2：Chromium 在「书签菜单」文件夹建书签 → Firefox menu________ 出现
+const titleM2 = `M-Cr-${Date.now() % 100000}`;
+await createBookmark(swA, { parentId: menuFolder.id, title: titleM2, url: 'https://e2e-menu-cr.example.com/' + Date.now() });
+console.log('[ffsync] A 在「书签菜单」建书签:', titleM2);
+await sleep(8000);
+await clickSyncAndWait(pageA);
+await bridgeCall(bidi, ctx, 'sync', {});
+
+const treeB3 = await bridgeCall(bidi, ctx, 'bookmarks.getTree', {});
+const flatB3 = [];
+walkB(treeB3.tree ?? [], flatB3);
+const bHasM2 = count(flatB3, titleM2) === 1;
+console.log('[ffsync] B 的 menu________ 含 M2:', bHasM2);
+if (!bHasM2) {
+  console.error('FAIL: Chromium 菜单书签未同步到 Firefox 菜单');
+  process.exit(1);
+}
+
+// 菜单终态：双向各恰 1（无重复）
+const treeA3 = flattenTree(await getTree(swA));
+const treeB4 = await bridgeCall(bidi, ctx, 'bookmarks.getTree', {});
+const flatB4 = [];
+walkB(treeB4.tree ?? [], flatB4);
+const menuConverged =
+  count(treeA3, titleM1) === 1 && count(treeA3, titleM2) === 1 &&
+  count(flatB4, titleM1) === 1 && count(flatB4, titleM2) === 1;
+console.log('[ffsync] 菜单双向收敛（M1/M2 两端各恰 1）:', menuConverged,
+  `A侧=[M1×${count(treeA3, titleM1)},M2×${count(treeA3, titleM2)}] ` +
+  `B侧=[M1×${count(flatB4, titleM1)},M2×${count(flatB4, titleM2)}]`);
+if (!menuConverged) {
+  console.error('FAIL: 菜单书签双向未收敛');
+  process.exit(1);
+}
+
 stopBridgeServer();
 try {
   execSync(`ps -eo pid,args | grep "e2e/.ff-profiles" | grep -v grep | awk '{print $1}' | xargs -r kill 2>/dev/null || true`);
 } catch {}
-console.log('\n✅ e2e-ff-sync 通过：Chromium × Firefox 跨浏览器双向同步收敛正常');
+console.log('\n✅ e2e-ff-sync 通过：Chromium × Firefox 跨浏览器双向同步收敛正常（含书签菜单 menu________ ↔ 书签菜单文件夹）');
 process.exit(0);

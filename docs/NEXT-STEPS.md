@@ -58,8 +58,8 @@
 | 项 | 说明 |
 |---|---|
 | **Firefox 根 id 适配** | Chrome 根是数字 `"0"/"1"/"2"/"3"`，Firefox 是 guid `root________/toolbar_____/unfiled_____/mobile______`（另有 `menu________` 书签菜单）。`chromeBridge.ts` `fixedRootUuid`/`ALL_ROOT_PAIRS` 收录全部；**backward（uuid→chromeId）只 seed 本环境根**——两环境根都 seed 会让同一 uuid 的 backward 被后写覆盖（OTHER ← 'unfiled_____' 覆盖 '2'），Chromium 下 `toChromeId(OTHER)` 返回 Firefox guid → chrome `"Bookmark id is invalid."` → A 的 sync 每次 reverseApply 失败（实测 lastSyncError）。`IS_FIREFOX` 按 UA 判定；`IdBridge.load()` 跳过非本环境固定根 |
-| **Firefox 特殊根不播种** | `sync.js` `seedExistingTree` 跳过 `FIREFOX_ROOT_IDS`（root/menu/toolbar/unfiled/mobile）：否则 `menu________` 被当普通节点播种 → reverseApply 试图 `chrome.move(menu 根)` → `"The bookmark root cannot be modified"` |
-| **menu________ 暂不同步** | Firefox 书签菜单根不映射 CRDT 固定根（产品限制：菜单书签不同步，reverseApply 不动它）；测试建书签用 `toolbar_____` |
+| **Firefox 特殊根不播种** | `sync.js` `seedExistingTree` 走固定根映射续走子树（root/menu/toolbar/unfiled/mobile 均映射 CRDT 固定根，不产生根 op）；P3 前 `menu________` 无映射被当普通节点播种 → reverseApply 试图 `chrome.move(menu 根)` → `"The bookmark root cannot be modified"` |
+| **menu________ 参与同步（P3 后）** | 新增 CRDT 固定根 `MENU_UUID`（'…0004'）：Firefox 端映射原生 `menu________`；Chromium 端由 `ensureMenuFolder` 在书签栏下自动创建「书签菜单」文件夹并绑定 MENU_UUID（reverseApply 前守卫内创建，用户删除后自动重建）。事件层把「已映射到固定根的动态 id」当固定根拦截（不产生 CRDT op），menu 子树节点正常同步。测试建书签 `toolbar_____` / `menu________` 均可 |
 | **postMessage 测试桥** | Firefox WebDriver 禁止导航/跳转 `moz-extension://`（about:blank 与 http 页 location.href 均被拦）。`e2e/test-bridge/`（id `bsync-test-bridge@test.local`）content script 用 `window.postMessage` 桥（Firefox 内容脚本↔页面标准通道，结构化克隆无 Xray 问题）转发 `onMessageExternal` 白名单命令（`src/testChannel.js`） |
 | **桥方案死路（勿重试）** | wrappedJSObject 赋函数（Xray Permission denied）；`Cu.exportFunction`（页面调用仍 Permission denied，参数/返回值跨 realm 克隆受限）；DOM CustomEvent 跨 realm（内容脚本收不到页面事件）；WebDriver 导航 moz-extension://（含 http 页跳转） |
 | 测试脚本 | `e2e/ff-smoke.mjs`（Firefox 单端：login→sync→create→getTree）、`e2e/e2e-ff-sync.mjs`（跨浏览器双端）、`e2e/lib/{bidi,launchFirefox,ffbridge}.mjs`、`e2e/test-bridge/` |
@@ -82,6 +82,20 @@
 
 **共存策略（P3③）**：App.vue 新增"共存与存储"面板（第三个 tab）——Chrome Sync 共存说明（不接管原生同步、两套云端并存建议二选一）+ op-log GC 配置（阈值可调存 `crdt.gcThreshold`，0=关闭；显示 `lastGcAt`）。UI 冒烟通过（面板渲染 + 默认 2000 + "尚未触发"）。
 
+### 2.7 Firefox 书签菜单参与同步（本会话，完成）
+
+**验收**：`e2e/e2e-ff-sync.mjs` 一次全绿（原场景保持 op_log 恰 2 条 + 菜单场景双向收敛 M1/M2 各恰 1）；`e2e-two-device.mjs`（含场景3）与 `e2e/e2e-gc.mjs` 回归 PASS；单测 **95/95**。
+
+| 层 | 内容 |
+|---|---|
+| CRDT 固定根 | `uuidMapping.ts` 新增 `MENU_UUID`（'…0004'）；`replica.ensureRoots()` 构建第 5 固定根（counter 1..5）；`isBare()` 保护集含 MENU_UUID；**`applySnapshot` 后补 `ensureRoots()`**（旧快照无 MENU_UUID，补根防 createNodeWithId(parent=MENU_UUID) 悬空） |
+| chromeBridge | `fixedRootUuid('menu________')=MENU_UUID`；`ALL_ROOT_PAIRS`/`FF_ROOT_PAIRS` 收录；`PROTECTED_UUIDS` 含 MENU_UUID；**captureLocalEvents 四 handler 加「已映射到固定根的动态 id」拦截**（Chromium「书签菜单」文件夹的 create/change/move/remove 不产生 CRDT op） |
+| sync.js | 删 `FIREFOX_ROOT_IDS` 整棵跳过（固定根统一走 existing 续走子树——menu 映射后播种安全，不再 move 根）；**`ensureMenuFolder`**：Chromium 端 reverseApply 前在书签栏下自动创建「书签菜单」并绑定 MENU_UUID（守卫内创建防回环；用户删除后自动重建；id 持久化 `crdt.menuFolderId`）；Firefox 端跳过（原生根） |
+| 接口 | `ChromeBookmarksAPI` 加 `get(id)`（ensureMenuFolder 存在性检查）；`sync/index.ts` 导出 `IS_FIREFOX` |
+| 行为 | Firefox 端 seed 起完整播种全部根子树（含 menu/toolbar/unfiled/mobile）；Chromium 端「书签菜单」= MENU_UUID 容器，内容与 Firefox 菜单双向同步；Firefox 默认预置书签（Mozilla Firefox 等，未播种节点）保留不动 |
+
+**设计要点**：Chromium 端 MENU_UUID 无固定 chromeId → 动态容器 + storage 持久化 id；删除自动重建（与 Chrome 固定根不可删语义一致）；事件层把容器当固定根（不产生 op）但容器内普通节点正常同步。
+
 ---
 
 ## 3. 当前状态（验证结果）
@@ -93,6 +107,7 @@
 - ✅ **修复 reverseApply 回环 bug**（重要，见 2.4）：`reverseApplyIntoChrome` 的事件守卫写错层级——`guard.value = true` 实际设置的是 `{suppressed:{value}}` 外层的新属性，事件闭包读的 `suppressed.value` 从未被置位 → reverseApply 每次建书签都触发 onCreated 回环成新 op → 每次同步复制一批书签（A 树曾出现 A1×3）。修复为 `guard.suppressed.value = true/false`。另加冷启动 idMap 恢复等待（`ensureBridgeReady`，防 reverseApply 在 idMap load 完成前把已有书签当缺失重建）
 - ✅ **P1 Firefox 跨浏览器同步 PASS**（见 2.5）：`e2e/e2e-ff-sync.mjs` 2 次连跑，Chromium↔Firefox 双向收敛 true、op_log 恰 2 条；`ff-smoke.mjs` 单端 PASS；Chromium 双端回归 PASS。核心修复：跨浏览器根 id 适配（backward 按环境）、Firefox 特殊根不播种、postMessage 测试桥
 - ✅ **P3 产品化缺口 PASS**（见 2.6）：快照+GC 全链路（单测 92/92 + `e2e/e2e-gc.mjs` 真实 Chromium×3 一次全绿：op_log 345 行→0、快照落库、第三端从快照重建收敛、GC 后增量仍通）；E2EE 密钥导入 UI 确认已有；共存策略 UI（"共存与存储"面板）完成；迁移 0018 已推送（supabase 子模块 `1179b5d`）
+- ✅ **Firefox 书签菜单参与同步 PASS**（见 2.7）：`e2e/e2e-ff-sync.mjs` 菜单场景双向收敛、单测 95/95、双端与 GC 回归全绿
 
 ---
 
@@ -106,7 +121,7 @@
 ### ✅ P1 — Firefox 跨浏览器同步（已完成）
 - **验收**：A=Chromium、B=Firefox 双向同步收敛 true（计数各 === 1），`e2e/e2e-ff-sync.mjs` 2 次连跑全绿；`ff-smoke.mjs` 单端、`e2e-two-device.mjs` 回归均 PASS
 - **核心适配**：Firefox 根 guid 体系（`backward` 按环境 seed，详见 2.5）、Firefox 特殊根不播种、postMessage 测试桥
-- **已知限制**：Firefox `menu________`（书签菜单）暂不参与同步；测试建书签用 `toolbar_____`
+- **已知限制（P3 后解除）**：Firefox `menu________` 已参与同步（MENU_UUID 固定根，见 2.6/2.7）；测试建书签 `toolbar_____` / `menu________` 均可
 
 ### 🟡 P2 — 收敛收尾（完成）
 - ✅ 场景 3 并入主脚本后跑通 3 次（防 flaky）
@@ -118,7 +133,7 @@
 - ✅ `bsync_snapshots` 表启用（快照 + GC，防 op_log 无限增长）：0018 迁移（`bsync_snapshot_pull`/`bsync_op_maybe_gc`/`bsync_profile_set_used`）+ Replica 快照能力 + transport/syncEngine/sync.js 接线；单测 9 + E2E（e2e-gc.mjs 三端）全绿，见 2.6
 - ✅ 操作级 E2EE 的密钥导入 UI（新设备加入流程）：探查确认 App.vue 已有完整面板（导出/导入/口令），无需新做
 - ✅ 与原生 Chrome Sync 共存策略：App.vue"共存与存储"面板（二选一提示 + GC 阈值配置 + lastGcAt 展示）
-- 可选后续：Firefox `menu________` 根参与同步；更多浏览器矩阵
+- 可选后续：更多浏览器矩阵（Safari/Edge 验证）；Safari 产物同步适配（build-all 已有骨架）
 
 ---
 
@@ -132,7 +147,7 @@
    - `e2e/lib/launchFirefox.mjs`：geckodriver 0.36 + WebDriver BiDi（`--port=9444 --websocket-port=9446`，9222 被环境浏览器占用必须换端口；capability 需显式 `webSocketUrl: true`）；扩展用 classic 端点 `POST /session/{sid}/moz/addon/install`（`moz:install-temporary-extension` capability 在 0.36 不可用）；扩展 UUID 用 pref `extensions.webextensions.uuids` 固定
    - **Firefox 无法 WebDriver 导航到 `moz-extension://`**（about:blank 与 http 页 location.href 跳转均被安全策略拦）→ **测试桥**：`e2e/test-bridge/`（id `bsync-test-bridge@test.local`）content script 用 **`window.postMessage`** 桥（内容脚本↔页面标准通道）转发到 bookmark-sync 的 `onMessageExternal` 白名单通道（`src/testChannel.js`，仅 ping/sync/login/logout/storage.*/bookmarks.*）
    - **死路（勿重试）**：wrappedJSObject 赋值函数、`Cu.exportFunction`、DOM CustomEvent 跨 realm、WebDriver/JS 跳转 moz-extension://
-4. **环境**：Firefox 155.0.1 @ `/opt/ff/firefox/firefox`（官方 tarball，代理 `http://127.0.0.1:8118` 下载）；geckodriver 0.36 @ `/home/user/tools/geckodriver`；Xvfb `:99`
+4. **环境**：Firefox 155.0.1 @ `/home/user/tools/ff/firefox/firefox`（官方 tarball，代理 `http://127.0.0.1:8118` 下载）；geckodriver 0.36 @ `/home/user/tools/geckodriver`；Xvfb `:99`
 5. **测试矩阵（已覆盖）**：A=Chromium ↔ B=Firefox 双端；`ff-smoke.mjs` 单端；后续可扩展三端
 
 # 5. 快照 GC（P3）— 已实现（结论与实测要点）
@@ -183,7 +198,7 @@ git push origin refactor/plan
 
 ### 环境坑（必读）
 - **测试二进制**：`/opt/browser/chrome`（进程名 `chrome`），不是 `/usr/local/bin/chromium`；清理用 `ps -eo pid,args | grep "e2e/.profiles"`
-- **Firefox**：`/opt/ff/firefox/firefox` + geckodriver `/home/user/tools/geckodriver`；profile `e2e/.ff-profiles/<port>`；清理用 `grep "e2e/.ff-profiles"`（脚本会自清理，勿手动 rm 未退出的 profile——fuse EBUSY）
+- **Firefox**：`/home/user/tools/ff/firefox/firefox` + geckodriver `/home/user/tools/geckodriver`；profile `e2e/.ff-profiles/<port>`；清理用 `grep "e2e/.ff-profiles"`（脚本会自清理，勿手动 rm 未退出的 profile——fuse EBUSY）
 - **fuse 文件**：profile 下 `.fuse*` 在进程存活时 EBUSY，杀进程后轮询等归零再 `rm -rf`
 - **CDP 保活**：调试器连接会阻止 SW 闲置终止，测冷重启须先断开/关页面
 - **headless 不可用**：必须 DISPLAY=:99（有头 Xvfb），`--headless=new` 下扩展 SW 加载不稳
@@ -197,8 +212,8 @@ git push origin refactor/plan
 ## 7. 建议的新会话第一个动作
 
 1. 读本文件 → 跑 `npx vitest run` 确认基线（92/92）→ `git log --oneline -3` 确认最新提交
-2. **P0/P1/P2/P3 全部完成**。剩余可选后续：
-   - Firefox `menu________` 根参与同步；更多浏览器矩阵
+2. **P0/P1/P2/P3 全部完成，Firefox 书签菜单已参与同步**。剩余可选后续：
+   - 更多浏览器矩阵（Safari/Edge 验证）；Safari 产物同步适配
    - GC 阈值默认值（当前 2000）按真实使用量调优；快照版本化（schema 演进）
    - used_count 上报时机（当前每次 runSync 后）
 3. 每完成一个任务提交一次（分支 refactor/plan），验收标准见各任务
