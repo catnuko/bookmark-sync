@@ -14,13 +14,17 @@
 ## 目录结构
 
 - `src/` — 扩展源码（选项页、service worker、同步引擎）；**这里才是源码真相**
-- `supabase/migrations/` — 数据库迁移（`bsync_*` 表 + RPC，统一 `bsync_` 前缀）
+- `supabase/` — 数据库迁移 submodule（`bsync_*` 表 + RPC），需 `git submodule update --init`
 - `public/` — `manifest.json`（Chromium）；`manifest.firefox.json`（Firefox）；图标
 - `extension/` — Chromium 构建产物（gitignore，勿提交）
 - `extension-firefox/` — Firefox 构建产物（gitignore，勿提交）
 - `scripts/` — 构建钩子与本地验证脚本
 - `website/` — 官网（Vue 3 + Vite，Vercel 部署，独立工程/依赖）
-- `Agent.md` — 开发注意事项（构建命令、CI 关键点、Safari 限制等）
+- `bookmark-sync/` — Xcode Safari 壳工程（macOS/iOS），构建产物 gitignore
+- `store-assets/` — 商店截图与 logo
+- `docs/` — 设计文档、重构方案、手工测试计划
+- `tests/` — 单元测试（vitest）
+- `AGENTS.md` — 开发注意事项
 
 ## 快速开始
 
@@ -33,6 +37,7 @@
 ### 2. 构建
 
 ```bash
+git submodule update --init   # 初始化 Supabase 迁移 submodule
 pnpm install
 npx vite build        # Chrome / Edge -> extension/
 node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
@@ -57,8 +62,8 @@ node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
 
 ## 已知限制
 
-- **Safari 暂不支持**：Safari（含 iOS）不提供 `bookmarks` API，扩展侧书签同步在 Safari 上不可行，当前发布范围不包含 Safari。详见 `Agent.md`。
-- 商店发布要求（隐私政策、AMO 源码包等）见 `Agent.md`。
+- **Safari 暂不支持**：Safari（含 iOS）不提供 `bookmarks` API，扩展侧书签同步在 Safari 上不可行，当前发布范围不包含 Safari。详见 `AGENTS.md`。
+- 商店发布要求（隐私政策、AMO 源码包等）见 `AGENTS.md`。
 
 ## 许可与隐私
 
@@ -66,4 +71,4 @@ node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
 
 ## 更多
 
-- 开发注意事项：见 [Agent.md](Agent.md)（构建命令、CI 发版关键点、同步协议、Safari 硬约束、协作约定）。
+- 开发注意事项：见 [AGENTS.md](AGENTS.md)（构建命令、CI 发版关键点、同步协议、Safari 硬约束、协作约定）。

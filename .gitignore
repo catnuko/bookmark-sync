@@ -18,3 +18,13 @@ xcuserdata/
 
 # 本地打包产物（pnpm package 输出）
 /dist/
+
+# Xcode Safari 扩展构建产物（由 scripts/post-build-safari.mjs 生成）
+bookmark-sync/Shared (Extension)/Resources/assets/
+
+# 临时上传图片
+.uploads/
+
+# Agent 运行时记忆（设计文档已迁移至 docs/design/）
+.workbuddy/memory/
+.workbuddy/
