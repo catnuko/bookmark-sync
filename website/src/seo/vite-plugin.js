@@ -49,7 +49,7 @@ function buildRobots() {
   return `# robots.txt for ${SITE_URL}
 User-agent: *
 Allow: /
-Disallow:
+Disallow: /admin
 
 # Sitemap
 Sitemap: ${SITE_URL}/sitemap.xml

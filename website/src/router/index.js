@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { adminRoutes, adminGuard } from "../admin/index.js";
 
 const routes = [
   {
@@ -37,6 +38,8 @@ const routes = [
     component: () => import("../views/TermsView.vue"),
     meta: { titleKey: "nav.terms" },
   },
+  // 后台管理（/admin/**，需在 catch-all 之前注册）
+  ...adminRoutes,
   {
     // 兜底 404 → 回首页
     path: "/:pathMatch(.*)*",
@@ -53,3 +56,5 @@ export const router = createRouter({
     return { top: 0 };
   },
 });
+
+router.beforeEach(adminGuard);
