@@ -118,10 +118,20 @@ export class SyncCoordinator {
    * Pages through has_more until the server says we're caught up.
    */
   async pull(): Promise<PullOutcome> {
+    return this.pullFrom(this.afterId);
+  }
+
+  /**
+   * Pull rows since `afterId` (inclusive-exclusive), decrypt, apply, and page
+   * until caught up. Used for incremental pulls AND for cold-start full replay
+   * (pass 0 when the replica was rebuilt in memory after an SW restart).
+   */
+  async pullFrom(startAfterId: number): Promise<PullOutcome> {
     let applied = 0;
     let skipped = 0;
+    let afterId = startAfterId;
     for (;;) {
-      const page = await this.transport.pull(this.spaceId, this.afterId, 1000);
+      const page = await this.transport.pull(this.spaceId, afterId, 1000);
       for (const row of page.rows) {
         try {
           const op = await decryptMoveOp(row.op, this.key, this.spaceId);
@@ -132,9 +142,10 @@ export class SyncCoordinator {
           skipped++;
         }
       }
-      if (page.rows.length) this.afterId = page.last_id;
+      if (page.rows.length) afterId = page.last_id;
       if (!page.has_more) break;
     }
+    if (afterId > this.afterId) this.afterId = afterId;
     return { applied, skipped, afterId: this.afterId };
   }
 

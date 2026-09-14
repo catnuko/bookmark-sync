@@ -287,6 +287,25 @@ export class Replica {
     }
     return out;
   }
+
+  /**
+   * True if the visible tree contains no user nodes (only the fixed roots).
+   *
+   * This is the "cold-start" marker: the MV3 service worker is terminated after
+   * ~30s idle and rebuilt in memory on wake, so a freshly constructed replica
+   * has only the fixed roots even though cloud history exists. reverseApply
+   * must NOT trust a bare replica for deletions (it would wipe the local tree);
+   * runSync uses this to trigger a full replay from the cloud first.
+   */
+  isBare(): boolean {
+    const PROTECTED = new Set([
+      ROOT_UUID,
+      BOOKMARKS_BAR_UUID,
+      OTHER_BOOKMARKS_UUID,
+      MOBILE_UUID,
+    ]);
+    return this.getVisibleTree().every((e) => PROTECTED.has(e.child));
+  }
 }
 
 export { ROOT_NODE_ID, TRASH_NODE_ID };

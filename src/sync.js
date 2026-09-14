@@ -146,6 +146,14 @@ export async function runSync(_opts = {}) {
 
     const coordinator = await getCoordinator(active.id, deviceId, key);
 
+    // 冷启动保护：MV3 SW 闲置终止后重建的 replica 只有固定根（isBare），
+    // 但云端已有历史。此时必须先从 0 全量重放，否则 reverseApply 的空 CRDT
+    // 视图会把本机书签树当「已删除」清空（removeTrashedNodes 误删）。
+    if (coordinator.afterId > 0 && coordinator.replica.isBare()) {
+      const replay = await coordinator.pullFrom(0);
+      if (replay.applied > 0) await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
+    }
+
     // 1) 拉远端 → 本地 CRDT
     const pull = await coordinator.pull();
 
@@ -164,6 +172,10 @@ export async function runSync(_opts = {}) {
     await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
     return { ok: true, pushed, pulled: pull.applied, seeded: seededRef.value };
   } catch (e) {
+    // 诊断：持久化完整错误与堆栈（readStorageLocal 可读）
+    try {
+      await api.storage.local.set({ lastSyncError: `${e?.message ?? e} | ${e?.stack ?? ''}` });
+    } catch {}
     return { ok: false, reason: "error", error: e?.message ?? String(e) };
   }
 }

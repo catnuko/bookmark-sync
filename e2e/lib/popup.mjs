@@ -28,8 +28,14 @@ export async function isLoggedIn(page) {
 export async function loginIfNeeded(page, email, password) {
   if (await isLoggedIn(page)) return true;
   const setInput = async (selector, value) => {
-    const r = await page.eval(`!!document.querySelector(${JSON.stringify(selector)})`);
-    if (!r.val) throw new Error(`找不到输入框 ${selector}`);
+    // Vue 渲染有延迟：轮询等待 selector 出现（最多 15s）
+    let found = false;
+    for (let i = 0; i < 30; i++) {
+      const r = await page.eval(`!!document.querySelector(${JSON.stringify(selector)})`);
+      if (r.val) { found = true; break; }
+      await sleep(500);
+    }
+    if (!found) throw new Error(`找不到输入框 ${selector}`);
     // Vue v-model 需要真实键盘输入：先 focus 再 insertText
     await page.eval(`document.querySelector(${JSON.stringify(selector)}).focus()`);
     await page.send('Input.insertText', { text: value });

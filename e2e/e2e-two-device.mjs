@@ -24,6 +24,12 @@ import { launchChromium } from './lib/launch.mjs';
 import { waitForExtensionSw, connect, sleep } from './lib/cdp.mjs';
 import { openPopup, loginIfNeeded, ensureSpace, clickSyncAndWait, createBookmark, getTree, flattenTree } from './lib/popup.mjs';
 import { opCount, devices, sql } from './lib/supabase.mjs';
+import { execSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const EMAIL = process.env.EMAIL;
 const PASSWORD = process.env.PASSWORD;
@@ -31,6 +37,22 @@ if (!EMAIL || !PASSWORD) {
   console.error('需要 EMAIL / PASSWORD 环境变量');
   process.exit(1);
 }
+
+// 自清理：杀残留测试 Chromium + 清 profile。残留节点会干扰 reverseApply 的
+// index 计算（chrome "Index out of bounds"），每次从干净起点验证。
+// 注意：测试二进制可能是 /opt/browser/chrome（symlink），进程名是 chrome，
+// 不能按名字匹配（会误杀环境浏览器）；用 e2e/.profiles 路径特征精确匹配。
+try {
+  execSync(`ps -eo pid,args | grep "e2e/.profiles" | grep -v grep | awk '{print $1}' | xargs -r kill -9 2>/dev/null || true`);
+} catch {}
+// 轮询等待进程退出（fuse 文件在进程存续期间被占用，直接 rm 会 EBUSY）
+for (let i = 0; i < 20; i++) {
+  await sleep(1000);
+  let alive = 0;
+  try { alive = Number(execSync(`ps -eo args | grep "e2e/.profiles" | grep -v grep | wc -l`).toString().trim()); } catch {}
+  if (alive === 0) break;
+}
+rmSync(join(ROOT, 'e2e', '.profiles'), { recursive: true, force: true });
 
 // 可选：清空测试账号的 op_log（干净起点，验证播种→同步→写回全链路）
 if (process.env.E2E_RESET === '1') {
@@ -94,10 +116,15 @@ await sleep(8000);
 
 const bSync = await clickSyncAndWait(pageB);
 console.log('[2dev] B 同步状态:', bSync.status);
+const bDiag = await swB.eval(`chrome.storage.local.get(['lastSyncError','lastRaError']).then(o => JSON.stringify(o))`);
+if (bDiag.val && bDiag.val !== '{}') console.log('[2dev][诊断] B storage:', bDiag.val);
 const treeB = flattenTree(await getTree(swB));
 const bHasA1 = treeB.some((n) => n.title === titleA);
 console.log('[2dev] B 的 chrome 树含 A1:', bHasA1, ' 树节点:', treeB.filter(n => n.title).map(n => n.title).join(','));
 if (!bHasA1) {
+  // 诊断：读 B 的持久化错误（runSync catch / reverseApply create catch）
+  const diag = await swB.eval(`chrome.storage.local.get(['lastSyncError','lastRaError']).then(o => JSON.stringify(o))`);
+  console.error('[2dev][诊断] B storage:', diag.val);
   console.error('FAIL: 远端写回本机（reverseApply）未生效——B 看不到 A 的书签');
   process.exit(1);
 }
@@ -113,20 +140,68 @@ const treeA = flattenTree(await getTree(swA));
 const aHasB1 = treeA.some((n) => n.title === titleB);
 console.log('[2dev] A 的 chrome 树含 B1:', aHasB1);
 if (!aHasB1) {
+  const diag = await swA.eval(`chrome.storage.local.get(['lastSyncError','lastRaError']).then(o => JSON.stringify(o))`);
+  console.error('[2dev][诊断] A storage:', diag.val);
   console.error('FAIL: 反向写回未生效——A 看不到 B 的书签');
   process.exit(1);
 }
 
+// 终态前再各同步一次，收敛判定用最新树
+await clickSyncAndWait(pageB);
+const treeB2 = flattenTree(await getTree(swB));
+await clickSyncAndWait(pageA);
+const treeA2 = flattenTree(await getTree(swA));
+
 // ── 终态断言：两端都收敛到 {A1, B1} ─────────────────────────────
 const bothHaveBoth =
-  treeA.some((n) => n.title === titleA) && treeA.some((n) => n.title === titleB) &&
-  treeB.some((n) => n.title === titleA) && treeB.some((n) => n.title === titleB);
+  treeA2.some((n) => n.title === titleA) && treeA2.some((n) => n.title === titleB) &&
+  treeB2.some((n) => n.title === titleA) && treeB2.some((n) => n.title === titleB);
 console.log('[2dev] 双向收敛（两端都有 A1+B1）:', bothHaveBoth);
+console.log('[2dev] A 树:', treeA2.filter(n => n.title).map(n => n.title).join(','));
+console.log('[2dev] B 树:', treeB2.filter(n => n.title).map(n => n.title).join(','));
 console.log('[2dev] op_log 总数:', await opCount(), ' 设备数:', await devices());
 
 if (!bothHaveBoth) {
   console.error('FAIL: 双端未收敛');
   process.exit(1);
 }
-console.log('\n✅ e2e-two-device 全部通过：远端写回（reverseApply）+ 双向同步均正常');
+
+// ── 场景 3：扩展 reload（SW 冷重启）后书签保留 ─────────────────
+// MV3 SW 30s 无事件即被回收；重启后内存 CRDT 为空（仅固定根 = isBare），
+// runSync 必须先全量重放（pullFrom(0)）再 reverseApply，否则会把本机
+// 书签树当「已删除」清空。chrome.runtime.reload() 会杀 SW 并重建，
+// 是模拟冷重启的最轻量方式（storage 保留）。这是架构级回归测试。
+console.log('[2dev] 场景3：扩展 reload（SW 冷重启）后书签保留…');
+const swB_before = B_.sw.id;
+try { await swB.eval(`chrome.runtime.reload()`); } catch {}
+await sleep(6000);
+// reload 后 SW 不自动启动（已知：本 Chromium 构建 reload 后需事件唤醒）：
+// 打开 popup 并 sendMessage 触发唤醒
+try {
+  const wake = await openPopup(9346, B_.extId);
+  await wake.send('Runtime.enable');
+  await wake.eval(`chrome.runtime.sendMessage({type:'bsync-sync'},()=>{})`).catch(() => {});
+} catch {}
+const { sw: swB3 } = await waitForExtensionSw(9346, 45000);
+const swRestarted = swB3.id !== swB_before;
+console.log('[2dev] SW 重启:', swRestarted, `（${swB_before.slice(0, 8)} → ${swB3.id.slice(0, 8)}）`);
+
+// 再手动同步一次确保完成
+const pageB3 = await openPopup(9346, B_.extId);
+await clickSyncAndWait(pageB3);
+const swB3c = await connect(swB3.webSocketDebuggerUrl);
+await swB3c.send('Runtime.enable');
+const treeB3 = flattenTree(await getTree(swB3c));
+const keepA1 = treeB3.some((n) => n.title === titleA);
+const keepB1 = treeB3.some((n) => n.title === titleB);
+console.log('[2dev] 冷重启后 B 树:', treeB3.filter(n => n.title).map(n => n.title).join(','));
+console.log('[2dev] 冷重启后保留 A1/B1:', keepA1, keepB1);
+if (!(keepA1 && keepB1)) {
+  const diag = await swB3c.eval(`chrome.storage.local.get(['lastSyncError','lastRaError','crdt.afterId']).then(o => JSON.stringify(o))`);
+  console.error('[2dev][诊断] B storage:', diag.val);
+  console.error('FAIL: SW 冷重启后书签丢失（冷启动全量重放保护未生效）');
+  process.exit(1);
+}
+
+console.log('\n✅ e2e-two-device 全部通过：远端写回 + 双向同步 + SW 冷重启保留均正常');
 process.exit(0);

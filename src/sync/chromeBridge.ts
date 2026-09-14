@@ -332,19 +332,34 @@ async function ensureReachableNodes(
 
       if (!existingChromeId) {
         // Create in Chrome (real API takes a single details object).
-        const created = await chrome.create({
-          parentId: parentChromeId,
-          title,
-          ...(url !== undefined ? { url } : {}),
-          index: i,
-        });
-        bridge.map(created.id, childUuid);
+        // index 必须在 0..当前子节点数 之间，否则 chrome 报 "Index out of bounds"。
+        const siblings = await chrome.getChildren(parentChromeId);
+        const createIndex = Math.max(0, Math.min(i, siblings.length));
+        try {
+          const created = await chrome.create({
+            parentId: parentChromeId,
+            title,
+            ...(url !== undefined ? { url } : {}),
+            index: createIndex,
+          });
+          bridge.map(created.id, childUuid);
+        } catch (e) {
+          // 诊断：持久化 create 入参与错误（真实 Chromium 定位签名问题用）
+          try {
+            await (globalThis as any).chrome?.storage?.local?.set({
+              lastRaError: `create ${e?.message} | parentId=${JSON.stringify(parentChromeId)} title=${JSON.stringify(title)} url=${JSON.stringify(url)} index=${createIndex}`,
+            });
+          } catch {}
+          throw e;
+        }
       } else {
         // Align parent/index and metadata. The node may exist in Chrome but
         // under a different parent (remote move) — move it to the target.
         let current = (await chrome.getChildren(parentChromeId)).find((n) => n.id === existingChromeId);
         if (!current || current.parentId !== parentChromeId || current.index !== i) {
-          await chrome.move(existingChromeId, { parentId: parentChromeId, index: i });
+          const siblings = await chrome.getChildren(parentChromeId);
+          const moveIndex = Math.max(0, Math.min(i, Math.max(0, siblings.length - 1)));
+          await chrome.move(existingChromeId, { parentId: parentChromeId, index: moveIndex });
           current = (await chrome.getChildren(parentChromeId)).find((n) => n.id === existingChromeId) ?? current;
         }
         if (current && (current.title !== title || current.url !== url)) {
