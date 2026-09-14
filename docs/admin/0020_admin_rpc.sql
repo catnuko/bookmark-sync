@@ -17,7 +17,7 @@
 -- ============================================================================
 
 -- ---------- 0) 常量与鉴权辅助 ----------
--- bsync 租户 project_id（与 licenses/project_members 里的默认值一致）
+-- bsync 租户 project_id（与 project_members 里的默认值一致）
 create or replace function public.bsync_admin_project_id()
 returns uuid language sql immutable as $$
   select '885e7f27-f4ad-447d-8f17-e18fac1dcf0a'::uuid;
@@ -44,7 +44,7 @@ comment on function public.assert_bsync_admin() is
 create table if not exists public.bsync_admin_audit_log (
   id          bigint generated always as identity primary key,
   admin_id    uuid not null,
-  action      text not null,           -- set_plan / reset_usage / set_license_active ...
+  action      text not null,           -- set_plan / reset_usage ...
   target_user uuid,                    -- 被操作的用户（可空）
   detail      jsonb not null default '{}'::jsonb,
   created_at  timestamptz not null default now()
@@ -395,62 +395,7 @@ $$;
 comment on function public.admin_list_subscriptions(text) is
 '后台订阅列表：active 排前，按最近更新排序；可按状态过滤';
 
--- ---------- 5) License / Token ----------
-
-create or replace function public.admin_list_licenses(
-  p_active boolean default null,
-  p_limit  int     default 50,
-  p_offset int     default 0
-)
-returns jsonb language plpgsql security definer set search_path = public as $$
-declare
-  v_total bigint;
-  v_rows  jsonb;
-begin
-  perform public.assert_bsync_admin();
-
-  select count(*) into v_total from public.lic_licenses l
-   where l.project_id = public.bsync_admin_project_id()
-     and (p_active is null or l.is_active = p_active);
-
-  select coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) into v_rows
-    from (
-      select id, license_key, expire_date, is_active, max_usage, used_count,
-             created_at, last_used_at
-        from public.lic_licenses l
-       where l.project_id = public.bsync_admin_project_id()
-         and (p_active is null or l.is_active = p_active)
-       order by created_at desc
-       limit p_limit offset p_offset
-    ) t;
-
-  return jsonb_build_object('rows', v_rows, 'total', v_total);
-end;
-$$;
-comment on function public.admin_list_licenses(boolean, int, int) is
-'后台 License 卡列表（bsync 项目）；license_key 原样返回仅管理员可见';
-
-create or replace function public.admin_set_license_active(p_id uuid, p_active boolean)
-returns void language plpgsql security definer set search_path = public as $$
-declare
-  v_old boolean;
-begin
-  perform public.assert_bsync_admin();
-  select is_active into v_old from public.lic_licenses
-   where id = p_id and project_id = public.bsync_admin_project_id();
-
-  update public.lic_licenses set is_active = p_active
-   where id = p_id and project_id = public.bsync_admin_project_id();
-
-  insert into public.bsync_admin_audit_log (admin_id, action, detail)
-  values (auth.uid(), 'set_license_active', null,
-          jsonb_build_object('license_id', p_id, 'old', v_old, 'new', p_active));
-end;
-$$;
-comment on function public.admin_set_license_active(uuid, boolean) is
-'后台启用/停用 License 卡；写审计日志';
-
--- ---------- 6) 系统监控 ----------
+-- ---------- 5) 系统监控 ----------
 
 create or replace function public.admin_system_stats()
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -510,8 +455,6 @@ revoke all on function public.admin_set_user_plan(uuid,text)       from anon;
 revoke all on function public.admin_reset_usage(uuid)             from anon;
 revoke all on function public.admin_list_orders(text,text,int,int) from anon;
 revoke all on function public.admin_list_subscriptions(text)      from anon;
-revoke all on function public.admin_list_licenses(boolean,int,int) from anon;
-revoke all on function public.admin_set_license_active(uuid,boolean) from anon;
 revoke all on function public.admin_system_stats()                from anon;
 
 grant execute on function public.admin_whoami()                       to authenticated;
@@ -522,6 +465,4 @@ grant execute on function public.admin_set_user_plan(uuid,text)       to authent
 grant execute on function public.admin_reset_usage(uuid)             to authenticated;
 grant execute on function public.admin_list_orders(text,text,int,int) to authenticated;
 grant execute on function public.admin_list_subscriptions(text)      to authenticated;
-grant execute on function public.admin_list_licenses(boolean,int,int) to authenticated;
-grant execute on function public.admin_set_license_active(uuid,boolean) to authenticated;
 grant execute on function public.admin_system_stats()                to authenticated;

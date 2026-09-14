@@ -12,7 +12,6 @@ const nav = [
   { to: "/admin/users", label: "用户", icon: "👥" },
   { to: "/admin/orders", label: "订单", icon: "🧾" },
   { to: "/admin/subscriptions", label: "订阅", icon: "💳" },
-  { to: "/admin/licenses", label: "卡密", icon: "🔑" },
   { to: "/admin/system", label: "系统", icon: "🖥️" },
 ];
 

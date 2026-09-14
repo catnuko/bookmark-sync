@@ -48,13 +48,5 @@ export const adminApi = {
     }),
   listSubscriptions: (status) =>
     callAdmin("admin_list_subscriptions", { p_status: status ?? null }),
-  listLicenses: (params) =>
-    callAdmin("admin_list_licenses", {
-      p_active: params?.active ?? null,
-      p_limit: params?.limit ?? 50,
-      p_offset: params?.offset ?? 0,
-    }),
-  setLicenseActive: (id, active) =>
-    callAdmin("admin_set_license_active", { p_id: id, p_active: active }),
   systemStats: () => callAdmin("admin_system_stats"),
 };
