@@ -58,34 +58,73 @@ export interface ChromeTreeNode {
   folderType?: string;
 }
 
-/** chromeId -> fixed root UUID, or null for ordinary nodes. */
+/**
+ * chromeId -> fixed root UUID, or null for ordinary nodes.
+ * 跨浏览器根 id：Chrome 用数字 "0"/"1"/"2"/"3"，Firefox 用 guid
+ * （root________ / toolbar_____ / unfiled_____ / mobile______）。
+ * Firefox 的 menu________（书签菜单）不映射（暂不同步，reverseApply 不动它）。
+ */
 function fixedRootUuid(chromeId: string): string | null {
   switch (chromeId) {
-    case CHROME_ROOT_ID: return ROOT_UUID;
-    case '1': return BOOKMARKS_BAR_UUID;
-    case '2': return OTHER_BOOKMARKS_UUID;
-    case '3': return MOBILE_UUID;
+    case CHROME_ROOT_ID: return ROOT_UUID; // Chrome "0"
+    case 'root________': return ROOT_UUID; // Firefox root
+    case '1': return BOOKMARKS_BAR_UUID; // Chrome 书签栏
+    case 'toolbar_____': return BOOKMARKS_BAR_UUID; // Firefox 书签工具栏
+    case '2': return OTHER_BOOKMARKS_UUID; // Chrome 其他书签
+    case 'unfiled_____': return OTHER_BOOKMARKS_UUID; // Firefox 其他书签
+    case '3': return MOBILE_UUID; // Chrome 移动书签
+    case 'mobile______': return MOBILE_UUID; // Firefox 移动书签
     default: return null;
   }
 }
 
+/** 运行环境是否为 Firefox（根 id 体系不同：guid vs 数字）。 */
+export const IS_FIREFOX =
+  typeof navigator !== "undefined" && /Firefox\//.test(navigator.userAgent);
+
+/** 已知固定根 chromeId -> uuid（跨环境全集，forward 用）。 */
+const ALL_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  [CHROME_ROOT_ID, ROOT_UUID],
+  ['root________', ROOT_UUID],
+  ['1', BOOKMARKS_BAR_UUID],
+  ['toolbar_____', BOOKMARKS_BAR_UUID],
+  ['2', OTHER_BOOKMARKS_UUID],
+  ['unfiled_____', OTHER_BOOKMARKS_UUID],
+  ['3', MOBILE_UUID],
+  ['mobile______', MOBILE_UUID],
+];
+/** Chrome 环境的根（backward 用）。 */
+const CHROME_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  [CHROME_ROOT_ID, ROOT_UUID],
+  ['1', BOOKMARKS_BAR_UUID],
+  ['2', OTHER_BOOKMARKS_UUID],
+  ['3', MOBILE_UUID],
+];
+/** Firefox 环境的根（backward 用；menu________ 不映射 CRDT 固定根）。 */
+const FF_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ['root________', ROOT_UUID],
+  ['toolbar_____', BOOKMARKS_BAR_UUID],
+  ['unfiled_____', OTHER_BOOKMARKS_UUID],
+  ['mobile______', MOBILE_UUID],
+];
+const CHROME_ROOT_IDS = new Set(CHROME_ROOT_PAIRS.map(([cid]) => cid));
+const FF_ROOT_IDS = new Set(FF_ROOT_PAIRS.map(([cid]) => cid));
+
 /**
  * In-memory chromeId <-> uuid map. Persistence (UuidMappingStore) owns the
  * durable layer; this cache is warmed at start and written-through.
+ *
+ * backward 只 seed 本环境的根 id：若 Chrome/Firefox 根都 seed，同一 uuid 的
+ * backward 会被后写覆盖（OTHER ← 'unfiled_____' 覆盖 '2'），Chromium 下
+ * toChromeId(OTHER) 会返回 Firefox guid → chrome "Bookmark id is invalid."。
  */
 export class IdBridge {
   private forward = new Map<string, string>(); // chromeId -> uuid
   private backward = new Map<string, string>(); // uuid -> chromeId
 
   constructor(private readonly onChange?: () => void) {
-    // Seed fixed roots.
-    for (const [cid, uuid] of [
-      [CHROME_ROOT_ID, ROOT_UUID],
-      ['1', BOOKMARKS_BAR_UUID],
-      ['2', OTHER_BOOKMARKS_UUID],
-      ['3', MOBILE_UUID],
-    ] as Array<[string, string]>) {
-      this.forward.set(cid, uuid);
+    for (const [cid, uuid] of ALL_ROOT_PAIRS) this.forward.set(cid, uuid);
+    for (const [cid, uuid] of (IS_FIREFOX ? FF_ROOT_PAIRS : CHROME_ROOT_PAIRS)) {
       this.backward.set(uuid, cid);
     }
   }
@@ -112,6 +151,8 @@ export class IdBridge {
   /** Rehydrate a previously persisted snapshot (fixed roots re-seeded anyway). */
   load(map: Record<string, string>): void {
     for (const [cid, uuid] of Object.entries(map)) {
+      // 跳过非本环境的固定根（避免 backward 覆盖本环境根映射）
+      if (IS_FIREFOX ? CHROME_ROOT_IDS.has(cid) : FF_ROOT_IDS.has(cid)) continue;
       this.forward.set(cid, uuid);
       this.backward.set(uuid, cid);
     }
@@ -216,7 +257,10 @@ export function captureLocalEvents(
  */
 
 /** chrome ids we must never create/delete/move/update. */
-const PROTECTED_CHROME_IDS = new Set([CHROME_ROOT_ID, '1', '2', '3']);
+const PROTECTED_CHROME_IDS = new Set([
+  CHROME_ROOT_ID, '1', '2', '3', // Chrome 根
+  'root________', 'menu________', 'toolbar_____', 'unfiled_____', 'mobile______', // Firefox 根
+]);
 /** CRDT uuids we never apply chrome mutations to. */
 const PROTECTED_UUIDS = new Set([ROOT_UUID, BOOKMARKS_BAR_UUID, OTHER_BOOKMARKS_UUID, MOBILE_UUID]);
 

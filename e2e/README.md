@@ -1,15 +1,19 @@
-# 端到端测试（真实 Chromium + Supabase）
+# 端到端测试（真实 Chromium + Firefox + Supabase）
 
 在**真实浏览器**里验证同步链路（单测覆盖不到的：MV3 Service Worker 生命周期、
-chrome.bookmarks 事件、Supabase 网络往返、popup/SW realm 隔离）。
+chrome.bookmarks 事件、Supabase 网络往返、popup/SW realm 隔离、跨浏览器差异）。
 
 ## 前置
 
 ```bash
-pnpm package            # 产出 extension/（脚本加载这个目录）
+pnpm package            # 产出 extension/（Chromium，脚本加载这个目录）
+pnpm build:firefox      # 产出 extension-firefox/（Firefox）
 echo "sbp_你的token" > ~/.supabase_access_token   # Supabase Management API token（查 op_log 用）
 # Xvfb（Linux 无头环境必需）：
 Xvfb :99 -screen 0 1440x900x24 &
+# Firefox 环境（P1）：
+/opt/ff/firefox/firefox                          # Firefox 155.0.1（官方 tarball，代理下载）
+/home/user/tools/geckodriver                     # geckodriver 0.36.0
 ```
 
 ## 脚本
@@ -17,7 +21,9 @@ Xvfb :99 -screen 0 1440x900x24 &
 | 脚本 | 验证内容 |
 |---|---|
 | `e2e-single.mjs` | 单设备闭环：登录 → 同步 → 建书签 → op_log 增长 → **op 全为 AES-GCM 密文信封** |
-| `e2e-two-device.mjs` | **双浏览器双向同步**：A 建书签 → B 拉到并 reverseApply 写回本机 chrome → B 建书签 → A 拉到 → 双端收敛 |
+| `e2e-two-device.mjs` | **双 Chromium 双向同步**：A 建书签 → B 拉到并 reverseApply 写回本机 chrome → B 建书签 → A 拉到 → 双端收敛 + **场景 3（SW 冷重启保留）** |
+| `ff-smoke.mjs` | **Firefox 单端**：桥通道 login → sync → create → getTree（根 guid 适配验证） |
+| `e2e-ff-sync.mjs` | **Chromium × Firefox 跨浏览器双向同步（P1 验收）**：A1/B1 各恰 1 个、op_log 恰 2 条 |
 | `supabase-check.mjs [--detail]` | 只读：查空间/设备/op_log 数量与密文结构 |
 
 ## 运行
@@ -25,19 +31,24 @@ Xvfb :99 -screen 0 1440x900x24 &
 ```bash
 EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-single.mjs
 EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-two-device.mjs
+EMAIL=346746061@qq.com PASSWORD='你的密码' E2E_RESET=1 node e2e/ff-smoke.mjs
+EMAIL=346746061@qq.com PASSWORD='你的密码' E2E_RESET=1 node e2e/e2e-ff-sync.mjs
 ```
 
-结束浏览器：`bash e2e/kill-chromium.sh`（或自行 kill）。
+结束浏览器：`bash e2e/kill-chromium.sh`（或自行 kill；Firefox 脚本自带清理）。
 
 ## 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `EMAIL` / `PASSWORD` | 必填 | Supabase 登录账号 |
-| `CHROME_BIN` | `/usr/local/bin/chromium` | 浏览器二进制 |
+| `E2E_RESET` | — | `1` 时先 `TRUNCATE bsync_op_log`（测试账号专用） |
+| `CHROME_BIN` | `/usr/local/bin/chromium` | 浏览器二进制（真实环境实际是 `/opt/browser/chrome`） |
 | `EXT_DIR` | `<repo>/extension` | 要加载的扩展目录 |
 | `CDP_PORT` | `9345` | 单设备脚本端口（双设备用 9345/9346） |
-| `PROFILE_DIR` | `<repo>/e2e/.profiles/<port>` | 浏览器 profile（登录态持久化，可复用） |
+| `PROFILE_DIR` | `<repo>/e2e/.profiles/<port>` | Chromium profile |
+| `FF_BIN` | `/opt/ff/firefox/firefox` | Firefox 二进制 |
+| `GECKODRIVER_BIN` | `/home/user/tools/geckodriver` | geckodriver 路径 |
 | `SUPABASE_PROJECT` | `cwtqnsbpcetvqopdkcou` | 项目 ref |
 | `DISPLAY` | `:99` | Xvfb 显示号 |
 
@@ -60,11 +71,27 @@ EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-two-device.mjs
   SW 无法被事件唤醒（45s 无 target）。若换 Chrome 稳定版可回归 reload 路径。
 - **CDP 保活**：调试器连接会阻止 SW 闲置终止；测"SW 被回收"场景须先断开 CDP。
 
-## 跨浏览器（Firefox）差异（P1 进行中）
+## 跨浏览器（Firefox）— 已实现（P1 通过）
 
-- 现有 `lib/cdp.mjs` 基于 CDP（Chromium 专有）；Firefox 需 **geckodriver +
-  WebDriver BiDi**（或 Marionette 2828 端口）驱动。
-- 扩展加载：Firefox 用 `--profile <dir>` + `extensions.autoDisableScopes=0` 预置，
-  或 `about:debugging` 临时加载，不是 Chromium 的 `--load-extension`。
-- popup URL 是 `moz-extension://<uuid>/popup.html`（非 chrome-extension://），
-  临时加载时扩展 id 每次可能变化，storage 注入需按实际 id 定位。
+驱动链路：`geckodriver + WebDriver BiDi`（`e2e/lib/bidi.mjs`），Firefox 无 CDP。
+
+- **扩展加载**：classic 端点 `POST /session/{sid}/moz/addon/install`（`temporary: true`），
+  返回 manifest 声明的 id `bookmark-sync@bookmarksync.app`；`moz:install-temporary-extension`
+  capability 在 geckodriver 0.36 报 `Unrecognised option`（勿用）。
+- **扩展 UUID 固定**：pref `extensions.webextensions.uuids` =
+  `{"bookmark-sync@bookmarksync.app":"11111111-..."}`（临时加载 id 否则随机）。
+- **WebDriver 不能导航到 `moz-extension://`**（about:blank 与 http 页 location.href
+  跳转均被 Firefox 安全策略拒绝）→ **测试桥**：
+  - `src/testChannel.js`：产品侧 `runtime.onMessageExternal` 白名单通道（仅 sender
+    `bsync-test-bridge@test.local`，命令 ping/sync/login/logout/storage.*/bookmarks.*）。
+  - `e2e/test-bridge/`：桥扩展 content script 用 **`window.postMessage`** 桥（内容脚本↔
+    页面标准通道，结构化克隆无 Xray 问题）把页面消息转发到 bookmark-sync。
+  - **死路（勿重试）**：wrappedJSObject 赋值函数 / `Cu.exportFunction` / DOM CustomEvent
+    跨 realm / WebDriver 与 JS 跳转 moz-extension://（全部失败，见 NEXT-STEPS.md 2.5）。
+- **根 id 差异**：Chrome 根是数字 `"0"/"1"/"2"/"3"`，Firefox 是 guid
+  `root________/toolbar_____/unfiled_____/mobile______`（另有 `menu________`）。
+  `chromeBridge.ts` 的 backward（uuid→chromeId）**只 seed 本环境根**（UA 判定
+  `IS_FIREFOX`）；两环境都 seed 会被后写覆盖 → Chromium 下 `toChromeId(OTHER)` 返回
+  Firefox guid → `"Bookmark id is invalid."`。`menu________` 暂不同步。
+- **端口**：9455（桥页面 server）/ 9444（geckodriver）/ 9446（BiDi WS，9222 被环境
+  浏览器占用须换端口）；残留进程占端口会卡死，先清理。

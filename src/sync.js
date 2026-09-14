@@ -28,6 +28,15 @@ const AFTER_ID_KEY = "crdt.afterId";
 const IDMAP_KEY = "crdt.idmap";
 const SEEDED_KEY = "crdt.seeded";
 
+/** Firefox 特殊根 guid（不映射 CRDT 固定根、不播种、reverseApply 不动）。 */
+const FIREFOX_ROOT_IDS = new Set([
+  "root________",
+  "menu________",
+  "toolbar_____",
+  "unfiled_____",
+  "mobile______",
+]);
+
 const keyManager = new KeyManager({
   async get(key) { return (await api.storage.local.get(key))[key]; },
   async set(key, value) { await api.storage.local.set({ [key]: value }); },
@@ -278,6 +287,7 @@ export async function seedExistingTree(coordinator) {
   const tree = await globalThis.chrome.bookmarks.getTree();
   let seeded = 0;
   const walk = async (node, parentUuid) => {
+    if (FIREFOX_ROOT_IDS.has(node.id)) return; // Firefox 特殊根：不播种（reverseApply 也不会动它们）
     const existing = bridge.toUuid(node.id);
     if (existing) {
       // 根节点直接续走子树

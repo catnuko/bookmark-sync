@@ -4,12 +4,15 @@
 //   - 本地书签变更由 chrome.bookmarks 事件驱动，入队后随下一次 flush 推送
 import { api } from "./lib/ext.js";
 import { runSync, registerLocalEventBridge } from "./sync.js";
+import { registerTestChannel } from "./testChannel.js";
 
 const ALARM_NAME = "bsync-periodic-pull";
 
 // MV3：chrome.* 持久事件监听必须在 SW 顶层注册（SW 每次被唤醒都会重跑本文件）。
 // 事件桥在 coordinator 未就绪（未登录/无空间）时安全跳过，由 runSync 播种兜底。
 registerLocalEventBridge();
+// 测试通道（仅 Firefox E2E；生产无测试桥扩展，通道天然不可达）
+registerTestChannel();
 
 async function sync() {
   try {

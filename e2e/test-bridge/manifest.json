@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "bsync-test-bridge",
+  "version": "1.0.0",
+  "description": "E2E 测试桥：把页面脚本的调用转发给 bookmark-sync 扩展（仅测试环境安装）",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "bsync-test-bridge@test.local"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "permissions": []
+}
