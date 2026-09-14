@@ -8,7 +8,7 @@ import {
   listDevices, removeDevice, getDeviceId,
   acknowledgeFirstSync, pullOverwriteLocal,
 } from "./sync.js";
-import { exportKey, importKey, hasKey, setKeyFromPassphrase, getEncryptMode, setEncryptMode } from "./crypto.js";
+import { exportKey, importKey, hasKey, setKeyFromPassphrase } from "./crypto.js";
 
 const props = defineProps({ popup: { type: Boolean, default: false } });
 
@@ -20,12 +20,12 @@ const busy = ref(false);
 const syncBusy = ref(false);
 const status = ref("");
 
-// 同步密钥（E2EE）管理：换设备时导出并在新设备导入同一密钥
+// 同步密钥（E2EE）管理：换设备时导出并在新设备导入同一密钥（同步强制加密，
+// 密钥是解密云端数据的唯一凭证；没有「明文同步」选项）
 const keyValue = ref("");
 const keyImportInput = ref("");
 const keyMsg = ref("");
 const keyPhraseInput = ref("");
-const encryptMode = ref("plain");
 
 // 付费档案 + 升级 modal
 const profile = ref(null); // { plan, quota_bytes, used_bytes, used_count?, purchased_at }
@@ -80,8 +80,7 @@ async function refreshSpacesDevices() {
 }
 
 async function loadKeyPanel() {
-  encryptMode.value = await getEncryptMode();
-  keyMsg.value = (await hasKey()) ? "" : "本设备尚无密钥，首次同步时会按下方设置自动生成。";
+  keyMsg.value = (await hasKey()) ? "" : "本设备尚无密钥，首次同步时自动生成；换设备时请在此导入同一密钥或口令。";
   try {
     keyValue.value = await exportKey();
   } catch {
@@ -581,17 +580,6 @@ function openUpgrade() {
   showUpgradeModal.value = true;
 }
 
-async function changeEncryptMode(mode) {
-  encryptMode.value = mode;
-  await setEncryptMode(mode);
-  if (mode === "e2ee") {
-    keyValue.value = await exportKey();
-    keyMsg.value = "已启用端到端加密。新装设备需导入密钥或输入同一口令才能解密。";
-  } else {
-    keyMsg.value = "已切换为明文模式（服务器可读内容）。若该账号已有加密数据，请勿在此开启明文，否则会解密失败。";
-  }
-}
-
 async function copyKey() {
   if (!keyValue.value) return;
   try {
@@ -743,54 +731,43 @@ async function doSetKeyByPhrase() {
       </button>
     </div>
 
-    <!-- 同步密钥（E2EE） -->
+    <!-- 同步密钥（E2EE）——同步强制加密，无明文模式 -->
     <Transition name="drop">
       <div v-if="activePanel === 'key'" id="keyPanel" class="panel">
-        <div class="panel-title">同步方式</div>
-        <div class="seg seg-sm">
-          <button type="button" :class="{ on: encryptMode === 'e2ee' }" @click="changeEncryptMode('e2ee')">
-            加密同步
-          </button>
-          <button type="button" :class="{ on: encryptMode === 'plain' }" @click="changeEncryptMode('plain')">
-            明文同步
-          </button>
-        </div>
+        <div class="panel-title">同步密钥（端到端加密）</div>
         <p class="panel-desc">
-          开启加密前，请先了解成本：书签以密文同步，服务端无法读取内容；
-          但<b>忘记密钥 = 数据无法找回</b>（无客服、无后门），每台新设备都要导入同一把密钥或口令，
-          且网页端全文搜索等便捷功能不可用。
-          <br />
-          未开启加密时，新设备登录同一账号即自动同步，无需手动配对。
+          书签同步<b>强制端到端加密</b>：每一条书签操作都在设备上加密后上传，
+          服务器只保存密文。请了解成本——<b>忘记密钥 = 数据无法找回</b>
+          （无客服、无后门），每台新设备都要导入同一把密钥或口令，且网页端
+          全文搜索等便捷功能不可用。
         </p>
-        <template v-if="encryptMode === 'e2ee'">
-          <div v-if="keyValue" class="key-box">
-            <span class="key-text">{{ keyValue }}</span>
-            <button class="btn-sm" @click="copyKey">复制</button>
-          </div>
-          <div class="input-row">
-            <input
-              v-model="keyImportInput"
-              class="input mono"
-              placeholder="粘贴密钥（新设备导入）"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button class="btn-sm btn-solid" :disabled="!keyImportInput" @click="doImportKey">导入</button>
-          </div>
-          <div class="input-row">
-            <input
-              v-model="keyPhraseInput"
-              class="input"
-              type="password"
-              placeholder="或用同一句口令设定（至少 8 位）"
-              autocomplete="new-password"
-            />
-            <button class="btn-sm" :disabled="!keyPhraseInput" @click="doSetKeyByPhrase">设定</button>
-          </div>
-          <p class="panel-warn">
-            ⚠️ <b>重要：请牢记你设定的口令。</b>口令是解密云端数据的唯一钥匙，插件和服务器都无法找回——<b>忘记口令将无法解密既有数据，等同于数据丢失</b>。
-          </p>
-        </template>
+        <div v-if="keyValue" class="key-box">
+          <span class="key-text">{{ keyValue }}</span>
+          <button class="btn-sm" @click="copyKey">复制</button>
+        </div>
+        <div class="input-row">
+          <input
+            v-model="keyImportInput"
+            class="input mono"
+            placeholder="粘贴密钥（新设备导入）"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="btn-sm btn-solid" :disabled="!keyImportInput" @click="doImportKey">导入</button>
+        </div>
+        <div class="input-row">
+          <input
+            v-model="keyPhraseInput"
+            class="input"
+            type="password"
+            placeholder="或用同一句口令设定（至少 8 位）"
+            autocomplete="new-password"
+          />
+          <button class="btn-sm" :disabled="!keyPhraseInput" @click="doSetKeyByPhrase">设定</button>
+        </div>
+        <p class="panel-warn">
+          ⚠️ <b>重要：请牢记你设定的口令。</b>口令是解密云端数据的唯一钥匙，插件和服务器都无法找回——<b>忘记口令将无法解密既有数据，等同于数据丢失</b>。
+        </p>
         <p v-if="keyMsg" class="panel-hint">{{ keyMsg }}</p>
       </div>
     </Transition>
@@ -907,8 +884,8 @@ async function doSetKeyByPhrase() {
         </div>
         <p v-if="!devices.length" class="panel-hint">尚无记录，完成一次同步后自动登记。</p>
         <p v-else class="panel-hint">
-          每台浏览器（Chrome / Edge / Firefox）完成一次同步后自动登记；未加密时登录同一账号即自动同步，
-          只有开启加密的设备才需要在「同步密钥」里手动导入密钥配对。
+          每台浏览器（Chrome / Edge / Firefox）完成一次同步后自动登记；同步为端到端加密，
+          新设备需在「同步密钥」里导入同一密钥或输入同一口令才能解密云端数据。
           「解除」用于电脑转手 / 重装：该浏览器退出列表，不再影响你的书签。
         </p>
       </div>
