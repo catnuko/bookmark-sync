@@ -707,8 +707,11 @@ async function doSetKeyByPhrase() {
           </button>
         </div>
         <p class="panel-desc">
-          加密同步：书签内容端到端加密，服务器看不到你的收藏，换设备需同一把密钥或口令。
-          明文同步：内容以明文存服务器，更省事但不保护内容隐私。
+          开启加密前，请先了解成本：书签以密文同步，服务端无法读取内容；
+          但<b>忘记密钥 = 数据无法找回</b>（无客服、无后门），每台新设备都要导入同一把密钥或口令，
+          且网页端全文搜索等便捷功能不可用。
+          <br />
+          未开启加密时，新设备登录同一账号即自动同步，无需手动配对。
         </p>
         <template v-if="encryptMode === 'e2ee'">
           <div v-if="keyValue" class="key-box">
@@ -814,7 +817,9 @@ async function doSetKeyByPhrase() {
         </div>
         <p v-if="!devices.length" class="panel-hint">尚无记录，完成一次同步后自动登记。</p>
         <p v-else class="panel-hint">
-          「解除」用于电脑转手 / 重装等场景：该浏览器会退出列表，它之前的删除记录一并清除，不再影响你的书签。
+          每台浏览器（Chrome / Edge / Firefox）完成一次同步后自动登记；未加密时登录同一账号即自动同步，
+          只有开启加密的设备才需要在「同步密钥」里手动导入密钥配对。
+          「解除」用于电脑转手 / 重装：该浏览器退出列表，不再影响你的书签。
         </p>
       </div>
     </Transition>
