@@ -82,6 +82,8 @@
 
 **共存策略（P3③）**：App.vue 新增"共存与存储"面板（第三个 tab）——Chrome Sync 共存说明（不接管原生同步、两套云端并存建议二选一）+ op-log GC 配置（阈值可调存 `crdt.gcThreshold`，0=关闭；显示 `lastGcAt`）。UI 冒烟通过（面板渲染 + 默认 2000 + "尚未触发"）。
 
+**口令模式 salt 云端流转（0019，补全）**：口令模式（PBKDF2-SHA256 21 万轮）要求全设备共享同一随机盐才能派生出同一密钥。盐非机密（防彩虹表用途），迁移 0019 在 `bsync_profiles` 加 `e2ee_salt` 列 + `bsync_get/set_e2ee_salt` RPC（仅属主）。`crypto.js` `setKeyFromPassphrase` 登录态下先对齐云端盐（云端权威：有则拉取覆盖本地、本地有且云端无则上传；未登录退化纯本地）→ 新设备只需**登录 + 输入同一口令**即可解密，无需传递 44 字符密钥。单测 +7（tests/sync/keyManager.test.ts：同口令+共享盐→同密钥、不同盐→不同密钥、重复设口令盐稳定、弱口令拒绝、导入往返）；RPC 冒烟 PASS；全套 102/102。
+
 ### 2.7 Firefox 书签菜单参与同步（本会话，完成）
 
 **验收**：`e2e/e2e-ff-sync.mjs` 一次全绿（原场景保持 op_log 恰 2 条 + 菜单场景双向收敛 M1/M2 各恰 1）；`e2e-two-device.mjs`（含场景3）与 `e2e/e2e-gc.mjs` 回归 PASS；单测 **95/95**。
