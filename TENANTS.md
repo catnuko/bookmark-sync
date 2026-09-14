@@ -9,7 +9,7 @@
 
 | 租户 | 命名前缀 | 用途 | 归属仓库 | 状态 |
 |---|---|---|---|---|
-| bsync | `bsync_*` | 浏览器书签同步（快照 + 墓碑） | bookmark-sync | 已启用 |
+| bsync | `bsync_*` | 浏览器书签同步（Move-CRDT 操作日志，0017 起） | bookmark-sync | 已启用 |
 | license | `lic_*` | License/Token 计费系统（lic_licenses / lic_user_tokens 等 4 表 + 3 RPC） | license-system | 已启用（0011 迁移从无前缀改为 lic_ 前缀） |
 | 共享基础设施 | 无前缀 | projects / project_members / profiles / 余额函数 | supabase-snaply-multi | 已启用（多租户共享，不加前缀） |
 
@@ -17,9 +17,9 @@
 
 ## 迁移号水位
 
-- 当前最新迁移：`0016`（push 前先 `supabase migration list` 确认远端实际水位）
-- 新迁移编号 = 当前水位 + 1（当前为 `0017`）
-- **禁止修改已提交的历史迁移（0001~0016）**，只新增迁移文件
+- 当前最新迁移：`0017`（push 前先 `supabase migration list` 确认远端实际水位）
+- 新迁移编号 = 当前水位 + 1（当前为 `0018`）
+- **禁止修改已提交的历史迁移（0001~0017）**，只新增迁移文件
 
 ## 已占用命名（勿重复使用）
 
