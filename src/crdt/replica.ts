@@ -306,6 +306,51 @@ export class Replica {
     ]);
     return this.getVisibleTree().every((e) => PROTECTED.has(e.child));
   }
+
+  // ── GC snapshot (Phase 4) ────────────────────────────────────────────────
+
+  /**
+   * Snapshot of the current tree, for op-log GC. `nodes` is the full
+   * childId -> { parent, meta } projection (fixed roots included);
+   * `w` is the largest Lamport timestamp folded into the snapshot (may be
+   * null for an empty replica). Consumers encrypt this whole object
+   * (operation-level E2EE) before storing it server-side.
+   */
+  exportSnapshot(): SnapshotData {
+    const nodes: Record<string, { parent: string; meta: Metadata }> = {};
+    for (const [child, { parent, meta }] of this.state.tree) {
+      nodes[child] = { parent, meta };
+    }
+    let w: Timestamp | null = null;
+    for (const lm of this.state.log) {
+      if (!w || cmpTimestamp(lm.t, w) > 0) w = lm.t;
+    }
+    return { w, nodes };
+  }
+
+  /**
+   * Rebuild the replica from a snapshot projection (after op-log GC).
+   * Replaces the tree wholesale and clears the local op log; the gcWatermark
+   * is set so any op with t <= watermark received later is skipped (its
+   * effect is already folded into the snapshot). Local counter is kept above
+   * the watermark so future local ops stay strictly newer.
+   */
+  applySnapshot(snap: SnapshotData): void {
+    const tree = new Map<string, { parent: string; meta: Metadata }>();
+    for (const [child, v] of Object.entries(snap?.nodes ?? {})) {
+      tree.set(child, { parent: v.parent, meta: v.meta ?? {} });
+    }
+    this.state = { log: [], tree };
+    this.gcWatermark = snap?.w ?? null;
+    this.counter = Math.max(this.counter, (snap?.w?.counter ?? 0) + 1);
+    this.bumpVersion();
+  }
+}
+
+/** Snapshot payload (see Replica.exportSnapshot / applySnapshot). */
+export interface SnapshotData {
+  w: Timestamp | null;
+  nodes: Record<string, { parent: string; meta: Metadata }>;
 }
 
 export { ROOT_NODE_ID, TRASH_NODE_ID };

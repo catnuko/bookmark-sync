@@ -27,6 +27,9 @@ const DEVICE_ID_KEY = "crdt.deviceId";
 const AFTER_ID_KEY = "crdt.afterId";
 const IDMAP_KEY = "crdt.idmap";
 const SEEDED_KEY = "crdt.seeded";
+/** op-log GC 阈值（storage 键可覆盖；E2E 注入小阈值验证 GC 链路）。 */
+const GC_THRESHOLD_KEY = "crdt.gcThreshold";
+const DEFAULT_GC_THRESHOLD = 2000;
 
 /** Firefox 特殊根 guid（不映射 CRDT 固定根、不播种、reverseApply 不动）。 */
 const FIREFOX_ROOT_IDS = new Set([
@@ -156,15 +159,17 @@ export async function runSync(_opts = {}) {
     const coordinator = await getCoordinator(active.id, deviceId, key);
 
     // 冷启动保护：MV3 SW 闲置终止后重建的 replica 只有固定根（isBare），
-    // 但云端已有历史。此时必须先从 0 全量重放，否则 reverseApply 的空 CRDT
+    // 但云端已有历史。此时必须先从基线恢复，否则 reverseApply 的空 CRDT
     // 视图会把本机书签树当「已删除」清空（removeTrashedNodes 误删）。
+    // 基线优先取 GC 快照（快照存在且可用 → 重建 + 增量；op 已被截断时
+    // pullFrom(0) 会漏行）；无快照时退回全量重放 pullFrom(0)。
     if (coordinator.afterId > 0 && coordinator.replica.isBare()) {
-      const replay = await coordinator.pullFrom(0);
+      const replay = await coordinator.pullWithSnapshot(true);
       if (replay.applied > 0) await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
     }
 
-    // 1) 拉远端 → 本地 CRDT
-    const pull = await coordinator.pull();
+    // 1) 拉远端 → 本地 CRDT（快照优先：快照新于本地水位时重建 + 增量）
+    const pull = await coordinator.pullWithSnapshot(false);
 
     // 2) 播种：云端无历史 && 本机未播种过 → 把现有 chrome 书签树转成 MoveOp
     if (pull.applied === 0 && coordinator.afterId === 0) {
@@ -178,6 +183,28 @@ export async function runSync(_opts = {}) {
 
     // 4) 推本地 → 远端
     const pushed = await coordinator.flushPush();
+
+    // 5) op-log GC：本机树完整后，若服务端行数超阈值 → 落快照 + 截断。
+    //    阈值来自 storage（E2E 用小阈值注入验证），默认 2000 行。
+    const gcCfg = await api.storage.local.get(GC_THRESHOLD_KEY);
+    const gcThreshold = Number(gcCfg[GC_THRESHOLD_KEY] ?? DEFAULT_GC_THRESHOLD);
+    if (gcThreshold > 0 && (pushed > 0 || pull.applied > 0)) {
+      try {
+        const gc = await coordinator.maybeGc(gcThreshold);
+        if (gc.gced) {
+          await api.storage.local.set({ lastGcAt: Date.now() });
+        }
+      } catch { /* GC 失败不阻塞同步 */ }
+    }
+
+    // 6) 上报本机书签数（服务端 used_count 口径：快照加密后服务端无法自算）
+    try {
+      let used = 0;
+      for (const edge of coordinator.replica.getVisibleTree()) {
+        if (typeof edge.meta?.url === "string" && edge.meta.url) used++;
+      }
+      await supabase.rpc("bsync_profile_set_used", { p_used: used });
+    } catch { /* 上报失败不阻塞 */ }
 
     await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
     return { ok: true, pushed, pulled: pull.applied, seeded: seededRef.value };

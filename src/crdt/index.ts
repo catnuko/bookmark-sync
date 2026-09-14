@@ -30,6 +30,7 @@ export {
   logMoveToOp,
 } from './moveCrdt.js';
 export { Replica } from './replica.js';
+export type { SnapshotData } from './replica.js';
 export { positionBetween, evenPositions, compactPositions } from './fractionalIndex.js';
 
 // Persistence (IndexedDB ops log + snapshot + chromeId<->UUID mapping).

@@ -48,17 +48,7 @@ export async function encryptMoveOp(
   key: CryptoKey,
   spaceId: string,
 ): Promise<EncryptedOpEnvelope> {
-  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
-  const plaintext = new TextEncoder().encode(JSON.stringify(op));
-  const cipher = await globalThis.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv, additionalData: aadFor(spaceId) },
-    key,
-    plaintext,
-  );
-  return {
-    iv: bytesToBase64url(iv),
-    ciphertext: bytesToBase64url(new Uint8Array(cipher)),
-  };
+  return encryptJson(op, key, spaceId);
 }
 
 /**
@@ -70,6 +60,34 @@ export async function decryptMoveOp(
   key: CryptoKey,
   spaceId: string,
 ): Promise<MoveOp> {
+  return decryptJson<MoveOp>(envelope, key, spaceId);
+}
+
+/** Encrypt any JSON-serializable payload (GC snapshots etc.) into the same envelope. */
+export async function encryptJson(
+  data: unknown,
+  key: CryptoKey,
+  spaceId: string,
+): Promise<EncryptedOpEnvelope> {
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(data));
+  const cipher = await globalThis.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: aadFor(spaceId) },
+    key,
+    plaintext,
+  );
+  return {
+    iv: bytesToBase64url(iv),
+    ciphertext: bytesToBase64url(new Uint8Array(cipher)),
+  };
+}
+
+/** Decrypt a JSONB envelope into a typed value. @throws DecryptionError. */
+export async function decryptJson<T>(
+  envelope: EncryptedOpEnvelope,
+  key: CryptoKey,
+  spaceId: string,
+): Promise<T> {
   if (
     !envelope ||
     typeof envelope.iv !== 'string' ||
@@ -91,7 +109,7 @@ export async function decryptMoveOp(
       key,
       ciphertext,
     );
-    return JSON.parse(new TextDecoder().decode(plain)) as MoveOp;
+    return JSON.parse(new TextDecoder().decode(plain)) as T;
   } catch (e) {
     throw new DecryptionError(
       'AES-GCM auth failed (wrong key, tamper, or space mismatch)',

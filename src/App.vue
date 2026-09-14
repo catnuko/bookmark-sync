@@ -48,6 +48,7 @@ function togglePanel(name) {
   activePanel.value = activePanel.value === name ? "" : name;
   if (activePanel.value === "spaceDevice") refreshSpacesDevices();
   if (activePanel.value === "key") loadKeyPanel();
+  if (activePanel.value === "coexist") loadCoexistPanel();
 }
 
 // 空间行内改名
@@ -313,6 +314,28 @@ async function refreshStatus(extra) {
   const s = await api.storage.local.get(["lastSyncAt", "lastSyncStatus"]);
   status.value =
     extra ?? `上次同步: ${fmt(s.lastSyncAt)}${s.lastSyncStatus ? " · " + s.lastSyncStatus : ""}`;
+}
+
+// ── 共存与存储：Chrome Sync 提示 + op-log GC 配置 ──
+const gcThresholdInput = ref("");
+const lastGcAt = ref(null);
+const GC_DEFAULT = 2000;
+
+async function loadCoexistPanel() {
+  const s = await api.storage.local.get(["crdt.gcThreshold", "lastGcAt"]);
+  gcThresholdInput.value = String(s["crdt.gcThreshold"] ?? GC_DEFAULT);
+  lastGcAt.value = s["lastGcAt"] ?? null;
+}
+
+async function saveGcThreshold() {
+  const v = parseInt(gcThresholdInput.value, 10);
+  if (!Number.isFinite(v) || v < 0) {
+    status.value = "GC 阈值须为非负整数（0 = 关闭 GC）";
+    return;
+  }
+  await api.storage.local.set({ "crdt.gcThreshold": v });
+  await loadCoexistPanel();
+  status.value = `已保存 GC 阈值 ${v}（0 = 关闭）`;
 }
 
 async function refreshProfile() {
@@ -710,6 +733,13 @@ async function doSetKeyByPhrase() {
       >
         空间与设备
       </button>
+      <button
+        type="button"
+        :class="{ on: activePanel === 'coexist' }"
+        @click="togglePanel('coexist')"
+      >
+        共存与存储
+      </button>
     </div>
 
     <!-- 同步密钥（E2EE） -->
@@ -758,6 +788,44 @@ async function doSetKeyByPhrase() {
           </div>
         </template>
         <p v-if="keyMsg" class="panel-hint">{{ keyMsg }}</p>
+      </div>
+    </Transition>
+
+    <!-- 共存与存储（Chrome Sync 共存策略 + op-log GC 配置） -->
+    <Transition name="drop">
+      <div v-if="activePanel === 'coexist'" id="coexistPanel" class="panel">
+        <div class="panel-title">与 Chrome Sync 共存</div>
+        <p class="panel-desc">
+          Bookmark Sync 通过 <code>chrome.bookmarks</code> 接口同步本机书签树，
+          不接管 Chrome 原生「同步」功能——两者同时开启<b>不会丢数据</b>：
+          本机任何书签变化（无论来自哪个来源）都会进入同步日志，Move-CRDT 合并后
+          收敛为同一棵树。
+          <br /><br />
+          但<b>建议二选一</b>：两套云端各自保存书签状态，删除/合并语义叠加后
+          可能让你难以判断「哪个是权威」；若你的 Chrome 账号已在多设备间用原生同步，
+          可关掉 Bookmark Sync 的同步开关（或仅用本扩展做备份）。
+        </p>
+
+        <div class="panel-title" style="margin-top: 14px">操作日志存储（GC）</div>
+        <p class="panel-desc">
+          同步日志（op_log）超过阈值时，自动压缩为一份加密快照并截断旧日志，
+          防止云端无限增长。阈值越大云端保留的历史操作越多（便于深度回溯），
+          设为 0 关闭自动压缩。
+        </p>
+        <div class="input-row">
+          <input
+            v-model="gcThresholdInput"
+            class="input"
+            type="number"
+            min="0"
+            step="500"
+            placeholder="例如 2000"
+            aria-label="GC 阈值"
+            @keyup.enter="saveGcThreshold"
+          />
+          <button class="btn-sm btn-solid" @click="saveGcThreshold">保存</button>
+        </div>
+        <p class="panel-hint">最近一次日志压缩：{{ lastGcAt ? fmt(lastGcAt) : "尚未触发" }}</p>
       </div>
     </Transition>
 

@@ -17,9 +17,10 @@ import {
   logMoveToOp,
   type MoveOp,
   type Metadata,
+  type SnapshotData,
 } from '../crdt/index.js';
-import { encryptMoveOp, decryptMoveOp } from './opCrypto.js';
-import type { OpLogTransport, PushOp, OpRow } from './oplogClient.js';
+import { encryptMoveOp, decryptMoveOp, encryptJson, decryptJson } from './opCrypto.js';
+import type { OpLogTransport, PushOp, OpRow, GcResult } from './oplogClient.js';
 
 export interface SyncCoordinatorOptions {
   spaceId: string;
@@ -157,5 +158,51 @@ export class SyncCoordinator {
   /** Decrypt a raw pull row (exposed for tests). */
   async decryptRow(row: OpRow): Promise<MoveOp> {
     return decryptMoveOp(row.op, this.key, this.spaceId);
+  }
+
+  // ── GC snapshots (Phase 4) ───────────────────────────────────────────────
+
+  /**
+   * Pull with snapshot-first semantics:
+   *  - if a usable snapshot exists and it is newer than the local cursor
+   *    (or the local replica is cold/bare — `force`), rebuild from the
+   *    snapshot, then incrementally pull ops after the snapshot watermark;
+   *  - otherwise fall back to plain incremental pull (`force` falls back to
+   *    a full replay from 0 when no snapshot exists — GC-safe only if the
+   *    log was never truncated).
+   *
+   * `force` is used on cold start (bare in-memory replica): a snapshot is the
+   * only reliable baseline after the op log was GC-truncated (pullFrom(0)
+   * would silently miss rows that were already deleted).
+   */
+  async pullWithSnapshot(force = false): Promise<PullOutcome> {
+    const snap = await this.transport.snapshotPull(this.spaceId);
+    const usable =
+      snap?.data != null &&
+      snap.after_op_id != null &&
+      snap.after_op_id > 0;
+    if (usable && (force || snap.after_op_id! > this.afterId || this.afterId === 0)) {
+      try {
+        const data = await decryptJson<SnapshotData>(snap.data!, this.key, this.spaceId);
+        this.replica.applySnapshot(data);
+        this.afterId = snap.after_op_id!;
+        return this.pullFrom(this.afterId);
+      } catch {
+        // Snapshot undecryptable (wrong key / tamper): fall back below.
+      }
+    }
+    return force ? this.pullFrom(0) : this.pull();
+  }
+
+  /**
+   * Snapshot the current replica and ask the server to truncate the op log
+   * if it has grown past `threshold`. The projection is encrypted before it
+   * leaves the device (operation-level E2EE). Safe to call after a complete
+   * pull: the local replica then holds the full tree.
+   */
+  async maybeGc(threshold: number): Promise<GcResult> {
+    const projection = this.replica.exportSnapshot();
+    const envelope = await encryptJson(projection, this.key, this.spaceId);
+    return this.transport.maybeGc(this.spaceId, threshold, envelope);
   }
 }

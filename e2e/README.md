@@ -24,6 +24,7 @@ Xvfb :99 -screen 0 1440x900x24 &
 | `e2e-two-device.mjs` | **双 Chromium 双向同步**：A 建书签 → B 拉到并 reverseApply 写回本机 chrome → B 建书签 → A 拉到 → 双端收敛 + **场景 3（SW 冷重启保留）** |
 | `ff-smoke.mjs` | **Firefox 单端**：桥通道 login → sync → create → getTree（根 guid 适配验证） |
 | `e2e-ff-sync.mjs` | **Chromium × Firefox 跨浏览器双向同步（P1 验收）**：A1/B1 各恰 1 个、op_log 恰 2 条 |
+| `e2e-gc.mjs` | **快照 + op-log GC（P3 验收，Chromium×3）**：A 建书签同步触发 GC（注入 `crdt.gcThreshold=1`）→ op_log 截断 + 快照落库 → C 新设备从快照重建收敛 → GC 后增量仍通 → 终态计数===1 |
 | `supabase-check.mjs [--detail]` | 只读：查空间/设备/op_log 数量与密文结构 |
 
 ## 运行
@@ -33,6 +34,7 @@ EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-single.mjs
 EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-two-device.mjs
 EMAIL=346746061@qq.com PASSWORD='你的密码' E2E_RESET=1 node e2e/ff-smoke.mjs
 EMAIL=346746061@qq.com PASSWORD='你的密码' E2E_RESET=1 node e2e/e2e-ff-sync.mjs
+EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-gc.mjs   # 自清 op_log + bsync_snapshots（测试账号专用）
 ```
 
 结束浏览器：`bash e2e/kill-chromium.sh`（或自行 kill；Firefox 脚本自带清理）。

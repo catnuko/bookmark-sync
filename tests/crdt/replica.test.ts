@@ -78,4 +78,56 @@ describe('Replica wrapper', () => {
     expect(ids).toEqual([c1, c2].sort());
     expect(kids.find((k) => k.id === c1)?.meta.title).toBe('one');
   });
+
+  it('exportSnapshot/applySnapshot round-trips the visible tree', () => {
+    const r = new Replica('R1');
+    const folder = r.createNode(ROOT_NODE_ID, { title: 'folder' });
+    const c1 = r.createNode(folder, { title: 'one', url: 'https://x' });
+    r.moveNode(c1, ROOT_NODE_ID);
+
+    const snap = r.exportSnapshot();
+    expect(snap.w).not.toBeNull();
+
+    const r2 = new Replica('R2');
+    r2.applySnapshot(snap);
+    // 非 bare：包含用户节点
+    expect(r2.isBare()).toBe(false);
+    expect(r2.getParent(folder)).toBe(ROOT_NODE_ID);
+    expect(r2.getParent(c1)).toBe(ROOT_NODE_ID);
+    expect(r2.getNodeMeta(c1)?.title).toBe('one');
+    expect(r2.getNodeMeta(c1)?.url).toBe('https://x');
+  });
+
+  it('applySnapshot sets gcWatermark so old ops are skipped', () => {
+    const a = new Replica('A');
+    const b = new Replica('B');
+    const id = a.createNode(ROOT_NODE_ID, { title: 'x' });
+    const snapA = a.exportSnapshot();
+
+    // B 先应用快照（相当于截断后的重建）
+    b.applySnapshot(snapA);
+    expect(b.getParent(id)).toBe(ROOT_NODE_ID);
+    // B 收到被折叠进快照的旧 op → 跳过（不双写、不报错）
+    for (const op of a.getOps()) b.receiveOp(op);
+    expect(b.getParent(id)).toBe(ROOT_NODE_ID);
+    expect(b.getChildren(ROOT_NODE_ID).filter((k) => k.id === id).length).toBe(1);
+
+    // 新 op（快照水位之后）正常应用
+    const id2 = a.createNode(ROOT_NODE_ID, { title: 'y' });
+    b.receiveOp({ ...a.getOps().at(-1)! });
+    expect(b.getParent(id2)).toBe(ROOT_NODE_ID);
+  });
+
+  it('local ops after applySnapshot stay strictly above the watermark', () => {
+    const a = new Replica('A');
+    const b = new Replica('B');
+    a.createNode(ROOT_NODE_ID, { title: 'x' });
+    b.applySnapshot(a.exportSnapshot());
+
+    // 本地新 op 的 counter 必须 > watermark（保证对端不被误跳过）
+    const newId = b.createNode(ROOT_NODE_ID, { title: 'local' });
+    const op = b.getOps().at(-1)!;
+    expect(op.t.counter).toBeGreaterThan(a.exportSnapshot().w!.counter);
+    expect(b.getParent(newId)).toBe(ROOT_NODE_ID);
+  });
 });
