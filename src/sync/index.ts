@@ -33,5 +33,6 @@ export {
   reverseApply,
   IdBridge,
   IS_FIREFOX,
+  computePosition,
 } from './chromeBridge.js';
 export type { ChromeBookmarksAPI, ChromeTreeNode } from './chromeBridge.js';

@@ -192,4 +192,96 @@ describe('captureLocalEvents wiring', () => {
     expect(fresh.toUuid('menu________')).toBe(MENU_UUID); // forward 全集仍在
     expect(fresh.toChromeId(MENU_UUID)).toBe('dyn-menu'); // backward 不被跨环境根覆盖
   });
+
+  // ---- 顺序（fractional position）接线：onCreated/onMoved 必须按 Chrome
+  //     实际 index 生成 position，保证同步后兄弟顺序与用户排序一致 ----
+  function sortedTitles(parentUuid: string): string[] {
+    return coordinator.replica
+      .getChildren(parentUuid)
+      .sort((a, b) => {
+        const pa = a.meta.position ?? '';
+        const pb = b.meta.position ?? '';
+        if (pa !== pb) return pa < pb ? -1 : 1;
+        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      })
+      .map((n) => n.meta.title as string);
+  }
+
+  it('onCreated writes increasing positions matching the Chrome index order', async () => {
+    const bridge = new IdBridge();
+    captureLocalEvents(chrome.api, coordinator, bridge);
+    // Chrome 创建顺序 A,B,C（index 0,1,2）
+    chrome.emit('created', 'a1', { id: 'a1', parentId: '1', title: 'AAA', url: 'https://a', index: 0 });
+    chrome.emit('created', 'b1', { id: 'b1', parentId: '1', title: 'BBB', url: 'https://b', index: 1 });
+    chrome.emit('created', 'c1', { id: 'c1', parentId: '1', title: 'CCC', url: 'https://c', index: 2 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(sortedTitles(BOOKMARKS_BAR_UUID)).toEqual(['AAA', 'BBB', 'CCC']);
+    // position 严格递增
+    const poses = coordinator.replica
+      .getChildren(BOOKMARKS_BAR_UUID)
+      .sort((a, b) => (a.meta.position ?? '') < (b.meta.position ?? '') ? -1 : 1)
+      .map((n) => n.meta.position);
+    expect(poses.every((p, i) => i === 0 || (poses[i - 1]! < p!))).toBe(true);
+  });
+
+  it('onMoved recomputes position so a drag-to-front wins locally', async () => {
+    const bridge = new IdBridge();
+    captureLocalEvents(chrome.api, coordinator, bridge);
+    chrome.emit('created', 'a1', { id: 'a1', parentId: '1', title: 'AAA', url: 'https://a', index: 0 });
+    chrome.emit('created', 'b1', { id: 'b1', parentId: '1', title: 'BBB', url: 'https://b', index: 1 });
+    chrome.emit('created', 'c1', { id: 'c1', parentId: '1', title: 'CCC', url: 'https://c', index: 2 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(sortedTitles(BOOKMARKS_BAR_UUID)).toEqual(['AAA', 'BBB', 'CCC']);
+
+    // 把 CCC 拖到最前（index 0）
+    chrome.emit('moved', 'c1', { parentId: '1', oldParentId: '1', index: 0, oldIndex: 2 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(sortedTitles(BOOKMARKS_BAR_UUID)).toEqual(['CCC', 'AAA', 'BBB']);
+
+    // 跨父移动：从书签栏移到其他书签（index 0）
+    chrome.emit('moved', 'c1', { parentId: '2', oldParentId: '1', index: 0, oldIndex: 0 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(coordinator.replica.getParent(bridge.toUuid('c1')!)).toBe(OTHER_BOOKMARKS_UUID);
+    expect(sortedTitles(OTHER_BOOKMARKS_UUID)).toEqual(['CCC']);
+  });
+
+  it('two devices inserting at the same anchor converge to one order (position + uuid tie-break)', async () => {
+    // 重建：同密钥 + 同一 op log（beforeEach 用随机 key，跨 coordinator 解密会失败）
+    const key = await generateKey();
+    transport = new MemoryOpLogTransport();
+    coordinator = new SyncCoordinator({ spaceId: SPACE, deviceId: 'dev-bridge', transport, key });
+    const coord2 = new SyncCoordinator({ spaceId: SPACE, deviceId: 'dev-2', transport, key });
+    const b1 = new IdBridge();
+    const b2 = new IdBridge();
+    const ch2 = makeChrome();
+    captureLocalEvents(chrome.api, coordinator, b1);
+    captureLocalEvents(ch2.api, coord2, b2);
+
+    // 设备 1：建 A（index 0）；设备 2：建 X（index 0）——同一锚点并发
+    chrome.emit('created', 'a1', { id: 'a1', parentId: '1', title: 'A', url: 'https://a', index: 0 });
+    await new Promise((r) => setTimeout(r, 10));
+    ch2.emit('created', 'x1', { id: 'x1', parentId: '1', title: 'X', url: 'https://x', index: 0 });
+    await new Promise((r) => setTimeout(r, 10));
+    await Promise.all([coordinator.flushPush(), coord2.flushPush()]);
+
+    // 各自从 op log 拉取并解密应用（同密钥），模拟双向同步收敛
+    const c1 = new SyncCoordinator({ spaceId: SPACE, deviceId: 'dev-1b', transport, key });
+    const c2 = new SyncCoordinator({ spaceId: SPACE, deviceId: 'dev-2b', transport, key });
+    await c1.pull();
+    await c2.pull();
+
+    const titles = (r: SyncCoordinator) =>
+      r.replica
+        .getChildren(BOOKMARKS_BAR_UUID)
+        .sort((a, b) => {
+          const pa = a.meta.position ?? '';
+          const pb = b.meta.position ?? '';
+          if (pa !== pb) return pa < pb ? -1 : 1;
+          return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+        })
+        .map((n) => n.meta.title as string);
+
+    expect(titles(c1)).toEqual(titles(c2)); // 两端收敛到同一顺序
+    expect(titles(c1).sort()).toEqual(['A', 'X']); // 且成员齐全
+  });
 });

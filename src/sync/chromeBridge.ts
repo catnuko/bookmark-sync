@@ -31,6 +31,7 @@ import {
   MOBILE_UUID,
   MENU_UUID,
   CHROME_ROOT_ID,
+  positionBetween,
 } from '../crdt/index.js';
 import type { SyncCoordinator } from './syncEngine.js';
 
@@ -170,6 +171,41 @@ export class IdBridge {
 }
 
 /**
+ * Compute the fractional position for a sibling insertion at `chromeIndex`
+ * under `parentUuid`, consistent with the ordering used by reverseApply
+ * (siblings sorted by `meta.position` lexicographically, uuid tie-break).
+ *
+ * `selfUuid` is excluded from the sibling list (used when the node already
+ * exists under that parent, i.e. local reorder via onMoved). Nodes without a
+ * position (pre-fix legacy ops) sort to the front by the empty string.
+ *
+ * The result is the midpoint between the neighbours that the browser's index
+ * implies; with no neighbours at all it returns a neutral middle key.
+ */
+export function computePosition(
+  coordinator: SyncCoordinator,
+  parentUuid: string,
+  chromeIndex: number,
+  selfUuid: string | null,
+): string | null {
+  const positions = coordinator.replica
+    .getChildren(parentUuid)
+    .filter((n) => n.id !== selfUuid)
+    .sort((a, b) => {
+      const pa = a.meta.position ?? '';
+      const pb = b.meta.position ?? '';
+      if (pa !== pb) return pa < pb ? -1 : 1;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    })
+    .map((n) => n.meta.position ?? null);
+  const idx = Math.max(0, Math.min(chromeIndex, positions.length));
+  const prev = idx > 0 ? positions[idx - 1] : null;
+  const next = idx < positions.length ? positions[idx] : null;
+  if (prev === null && next === null) return positionBetween(null, null);
+  return positionBetween(prev, next);
+}
+
+/**
  * Wire chrome events into the coordinator. Returns a disposer that detaches
  * the listeners. A `suppressed` flag (toggled around reverse-apply) makes
  * handlers no-op so our own chrome API calls don't echo back as local ops.
@@ -200,6 +236,10 @@ export function captureLocalEvents(
     const uuid = globalThis.crypto.randomUUID();
     bridge.map(id, uuid);
     const meta: Metadata = { title: node.title, ...(node.url ? { url: node.url } : {}) };
+    // 按 Chrome 实际 index 生成 fractional position（顺序层接线：同一父下
+    // 兄弟按 position 字典序收敛，修复「同步后按 uuid 重排」问题）
+    const pos = computePosition(c, parentUuid, node.index ?? 0, null);
+    if (pos !== null) meta.position = pos;
     c.createNodeWithId(uuid, parentUuid, meta);
     onLocalOp?.();
   };
@@ -228,7 +268,10 @@ export function captureLocalEvents(
     const newParent = move.parentId ? bridge.toUuid(move.parentId) : null;
     if (!uuid || PROTECTED_UUIDS.has(uuid) || !newParent) return;
     const current = c.replica.getNodeMeta(uuid) ?? {};
-    c.moveNode(uuid, newParent, { ...current });
+    // 拖拽/移动：按 Chrome 新 index 重算 position（旧父中剩余兄弟相对顺序
+    // 不变，无需处理；新父下按新 position 收敛）
+    const pos = computePosition(c, newParent, move.index ?? 0, uuid);
+    c.moveNode(uuid, newParent, { ...current, ...(pos !== null ? { position: pos } : {}) });
     onLocalOp?.();
   };
 

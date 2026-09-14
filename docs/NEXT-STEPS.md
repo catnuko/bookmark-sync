@@ -112,6 +112,19 @@
 
 **命令**：`EMAIL=… PASSWORD=… E2E_RESET=1 node e2e/e2e-triple-sync.mjs`（`EDGE_BIN` 可覆盖默认 `/home/user/tools/msedge/opt/microsoft/msedge/msedge`）。
 
+### 2.9 顺序层接线（fractional position，本会话，完成）
+
+**背景**：顺序层基础设施（`fractionalIndex.ts` positionBetween/compactPositions）在 v2 初版**从未接线**——`onCreated`/`onMoved` 不写 `meta.position`，`ensureReachableNodes` 兄弟排序退化为按 uuid 字典序 → **每次同步 reverseApply 都把同目录书签/文件夹重排成 uuid 序**（实测 before `[AAA,BBB,CCC]` → after `[CCC,BBB,AAA]`；本地拖拽重排"看起来无效"）。
+
+**修复**（`src/sync/chromeBridge.ts` + `src/sync.js`）：
+- 新增 `computePosition(coordinator, parentUuid, chromeIndex, selfUuid)`：按 Chrome 实际 index 在 replica 兄弟（position 字典序 + uuid 兜底）中定位前后邻居 → `positionBetween(prev, next)` 生成中间键
+- `onCreated`：meta 写入 position（按 node.index）
+- `onMoved`：拖拽/跨父移动重算 position 随 moveNode 写入（旧父剩余兄弟相对顺序不变）
+- `seedExistingTree`：首次全量播种同样按 Chrome index 生成 position（保留用户既有顺序）
+- 兼容：旧 op 无 position → 空串排最前 + uuid 兜底，不影响收敛
+
+**验证**：单测 +3（bridge：onCreated 递增 position / onMoved 拖到最前 / 双设备同锚点并发收敛一致）→ 105/105；`e2e-two-device.mjs` 新增**顺序收敛断言**（重排前两端一致 A1→B1；B 把 B1 移到最前 → A 跟随 B1→A1）PASS；四套 E2E 回归全绿（two-device/ff-sync/gc/triple-sync）。
+
 ---
 
 ## 3. 当前状态（验证结果）
@@ -125,6 +138,7 @@
 - ✅ **P3 产品化缺口 PASS**（见 2.6）：快照+GC 全链路（单测 92/92 + `e2e/e2e-gc.mjs` 真实 Chromium×3 一次全绿：op_log 345 行→0、快照落库、第三端从快照重建收敛、GC 后增量仍通）；E2EE 密钥导入 UI 确认已有；共存策略 UI（"共存与存储"面板）完成；迁移 0018 已推送（supabase 子模块 `1179b5d`）
 - ✅ **Firefox 书签菜单参与同步 PASS**（见 2.7）：`e2e/e2e-ff-sync.mjs` 菜单场景双向收敛、单测 95/95、双端与 GC 回归全绿
 - ✅ **Edge 三浏览器联合验证 PASS**（见 2.8）：`e2e/e2e-triple-sync.mjs` 一次全绿——Chromium × Firefox × Edge 三方收敛 + 菜单双向 + Edge 冷重启保留；全套回归 95/95
+- ✅ **顺序层接线 PASS**（见 2.9）：onCreated/onMoved/seed 全路径写 fractional position，同步不再按 uuid 重排；单测 105/105 + 四套 E2E 全绿（含 e2e-two-device 新增顺序收敛断言）
 
 ---
 

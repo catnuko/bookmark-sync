@@ -97,6 +97,14 @@
 
 ---
 
+## 6.5 顺序层接线（发布后修复，2026-09-14）
+
+- **缺陷**：v2 初版 fractional position 层从未接线（`onCreated`/`onMoved` 不写 `meta.position`），`ensureReachableNodes` 兄弟排序退化为 uuid 字典序 → 每次同步 reverseApply 把同目录书签重排成 uuid 序，用户拖拽重排"无效"（实测 before `[AAA,BBB,CCC]` → after `[CCC,BBB,AAA]`）。
+- **修复**：`computePosition()`（chromeBridge）按 Chrome index 在 replica 兄弟中定位前后邻居 → `positionBetween`；`onCreated`/`onMoved`/`seedExistingTree` 全路径写 position。旧 op 无 position 按空串排前 + uuid 兜底兼容。
+- **验证**：单测 +3 → 105/105；`e2e-two-device` 新增顺序收敛断言（重排前两端一致 + B 重排后 A 跟随）PASS；四套 E2E 回归全绿。
+
+---
+
 ## 7. 遗留与后续
 
 - `purgeTombstones`（墓碑清理）未移植——暂不需要，海量删除场景再补。

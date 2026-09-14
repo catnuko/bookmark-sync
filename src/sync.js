@@ -19,6 +19,7 @@ import {
   captureLocalEvents,
   IdBridge,
   reverseApply,
+  computePosition,
 } from "./sync/index.js";
 import { KeyManager } from "./sync/index.js";
 import { ROOT_UUID, MENU_UUID } from "./crdt/index.js";
@@ -345,6 +346,10 @@ export async function seedExistingTree(coordinator) {
     const uuid = globalThis.crypto.randomUUID();
     bridge.map(node.id, uuid);
     const meta = { title: node.title, ...(node.url ? { url: node.url } : {}) };
+    // 按 Chrome 实际 index 生成 fractional position（与 onCreated 一致：
+    // 首次导入也保留用户已有的顺序，而不是同步后被 uuid 序覆盖）
+    const pos = computePosition(coordinator, parentUuid, node.index ?? 0, null);
+    if (pos !== null) meta.position = pos;
     coordinator.createNodeWithId(uuid, parentUuid, meta);
     seeded++;
     for (const child of node.children ?? []) await walk(child, uuid);

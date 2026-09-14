@@ -22,7 +22,7 @@
  */
 import { launchChromium } from './lib/launch.mjs';
 import { waitForExtensionSw, connect, sleep } from './lib/cdp.mjs';
-import { openPopup, loginIfNeeded, ensureSpace, clickSyncAndWait, createBookmark, getTree, flattenTree } from './lib/popup.mjs';
+import { openPopup, loginIfNeeded, ensureSpace, clickSyncAndWait, createBookmark, getTree, flattenTree, swBookmarks } from './lib/popup.mjs';
 import { opCount, devices, sql } from './lib/supabase.mjs';
 import { execSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
@@ -166,6 +166,33 @@ console.log('[2dev] op_log 总数:', await opCount(), ' 设备数:', await devic
 
 if (!converged) {
   console.error('FAIL: 双端未收敛或有重复书签');
+  process.exit(1);
+}
+
+// ── 顺序收敛：重排前两端同父（其他书签 "2"）顺序一致；B 把 B1 移到
+//    最前后，A 跟随该重排（顺序层回归检查：position 接线失败时 reverseApply
+//    会把书签按 uuid 序重排，这里会 FAIL）。getChildren 返回按 index 排序。──
+const siblingTitles = (sw) =>
+  swBookmarks(sw, `getChildren('2')`).then((ks) =>
+    ks.filter((k) => k.title === titleA || k.title === titleB).map((k) => k.title),
+  );
+const orderA1 = await siblingTitles(swA);
+const orderB1 = await siblingTitles(swB);
+console.log('[2dev] 重排前顺序 A:', orderA1.join(' → '), ' B:', orderB1.join(' → '));
+if (orderA1.join() !== orderB1.join() || orderA1.join() !== [titleA, titleB].join()) {
+  console.error(`FAIL: 重排前顺序未收敛（应为 ${titleA} → ${titleB}）`);
+  process.exit(1);
+}
+
+// B 把 B1 移到最前（拖拽重排 → onMoved 重算 position → 推送）
+await swB.eval(`chrome.bookmarks.move(${JSON.stringify(b1.id)}, { index: 0 }).then(() => true)`);
+await sleep(8000);
+await clickSyncAndWait(pageA);
+const orderA2 = await siblingTitles(swA);
+const reorderOk = orderA2.join() === [titleB, titleA].join();
+console.log('[2dev] B 重排后 A 跟随顺序:', orderA2.join(' → '), '→', reorderOk ? 'PASS' : 'FAIL');
+if (!reorderOk) {
+  console.error('FAIL: 远端重排未同步到 A（顺序层失效）');
   process.exit(1);
 }
 
