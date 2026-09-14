@@ -90,7 +90,8 @@
 
 ## 6. 质量与发布
 
-- 单测 **95/95**；四条 E2E 全绿（双端+冷重启、跨浏览器+菜单、快照 GC、三浏览器联合）。
+- 单测 **102/102**（95 基线 + 口令模式 keyManager +7）；四条 E2E 全绿（双端+冷重启、跨浏览器+菜单、快照 GC、三浏览器联合）。
+- **v2.0.0 发布后新增（口令模式补全）**：`e1111ca` 迁移 0019 salt 云端流转（`bsync_profiles.e2ee_salt` + `bsync_get/set_e2ee_salt` RPC，盐非机密按用户同步，密钥始终本地 PBKDF2 派生）→ 新设备登录+同一口令即可解密；`bb072bc` 口令 UI 强提醒（密钥面板 + 首同步弹窗警告条：忘记口令=数据丢失，插件与服务器都无法找回）。
 - **v2.0.0 发布**（`c72a691` + tag `v2.0.0`）：BREAKING CHANGE（schema 0017 DROP 旧表重建，旧客户端/旧云端数据不兼容）；GitHub Release 附 `bookmark-sync-chromium-2.0.0.zip`（Chrome/Edge 共用）+ `bookmark-sync-firefox-2.0.0.zip`。
 - **发布流程教训**：仓库自带 release-please 自动发版（推 main 触发）。手动发布时它按提交判 minor（1.2.0）建了 PR，与手动 2.0.0 冲突 → 关闭 PR；随后识别到 BREAKING CHANGE footer 又开内容无变化的 PR，再关。**未来重构类提交记得带 `BREAKING CHANGE` footer**，让 release-please 自动走 major。
 

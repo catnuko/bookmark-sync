@@ -8,6 +8,7 @@ const pains = [
   { key: "crossBrowser", icon: "browser" },
   { key: "migration", icon: "device" },
   { key: "history", icon: "history" },
+  { key: "lock", icon: "lock" },
 ];
 
 const icons = {
@@ -15,6 +16,7 @@ const icons = {
   browser: "M3 9h18M9 21V9M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5z",
   device: "M9 7H5a2 2 0 00-2 2v8a2 2 0 002 2h4M9 7V3a2 2 0 012-2h6a2 2 0 012 2v18a2 2 0 01-2 2h-6a2 2 0 01-2-2V7z",
   history: "M3 12a9 9 0 109-9 9 9 0 00-6.36 2.64L3 8m0-5v5h5M12 7v5l4 2",
+  lock: "M12 17v-3m0-8V4a1 1 0 00-1-1H9a1 1 0 00-1 1v2M7 8h10a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 012-2z",
 };
 </script>
 
@@ -63,7 +65,7 @@ const icons = {
 
 .pain-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-5);
 }
 

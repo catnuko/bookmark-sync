@@ -3,7 +3,9 @@
 跨浏览器书签云同步扩展（Manifest V3）。以 Supabase（Postgres + Auth）为后端，扩展直连 Supabase，无需自建服务器。支持 **Chrome / Edge / Firefox**，一套代码多端构建。
 
 - 登录/注册复用 Supabase 官方 Auth（邮箱 + 密码），RLS 行级隔离，每个用户只能读写自己的书签。
-- 同步引擎 v2（`refactor/plan` 分支）：**Move-CRDT 操作日志模型**（取代旧的「快照 + 墓碑」三态合并）。书签增删改/移动转成 MoveOp（Kleppmann 树 CRDT），经 AES-256-GCM 操作级加密写入 `bsync_op_log`，多设备按 Lamport 时间戳收敛，不丢书签、不成环。
+- 同步引擎 v2：**Move-CRDT 操作日志模型**（取代旧的「快照 + 墓碑」三态合并）。书签增删改/移动转成 MoveOp（Kleppmann 树 CRDT），经 AES-256-GCM 操作级加密写入 `bsync_op_log`，多设备按 Lamport 时间戳收敛，不丢书签、不成环。
+- **端到端加密默认开启**：每一条书签操作在设备上加密后才上传，服务器只见密文（快照 GC 同理）。密钥由口令派生（PBKDF2，盐存云端按用户同步）或导出/导入，新设备登录 + 输入同一口令即可解密。
+- 已通过 **Chromium × Firefox × Edge 三浏览器联合验证**（`e2e/e2e-triple-sync.mjs`），含书签菜单双向同步与冷重启保留。
 - 同步权威在 MV3 Service Worker：chrome.bookmarks 事件 → 本地 op 入队 → 去抖推送；popup 通过 `chrome.runtime.sendMessage` 触发同步（见 `src/background.js` / `src/sync.js`）。
 
 ## 技术栈

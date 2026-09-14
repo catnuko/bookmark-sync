@@ -38,7 +38,7 @@
     "subtitle": "Install the extension, sign in, and your Chrome, Edge, and Firefox bookmarks become one tree. Keep organizing the way you always have — the sync engine handles the rest.",
     "ctaPrimary": "Download Free",
     "ctaSecondary": "View Pricing",
-    "trustBadge": "No credit card · 500 bookmarks free · True-tree sync"
+    "trustBadge": "No credit card · 500 bookmarks free · End-to-end encryption on by default · True-tree sync"
   },
   "pain": {
     "eyebrow": "Why you need it",
@@ -60,6 +60,10 @@
       "history": {
         "title": "Deletes resurrect and edits overwrite",
         "desc": "A bookmark you deleted on computer A comes back; two devices edit at once and one side silently overwrites the other."
+      },
+      "lock": {
+        "title": "Native sync locks you into a vendor cloud",
+        "desc": "Chrome and Edge native sync stores your bookmarks in plaintext in the browser vendor's cloud: switch browsers and it breaks, privacy is out of your hands, and browsers never talk to each other."
       }
     }
   },
@@ -82,7 +86,7 @@
       },
       "privacy": {
         "title": "Content encryption, your choice",
-        "desc": "Plaintext by default and ready out of the box; privacy-sensitive users can enable optional end-to-end encryption so bookmarks are encrypted on your device before upload — even the server can't read them."
+        "desc": "End-to-end encryption is on by default: every bookmark operation is encrypted on your device before upload, so the server only holds ciphertext — even BookmarkSync itself can't read your bookmarks. Keys never touch the server; on a new device, just sign in and enter the same passphrase — no 44-character key to remember."
       },
       "conflict": {
         "title": "Automatic merge, nothing overwritten",
@@ -246,7 +250,7 @@
           "pro": true
         },
         {
-          "feature": "Optional end-to-end encryption",
+          "feature": "End-to-end encryption (on by default)",
           "free": true,
           "plus": true,
           "pro": true
@@ -264,7 +268,7 @@
       "items": {
         "upgrade": {
           "q": "Do the tiers differ in features?",
-          "a": "No. All three tiers share identical features — true-tree sync (renaming/moving folders never loses items), precise deletion, multi-device auto-merge, and optional end-to-end encryption. The only differences are capacity: bookmark count and sync spaces (Free 1 / Plus 3 / Pro 10). Device count is unlimited on every tier."
+          "a": "No. All three tiers share identical features — true-tree sync (renaming/moving folders never loses items), precise deletion, multi-device auto-merge, and end-to-end encryption enabled by default. The only differences are capacity: bookmark count and sync spaces (Free 1 / Plus 3 / Pro 10). Device count is unlimited on every tier."
         },
         "refund": {
           "q": "Do you offer refunds?",
@@ -322,7 +326,7 @@
       },
       "store": {
         "title": "How data is stored",
-        "body": "All bookmark data is stored in Supabase (a PostgreSQL-based BaaS) with row-level security (RLS) enabled — each user can only read and write their own data. Login credentials are managed by Supabase Auth; we do not store plaintext passwords."
+        "body": "Bookmark data is stored in Supabase (a PostgreSQL-based BaaS) with row-level security (RLS) enabled — each user can only read and write their own data. **End-to-end encryption is on by default**: every bookmark operation is encrypted on your device before upload, so the server only stores ciphertext — even a full database export reveals no bookmark content. The encryption key is derived from your passphrase (or exported and imported on a new device) and never touches the server. Login credentials are managed by Supabase Auth; we do not store plaintext passwords."
       },
       "use": {
         "title": "How data is used",
@@ -357,7 +361,7 @@
     "sections": {
       "service": {
         "title": "1. Service description",
-        "body": "BookmarkSync is a cross-browser bookmark cloud sync and backup tool. It supports bookmark synchronization across Chrome, Edge, and Firefox, with true-tree sync — renaming or moving folders never loses children — plus precise delete sync, multi-device merge, and optional end-to-end encryption. The Service offers Free, Plus, and Pro tiers that differ only in the bookmark limit — all other sync features are identical. See the Pricing page for details."
+        "body": "BookmarkSync is a cross-browser bookmark cloud sync and backup tool. It supports bookmark synchronization across Chrome, Edge, and Firefox, with true-tree sync — renaming or moving folders never loses children — plus precise delete sync, multi-device merge, and end-to-end encryption enabled by default. The Service offers Free, Plus, and Pro tiers that differ only in the bookmark limit — all other sync features are identical. See the Pricing page for details."
       },
       "accounts": {
         "title": "2. Accounts",
