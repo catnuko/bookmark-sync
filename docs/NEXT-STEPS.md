@@ -45,6 +45,14 @@
 | e2e 自清理 | 按 `e2e/.profiles` 路径特征杀残留 Chromium（`pidof chromium` 匹配不到实际二进制 `/opt/browser/chrome`）；fuse 文件 EBUSY → 轮询等待进程退出再 rm |
 | popup 登录等待 | `popup.mjs` 输入框轮询（Vue 渲染时序） |
 
+### 2.4 本会话修复（commit 待提交）
+| 修复 | 说明 |
+|---|---|
+| **reverseApply 回环 bug（根因）** | `sync.js` `reverseApplyIntoChrome` 事件守卫写错层级：`guard.value = true` 给 `{suppressed:{value}}` 外层加新属性，事件闭包读的 `suppressed.value` 从未置位 → 守卫静默失效 → reverseApply 每次建书签都被 onCreated 捕获成新 op 推回云端 → 对端再 reverseApply → **每次同步复制一批书签**（曾实测 A 侧 A1×3、op_log 13 条）。修复为 `guard.suppressed.value = true/false`。op_log 从 11-13 降到 2（仅 A1+B1 create），双端各恰有 1 个 |
+| 冷启动 idMap 竞态防御 | `getOrCreateBridge()` 的 idMap 恢复改为可 await 的 `_idMapReady`，`runSync` reverseApply 前、`seedExistingTree` 前 `await ensureBridgeReady()`：防 SW 冷启动后 reverseApply 在 idMap load 完成前把已有书签当缺失重建 |
+| 场景 3 改优雅重启 | `e2e-two-device.mjs` 场景 3：`chrome.runtime.reload()` → SIGTERM 优雅关闭 → 等 CDP 端口/进程退出 → 同 profile 重启 → onStartup 自动 sync（kill -9 会损坏 profile 扩展状态 → ERR_BLOCKED_BY_CLIENT） |
+| e2e 计数断言 | 收敛断言从「存在性」升级为「计数 === 1」（A1/B1 各恰有 1 个），防回环类回归 |
+
 ---
 
 ## 3. 当前状态（验证结果）
@@ -52,27 +60,28 @@
 - ✅ `npx vitest run`：80/80 全绿
 - ✅ 标准双设备 E2E：远端写回 + 双向同步 PASS（多次）
 - ✅ 打包：`pnpm package` 通过（extension/ 含最新逻辑，background.js 含 `bsync-sync` 消息通道）
-- ⚠️ **场景 3（SW 冷重启保留）未跑通**：`chrome.runtime.reload()` 在本 Chromium 构建中 reload 后 SW 无法被事件唤醒（45s 无 target）——**已知环境限制**，保护逻辑已单测覆盖但真实环境验证待做（见任务 #2）
+- ✅ **场景 3（SW 冷重启保留）真实环境 PASS**：改为「SIGTERM 优雅关闭 → 同 profile 重启」（`chrome.runtime.reload()` 在本 Chromium 146 构建中 reload 后 SW 无法被事件唤醒，弃用）。3 次连跑稳定：`SW 重启: true` + `保留 A1/B1: true true`（A1×1, B1×1），op_log 仅 2 条（无回环垃圾）
+- ✅ **修复 reverseApply 回环 bug**（重要，见 2.4）：`reverseApplyIntoChrome` 的事件守卫写错层级——`guard.value = true` 实际设置的是 `{suppressed:{value}}` 外层的新属性，事件闭包读的 `suppressed.value` 从未被置位 → reverseApply 每次建书签都触发 onCreated 回环成新 op → 每次同步复制一批书签（A 树曾出现 A1×3）。修复为 `guard.suppressed.value = true/false`。另加冷启动 idMap 恢复等待（`ensureBridgeReady`，防 reverseApply 在 idMap load 完成前把已有书签当缺失重建）
+- ✅ e2e 断言加强：收敛从「存在性」升级为「计数 === 1」（防回环回归）
 
 ---
 
 ## 4. 任务清单（新会话从这里继续）
 
-### 🔴 P0 — 冷重启真实环境验证（30–60 min）
-- **目标**：证明"SW/浏览器重启后书签保留"（isBare + 全量重放保护）
-- **方案 A（推荐）**：改场景 3 为**优雅关闭浏览器后重启**（SIGTERM 而非 kill -9，kill -9 会损坏 profile 扩展状态导致 ERR_BLOCKED_BY_CLIENT）。用 `e2e/lib/launch.mjs` 同 profile 重启，onStartup 自动 sync，断言 B 树保留 A1/B1
-- **方案 B**：换 Chrome 稳定版（apt 安装 google-chrome-stable 或下载 deb）重跑 reload 场景；测试 Chromium 146 构建的 reload 唤醒有已知缺陷
-- **验收**：`e2e-two-device.mjs` 场景 3 输出 `SW 重启: true` + `保留 A1/B1: true true`，exit=0
+### ✅ P0 — 冷重启真实环境验证（已完成）
+- **结果**：场景 3 改为「SIGTERM 优雅关闭 → 同 profile 重启」，`SW 重启: true` + `保留 A1/B1: true true`，3 次连跑稳定，exit=0
+- **附带修复**：reverseApply 回环 bug（守卫层级写错，见 2.4）+ 冷启动 idMap 竞态
+- 后续若换 Chrome 稳定版，可回归 `chrome.runtime.reload()` 路径（README 已记录）
 
 ### 🟠 P1 — Firefox 跨浏览器同步（用户点名，见第 5 节）
 - **目标**：A=Chromium、B=Firefox，同一 Supabase 后端双向同步
 - **前置**：下载 Firefox + geckodriver；适配 e2e 驱动（Firefox 无 CDP，用 WebDriver BiDi / Marionette）
-- **验收**：B（Firefox）树出现 A 的书签，反向亦然，收敛 true
+- **验收**：B（Firefox）树出现 A 的书签，反向亦然，收敛 true（计数各 === 1）
 
-### 🟡 P2 — 收敛收尾
-- 场景 3 并入主脚本后跑通 3 次（防 flaky）
-- 把 `e2e/` 的已知限制写入 `e2e/README.md`（SW 重启模拟方式、Firefox 差异）
-- 更新 `docs/refactor-plan.md` 的路线图状态列
+### 🟡 P2 — 收敛收尾（部分完成）
+- ✅ 场景 3 并入主脚本后跑通 3 次（防 flaky）
+- ✅ `e2e/README.md` 写入已知限制（SW 重启模拟方式、Firefox 差异）
+- ✅ `docs/refactor-plan.md` 状态列更新（C 阶段完成，剩余 P1/P3）
 
 ### 🟢 P3 — 产品化缺口（调研/设计，不阻塞）
 - `bsync_snapshots` 表启用（快照 + GC，防 op_log 无限增长）

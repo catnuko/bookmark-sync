@@ -164,6 +164,7 @@ export async function runSync(_opts = {}) {
 
     // 3) 反向应用：把合并后的 CRDT 可见树写回本机 chrome.bookmarks
     //    （远端新书签/移动/删除在本机生效；事件守卫防回环）
+    await ensureBridgeReady(); // 冷启动：idMap 必须先恢复，否则 reverseApply 会重复建书签
     await reverseApplyIntoChrome(coordinator);
 
     // 4) 推本地 → 远端
@@ -186,7 +187,7 @@ export async function runSync(_opts = {}) {
 let bridgeRegistered = false;
 let _coordinator = null; // 惰性单例（按 spaceId 缓存）
 let _bridge = null;
-let _eventGuard = { value: false }; // captureLocalEvents 返回的 suppressed 标志
+let _eventGuard = { suppressed: { value: false } }; // captureLocalEvents 返回的 suppressed 标志
 const seededRef = { value: false };
 
 export function registerLocalEventBridge() {
@@ -206,13 +207,16 @@ async function reverseApplyIntoChrome(coordinator) {
   const chrome = globalThis.chrome?.bookmarks;
   if (!chrome) return;
   const bridge = getOrCreateBridge();
-  const guard = _eventGuard ?? { value: false };
-  guard.value = true; // 抑制事件回环（create/move/update 会触发 onCreated 等）
+  const guard = _eventGuard ?? { suppressed: { value: false } };
+  // 注意：事件闭包读的是 guard.suppressed.value（captureLocalEvents 返回
+  // { suppressed: {value} }），直接设 guard.value 会静默失效——这正是
+  // reverseApply 回环（每次同步复制一批书签）的根因。
+  guard.suppressed.value = true; // 抑制事件回环（create/move/update 会触发 onCreated 等）
   try {
     await reverseApply(chrome, coordinator, bridge);
     await api.storage.local.set({ [IDMAP_KEY]: bridge.snapshot() });
   } finally {
-    guard.value = false;
+    guard.suppressed.value = false;
   }
 }
 
@@ -231,6 +235,9 @@ export async function getCoordinator(spaceId, deviceId, key) {
 }
 
 /** chromeId↔uuid 映射桥：内存 + chrome.storage.local 持久化（重启不丢）。 */
+let persistTimer = null;
+let _idMapReady = null; // Promise：idMap / seeded 标志从 storage 恢复完成
+
 function getOrCreateBridge() {
   if (_bridge) return _bridge;
   _bridge = new IdBridge(() => {
@@ -240,13 +247,24 @@ function getOrCreateBridge() {
       api.storage.local.set({ [IDMAP_KEY]: _bridge.snapshot() }).catch(() => {});
     }, 300);
   });
-  api.storage.local.get(IDMAP_KEY).then((r) => {
-    if (r[IDMAP_KEY]) _bridge.load(r[IDMAP_KEY]);
-  }).catch(() => {});
-  api.storage.local.get(SEEDED_KEY).then((r) => { seededRef.value = !!r[SEEDED_KEY]; }).catch(() => {});
+  // 冷启动竞态修复：idMap 恢复是异步的，必须等 load 完成后再 reverseApply /
+  // seedExistingTree，否则映射缺失会让 reverseApply 把「已存在的书签」当
+  // 「缺失」重复创建（SW 每次冷启动/回收后同步都复制一批书签）。
+  _idMapReady = (async () => {
+    const [idmap, seeded] = await Promise.all([
+      api.storage.local.get(IDMAP_KEY),
+      api.storage.local.get(SEEDED_KEY),
+    ]);
+    if (idmap[IDMAP_KEY]) _bridge.load(idmap[IDMAP_KEY]);
+    seededRef.value = !!seeded[SEEDED_KEY];
+  })().catch(() => {});
   return _bridge;
 }
-let persistTimer = null;
+
+/** 等待 idMap / seeded 标志恢复完成（reverseApply / 播种前必须 await）。 */
+async function ensureBridgeReady() {
+  if (_idMapReady) await _idMapReady;
+}
 
 /**
  * 播种：把现有 chrome 书签树转成一批 MoveOp（仅首设备/云端空时调用）。
@@ -255,6 +273,7 @@ let persistTimer = null;
 export async function seedExistingTree(coordinator) {
   if (seededRef.value) return { seeded: false };
   const bridge = getOrCreateBridge();
+  await ensureBridgeReady(); // 已映射判断依赖 idMap 恢复完成
   if (!globalThis.chrome?.bookmarks) return { seeded: false, reason: "no-chrome-bookmarks" };
   const tree = await globalThis.chrome.bookmarks.getTree();
   let seeded = 0;

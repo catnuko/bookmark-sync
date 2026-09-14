@@ -1,7 +1,7 @@
 # bookmark-sync 仓库审计与重构方案
 
 > 版本：v1.0（2026-09-14）
-> 状态：待用户审阅
+> 状态：C 阶段（Move-CRDT 重构）已实施并通过验证——80 单测全绿 + 真实 Chromium 双设备 E2E（远端写回 + 双向收敛 + SW 冷重启保留）多次 PASS；修复 reverseApply 事件守卫回环 bug（重复建书签）与冷启动 idMap 竞态。剩余：P1 Firefox 跨浏览器验证、P3 产品化缺口。
 > 分支：`refactor/plan`
 > 范围：仅审计 + 方案，未对 `main` 做任何破坏性改动
 

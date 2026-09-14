@@ -152,50 +152,73 @@ const treeB2 = flattenTree(await getTree(swB));
 await clickSyncAndWait(pageA);
 const treeA2 = flattenTree(await getTree(swA));
 
-// ── 终态断言：两端都收敛到 {A1, B1} ─────────────────────────────
-const bothHaveBoth =
-  treeA2.some((n) => n.title === titleA) && treeA2.some((n) => n.title === titleB) &&
-  treeB2.some((n) => n.title === titleA) && treeB2.some((n) => n.title === titleB);
-console.log('[2dev] 双向收敛（两端都有 A1+B1）:', bothHaveBoth);
+// ── 终态断言：两端都收敛到 {A1, B1} 且无重复 ────────────────────
+// 计数断言（===1）是「reverseApply 重复建书签」bug 的回归检查：
+// 冷启动/回收后 idMap 未恢复时，reverseApply 会把已有书签当缺失重复创建。
+const count = (list, t) => list.filter((n) => n.title === t).length;
+const a1InA = count(treeA2, titleA), b1InA = count(treeA2, titleB);
+const a1InB = count(treeB2, titleA), b1InB = count(treeB2, titleB);
+const converged = a1InA === 1 && b1InA === 1 && a1InB === 1 && b1InB === 1;
+console.log('[2dev] 双向收敛（两端各有且仅有 1 个 A1/B1）:', converged, `A侧=[A1×${a1InA},B1×${b1InA}] B侧=[A1×${a1InB},B1×${b1InB}]`);
 console.log('[2dev] A 树:', treeA2.filter(n => n.title).map(n => n.title).join(','));
 console.log('[2dev] B 树:', treeB2.filter(n => n.title).map(n => n.title).join(','));
 console.log('[2dev] op_log 总数:', await opCount(), ' 设备数:', await devices());
 
-if (!bothHaveBoth) {
-  console.error('FAIL: 双端未收敛');
+if (!converged) {
+  console.error('FAIL: 双端未收敛或有重复书签');
   process.exit(1);
 }
 
-// ── 场景 3：扩展 reload（SW 冷重启）后书签保留 ─────────────────
-// MV3 SW 30s 无事件即被回收；重启后内存 CRDT 为空（仅固定根 = isBare），
+// ── 场景 3：优雅关闭浏览器 → 同 profile 重启（SW 冷重启）后书签保留 ──
+// MV3 SW 30s 无事件即被回收；浏览器重启后内存 CRDT 为空（仅固定根 = isBare），
 // runSync 必须先全量重放（pullFrom(0)）再 reverseApply，否则会把本机
-// 书签树当「已删除」清空。chrome.runtime.reload() 会杀 SW 并重建，
-// 是模拟冷重启的最轻量方式（storage 保留）。这是架构级回归测试。
-console.log('[2dev] 场景3：扩展 reload（SW 冷重启）后书签保留…');
+// 书签树当「已删除」清空。onStartup 触发自动 sync，是架构级回归测试。
+// 注意：必须 SIGTERM 优雅关闭（kill -9 会损坏 profile 扩展状态 →
+// ERR_BLOCKED_BY_CLIENT）；chrome.runtime.reload() 在本 Chromium 146
+// 构建中 reload 后 SW 无法被事件唤醒，故改为整进程优雅重启。
+console.log('[2dev] 场景3：优雅关闭浏览器并同 profile 重启（SW 冷重启）…');
 const swB_before = B_.sw.id;
-try { await swB.eval(`chrome.runtime.reload()`); } catch {}
-await sleep(6000);
-// reload 后 SW 不自动启动（已知：本 Chromium 构建 reload 后需事件唤醒）：
-// 打开 popup 并 sendMessage 触发唤醒
-try {
-  const wake = await openPopup(9346, B_.extId);
-  await wake.send('Runtime.enable');
-  await wake.eval(`chrome.runtime.sendMessage({type:'bsync-sync'},()=>{})`).catch(() => {});
-} catch {}
-const { sw: swB3 } = await waitForExtensionSw(9346, 45000);
+// 1) SIGTERM 优雅关闭 B（保留 profile：E2EE 密钥、afterId 水位、书签树）
+try { process.kill(B.pid, 'SIGTERM'); } catch {}
+// 2) 等待 CDP 端口关闭（进程退出）
+{
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    try {
+      await fetch(`http://127.0.0.1:${B.port}/json/list`);
+      await sleep(500);
+    } catch { break; }
+  }
+}
+// 3) 等进程彻底退出（fuse 文件释放，避免重启时 EBUSY / SingletonLock 冲突）
+let bAlive = 1;
+for (let i = 0; i < 20; i++) {
+  await sleep(1000);
+  try {
+    bAlive = Number(execSync(`ps -eo args | grep "e2e/.profiles/${B.port}" | grep -v grep | wc -l`).toString().trim());
+  } catch {}
+  if (bAlive === 0) break;
+}
+if (bAlive > 0) {
+  console.error(`FAIL: B (port ${B.port}) 未在预期时间内退出，无法同 profile 重启`);
+  process.exit(1);
+}
+// 4) 同 profile 重启（launch.mjs 按 port 定位 profile；onStartup 自动 sync）
+launchChromium({ port: B.port });
+const { extId: extB3, sw: swB3 } = await waitForExtensionSw(B.port, 45000);
 const swRestarted = swB3.id !== swB_before;
 console.log('[2dev] SW 重启:', swRestarted, `（${swB_before.slice(0, 8)} → ${swB3.id.slice(0, 8)}）`);
 
-// 再手动同步一次确保完成
-const pageB3 = await openPopup(9346, B_.extId);
+// 5) 打开 popup 再手动同步一次（onStartup 的 sync 是异步的，以 lastSyncAt 变化为准）
+const pageB3 = await openPopup(B.port, extB3);
 await clickSyncAndWait(pageB3);
 const swB3c = await connect(swB3.webSocketDebuggerUrl);
 await swB3c.send('Runtime.enable');
 const treeB3 = flattenTree(await getTree(swB3c));
-const keepA1 = treeB3.some((n) => n.title === titleA);
-const keepB1 = treeB3.some((n) => n.title === titleB);
+const a1Cnt = count(treeB3, titleA), b1Cnt = count(treeB3, titleB);
+const keepA1 = a1Cnt === 1, keepB1 = b1Cnt === 1;
 console.log('[2dev] 冷重启后 B 树:', treeB3.filter(n => n.title).map(n => n.title).join(','));
-console.log('[2dev] 冷重启后保留 A1/B1:', keepA1, keepB1);
+console.log('[2dev] 冷重启后保留 A1/B1:', keepA1, keepB1, `（A1×${a1Cnt}, B1×${b1Cnt}）`);
 if (!(keepA1 && keepB1)) {
   const diag = await swB3c.eval(`chrome.storage.local.get(['lastSyncError','lastRaError','crdt.afterId']).then(o => JSON.stringify(o))`);
   console.error('[2dev][诊断] B storage:', diag.val);

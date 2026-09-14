@@ -49,3 +49,22 @@ EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-two-device.mjs
 - **profile 复用**：`.profiles/` 保留登录态；想干净重测删对应目录即可。
 - **SW 权威**：同步必须由 popup 发消息触发 SW 内 runSync（`bsync-sync`），
   直接在 popup 上下文调同步会在独立 ESM realm 里建另一份 CRDT 状态。
+
+## 场景 3（SW 冷重启）模拟方式
+
+- **整进程优雅重启（当前实现）**：对浏览器进程发 `SIGTERM` → 等 CDP 端口关闭 +
+  进程退出（fuse 文件释放）→ 同 profile 重新 `launchChromium` → `onStartup` 自动
+  sync。**不要用 `kill -9`**：会损坏 profile 扩展状态，重启后扩展被
+  `ERR_BLOCKED_BY_CLIENT` 禁用。
+- **`chrome.runtime.reload()` 不可用**（本 Chromium 146 构建已知缺陷）：reload 后
+  SW 无法被事件唤醒（45s 无 target）。若换 Chrome 稳定版可回归 reload 路径。
+- **CDP 保活**：调试器连接会阻止 SW 闲置终止；测"SW 被回收"场景须先断开 CDP。
+
+## 跨浏览器（Firefox）差异（P1 进行中）
+
+- 现有 `lib/cdp.mjs` 基于 CDP（Chromium 专有）；Firefox 需 **geckodriver +
+  WebDriver BiDi**（或 Marionette 2828 端口）驱动。
+- 扩展加载：Firefox 用 `--profile <dir>` + `extensions.autoDisableScopes=0` 预置，
+  或 `about:debugging` 临时加载，不是 Chromium 的 `--load-extension`。
+- popup URL 是 `moz-extension://<uuid>/popup.html`（非 chrome-extension://），
+  临时加载时扩展 id 每次可能变化，storage 注入需按实际 id 定位。
