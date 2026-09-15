@@ -20,6 +20,7 @@ import {
   ROOT_NODE_ID,
   BOOKMARKS_BAR_UUID,
   OTHER_BOOKMARKS_UUID,
+  MENU_UUID,
   TRASH_NODE_ID,
 } from '../../src/crdt/index.js';
 
@@ -53,7 +54,7 @@ function makeChrome() {
     },
     create: async (props: { parentId: string; title?: string; url?: string; index?: number }) => {
       const id = 'n' + Math.random().toString(36).slice(2, 10);
-      const node: N = { id, parentId: props.parentId, index: props.index ?? tree.get(props.parentId)!.children!.length, title: props.title ?? '', url: props.url };
+      const node: N = { id, parentId: props.parentId, index: props.index ?? tree.get(props.parentId)!.children!.length, title: props.title ?? '', url: props.url, children: [] };
       tree.get(props.parentId)!.children!.push(node);
       tree.set(id, node);
       return { ...node };
@@ -204,6 +205,37 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     const bar = (await chrome.getTree())[0].children!.find((n) => n.id === '1')!;
     expect(bar.children!.some((n) => n.title === '原生书签')).toBe(true);
     expect(bar.children!.some((n) => n.title === '远端')).toBe(true);
+  });
+
+  it('菜单容器被 tombstone 后，reverseApply 删除本机容器与内容（不复活）', async () => {
+    const bridge = new IdBridge();
+    // 本机书签栏下有「书签菜单」容器（映射 MENU_UUID）+ 菜单内书签
+    const menuNode = await chrome.create({ parentId: '1', title: '书签菜单' });
+    bridge.map(menuNode.id, MENU_UUID);
+    await chrome.create({ parentId: menuNode.id, title: '百度百科', url: 'https://baike.baidu.com' });
+    await coordinator.createNodeWithId('uu-menu-child', MENU_UUID, { title: '百度百科', url: 'https://baike.baidu.com' });
+
+    // 远端把整个菜单删了（tombstone MENU_UUID）
+    await receiveRemote('zzz-remote', (c) => {
+      c.deleteNode(MENU_UUID);
+    });
+
+    await reverseApply(chrome, coordinator, bridge);
+    const bar = (await chrome.getTree())[0].children!.find((n) => n.id === '1')!;
+    expect(bar.children!.some((n) => n.id === menuNode.id)).toBe(false); // 容器不复活
+  });
+
+  it("映射残留但 Chrome 节点已消失（级联删除）→ 重新 create 而非 move（不抛 Can't find bookmark）", async () => {
+    const bridge = new IdBridge();
+    // bridge 里残留 ghost-id → uu-g，但 Chrome 中该节点已被（级联）删除
+    bridge.map('ghost-id', 'uu-g');
+    await coordinator.createNodeWithId('uu-g', BOOKMARKS_BAR_UUID, { title: '复活', url: 'https://revive' });
+
+    await expect(reverseApply(chrome, coordinator, bridge)).resolves.toBeUndefined();
+    const bar = (await chrome.getTree())[0].children!.find((n) => n.id === '1')!;
+    expect(bar.children!.length).toBe(1); // 重新创建而非报错
+    expect(bar.children![0].title).toBe('复活');
+    expect(bridge.toUuid(bar.children![0].id)).toBe('uu-g'); // 映射更新到新 chromeId
   });
 });
 

@@ -229,11 +229,43 @@ export function captureLocalEvents(
   bridge: IdBridge,
   onLocalOp?: () => void,
 ): { suppressed: { value: boolean } } {
-  const suppressed = { value: false };
+  let suppressedValue = false;
+  // reverseApply 运行期间（suppressed=true）到达的删除事件不能直接丢弃：
+  // 同步会把删除前的 CRDT 状态写回 Chrome，覆盖用户删除。入队，抑制结束后
+  // 统一补处理（tombstone 照常产生并推送）。
+  let pendingRemoved: string[] = [];
   const getC = async (): Promise<SyncCoordinator | null> => {
     const c =
       typeof coordinator === 'function' ? coordinator() : coordinator;
     return c instanceof Promise ? await c : c;
+  };
+
+  const handleRemoved = async (id: string) => {
+    const c = await getC();
+    if (!c) return;
+    const uuid = bridge.toUuid(id);
+    if (!uuid) return;
+    if (uuid === MENU_UUID) {
+      // 用户删除了「书签菜单」容器（Chromium 端动态容器）：
+      // tombstone MENU_UUID 让整棵子树不可达，墓碑随同步分发到所有设备；
+      // ensureMenuFolder 检测到 tombstone 后不再自动重建。若只忽略该事件，
+      // 同步会把空容器拉回来、残留映射导致 "Can't find bookmark for id"，
+      // 其他设备还会把容器内旧书签照单全收（重复）。
+      c.deleteNode(MENU_UUID);
+      onLocalOp?.();
+      return;
+    }
+    if (PROTECTED_UUIDS.has(uuid)) return; // 原生根（bar/other/mobile）删不掉
+    c.deleteNode(uuid);
+    onLocalOp?.();
+  };
+
+  const onRemoved = async (id: string) => {
+    if (suppressedValue) {
+      pendingRemoved.push(id);
+      return;
+    }
+    await handleRemoved(id);
   };
 
   const onCreated = async (id: string, node: ChromeTreeNode) => {
@@ -287,20 +319,26 @@ export function captureLocalEvents(
     onLocalOp?.();
   };
 
-  const onRemoved = async (id: string) => {
-    if (suppressed.value) return;
-    const c = await getC();
-    if (!c) return;
-    const uuid = bridge.toUuid(id);
-    if (!uuid || PROTECTED_UUIDS.has(uuid)) return;
-    c.deleteNode(uuid);
-    onLocalOp?.();
-  };
-
   chrome.onCreated.addListener(onCreated);
   chrome.onChanged.addListener(onChanged);
   chrome.onMoved.addListener(onMoved);
   chrome.onRemoved.addListener(onRemoved);
+
+  // 访问器对象：sync.js 置 suppressed=false（reverseApply 结束）时自动补处理
+  // 同步期间积压的删除事件。
+  const suppressed = {
+    get value(): boolean {
+      return suppressedValue;
+    },
+    set value(v: boolean) {
+      suppressedValue = v;
+      if (!v && pendingRemoved.length > 0) {
+        const batch = pendingRemoved;
+        pendingRemoved = [];
+        for (const id of batch) void handleRemoved(id);
+      }
+    },
+  };
 
   return { suppressed };
 }
@@ -362,7 +400,8 @@ export async function reverseApply(
   const chromeNodes = await flattenChromeTree(chrome);
 
   // 3. Ensure reachable nodes exist (BFS: parents before children).
-  await ensureReachableNodes(chrome, bridge, childrenByParent, reachable);
+  const chromeIds = new Set(chromeNodes.keys());
+  await ensureReachableNodes(chrome, bridge, childrenByParent, reachable, chromeIds);
 
   // 4. Remove Chrome nodes whose CRDT uuid is unreachable (and mapped).
   await removeTrashedNodes(chrome, bridge, reachable, chromeNodes);
@@ -419,6 +458,7 @@ async function ensureReachableNodes(
   bridge: IdBridge,
   childrenByParent: Map<string, Array<{ child: string; meta: Metadata }>>,
   reachable: Set<string>,
+  chromeIds: Set<string>,
 ): Promise<void> {
   const queue: string[] = [ROOT_UUID];
   const visited = new Set<string>();
@@ -471,6 +511,21 @@ async function ensureReachableNodes(
           throw e;
         }
       } else {
+        // Chrome 中节点已不存在（外部删除 / 级联删除，如删除整个父文件夹），
+        // 但映射仍在：按“未创建”重新创建，而不是 move 一个不存在的 id
+        // （chrome.bookmarks.move 会抛原生错误 "Can't find bookmark for id"）。
+        if (!chromeIds.has(existingChromeId)) {
+          const siblings = await chrome.getChildren(parentChromeId);
+          const createIndex = Math.max(0, Math.min(i, siblings.length));
+          const created = await chrome.create({
+            parentId: parentChromeId,
+            title,
+            ...(url !== undefined ? { url } : {}),
+            index: createIndex,
+          });
+          bridge.map(created.id, childUuid);
+          continue;
+        }
         // Align parent/index and metadata. The node may exist in Chrome but
         // under a different parent (remote move) — move it to the target.
         let current = (await chrome.getChildren(parentChromeId)).find((n) => n.id === existingChromeId);

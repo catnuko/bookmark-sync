@@ -54,15 +54,17 @@ function makeChrome() {
 let chrome: ReturnType<typeof makeChrome>;
 let transport: MemoryOpLogTransport;
 let coordinator: SyncCoordinator;
+let sharedKey: CryptoKey;
 
 beforeEach(async () => {
   chrome = makeChrome();
   transport = new MemoryOpLogTransport();
+  sharedKey = await generateKey();
   coordinator = new SyncCoordinator({
     spaceId: SPACE,
     deviceId: 'dev-bridge',
     transport,
-    key: await generateKey(),
+    key: sharedKey,
   });
 });
 
@@ -150,7 +152,7 @@ describe('captureLocalEvents wiring', () => {
     expect(await coordinator.flushPush()).toBe(0);
   });
 
-  it('menu________ maps to MENU_UUID in forward; events on fixed-root containers are skipped', async () => {
+  it('menu________ maps to MENU_UUID in forward; container create/change/move skipped, 删除容器 → tombstone MENU_UUID', async () => {
     const bridge = new IdBridge();
     // Firefox menu 根：forward 预置（跨环境全集）
     expect(bridge.toUuid('menu________')).toBe(MENU_UUID);
@@ -159,16 +161,23 @@ describe('captureLocalEvents wiring', () => {
 
     captureLocalEvents(chrome.api, coordinator, bridge);
     // 模拟 Chromium 端「书签菜单」动态容器：映射到 MENU_UUID 后，
-    // 其 create/change/move/remove 事件都不得产生 CRDT op（固定根语义）。
+    // create/change/move 不得产生 CRDT op（固定根语义，容器本身不建节点）。
     bridge.map('dyn-menu', MENU_UUID);
     chrome.emit('created', 'dyn-menu', { id: 'dyn-menu', parentId: '1', title: '书签菜单' });
     chrome.emit('changed', 'dyn-menu', { title: '改名了' });
     chrome.emit('moved', 'dyn-menu', { parentId: '1', oldParentId: '1', index: 2, oldIndex: 0 });
-    chrome.emit('removed', 'dyn-menu', { removedNode: { id: 'dyn-menu', title: '书签菜单' } });
     await new Promise((r) => setTimeout(r, 20));
     expect(await coordinator.flushPush()).toBe(0);
     // 固定根未被 CRDT 删除（还在树上）
     expect(coordinator.replica.getParent(MENU_UUID)).toBe(ROOT_UUID);
+
+    // 用户删除「书签菜单」容器：整棵菜单被 tombstone 并推送（不忽略！）。
+    // 否则同步会把空容器拉回来、残留映射报 "Can't find bookmark"、其他设备
+    // 还会把菜单内旧书签照单全收（重复）。
+    chrome.emit('removed', 'dyn-menu', { removedNode: { id: 'dyn-menu', title: '书签菜单' } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(coordinator.replica.getParent(MENU_UUID)).toBe(TRASH_NODE_ID);
+    expect(await coordinator.flushPush()).toBe(1); // 菜单墓碑已推送
 
     // 但 MENU_UUID 之下的普通书签（Firefox 菜单内容）正常入 CRDT
     chrome.emit('created', 'm1', { id: 'm1', parentId: 'menu________', title: '菜单书签', url: 'https://menu' });
@@ -176,6 +185,52 @@ describe('captureLocalEvents wiring', () => {
     const mUuid = bridge.toUuid('m1');
     expect(mUuid).toBeTruthy();
     expect(coordinator.replica.getParent(mUuid!)).toBe(MENU_UUID);
+    expect(await coordinator.flushPush()).toBe(1);
+  });
+
+  it('删除菜单容器后，容器内普通书签一并不可达（墓碑覆盖整棵子树）', async () => {
+    const bridge = new IdBridge();
+    bridge.map('dyn-menu', MENU_UUID);
+    captureLocalEvents(chrome.api, coordinator, bridge);
+    // 菜单里有一个普通书签（父 = MENU_UUID）
+    chrome.emit('created', 'm1', { id: 'm1', parentId: 'menu________', title: '百度百科', url: 'https://baike.baidu.com' });
+    await new Promise((r) => setTimeout(r, 10));
+    const mUuid = bridge.toUuid('m1')!;
+    expect(coordinator.replica.getParent(mUuid)).toBe(MENU_UUID);
+    await coordinator.flushPush();
+
+    // 删除容器 → 墓碑覆盖 MENU_UUID → 子书签自动不可达
+    chrome.emit('removed', 'dyn-menu', { removedNode: { id: 'dyn-menu', title: '书签菜单' } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(coordinator.replica.getParent(MENU_UUID)).toBe(TRASH_NODE_ID);
+    await coordinator.flushPush(); // 墓碑推送到 transport
+
+    // 全量重放（另一设备视角）：菜单及其内容都不复活
+    const fresh = new SyncCoordinator({ spaceId: SPACE, deviceId: 'dev-fresh', transport, key: sharedKey });
+    await fresh.pull();
+    expect(fresh.replica.getVisibleTree().some((e) => e.child === MENU_UUID)).toBe(false);
+    expect(fresh.replica.getVisibleTree().some((e) => e.child === mUuid)).toBe(false);
+  });
+
+  it('suppressed 期间到达的删除事件入队，抑制结束后补处理（不丢失）', async () => {
+    const bridge = new IdBridge();
+    const guard = captureLocalEvents(chrome.api, coordinator, bridge);
+    // 先创建一个普通书签并推送
+    chrome.emit('created', 'b1', { id: 'b1', parentId: '1', title: 'x', url: 'https://x' });
+    await new Promise((r) => setTimeout(r, 10));
+    const bUuid = bridge.toUuid('b1')!;
+    await coordinator.flushPush();
+
+    // 模拟 reverseApply 运行（suppressed=true）：此时删除事件不得丢弃
+    guard.suppressed.value = true;
+    chrome.emit('removed', 'b1', { removedNode: { id: 'b1', title: 'x' } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(await coordinator.flushPush()).toBe(0); // 入队未处理
+
+    // 抑制结束（reverseApply 完成）→ 补处理 → 墓碑产生并推送
+    guard.suppressed.value = false;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(coordinator.replica.getParent(bUuid)).toBe(TRASH_NODE_ID);
     expect(await coordinator.flushPush()).toBe(1);
   });
 
