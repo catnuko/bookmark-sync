@@ -142,6 +142,14 @@ export async function pullOverwriteLocal() { return { ok: true }; }
 // 同步：拉远端 → 播种（仅云端为空且本机未播种时）→ 推本地。
 export async function runSync(_opts = {}) {
   try {
+    // SW 冷启动时 supabase 客户端的 session 是异步从 storage 恢复的；
+    // 不先确认就绪，RPC 会以 anon（无 JWT）执行 → auth.uid() 为 null
+    // （线上 bsync_space_create 无认证检查时直接 INSERT owner_id NULL 报错）。
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess?.session) {
+      return { ok: false, reason: "not_authenticated", error: "请先在插件中登录" };
+    }
+
     let { active } = await getActiveSpace();
     if (!active) {
       // 新用户无需手动建空间：首次同步自动创建「默认空间」（后端
