@@ -102,6 +102,8 @@ console.log('[tri] B(Firefox) 密钥注入 + login:', bInject.ok && loginB.ok ? 
 if (!(bInject.ok && loginB.ok)) process.exit(1);
 const syncB1 = await bridgeCall(bidi, ctx, 'sync', {});
 console.log('[tri] B(Firefox) 首次 sync:', JSON.stringify(syncB1));
+const bSt1 = await bridgeCall(bidi, ctx, 'storage.get', { keys: ['crdt.counter','crdt.afterId','crdt.bootErr','lastSyncError','activeSpaceId','crdt.seeded'] });
+console.log('[tri] B 状态1:', JSON.stringify(bSt1.data ?? bSt1).slice(0, 500));
 if (!syncB1.ok) process.exit(1);
 
 const treeB = await bridgeCall(bidi, ctx, 'bookmarks.getTree', {});
@@ -183,8 +185,20 @@ const m1 = await bridgeCall(bidi, ctx, 'bookmarks.create', {
   parentId: 'menu________', title: titleM1, url: 'https://e2e-menu-ff.example.com/' + Date.now(),
 });
 if (!m1.ok) { console.error('FAIL: B 菜单建书签失败'); process.exit(1); }
+// [diag] M1 创建后立即读 B 端 counter（hook 2s 前）
+const bStM0 = await bridgeCall(bidi, ctx, 'storage.get', { keys: ['crdt.counter','crdt.afterId','lastSyncError'] });
+console.log('[tri] M1 创建后立即 B 状态:', JSON.stringify(bStM0.data ?? bStM0).slice(0, 400));
+let opsBefore = null;
+try { opsBefore = await sql(`select device_id, seq, created_at from bsync_op_log order by id desc limit 3;`); } catch (e) { console.log('[diag] opsBefore 网络失败，跳过:', e.cause?.code ?? e.message); }
+if (opsBefore) console.log('[tri] M1 创建后线上最近 op:', JSON.stringify(opsBefore));
 await sleep(8000);
-await bridgeCall(bidi, ctx, 'sync', {});
+const syncBM = await bridgeCall(bidi, ctx, 'sync', {});
+console.log('[tri] B 菜单段 sync:', JSON.stringify(syncBM));
+let opsAfter = null;
+try { opsAfter = await sql(`select device_id, seq, created_at from bsync_op_log order by id desc limit 3;`); } catch (e) { console.log('[diag] opsAfter 网络失败，跳过:', e.cause?.code ?? e.message); }
+if (opsAfter) console.log('[tri] 菜单段后线上最近 op:', JSON.stringify(opsAfter));
+const bStM = await bridgeCall(bidi, ctx, 'storage.get', { keys: ['crdt.counter','crdt.afterId','crdt.bootErr','lastSyncError'] });
+console.log('[tri] B 状态M:', JSON.stringify(bStM.data ?? bStM).slice(0, 500));
 
 await clickSyncAndWait(pageA);
 await clickSyncAndWait(pageC);

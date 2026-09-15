@@ -265,6 +265,14 @@ function bootCoordinatorForEvent() {
   if (!_bootPromise) {
     _bootPromise = (async () => {
       try {
+        // 冷启动防丢事件：SW 刚被事件唤醒时 supabase session 是异步从
+        // storage 恢复的（与 runSync 3afd01d 同一问题）。不先确认 session，
+        // getActiveSpace 会用 anon 查询被 RLS 拦 → active=null → 事件被丢
+        // （典型表现：Firefox 闲置终止后再建书签，同步时该书签不出现）。
+        const { data: sess } = await supabase.auth.getSession();
+        if (!sess?.session) {
+          return null; // 未登录：无可同步对象，事件跳过是正确行为
+        }
         const { active } = await getActiveSpace();
         if (!active) return null; // 未登录/无空间：无可同步对象，事件跳过是正确行为
         const deviceId = await getDeviceId();
@@ -358,7 +366,11 @@ async function cleanupEmptyMenuContainer(bridge) {
       await api.storage.local.remove(MENU_FOLDER_KEY);
       return;
     }
-    if ((node.children ?? []).length > 0) return; // 仍有内容，保留
+    // 注意：chrome.bookmarks.get(id) 返回的单节点不含 children 字段，
+    // 用 node.children 判断会恒为 0 → 每次都把非空容器当空容器删掉。
+    // 必须用 getChildren(id) 取真实子节点数。
+    const kids = await chrome.getChildren(savedId);
+    if (kids.length > 0) return; // 仍有内容，保留
     await chrome.removeTree(savedId);
     await bridge.removeByChromeId(savedId);
     await api.storage.local.remove(MENU_FOLDER_KEY);

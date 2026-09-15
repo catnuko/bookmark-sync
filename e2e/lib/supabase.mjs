@@ -23,6 +23,7 @@ export async function sql(query) {
     method: 'POST',
     headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(10000),
   });
   if (!r.ok) throw new Error(`SQL ${r.status}: ${await r.text()}`);
   return r.json();
