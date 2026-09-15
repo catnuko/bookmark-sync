@@ -16,8 +16,9 @@
  *                                      「书签菜单」文件夹，动态 chromeId)
  *
  * We never create/delete the special roots; only ordinary nodes are mapped.
- * MENU_UUID 在 Chromium 端的动态容器由 sync.js ensureMenuFolder 创建并映射，
- * 事件层把「已映射到固定根的动态 id」当固定根处理（不产生 CRDT op）。
+ * MENU_UUID 在 Chromium 端是动态容器（sync.js 按需创建/移除：菜单有内容才
+ * 显示「书签菜单」文件夹），事件层把「已映射到固定根的动态 id」当固定根
+ * 处理（不产生 CRDT op）。
  *
  * TODO(real-chrome): verify numeric ids "1"/"2"/"3" map to bar/other/mobile on
  * a real profile; fall back to node.folderType (Chrome 134+) if they differ.
@@ -249,7 +250,9 @@ export function captureLocalEvents(
       // 用户删除了「书签菜单」容器（Chromium 端动态容器）：
       // 菜单位置保留（Firefox 原生 menu________ 根删不掉，且该位置被动使用
       // 率极高——地址栏星标默认存这里），只 tombstone 容器内的书签，实现
-      // 「清空菜单内容」的跨设备一致删除；ensureMenuFolder 会重建空容器。
+      // 「清空菜单内容」的跨设备一致删除。内容清空后，reverseApplyIntoChrome
+      // 的 cleanupEmptyMenuContainer 会移除空容器（菜单为空 → Chrome 不显示；
+      // Firefox 菜单重新有书签 → 容器按需重建）。
       // 若 tombstone MENU_UUID 本身，Firefox 菜单会随同步报废：旧内容被清、
       // 之后手动放入的新书签也会被当作不可达节点静默删除。
       const tombstoneSubtree = (node: ChromeTreeNode) => {

@@ -291,11 +291,23 @@ async function reverseApplyIntoChrome(coordinator) {
   // reverseApply 回环（每次同步复制一批书签）的根因。
   guard.suppressed.value = true; // 抑制事件回环（create/move/update 会触发 onCreated 等）
   try {
-    // Chromium 端：MENU_UUID 没有原生根，先确保「书签菜单」容器存在并映射
-    // （reverseApply 跳过固定根，不会自己创建它；菜单位置本身不可删除，
-    // 删除容器只清空内容，因此容器始终会被补建）。Firefox 端为原生 menu________。
-    await ensureMenuFolder(coordinator, bridge);
+    if (!IS_FIREFOX) {
+      // Chromium 端 MENU_UUID 容器按需存在：仅当 CRDT 中「书签菜单」有实际
+      // 子节点（Firefox 菜单有书签并同步过来）时才创建容器；菜单为空或从未
+      // 用过 Firefox 时，Chrome 端不显示「书签菜单」文件夹。
+      const menuHasChildren = coordinator.replica
+        .getVisibleTree()
+        .some((e) => e.parent === MENU_UUID);
+      if (menuHasChildren) {
+        await ensureMenuFolder(coordinator, bridge);
+      }
+    }
     await reverseApply(chrome, coordinator, bridge);
+    if (!IS_FIREFOX) {
+      // 同步收敛后：若「书签菜单」容器已空（CRDT 中 MENU_UUID 无内容），
+      // 移除空容器，让 Chrome 端只在 Firefox 菜单有书签时显示它。
+      await cleanupEmptyMenuContainer(bridge);
+    }
     await api.storage.local.set({ [IDMAP_KEY]: bridge.snapshot() });
   } finally {
     guard.suppressed.value = false;
@@ -303,10 +315,10 @@ async function reverseApplyIntoChrome(coordinator) {
 }
 
 /**
- * Chromium 端 MENU_UUID 容器生命周期：书签栏下自动创建「书签菜单」文件夹并
- * 绑定 MENU_UUID。该位置是 Firefox 原生固定根（menu________）的映射，本身
- * 不可删除：用户删除容器时事件层只 tombstone 容器内的书签（清空内容、墓碑
- * 随同步分发），这里始终确保容器存在（被删/重装后补建空容器）。
+ * Chromium 端 MENU_UUID 容器：仅在 CRDT 中「书签菜单」有子节点时被调用
+ * （reverseApplyIntoChrome 按需触发）。创建「书签菜单」文件夹并绑定
+ * MENU_UUID；容器被删/重装后在此补建。菜单内容清空后由
+ * cleanupEmptyMenuContainer 移除容器。
  */
 async function ensureMenuFolder(coordinator, bridge) {
   if (IS_FIREFOX) return; // Firefox 端 menu________ 是原生根，无需容器
@@ -323,6 +335,36 @@ async function ensureMenuFolder(coordinator, bridge) {
   const created = await chrome.create({ parentId: "1", title: MENU_FOLDER_TITLE });
   bridge.map(created.id, MENU_UUID);
   await api.storage.local.set({ [MENU_FOLDER_KEY]: created.id });
+}
+
+/**
+ * Chromium 端空菜单容器清理：reverseApply 收敛后，若「书签菜单」容器存在
+ * 但已无子节点（CRDT 中 MENU_UUID 无内容），删除容器并清空映射，避免 Chrome
+ * 端出现无意义的空文件夹。容器内仍有 chrome 子节点时跳过（可能是尚未同步
+ * 的本地书签，数据安全优先，留待下轮收敛后再删）。
+ */
+async function cleanupEmptyMenuContainer(bridge) {
+  if (IS_FIREFOX) return; // Firefox 端 menu________ 是原生根，不可删
+  const chrome = globalThis.chrome?.bookmarks;
+  if (!chrome) return;
+  const saved = await api.storage.local.get(MENU_FOLDER_KEY);
+  const savedId = saved[MENU_FOLDER_KEY];
+  if (!savedId) return;
+  try {
+    const nodes = await chrome.get(savedId);
+    const node = nodes && nodes[0];
+    if (!node || node.id !== savedId) {
+      // 容器已不存在：清掉过期记录
+      await api.storage.local.remove(MENU_FOLDER_KEY);
+      return;
+    }
+    if ((node.children ?? []).length > 0) return; // 仍有内容，保留
+    await chrome.removeTree(savedId);
+    await bridge.removeByChromeId(savedId);
+    await api.storage.local.remove(MENU_FOLDER_KEY);
+  } catch {
+    /* 容器状态异常时忽略，下轮同步再处理 */
+  }
 }
 
 function getCoordinatorCached() {
