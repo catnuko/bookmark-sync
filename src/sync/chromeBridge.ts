@@ -274,6 +274,7 @@ export function captureLocalEvents(
   };
 
   const onRemoved = async (id: string, info: { removedNode: ChromeTreeNode }) => {
+    console.log(`[bsync] 事件 onRemoved: id=${id} title="${info?.removedNode?.title ?? ""}" url=${info?.removedNode?.url ?? ""} suppressed=${suppressedValue}`);
     if (suppressedValue) {
       pendingRemoved.push(id);
       return;
@@ -282,6 +283,7 @@ export function captureLocalEvents(
   };
 
   const onCreated = async (id: string, node: ChromeTreeNode) => {
+    console.log(`[bsync] 事件 onCreated: id=${id} title="${node.title}" url=${node.url ?? ""} parent=${node.parentId} index=${node.index} suppressed=${suppressed.value}`);
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
@@ -302,6 +304,7 @@ export function captureLocalEvents(
   };
 
   const onChanged = async (id: string, change: { title: string; url?: string }) => {
+    console.log(`[bsync] 事件 onChanged: id=${id} title="${change.title}" url=${change.url ?? ""} suppressed=${suppressed.value}`);
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
@@ -318,6 +321,7 @@ export function captureLocalEvents(
     id: string,
     move: { parentId: string; oldParentId: string; index: number; oldIndex: number },
   ) => {
+    console.log(`[bsync] 事件 onMoved: id=${id} parent=${move.parentId} oldParent=${move.oldParentId} index=${move.index} oldIndex=${move.oldIndex} suppressed=${suppressed.value}`);
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;

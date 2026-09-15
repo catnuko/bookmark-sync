@@ -3,8 +3,17 @@
 //   - chrome.alarms：每 30 分钟增量 pull（afterId 水位）
 //   - 本地书签变更由 chrome.bookmarks 事件驱动，入队后随下一次 flush 推送
 import { api } from "./lib/ext.js";
-import { runSync, registerLocalEventBridge } from "./sync.js";
+import { runSync, registerLocalEventBridge, resetCoordinator } from "./sync.js";
 import { registerTestChannel } from "./testChannel.js";
+import { installLogBridge } from "./logBridge.js";
+
+// 日志桥接：SW 中所有 console.log 自动转发到 options 页面控制台
+installLogBridge();
+
+// SW 启动标识：打印构建时间 + 启动时间，方便判断是否是最新打包的代码
+console.log("[bsync] ===== SW booted =====");
+console.log("[bsync] Build time:", __BUILD_TIME__);
+console.log("[bsync] Boot time: ", new Date().toISOString());
 
 const ALARM_NAME = "bsync-periodic-pull";
 
@@ -45,6 +54,13 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "bsync-sync") {
     sync().then(sendResponse);
     return true; // 异步 sendResponse
+  }
+  if (msg?.type === "bsync-reset-coordinator") {
+    // popup 导入新密钥 / 设置口令后，通知 SW 重置 coordinator 单例，
+    // 否则 SW 仍用旧 CryptoKey 解密 → 全部 op 报解密失败。
+    resetCoordinator();
+    sendResponse({ ok: true });
+    return false;
   }
   return false;
 });

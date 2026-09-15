@@ -7,6 +7,7 @@ import {
   getActiveSpace, switchSpace, createSpace, deleteSpace, renameSpace,
   listDevices, removeDevice, getDeviceId,
   acknowledgeFirstSync, pullOverwriteLocal,
+  resetSyncState, resetCoordinator,
 } from "./sync.js";
 import { exportKey, importKey, hasKey, setKeyFromPassphrase } from "./crypto.js";
 
@@ -79,18 +80,15 @@ const onboardMsg = ref("");
 // 密钥）；云端已有数据的用户跳过也不丢数据——同步遇到密文会再次进入首
 // 同步决策，在那里强制导入密钥后才能继续。
 function maybeOpenOnboard() {
-  if (!session.value || showOnboard.value) return;
-  api.storage.local.get(ONBOARD_SKIP_KEY).then((r) => {
-    if (r[ONBOARD_SKIP_KEY]) return;
-    hasKey().then((k) => {
-      if (!k) showOnboard.value = true;
-    });
-  });
+  // 已禁用首次加载密钥引导弹窗：用户直接进入主界面，密钥在「同步密钥」tab 管理。
+  return;
 }
 
 async function onboardImportKey() {
   const ok = await importKey(onboardKeyInput.value);
   if (ok) {
+    resetCoordinator();
+    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
     onboardMsg.value = "密钥已导入，可以开始同步了。";
     setTimeout(() => { showOnboard.value = false; }, 1200);
   } else {
@@ -106,6 +104,8 @@ async function onboardSetPhrase() {
   }
   const ok = await setKeyFromPassphrase(phrase);
   if (ok) {
+    resetCoordinator();
+    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
     onboardMsg.value = "已用口令设定密钥。⚠️ 请牢记口令——忘记将无法解密既有数据，且无法找回。";
     setTimeout(() => { showOnboard.value = false; }, 1600);
   } else {
@@ -122,6 +122,56 @@ function skipOnboard() {
   );
 }
 
+// 测试工具：一键清空云端测试数据 + 本机缓存 + 登出（保留浏览器书签）
+const resetBusy = ref(false);
+const resetMsg = ref("");
+async function resetTestData() {
+  if (resetBusy.value) return;
+  resetBusy.value = true;
+  resetMsg.value = "正在清空云端数据...";
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("未登录");
+    const uid = session.user.id;
+
+    // 按外键顺序删除当前用户的所有同步数据
+    const { data: spaces } = await supabase
+      .from("bsync_spaces").select("id").eq("owner_id", uid);
+    const spaceIds = (spaces ?? []).map(s => s.id);
+
+    if (spaceIds.length > 0) {
+      await supabase.from("bsync_snapshots").delete().in("space_id", spaceIds);
+      await supabase.from("bsync_op_log").delete().in("space_id", spaceIds);
+      await supabase.from("bsync_devices").delete().in("space_id", spaceIds);
+      await supabase.from("bsync_spaces").delete().in("id", spaceIds);
+    }
+    // 重置 profile（盐/用量清零）
+    await supabase.from("bsync_profiles")
+      .update({ e2ee_salt: null, used_count: 0, used_bytes: 0 })
+      .eq("user_id", uid);
+
+    resetMsg.value = "云端已清空，正在清除本机缓存并登出...";
+    await resetSyncState();
+    // 通知 SW 也重置 coordinator 单例（否则 SW 内存中仍持有旧 afterId）
+    api.runtime.sendMessage({ type: "bsync-reset-coordinator" }).catch(() => {});
+    await supabase.auth.signOut();
+
+    resetMsg.value = "完成！云端数据、本机缓存与登录态已清空，可重新登录测试。";
+    // 刷新 UI 状态（onAuthStateChange 会自动切回登录页，这里兜底清状态）
+    session.value = null;
+    profile.value = null;
+    spaces.value = [];
+    activeSpace.value = null;
+    devices.value = [];
+    serverCount.value = null;
+    status.value = "";
+  } catch (e) {
+    resetMsg.value = "失败：" + (e?.message ?? String(e));
+  } finally {
+    resetBusy.value = false;
+  }
+}
+
 async function refreshSpacesDevices() {
   try {
     const { spaces: sp, active } = await getActiveSpace();
@@ -135,12 +185,11 @@ async function refreshSpacesDevices() {
 }
 
 async function loadKeyPanel() {
-  keyMsg.value = (await hasKey()) ? "" : "本设备尚无密钥，首次同步时自动生成；换设备时请在此导入同一密钥或口令。";
-  try {
-    keyValue.value = await exportKey();
-  } catch {
-    keyValue.value = "";
-  }
+  // 注意：exportKey() 内部会调 ensureKey() 自动生成密钥，因此无密钥时不能调它，
+  // 否则用户只是看一眼密钥面板就被动生成了一把密钥，与提示文字矛盾。
+  const has = await hasKey();
+  keyMsg.value = has ? "" : "本设备尚无密钥，首次同步时自动生成；换设备时请在此导入同一密钥。";
+  keyValue.value = has ? await exportKey() : "";
 }
 
 async function doSwitchSpace(sp) {
@@ -365,9 +414,14 @@ function fmt(ts) {
 }
 
 async function refreshStatus(extra) {
-  const s = await api.storage.local.get(["lastSyncAt", "lastSyncStatus"]);
-  status.value =
-    extra ?? `上次同步: ${fmt(s.lastSyncAt)}${s.lastSyncStatus ? " · " + s.lastSyncStatus : ""}`;
+  const s = await api.storage.local.get(["lastSyncAt", "lastSyncStatus", "lastDecryptErrors"]);
+  let base = extra ?? `上次同步: ${fmt(s.lastSyncAt)}${s.lastSyncStatus ? " · " + s.lastSyncStatus : ""}`;
+  // 如果历史上有解密失败且状态行未包含警告，追加提示
+  if (s.lastDecryptErrors && !base.includes("解密失败")) {
+    const n = s.lastDecryptErrors.errors?.length ?? 0;
+    base += ` · ⚠️ 有 ${n} 条云端数据解密失败（密钥不匹配）`;
+  }
+  status.value = base;
 }
 
 // ── 共存与存储：Chrome Sync 提示 + op-log GC 配置 ──
@@ -462,6 +516,10 @@ async function submit() {
     await api.storage.local.set({ rememberEmail: em });
     await refreshStatus();
     await refreshProfile();
+    // 登录成功后自动触发一次同步：消除登录前的失败状态残留（如 onStartup
+    // 未登录时记录的 not_authenticated），同时让 SW 中的 supabase 客户端
+    // 通过 ensureSession 兜底恢复 session。
+    syncNow();
   } finally {
     busy.value = false;
   }
@@ -529,6 +587,8 @@ function dismissFirstSync() {
 async function importFirstSyncKey() {
   const ok = await importKey(firstSyncKeyInput.value);
   if (ok) {
+    resetCoordinator();
+    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
     firstSyncKeyMsg.value = "";
     firstSyncKeyInput.value = "";
     showFirstSyncModal.value = false;
@@ -546,6 +606,8 @@ async function phraseFirstSyncKey() {
   }
   const ok = await setKeyFromPassphrase(phrase);
   if (ok) {
+    resetCoordinator();
+    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
     firstSyncKeyMsg.value = "";
     firstSyncPhraseInput.value = "";
     showFirstSyncModal.value = false;
@@ -597,7 +659,7 @@ async function syncNow(opts = {}) {
       showFirstSyncModal.value = true;
       refreshStatus(
         r.remoteEncrypted
-          ? "云端数据已加密，请先导入同步密钥或口令"
+          ? "云端数据已加密，请先导入同步密钥"
           : "本机与云端都有书签，请确认如何同步"
       );
       return;
@@ -613,14 +675,20 @@ async function syncNow(opts = {}) {
       refreshStatus(r.error ?? "数据无法解密，请检查同步密钥");
       return;
     }
+    // 诊断：解密失败（密钥不匹配）时在状态中追加醒目警告
+    const decryptWarn = r.decryptFailed > 0
+      ? ` · ⚠️ ${r.decryptFailed} 条云端数据解密失败（密钥不匹配，请检查同步密钥/口令）`
+      : "";
     await api.storage.local.set({
       lastSyncAt: Date.now(),
       lastSyncStatus: r.ok
-        ? `推送 ${r.pushed} · 拉取 ${r.pulled}`
+        ? `推送 ${r.pushed} · 拉取 ${r.pulled}${decryptWarn}`
         : `${r.reason}${r.error ? ` (${r.error})` : ""}`,
     });
     refreshStatus(
-      r.ok ? `完成: 推送 ${r.pushed} · 拉取 ${r.pulled}` : `${r.reason}${r.error ? ` (${r.error})` : ""}`
+      r.ok
+        ? `完成: 推送 ${r.pushed} · 拉取 ${r.pulled}${decryptWarn}`
+        : `${r.reason}${r.error ? ` (${r.error})` : ""}`
     );
     // 同步后刷新配额与空间/设备状态（push 会登记本设备）。
     // 兜底超时：popup 的 supabase 查询偶尔挂起（网络/会话竞争），
@@ -653,6 +721,8 @@ async function copyKey() {
 async function doImportKey() {
   const ok = await importKey(keyImportInput.value);
   if (ok) {
+    resetCoordinator();
+    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
     keyMsg.value = "密钥已导入。同步时即可解密换设备同步来的书签。";
     keyImportInput.value = "";
     keyValue.value = await exportKey();
@@ -671,6 +741,8 @@ async function doSetKeyByPhrase() {
   if (ok) {
     keyMsg.value =
       "已用口令设定密钥。新装一台设备时，输入同一口令即可解密同步数据。⚠️ 请务必牢记口令：忘记口令将无法解密既有数据，且无法找回。";
+    resetCoordinator();
+    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
     keyPhraseInput.value = "";
     keyValue.value = "";
     keyValue.value = await exportKey();
@@ -798,6 +870,13 @@ async function doSetKeyByPhrase() {
       >
         帮助
       </button>
+      <button
+        type="button"
+        :class="{ on: activePanel === 'test' }"
+        @click="togglePanel('test')"
+      >
+        测试
+      </button>
     </div>
 
     <!-- 同步密钥（E2EE）——同步强制加密，无明文模式 -->
@@ -807,7 +886,7 @@ async function doSetKeyByPhrase() {
         <p class="panel-desc">
           书签同步<b>强制端到端加密</b>：每一条书签操作都在设备上加密后上传，
           服务器只保存密文。请了解成本——<b>忘记密钥 = 数据无法找回</b>
-          （无客服、无后门），每台新设备都要导入同一把密钥或口令，且网页端
+          （无客服、无后门），每台新设备都要导入同一把密钥，且网页端
           全文搜索等便捷功能不可用。
         </p>
         <div v-if="keyValue" class="key-box">
@@ -824,19 +903,7 @@ async function doSetKeyByPhrase() {
           />
           <button class="btn-sm btn-solid" :disabled="!keyImportInput" @click="doImportKey">导入</button>
         </div>
-        <div class="input-row">
-          <input
-            v-model="keyPhraseInput"
-            class="input"
-            type="password"
-            placeholder="或用同一句口令设定（至少 8 位）"
-            autocomplete="new-password"
-          />
-          <button class="btn-sm" :disabled="!keyPhraseInput" @click="doSetKeyByPhrase">设定</button>
-        </div>
-        <p class="panel-warn">
-          ⚠️ <b>重要：请牢记你设定的口令。</b>口令是解密云端数据的唯一钥匙，插件和服务器都无法找回——<b>忘记口令将无法解密既有数据，等同于数据丢失</b>。
-        </p>
+
         <p v-if="keyMsg" class="panel-hint">{{ keyMsg }}</p>
       </div>
     </Transition>
@@ -1009,6 +1076,27 @@ async function doSetKeyByPhrase() {
         </p>
       </div>
     </Transition>
+
+    <!-- 测试工具：一键清空云端测试数据 + 本机缓存 -->
+    <Transition name="drop">
+      <div v-if="activePanel === 'test'" id="testPanel" class="panel">
+        <div class="panel-title">测试工具</div>
+        <p class="panel-desc">
+          仅供开发测试使用。一键清空当前账号在云端的所有同步数据
+          （空间 / 操作日志 / 设备 / 快照）、清除本机缓存并登出，
+          <b>仅保留浏览器中的书签</b>。执行后需重新登录，可从零测试同步流程。
+        </p>
+        <button
+          type="button"
+          class="danger-btn"
+          :disabled="resetBusy"
+          @click="resetTestData"
+        >
+          {{ resetBusy ? "清理中..." : "一键清空测试数据" }}
+        </button>
+        <p v-if="resetMsg" class="panel-desc" style="margin-top:8px">{{ resetMsg }}</p>
+      </div>
+    </Transition>
   </div>
 
   <!-- 新设备引导：无密钥时弹出（选择密钥方式 + 注意事项提醒） -->
@@ -1104,7 +1192,7 @@ async function doSetKeyByPhrase() {
         <template v-if="firstSyncInfo?.remoteEncrypted">
           <p class="muted">
             云端书签已开启端到端加密，本设备还没有同步密钥，无法读取云端数据。
-            请先导入密钥或输入同一句口令，再选择如何同步。
+            请先在下方粘贴从其他设备复制的同步密钥，再选择如何同步。
           </p>
           <div class="input-row">
             <input
@@ -1116,20 +1204,7 @@ async function doSetKeyByPhrase() {
             />
             <button class="btn-sm btn-solid" :disabled="!firstSyncKeyInput" @click="importFirstSyncKey">导入</button>
           </div>
-          <div class="input-row">
-            <input
-              v-model="firstSyncPhraseInput"
-              class="input"
-              type="password"
-              placeholder="或用同一句口令设定（至少 8 位）"
-              autocomplete="new-password"
-              @keyup.enter="phraseFirstSyncKey"
-            />
-            <button class="btn-sm" :disabled="!firstSyncPhraseInput" @click="phraseFirstSyncKey">设定</button>
-          </div>
-          <p class="panel-warn">
-            ⚠️ <b>请牢记你输入的口令。</b>口令是解密云端数据的唯一钥匙，插件和服务器都无法找回——<b>忘记口令将无法解密既有数据，等同于数据丢失</b>。
-          </p>
+
           <p v-if="firstSyncKeyMsg" class="panel-hint">{{ firstSyncKeyMsg }}</p>
         </template>
         <template v-else>

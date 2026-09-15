@@ -134,6 +134,36 @@ export async function countServerBookmarks() {
 export async function acknowledgeFirstSync() { return { ok: true }; }
 export async function pullOverwriteLocal() { return { ok: true }; }
 
+/**
+ * 确保 SW 中的 supabase 客户端持有有效 session。
+ *
+ * 背景：MV3 SW 与 popup/options 是独立 realm，各自创建 supabase 客户端实例。
+ * 若 SW 在用户登录前已完成初始化（currentSession=null），之后 popup 登录写入
+ * chrome.storage.local，但 SW 的 getSession() 因 initializePromise 已 resolve
+ * 而直接返回内存中的 null——不会重新读 storage。BroadcastChannel 多标签同步
+ * 在 SW 中不可靠（SW 可被回收 / 通道生命周期短）。
+ *
+ * 兜底：getSession() 为 null 时，直接从 storage 读取原始 session 并 setSession
+ * 恢复。storage 里也没有才是真正的未登录。
+ */
+async function ensureSession() {
+  const { data: sess } = await supabase.auth.getSession();
+  if (sess?.session) return sess.session;
+  try {
+    const key = supabase.auth.storageKey;
+    const raw = await api.storage.local.get(key);
+    const stored = raw[key];
+    if (stored && stored.access_token && stored.refresh_token) {
+      const { data, error } = await supabase.auth.setSession({
+        access_token: stored.access_token,
+        refresh_token: stored.refresh_token,
+      });
+      if (!error && data.session) return data.session;
+    }
+  } catch { /* 兜底失败按未登录处理 */ }
+  return null;
+}
+
 // ---- 同步主入口 ----
 // 返回 { ok, pushed, pulled, reason?, error? }
 //
@@ -141,12 +171,12 @@ export async function pullOverwriteLocal() { return { ok: true }; }
 // 本地变更 → coordinator 入队 → flushSoon 去抖推送；本函数负责周期/手动全量
 // 同步：拉远端 → 播种（仅云端为空且本机未播种时）→ 推本地。
 export async function runSync(_opts = {}) {
+  const runGen = _coordinatorGen;
   try {
-    // SW 冷启动时 supabase 客户端的 session 是异步从 storage 恢复的；
-    // 不先确认就绪，RPC 会以 anon（无 JWT）执行 → auth.uid() 为 null
-    // （线上 bsync_space_create 无认证检查时直接 INSERT owner_id NULL 报错）。
-    const { data: sess } = await supabase.auth.getSession();
-    if (!sess?.session) {
+    // SW 冷启动 / 跨上下文登录态脱节：用 ensureSession 兜底，避免 popup 已登录
+    // 但 SW 内存 session 为 null 时误报 not_authenticated。
+    const sess = await ensureSession();
+    if (!sess) {
       return { ok: false, reason: "not_authenticated", error: "请先在插件中登录" };
     }
 
@@ -172,34 +202,85 @@ export async function runSync(_opts = {}) {
     });
 
     const coordinator = await getCoordinator(active.id, deviceId, key);
+    console.log(`[bsync] === 同步开始 === space=${active.id} device=${deviceId} afterId=${coordinator.afterId} bare=${coordinator.replica.isBare()}`);
+
 
     // 冷启动保护：MV3 SW 闲置终止后重建的 replica 只有固定根（isBare），
     // 但云端已有历史。此时必须先从基线恢复，否则 reverseApply 的空 CRDT
     // 视图会把本机书签树当「已删除」清空（removeTrashedNodes 误删）。
     // 基线优先取 GC 快照（快照存在且可用 → 重建 + 增量；op 已被截断时
     // pullFrom(0) 会漏行）；无快照时退回全量重放 pullFrom(0)。
+    // 累计本次同步所有阶段的解密失败（冷启动重放 + 主 pull），
+    // 统一用于：是否跳过 used_count 上报、是否在 popup 显示警告。
+    const allDecryptErrors = [];
+
     if (coordinator.afterId > 0 && coordinator.replica.isBare()) {
       const replay = await coordinator.pullWithSnapshot(true);
       if (replay.applied > 0) await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
+      if (replay.decryptErrors?.length) allDecryptErrors.push(...replay.decryptErrors);
+      console.log(`[bsync] 冷启动重放: applied=${replay.applied} decryptErrors=${replay.decryptErrors?.length ?? 0} afterId=${coordinator.afterId}`);
     }
 
     // 1) 拉远端 → 本地 CRDT（快照优先：快照新于本地水位时重建 + 增量）
     const pull = await coordinator.pullWithSnapshot(false);
+    if (pull.decryptErrors?.length) allDecryptErrors.push(...pull.decryptErrors);
+    console.log(`[bsync] 拉取: applied=${pull.applied} skipped=${pull.skipped ?? 0} decryptErrors=${pull.decryptErrors?.length ?? 0} afterId=${coordinator.afterId}`);
+    if (pull.decryptErrors?.length) console.log("[bsync]   解密失败行:", JSON.stringify(pull.decryptErrors));
+
+    // 诊断：解密失败（密钥不匹配）时持久化详情，popup 可展示警告
+    if (allDecryptErrors.length) {
+      await api.storage.local.set({ lastDecryptErrors: { errors: allDecryptErrors.slice(0, 5), at: Date.now() } });
+    } else {
+      await api.storage.local.remove('lastDecryptErrors');
+    }
+
+    // 1.5) afterId 自愈：拉取 0 条但水位 > 0，可能是数据库被清空过
+    // （op id 从 1 重新开始，但本机/ SW coordinator 还持有旧水位）→ 探测云端，
+    // 有数据则重置水位全量重拉，否则 CRDT 为空会误报 used=0 覆盖云端额度。
+    if (pull.applied === 0 && coordinator.afterId > 0) {
+      try {
+        // 只有云端最大 op id < 本地 afterId 时，才说明数据库被清空过（序列重置）。
+        // 不能只看 count>0：PostgreSQL 序列不随 DELETE 重置，新 op id 可能远大于 afterId。
+        const { data: maxRow } = await supabase.from("bsync_op_log").select("id").eq("space_id", active.id).order("id", { ascending: false }).limit(1).maybeSingle();
+        const maxId = maxRow?.id ?? 0;
+        if (maxId > 0 && maxId < coordinator.afterId) {
+          console.log(`[bsync] afterId 自愈: 远端最大 id=${maxId} < 本地 afterId=${coordinator.afterId}，重置为 0`);
+          coordinator.afterId = 0;
+          const rePull = await coordinator.pullWithSnapshot(false);
+          if (rePull.decryptErrors?.length) allDecryptErrors.push(...rePull.decryptErrors);
+          pull.applied = rePull.applied;
+        }
+      } catch { /* 探测失败不阻塞 */ }
+    }
 
     // 2) 播种：云端无历史 && 本机未播种过 → 把现有 chrome 书签树转成 MoveOp
     if (pull.applied === 0 && coordinator.afterId === 0) {
+      console.log("[bsync] 开始播种本机 chrome 书签...");
       await seedExistingTree(coordinator);
+      console.log(`[bsync] 播种完成, pending ops=${coordinator.pendingPush?.length ?? 0}`);
+    } else {
+      console.log(`[bsync] 跳过播种 (applied=${pull.applied} afterId=${coordinator.afterId})`);
     }
 
-    // 3) 反向应用：把合并后的 CRDT 可见树写回本机 chrome.bookmarks
-    //    （远端新书签/移动/删除在本机生效；事件守卫防回环）
-    await ensureBridgeReady(); // 冷启动：idMap 必须先恢复，否则 reverseApply 会重复建书签
-    await reverseApplyIntoChrome(coordinator);
-
-    // 4) 推本地 → 远端（推送前先落盘计数器，防冷启动 seq 冲突；push 失败
-    //    时 op 留在 pendingPush，下轮同步重试，不会静默丢墓碑）
-    await api.storage.local.set({ [COUNTER_KEY]: coordinator.replica.counter });
+    // 3) 推本地 → 远端（播种/本地变更的 op 尽快推送，减少 SW 回收导致
+    //    pendingPush 丢失的窗口；推送成功后再落盘计数器，防冷启动 seq 冲突）
     const pushed = await coordinator.flushPush();
+    console.log(`[bsync] 推送: inserted=${pushed} counter=${coordinator.replica.counter}`);
+    await api.storage.local.set({ [COUNTER_KEY]: coordinator.replica.counter });
+
+    // 4) 反向应用：把合并后的 CRDT 可见树写回本机 chrome.bookmarks
+    //    （远端新书签/移动/删除在本机生效；事件守卫防回环）
+    const visTree = coordinator.replica.getVisibleTree();
+    console.log(`[bsync] CRDT 可见树 (${visTree.length} 个节点):`);
+    for (const e of visTree) {
+      const t = e.meta?.title ?? "";
+      const u = e.meta?.url ?? "";
+      console.log(`[bsync]   - node=${e.child} parent=${e.parent} title="${t}" url=${u}`);
+    }
+    console.log(`[bsync] 开始反向应用 (decryptErrors=${allDecryptErrors.length})...`);
+    await ensureBridgeReady();
+    await reverseApplyIntoChrome(coordinator);
+    console.log("[bsync] 反向应用完成");
 
     // 5) op-log GC：本机树完整后，若服务端行数超阈值 → 落快照 + 截断。
     //    阈值来自 storage（E2E 用小阈值注入验证），默认 2000 行。
@@ -215,16 +296,32 @@ export async function runSync(_opts = {}) {
     }
 
     // 6) 上报本机书签数（服务端 used_count 口径：快照加密后服务端无法自算）
-    try {
-      let used = 0;
-      for (const edge of coordinator.replica.getVisibleTree()) {
-        if (typeof edge.meta?.url === "string" && edge.meta.url) used++;
+    // 关键：pull 有解密失败时 CRDT 不完整，绝不能上报 used=0 覆盖之前的正确值——
+    // 否则用户会看到额度从 N/500 跳成 0/500。
+    if (allDecryptErrors.length) {
+      console.log(`[bsync] 跳过 used_count 上报 (${allDecryptErrors.length} 条解密失败, CRDT 不完整)`);
+      await api.storage.local.set({ lastUsedReport: { skipped: true, reason: "decrypt_failed", visibleNodes: coordinator.replica.getVisibleTree().length, at: Date.now() } });
+    } else {
+      try {
+        let used = 0;
+        const visible = coordinator.replica.getVisibleTree();
+        for (const edge of visible) {
+          if (typeof edge.meta?.url === "string" && edge.meta.url) used++;
+        }
+        console.log(`[bsync] 上报 used_count=${used} (visibleNodes=${visible.length})`);
+        await supabase.rpc("bsync_profile_set_used", { p_used: used });
+        await api.storage.local.set({ lastUsedReport: { used, visibleNodes: visible.length, at: Date.now() } });
+      } catch (e) {
+        try { await api.storage.local.set({ lastUsedReportError: e?.message ?? String(e) }); } catch {}
       }
-      await supabase.rpc("bsync_profile_set_used", { p_used: used });
-    } catch { /* 上报失败不阻塞 */ }
+    }
 
-    await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
-    return { ok: true, pushed, pulled: pull.applied, seeded: seededRef.value };
+    // 密钥变更（resetCoordinator 递增 gen）后，旧同步的 afterId 不能写回——
+    // 否则会覆盖刚清空的水位，导致新密钥下仍拉取 0 条。
+    if (runGen === _coordinatorGen) {
+      await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
+    }
+    return { ok: true, pushed, pulled: pull.applied, seeded: seededRef.value, decryptFailed: allDecryptErrors.length };
   } catch (e) {
     // 诊断：持久化完整错误与堆栈（readStorageLocal 可读）
     try {
@@ -239,6 +336,7 @@ export async function runSync(_opts = {}) {
 // 时事件安全跳过，下次 runSync 的播种兜底。
 let bridgeRegistered = false;
 let _coordinator = null; // 惰性单例（按 spaceId 缓存）
+let _coordinatorGen = 0; // 递增世代：resetCoordinator 后旧 boot 不再覆盖单例
 let _bridge = null;
 let _eventGuard = { suppressed: { value: false } }; // captureLocalEvents 返回的 suppressed 标志
 const seededRef = { value: false };
@@ -264,19 +362,21 @@ function bootCoordinatorForEvent() {
   if (_coordinator) return _coordinator;
   if (!_bootPromise) {
     _bootPromise = (async () => {
+      const gen = _coordinatorGen;
       try {
         // 冷启动防丢事件：SW 刚被事件唤醒时 supabase session 是异步从
         // storage 恢复的（与 runSync 3afd01d 同一问题）。不先确认 session，
         // getActiveSpace 会用 anon 查询被 RLS 拦 → active=null → 事件被丢
         // （典型表现：Firefox 闲置终止后再建书签，同步时该书签不出现）。
-        const { data: sess } = await supabase.auth.getSession();
-        if (!sess?.session) {
+        const sess = await ensureSession();
+        if (!sess) {
           return null; // 未登录：无可同步对象，事件跳过是正确行为
         }
         const { active } = await getActiveSpace();
         if (!active) return null; // 未登录/无空间：无可同步对象，事件跳过是正确行为
         const deviceId = await getDeviceId();
         const key = await keyManager.ensureKey();
+        if (gen !== _coordinatorGen) return null; // 密钥已变更，放弃本次 boot
         return await getCoordinator(active.id, deviceId, key);
       } catch {
         return null; // 网络/权限失败：本事件放弃，下轮 runSync 兜底
@@ -481,7 +581,10 @@ export function flushSoon() {
       const pushed = await c.flushPush();
       await api.storage.local.set({ [AFTER_ID_KEY]: c.afterId });
       if (pushed > 0) {
-        await api.storage.local.set({ lastSyncAt: Date.now(), lastSyncStatus: `推送 ${pushed} 条` });
+        // 自动推送只记录时间和条数，不覆盖 lastSyncStatus——
+        // 否则手动同步的「推送 0 条」会覆盖自动推送的「推送 N 条」，
+        // 用户看到状态在 1 和 0 之间跳变，以为数据丢了。
+        await api.storage.local.set({ lastAutoPushAt: Date.now(), lastAutoPushCount: pushed });
       }
     } catch { /* 推送失败时 op 保留在 pendingPush，下轮 runSync / flushSoon 重试 */ }
   }, 2000);
@@ -507,5 +610,44 @@ async function detectDeviceName() {
   }
 }
 
+// ── 密钥变更后重置 coordinator（让下次同步用新密钥重建）──────────────────
+// 导入密钥 / 用口令设置密钥后，SyncCoordinator 内存中仍缓存旧 CryptoKey，
+// 必须置空单例，下次 bootCoordinatorForEvent 会用 storage 中的新密钥重建。
+export function resetCoordinator() {
+  _coordinatorGen++;
+  _coordinator = null;
+  _bootPromise = null;
+  // 密钥变更后清空水位：之前密钥错误时被跳过的 op（afterId 已推进）必须重拉，
+  // 否则新设备导入密钥后拉取 0 条、CRDT 为空、误报 used=0 覆盖云端额度。
+  api.storage.local.remove(AFTER_ID_KEY).catch(() => {});
+}
+
+// ── 测试工具：一键重置同步状态（保留登录态）──────────────────────────────
+// 清除本机所有同步相关缓存（CRDT 计数器/水位/UUID映射/密钥/播种标记等），
+// 并重置内存中的 coordinator 单例。不会删除 chrome.bookmarks 里的书签，
+// 也不会登出 Supabase 账号。配合「清空云端测试数据」使用，可从零重测。
+export async function resetSyncState() {
+  _coordinator = null;
+  const keys = [
+    DEVICE_ID_KEY, AFTER_ID_KEY, COUNTER_KEY, IDMAP_KEY, SEEDED_KEY,
+    MENU_FOLDER_KEY, GC_THRESHOLD_KEY,
+    "crdt.e2eeKey", "crdt.e2eeSalt", "crdt.onboardSkipped",
+    "lastSyncStatus", "lastSyncAt", "lastSyncError", "lastDecryptErrors",
+    "lastUsedReport", "lastUsedReportError", "lastGcAt",
+    "activeSpace",
+  ];
+  await api.storage.local.remove(keys);
+  // 清除 IndexedDB 中的 CRDT 持久化状态（ops/snapshot/uuidMapping/meta）
+  try {
+    await new Promise((resolve, reject) => {
+      const req = indexedDB.deleteDatabase("bookmark-crdt-sync");
+      req.onsuccess = resolve;
+      req.onerror = () => reject(req.error);
+      req.onblocked = resolve;
+    });
+  } catch (e) {
+    console.warn("[bsync] resetSyncState: IndexedDB 删除失败:", e?.message);
+  }
+}
 // 供测试：暴露内存传输 + 协调器类型（避免重复实例化）。
 export { MemoryOpLogTransport };

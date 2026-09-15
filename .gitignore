@@ -31,3 +31,6 @@ memory/memory/
 # E2E 浏览器运行期 profile（Chromium 会在其中写 .fuse / SingletonLock 等）
 e2e/.profiles/
 e2e/.ff-profiles/
+.e2e*
+# WorkBuddy agent workspace
+.workbuddy/

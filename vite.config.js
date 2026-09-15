@@ -7,6 +7,12 @@ import { resolve } from "node:path";
 export default defineConfig({
   base: "./",
   plugins: [vue()],
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
+  server:{
+    sourcemap:true,
+  },
   build: {
     outDir: "extension",
     emptyOutDir: true,

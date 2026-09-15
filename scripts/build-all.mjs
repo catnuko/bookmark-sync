@@ -24,7 +24,7 @@ function syncFirefox() {
 
 if (watch) {
   // watch 模式下 build() 在初始构建完成即 resolve，返回 Rollup watcher
-  const watcher = await build({ build: { watch: {} } });
+  const watcher = await build({ build: { watch: {} ,sourcemap:true} });
   syncFirefox();
   watcher.on("event", (e) => {
     // 编译报错时 vite 已自行输出，跳过本次后处理（保留两个目录里的上一次有效产物）

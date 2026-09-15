@@ -49,6 +49,8 @@ export interface PullOutcome {
   applied: number;
   skipped: number;
   afterId: number;
+  /** 解密失败的行详情（最多记录前 5 条，便于诊断密钥不匹配）。 */
+  decryptErrors: Array<{ id: number; seq: number; device_id: string }>;
 }
 
 export class SyncCoordinator {
@@ -122,6 +124,7 @@ export class SyncCoordinator {
     if (this.pendingPush.length === 0) return 0;
     const batch: PushOp[] = [];
     for (const op of this.pendingPush) {
+      console.log(`[bsync]   推送操作: seq=${op.t.counter} node=${op.c} parent=${op.p} title=${JSON.stringify(op.m?.title ?? "")} url=${op.m?.url ?? ""}`);
       const envelope = await encryptMoveOp(op, this.key, this.spaceId);
       batch.push({ seq: op.t.counter, op: envelope, cid: null });
     }
@@ -129,9 +132,11 @@ export class SyncCoordinator {
     // transient transport failure (network blip, RLS hiccup) permanently lost
     // the ops — including deletion tombstones — with no way to retry, and the
     // next full replay would resurrect the "deleted" nodes.
-    await this.transport.push(this.spaceId, this.deviceId, batch);
+    const result = await this.transport.push(this.spaceId, this.deviceId, batch);
     this.pendingPush = [];
-    return batch.length;
+    // 返回实际插入数（ON CONFLICT DO NOTHING 可能跳过重复 seq），
+    // 而非 batch.length——否则前端会误报「推送 N 条」但实际未落库。
+    return result.inserted;
   }
 
   // ── Pull ────────────────────────────────────────────────────────────────
@@ -152,24 +157,34 @@ export class SyncCoordinator {
   async pullFrom(startAfterId: number): Promise<PullOutcome> {
     let applied = 0;
     let skipped = 0;
+    const decryptErrors: PullOutcome['decryptErrors'] = [];
     let afterId = startAfterId;
     for (;;) {
       const page = await this.transport.pull(this.spaceId, afterId, 1000);
       for (const row of page.rows) {
         try {
           const op = await decryptMoveOp(row.op, this.key, this.spaceId);
+          console.log(`[bsync]   拉取行 #${row.id}: seq=${row.seq} device=${row.device_id} node=${op.c} parent=${op.p} title=${JSON.stringify(op.m?.title ?? "")} url=${op.m?.url ?? ""}`);
           this.replica.receiveOp(op);
           applied++;
-        } catch {
+        } catch (e) {
           // Wrong key / tamper: skip the row, never stall the pipeline.
+          console.log(`[bsync]   拉取行 #${row.id} 解密失败: seq=${row.seq} device=${row.device_id} err=${(e as Error)?.message ?? e}`);
           skipped++;
+          if (decryptErrors.length < 5) {
+            decryptErrors.push({
+              id: row.id,
+              seq: row.seq,
+              device_id: row.device_id,
+            });
+          }
         }
       }
       if (page.rows.length) afterId = page.last_id;
       if (!page.has_more) break;
     }
     if (afterId > this.afterId) this.afterId = afterId;
-    return { applied, skipped, afterId: this.afterId };
+    return { applied, skipped, afterId: this.afterId, decryptErrors };
   }
 
   /** Apply a single already-decrypted op (used by bridge/tests). */
@@ -209,8 +224,16 @@ export class SyncCoordinator {
         this.replica.applySnapshot(data);
         this.afterId = snap.after_op_id!;
         return this.pullFrom(this.afterId);
-      } catch {
-        // Snapshot undecryptable (wrong key / tamper): fall back below.
+      } catch (e) {
+        // Snapshot undecryptable (wrong key / tamper): fall back below,
+        // but record the failure so the caller can surface it to the user.
+        const fallback = await (force ? this.pullFrom(0) : this.pull());
+        fallback.decryptErrors.unshift({
+          id: -1,
+          seq: -1,
+          device_id: 'snapshot',
+        });
+        return fallback;
       }
     }
     return force ? this.pullFrom(0) : this.pull();
