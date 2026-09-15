@@ -50,7 +50,6 @@ function togglePanel(name) {
   if (activePanel.value === "key") loadKeyPanel();
   if (activePanel.value === "coexist") loadCoexistPanel();
 }
-
 // 空间行内改名
 const renamingId = ref("");
 const renameInput = ref("");
@@ -66,6 +65,62 @@ const overwriteArmed = ref(false);
 const firstSyncKeyInput = ref("");
 const firstSyncPhraseInput = ref("");
 const firstSyncKeyMsg = ref("");
+
+// 新设备引导：登录后本设备尚无同步密钥时弹出——选择密钥方式（导入 / 口令），
+// 并给出 Firefox 书签菜单等注意事项提醒
+const ONBOARD_SKIP_KEY = "crdt.onboardSkipped";
+const showOnboard = ref(false);
+const onboardKeyInput = ref("");
+const onboardPhraseInput = ref("");
+const onboardMsg = ref("");
+
+// 登录后若本设备无密钥 → 弹引导（用户明确跳过过则不再自动弹，可从
+// 「同步密钥」/「帮助」面板随时设置）。全新用户可跳过（首次同步自动生成
+// 密钥）；云端已有数据的用户跳过也不丢数据——同步遇到密文会再次进入首
+// 同步决策，在那里强制导入密钥后才能继续。
+function maybeOpenOnboard() {
+  if (!session.value || showOnboard.value) return;
+  api.storage.local.get(ONBOARD_SKIP_KEY).then((r) => {
+    if (r[ONBOARD_SKIP_KEY]) return;
+    hasKey().then((k) => {
+      if (!k) showOnboard.value = true;
+    });
+  });
+}
+
+async function onboardImportKey() {
+  const ok = await importKey(onboardKeyInput.value);
+  if (ok) {
+    onboardMsg.value = "密钥已导入，可以开始同步了。";
+    setTimeout(() => { showOnboard.value = false; }, 1200);
+  } else {
+    onboardMsg.value = "密钥格式不正确，请粘贴完整的 44 字符密钥。";
+  }
+}
+
+async function onboardSetPhrase() {
+  const phrase = onboardPhraseInput.value;
+  if (!phrase || phrase.length < 8) {
+    onboardMsg.value = "口令至少 8 位，且要够长、独特才安全。";
+    return;
+  }
+  const ok = await setKeyFromPassphrase(phrase);
+  if (ok) {
+    onboardMsg.value = "已用口令设定密钥。⚠️ 请牢记口令——忘记将无法解密既有数据，且无法找回。";
+    setTimeout(() => { showOnboard.value = false; }, 1600);
+  } else {
+    onboardMsg.value = "口令设置失败，请重试。";
+  }
+}
+
+function skipOnboard() {
+  showOnboard.value = false;
+  api.storage.local.set({ [ONBOARD_SKIP_KEY]: true });
+  refreshStatus(
+    "已跳过密钥设置，之后不再自动提醒。全新使用会在首次同步时自动生成密钥；" +
+    "换设备或需要设置密钥时，可随时打开「同步密钥」或「帮助」面板。"
+  );
+}
 
 async function refreshSpacesDevices() {
   try {
@@ -352,6 +407,7 @@ onMounted(async () => {
     await refreshStatus();
     await refreshProfile();
     await refreshSpacesDevices();
+    maybeOpenOnboard();
   }
   supabase.auth.onAuthStateChange(async (_e, s) => {
     session.value = s;
@@ -359,6 +415,7 @@ onMounted(async () => {
       await refreshStatus();
       await refreshProfile();
       await refreshSpacesDevices();
+      maybeOpenOnboard();
     } else {
       profile.value = null;
       serverCount.value = null;
@@ -729,6 +786,13 @@ async function doSetKeyByPhrase() {
       >
         共存与存储
       </button>
+      <button
+        type="button"
+        :class="{ on: activePanel === 'help' }"
+        @click="togglePanel('help')"
+      >
+        帮助
+      </button>
     </div>
 
     <!-- 同步密钥（E2EE）——同步强制加密，无明文模式 -->
@@ -890,7 +954,106 @@ async function doSetKeyByPhrase() {
         </p>
       </div>
     </Transition>
+
+    <!-- 帮助：使用注意事项 -->
+    <Transition name="drop">
+      <div v-if="activePanel === 'help'" id="helpPanel" class="panel">
+        <div class="panel-title">使用注意事项</div>
+
+        <div class="panel-title help-sub">⚠️ Firefox 的「书签菜单」</div>
+        <p class="panel-desc">
+          Firefox 自带一个<b>「书签菜单」</b>位置（地址栏星标添加书签时默认存到这里），
+          Chrome 里没有对应位置，所以扩展会在 Chrome 的书签栏下自动创建一个同名文件夹来承接。
+          <br /><br />
+          在 Chrome 里<b>删除这个「书签菜单」文件夹，只会清空菜单里的书签（会同步到所有设备），
+          文件夹本身会自动恢复</b>——这是设计行为，不是故障。请不要反复删除它；
+          想清空菜单内容时，直接删除里面的书签即可。
+        </p>
+
+        <div class="panel-title help-sub">🔑 同步密钥（端到端加密）</div>
+        <p class="panel-desc">
+          所有书签操作都在本机加密后上传（AES-256-GCM），服务器只保存密文。
+          <b>密钥是解密云端数据的唯一凭证</b>：换设备 / 重装时，在「同步密钥」里
+          复制密钥并在新设备导入，或记好同一句口令。忘记密钥 = 数据无法找回。
+        </p>
+
+        <div class="panel-title help-sub">🗑️ 删除行为</div>
+        <p class="panel-desc">
+          删除书签 / 文件夹会生成「墓碑」并同步到所有设备，删除是跨设备一致的；
+          删除的文件不会被云端重新拉回。删除「书签菜单」文件夹例外：只清空内容、位置保留。
+        </p>
+
+        <div class="panel-title help-sub">🔄 换设备 / 重装</div>
+        <p class="panel-desc">
+          1. 在旧设备「同步密钥」面板复制密钥（或牢记口令）；<br />
+          2. 新设备安装后登录，引导页选择「导入密钥」或输入同一口令；<br />
+          3. 点「立即同步」。新设备会自动创建默认同步空间，无需手动建空间。
+        </p>
+
+        <div class="panel-title help-sub">🧩 版本更新提示</div>
+        <p class="panel-desc">
+          通过开发者模式加载的扩展不会自动更新：改动代码后需重新构建
+          （<code>npm run build</code>）并到浏览器扩展管理页「重新加载」。
+        </p>
+
+        <div class="panel-title help-sub">🗂️ 同步空间与设备</div>
+        <p class="panel-desc">
+          每个空间是一棵独立书签树（如工作 / 个人），可绑定不同浏览器资料；
+          Free 档 1 个空间，Plus 3 个，Pro / Lifetime 10 个。同步中的浏览器会自动登记，
+          可在此查看、改名或解除。
+        </p>
+      </div>
+    </Transition>
   </div>
+
+  <!-- 新设备引导：无密钥时弹出（选择密钥方式 + 注意事项提醒） -->
+  <Transition name="fade">
+    <div v-if="showOnboard" class="mask" @click.self="skipOnboard">
+      <div class="modal">
+        <h3>设置同步密钥</h3>
+        <p class="muted">
+          书签同步<b>强制端到端加密</b>（AES-256-GCM）。新设备请选择一种方式
+          设定密钥——这是解密云端书签的唯一凭证。
+        </p>
+        <div class="input-row">
+          <input
+            v-model="onboardKeyInput"
+            class="input mono"
+            placeholder="从其他设备复制来的密钥（44 字符）"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="btn-sm btn-solid" :disabled="!onboardKeyInput" @click="onboardImportKey">导入</button>
+        </div>
+        <p class="panel-hint">换设备 / 重装：在旧设备「同步密钥」里复制密钥后粘贴到这里。</p>
+        <div class="input-row">
+          <input
+            v-model="onboardPhraseInput"
+            class="input"
+            type="password"
+            placeholder="或用同一句口令设定（至少 8 位）"
+            autocomplete="new-password"
+            @keyup.enter="onboardSetPhrase"
+          />
+          <button class="btn-sm" :disabled="!onboardPhraseInput" @click="onboardSetPhrase">设定</button>
+        </div>
+        <p class="panel-hint">新用户可在这里创建口令；换设备时输入旧设备上同一句口令即可。</p>
+        <p class="panel-warn">
+          ⚠️ <b>请牢记口令 / 保管好密钥。</b>插件和服务器都无法找回——
+          <b>忘记口令将无法解密既有数据，等同于数据丢失</b>。
+        </p>
+        <p class="panel-warn help-note">
+          🦊 <b>Firefox 提醒：</b>Firefox 有原生「书签菜单」位置（星标默认存放），扩展会在
+          Chrome 书签栏下创建同名文件夹承接同步；删除它只会清空内容、文件夹会自动恢复。
+          详见「帮助」面板。
+        </p>
+        <p v-if="onboardMsg" class="panel-hint">{{ onboardMsg }}</p>
+        <div class="modal-actions">
+          <button class="btn-outline" @click="skipOnboard">跳过（全新使用，同步时自动生成）</button>
+        </div>
+      </div>
+    </div>
+  </Transition>
 
   <!-- 升级 Modal -->
   <Transition name="fade">
@@ -1361,6 +1524,17 @@ button {
 }
 .device-title {
   margin-top: 16px;
+}
+.help-sub {
+  margin-top: 14px;
+}
+.help-note {
+  color: #4a5a7a;
+  background: #eef3fb;
+  border-color: #b9cdf0;
+}
+.help-note b {
+  color: #33517e;
 }
 .panel-desc {
   margin: 0 0 10px;

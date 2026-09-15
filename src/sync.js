@@ -142,8 +142,16 @@ export async function pullOverwriteLocal() { return { ok: true }; }
 // 同步：拉远端 → 播种（仅云端为空且本机未播种时）→ 推本地。
 export async function runSync(_opts = {}) {
   try {
-    const { active } = await getActiveSpace();
-    if (!active) return { ok: false, reason: "no_space" };
+    let { active } = await getActiveSpace();
+    if (!active) {
+      // 新用户无需手动建空间：首次同步自动创建「默认空间」（后端
+      // bsync_space_create 首个空间自动 is_default=true）。后续推送/拉取
+      // 以此为落点，老客户端行为不变。
+      const r = await createSpace("默认空间");
+      if (!r.ok) return { ok: false, reason: "no_space", error: r.error ?? "无法创建默认空间" };
+      ({ active } = await getActiveSpace());
+      if (!active) return { ok: false, reason: "no_space" };
+    }
 
     const deviceId = await getDeviceId();
     const key = await keyManager.ensureKey();
