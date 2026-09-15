@@ -35,6 +35,7 @@ EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-single.mjs
 EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-two-device.mjs
 EMAIL=346746061@qq.com PASSWORD='你的密码' E2E_RESET=1 node e2e/ff-smoke.mjs
 EMAIL=346746061@qq.com PASSWORD='你的密码' E2E_RESET=1 node e2e/e2e-ff-sync.mjs
+EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-triple-sync.mjs   # 三浏览器（Chromium×Firefox×Edge，含菜单双向 + Edge 场景3）
 EMAIL=346746061@qq.com PASSWORD='你的密码' node e2e/e2e-gc.mjs   # 自清 op_log + bsync_snapshots（测试账号专用）
 ```
 
