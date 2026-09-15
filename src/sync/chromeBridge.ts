@@ -240,19 +240,29 @@ export function captureLocalEvents(
     return c instanceof Promise ? await c : c;
   };
 
-  const handleRemoved = async (id: string) => {
+  const handleRemoved = async (id: string, info?: { removedNode: ChromeTreeNode }) => {
     const c = await getC();
     if (!c) return;
     const uuid = bridge.toUuid(id);
     if (!uuid) return;
     if (uuid === MENU_UUID) {
       // 用户删除了「书签菜单」容器（Chromium 端动态容器）：
-      // tombstone MENU_UUID 让整棵子树不可达，墓碑随同步分发到所有设备；
-      // ensureMenuFolder 检测到 tombstone 后不再自动重建。若只忽略该事件，
-      // 同步会把空容器拉回来、残留映射导致 "Can't find bookmark for id"，
-      // 其他设备还会把容器内旧书签照单全收（重复）。
-      c.deleteNode(MENU_UUID);
-      onLocalOp?.();
+      // 菜单位置保留（Firefox 原生 menu________ 根删不掉，且该位置被动使用
+      // 率极高——地址栏星标默认存这里），只 tombstone 容器内的书签，实现
+      // 「清空菜单内容」的跨设备一致删除；ensureMenuFolder 会重建空容器。
+      // 若 tombstone MENU_UUID 本身，Firefox 菜单会随同步报废：旧内容被清、
+      // 之后手动放入的新书签也会被当作不可达节点静默删除。
+      const tombstoneSubtree = (node: ChromeTreeNode) => {
+        for (const child of node.children ?? []) {
+          const childUuid = bridge.toUuid(child.id);
+          if (childUuid) {
+            c.deleteNode(childUuid);
+            onLocalOp?.();
+          }
+          tombstoneSubtree(child);
+        }
+      };
+      tombstoneSubtree(info?.removedNode ?? { id, title: '' });
       return;
     }
     if (PROTECTED_UUIDS.has(uuid)) return; // 原生根（bar/other/mobile）删不掉
@@ -260,12 +270,12 @@ export function captureLocalEvents(
     onLocalOp?.();
   };
 
-  const onRemoved = async (id: string) => {
+  const onRemoved = async (id: string, info: { removedNode: ChromeTreeNode }) => {
     if (suppressedValue) {
       pendingRemoved.push(id);
       return;
     }
-    await handleRemoved(id);
+    await handleRemoved(id, info);
   };
 
   const onCreated = async (id: string, node: ChromeTreeNode) => {

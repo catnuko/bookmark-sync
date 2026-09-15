@@ -152,7 +152,7 @@ describe('captureLocalEvents wiring', () => {
     expect(await coordinator.flushPush()).toBe(0);
   });
 
-  it('menu________ maps to MENU_UUID in forward; container create/change/move skipped, 删除容器 → tombstone MENU_UUID', async () => {
+  it('menu________ maps to MENU_UUID in forward; container create/change/move skipped, 删除容器 → 内容墓碑、菜单位置保留', async () => {
     const bridge = new IdBridge();
     // Firefox menu 根：forward 预置（跨环境全集）
     expect(bridge.toUuid('menu________')).toBe(MENU_UUID);
@@ -168,18 +168,18 @@ describe('captureLocalEvents wiring', () => {
     chrome.emit('moved', 'dyn-menu', { parentId: '1', oldParentId: '1', index: 2, oldIndex: 0 });
     await new Promise((r) => setTimeout(r, 20));
     expect(await coordinator.flushPush()).toBe(0);
-    // 固定根未被 CRDT 删除（还在树上）
+    // 固定根仍在 CRDT 树上
     expect(coordinator.replica.getParent(MENU_UUID)).toBe(ROOT_UUID);
 
-    // 用户删除「书签菜单」容器：整棵菜单被 tombstone 并推送（不忽略！）。
-    // 否则同步会把空容器拉回来、残留映射报 "Can't find bookmark"、其他设备
-    // 还会把菜单内旧书签照单全收（重复）。
+    // 用户删除「书签菜单」容器（空容器、无内容）：菜单位置保留（MENU_UUID
+    // 不 tombstone——它是 Firefox 原生根 menu________ 的映射，tombstone 会让
+    // Firefox 菜单随同步报废），容器内无书签 → 不产生任何 op。
     chrome.emit('removed', 'dyn-menu', { removedNode: { id: 'dyn-menu', title: '书签菜单' } });
     await new Promise((r) => setTimeout(r, 20));
-    expect(coordinator.replica.getParent(MENU_UUID)).toBe(TRASH_NODE_ID);
-    expect(await coordinator.flushPush()).toBe(1); // 菜单墓碑已推送
+    expect(coordinator.replica.getParent(MENU_UUID)).toBe(ROOT_UUID); // 位置仍在
+    expect(await coordinator.flushPush()).toBe(0);
 
-    // 但 MENU_UUID 之下的普通书签（Firefox 菜单内容）正常入 CRDT
+    // 菜单仍可达：Firefox 原生菜单（menu________）里手动放的书签正常入 CRDT 并同步
     chrome.emit('created', 'm1', { id: 'm1', parentId: 'menu________', title: '菜单书签', url: 'https://menu' });
     await new Promise((r) => setTimeout(r, 10));
     const mUuid = bridge.toUuid('m1');
@@ -188,7 +188,7 @@ describe('captureLocalEvents wiring', () => {
     expect(await coordinator.flushPush()).toBe(1);
   });
 
-  it('删除菜单容器后，容器内普通书签一并不可达（墓碑覆盖整棵子树）', async () => {
+  it('删除菜单容器 = 清空内容（墓碑子树），菜单位置保留', async () => {
     const bridge = new IdBridge();
     bridge.map('dyn-menu', MENU_UUID);
     captureLocalEvents(chrome.api, coordinator, bridge);
@@ -199,16 +199,19 @@ describe('captureLocalEvents wiring', () => {
     expect(coordinator.replica.getParent(mUuid)).toBe(MENU_UUID);
     await coordinator.flushPush();
 
-    // 删除容器 → 墓碑覆盖 MENU_UUID → 子书签自动不可达
-    chrome.emit('removed', 'dyn-menu', { removedNode: { id: 'dyn-menu', title: '书签菜单' } });
+    // 删除容器 → 只 tombstone 容器内书签（内容清空、跨设备一致），MENU_UUID 保留
+    chrome.emit('removed', 'dyn-menu', {
+      removedNode: { id: 'dyn-menu', title: '书签菜单', children: [{ id: 'm1', parentId: 'dyn-menu', title: '百度百科', url: 'https://baike.baidu.com' }] },
+    });
     await new Promise((r) => setTimeout(r, 20));
-    expect(coordinator.replica.getParent(MENU_UUID)).toBe(TRASH_NODE_ID);
+    expect(coordinator.replica.getParent(MENU_UUID)).toBe(ROOT_UUID); // 位置保留
+    expect(coordinator.replica.getParent(mUuid)).toBe(TRASH_NODE_ID); // 内容墓碑
     await coordinator.flushPush(); // 墓碑推送到 transport
 
-    // 全量重放（另一设备视角）：菜单及其内容都不复活
+    // 全量重放（另一设备视角）：菜单位置仍在、内容不复活
     const fresh = new SyncCoordinator({ spaceId: SPACE, deviceId: 'dev-fresh', transport, key: sharedKey });
     await fresh.pull();
-    expect(fresh.replica.getVisibleTree().some((e) => e.child === MENU_UUID)).toBe(false);
+    expect(fresh.replica.getVisibleTree().some((e) => e.child === MENU_UUID)).toBe(true);
     expect(fresh.replica.getVisibleTree().some((e) => e.child === mUuid)).toBe(false);
   });
 

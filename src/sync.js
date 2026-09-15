@@ -22,7 +22,7 @@ import {
   computePosition,
 } from "./sync/index.js";
 import { KeyManager } from "./sync/index.js";
-import { ROOT_UUID, MENU_UUID, TRASH_NODE_ID } from "./crdt/index.js";
+import { ROOT_UUID, MENU_UUID } from "./crdt/index.js";
 import { IS_FIREFOX } from "./sync/index.js";
 
 const DEVICE_ID_KEY = "crdt.deviceId";
@@ -276,8 +276,8 @@ async function reverseApplyIntoChrome(coordinator) {
   guard.suppressed.value = true; // 抑制事件回环（create/move/update 会触发 onCreated 等）
   try {
     // Chromium 端：MENU_UUID 没有原生根，先确保「书签菜单」容器存在并映射
-    // （reverseApply 跳过固定根，不会自己创建它；用户删除过则检测墓碑不重建）。
-    // Firefox 端为原生 menu________。
+    // （reverseApply 跳过固定根，不会自己创建它；菜单位置本身不可删除，
+    // 删除容器只清空内容，因此容器始终会被补建）。Firefox 端为原生 menu________。
     await ensureMenuFolder(coordinator, bridge);
     await reverseApply(chrome, coordinator, bridge);
     await api.storage.local.set({ [IDMAP_KEY]: bridge.snapshot() });
@@ -288,21 +288,14 @@ async function reverseApplyIntoChrome(coordinator) {
 
 /**
  * Chromium 端 MENU_UUID 容器生命周期：书签栏下自动创建「书签菜单」文件夹并
- * 绑定 MENU_UUID。用户删除容器后，事件层 tombstone 整个 MENU_UUID（含子树），
- * 这里检测到墓碑后**不再自动重建**（尊重用户删除，跨设备一致）；仅当
- * MENU_UUID 在 CRDT 中仍可达时才补建容器（例如 Firefox 端菜单内容同步过来、
- * 本端容器因重装丢失）。
+ * 绑定 MENU_UUID。该位置是 Firefox 原生固定根（menu________）的映射，本身
+ * 不可删除：用户删除容器时事件层只 tombstone 容器内的书签（清空内容、墓碑
+ * 随同步分发），这里始终确保容器存在（被删/重装后补建空容器）。
  */
 async function ensureMenuFolder(coordinator, bridge) {
   if (IS_FIREFOX) return; // Firefox 端 menu________ 是原生根，无需容器
   const chrome = globalThis.chrome?.bookmarks;
   if (!chrome) return;
-  // 用户删除过「书签菜单」：CRDT 中 MENU_UUID 已 tombstone（父 = TRASH）。
-  // 不重建容器，清理持久化的旧容器 id（避免每次同步 get 一次已删除 id）。
-  if (coordinator?.replica && coordinator.replica.getParent(MENU_UUID) === TRASH_NODE_ID) {
-    await api.storage.local.remove(MENU_FOLDER_KEY);
-    return;
-  }
   const saved = await api.storage.local.get(MENU_FOLDER_KEY);
   const savedId = saved[MENU_FOLDER_KEY];
   if (savedId) {

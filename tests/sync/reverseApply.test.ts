@@ -207,22 +207,25 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     expect(bar.children!.some((n) => n.title === '远端')).toBe(true);
   });
 
-  it('菜单容器被 tombstone 后，reverseApply 删除本机容器与内容（不复活）', async () => {
+  it('菜单内容被 tombstone 后，reverseApply 保留本机容器、删除菜单内书签（内容不复活）', async () => {
     const bridge = new IdBridge();
     // 本机书签栏下有「书签菜单」容器（映射 MENU_UUID）+ 菜单内书签
     const menuNode = await chrome.create({ parentId: '1', title: '书签菜单' });
     bridge.map(menuNode.id, MENU_UUID);
-    await chrome.create({ parentId: menuNode.id, title: '百度百科', url: 'https://baike.baidu.com' });
+    const menuChild = await chrome.create({ parentId: menuNode.id, title: '百度百科', url: 'https://baike.baidu.com' });
+    bridge.map(menuChild.id, 'uu-menu-child');
     await coordinator.createNodeWithId('uu-menu-child', MENU_UUID, { title: '百度百科', url: 'https://baike.baidu.com' });
 
-    // 远端把整个菜单删了（tombstone MENU_UUID）
+    // 远端删除了菜单里的书签（tombstone 内容，菜单位置保留）
     await receiveRemote('zzz-remote', (c) => {
-      c.deleteNode(MENU_UUID);
+      c.deleteNode('uu-menu-child');
     });
 
     await reverseApply(chrome, coordinator, bridge);
     const bar = (await chrome.getTree())[0].children!.find((n) => n.id === '1')!;
-    expect(bar.children!.some((n) => n.id === menuNode.id)).toBe(false); // 容器不复活
+    expect(bar.children!.some((n) => n.id === menuNode.id)).toBe(true); // 容器保留（位置不可删）
+    const menu = bar.children!.find((n) => n.id === menuNode.id)!;
+    expect(menu.children!.some((n) => n.id === menuChild.id)).toBe(false); // 内容不复活
   });
 
   it("映射残留但 Chrome 节点已消失（级联删除）→ 重新 create 而非 move（不抛 Can't find bookmark）", async () => {
