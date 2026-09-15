@@ -401,6 +401,9 @@ async function refreshProfile() {
 
 onMounted(async () => {
   if (props.popup) document.body.classList.add("popup");
+  // 记住上次登录的邮箱（只存邮箱，不存密码），退出登录后自动填充
+  const { rememberEmail } = await api.storage.local.get("rememberEmail");
+  if (rememberEmail) email.value = rememberEmail;
   const { data } = await supabase.auth.getSession();
   session.value = data.session;
   if (session.value) {
@@ -455,6 +458,8 @@ async function submit() {
       }
     }
     session.value = res.data.session;
+    // 记住邮箱，方便下次登录（密码不落盘）
+    await api.storage.local.set({ rememberEmail: em });
     await refreshStatus();
     await refreshProfile();
   } finally {
