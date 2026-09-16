@@ -50,5 +50,28 @@ const items = [
     title: "🗂️ 同步空间与设备",
     body: `<p>每个空间是一棵独立书签树（如工作 / 个人），可绑定不同浏览器资料；Free 档 1 个空间，Plus 3 个，Pro / Lifetime 10 个。同步中的浏览器会自动登记，可在此查看、改名或解除。</p>`,
   },
+  {
+    title: "📡 同步完成提示怎么看？",
+    body: `<p>同步后的提示按结果方向描述，不再显示「推送 / 拉取几条」——那个数字是内部同步操作数，和你实际的书签数对不上，容易误导。对照如下：</p>
+<table class="help-tbl">
+<thead><tr><th>你看到的提示</th><th>含义</th></tr></thead>
+<tbody>
+<tr><td>首次同步完成，书签已加密上传</td><td>本设备第一次把本机书签整体上传到云端</td></tr>
+<tr><td>双向同步完成</td><td>本机和其他设备都有改动，已互相同步</td></tr>
+<tr><td>已上传本地变更</td><td>只把本机新增 / 修改的书签传到了云端</td></tr>
+<tr><td>已同步其他设备的变更</td><td>收到了别的设备新加的书签</td></tr>
+<tr><td>已是最新</td><td>没有新变更，无需操作</td></tr>
+</tbody>
+</table>
+<p>状态卡上的「N 条书签」是真实书签总数，是准确的。看到「⚠️ N 条云端数据解密失败」说明同步密钥和云端数据不匹配，请检查密钥或口令。</p>`,
+  },
 ];
 </script>
+
+<style>
+.acc-inner table.help-tbl { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: var(--fs-secondary); }
+.acc-inner table.help-tbl th,
+.acc-inner table.help-tbl td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border-strong, rgba(128,128,128,.2)); vertical-align: top; }
+.acc-inner table.help-tbl th { color: var(--text-primary); font-weight: var(--fw-semibold, 600); }
+.acc-inner table.help-tbl td:first-child { white-space: nowrap; color: var(--text-primary); }
+</style>
