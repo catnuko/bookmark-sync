@@ -73,21 +73,36 @@ export async function getActiveSpace() {
   return { spaces, active };
 }
 
+// 把 RPC 错误归一化为 { ok:false, reason, error }。
+// 后端 RAISE EXCEPTION '<code>' 的 message 即 reason（plan_locked /
+// cannot_delete_default / invalid_name / not_found）；唯一索引冲突（23505）
+// 归一为 duplicate，与 store.js 的 reason 分支对齐。
+function spaceRpcError(err) {
+  if (!err) return { ok: false, reason: "unknown", error: "unknown error" };
+  const msg = err.message || "";
+  if (err.code === "23505") return { ok: false, reason: "duplicate", error: msg };
+  // RAISE EXCEPTION 的自定义 code 直接作为 reason
+  for (const code of ["plan_locked", "cannot_delete_default", "invalid_name", "not_found", "not_authenticated"]) {
+    if (msg.includes(code)) return { ok: false, reason: code, error: msg };
+  }
+  return { ok: false, reason: msg, error: msg };
+}
+
 export async function createSpace(name) {
   const { data, error } = await supabase.rpc("bsync_space_create", { p_name: name });
-  if (error) return { ok: false, error: error.message };
+  if (error) return spaceRpcError(error);
   return { ok: true, space: data };
 }
 
 export async function renameSpace(id, name) {
   const { error } = await supabase.rpc("bsync_space_rename", { p_space: id, p_name: name });
-  if (error) return { ok: false, error: error.message };
+  if (error) return spaceRpcError(error);
   return { ok: true };
 }
 
 export async function deleteSpace(id) {
   const { error } = await supabase.rpc("bsync_space_delete", { p_space: id });
-  if (error) return { ok: false, error: error.message };
+  if (error) return spaceRpcError(error);
   return { ok: true };
 }
 
