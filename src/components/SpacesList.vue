@@ -59,15 +59,14 @@
       <button v-else type="button" class="inset-row clickable" @click="state.creatingSpace = true">
         <span class="lede"><Icon name="plus" /></span>
         <span class="r-main"><span class="r-title">新建空间</span></span>
-        <span class="sc-tail">Free 限 1 个 · 已用 {{ state.spaces.length }}</span>
+        <span class="sc-tail">{{ planLabel }} 限 {{ spaceLimit }} 个 · 已用 {{ state.spaces.length }}</span>
       </button>
     </div>
-    <p class="foot">空间数量：Free 1 个 · Plus 3 个 · Pro / Lifetime 10 个。每个空间是一棵独立书签树。</p>
   </div>
 </template>
 
 <script setup>
-import { state, doSwitchSpace, doCreateSpace, startRename, submitRename, doDeleteSpace, deviceCountForSpace, spaceLimit } from "../store.js";
+import { state, doSwitchSpace, doCreateSpace, startRename, submitRename, doDeleteSpace, deviceCountForSpace, spaceLimit, planLabel } from "../store.js";
 import ArmedButton from "./ui/ArmedButton.vue";
 import Icon from "./ui/Icon.vue";
 </script>

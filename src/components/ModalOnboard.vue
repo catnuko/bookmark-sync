@@ -27,10 +27,6 @@
         <Icon name="alert" />
         <span><b>请牢记口令。</b>插件和服务器都无法找回——忘记口令将无法解密既有数据，等同于数据丢失。</span>
       </div>
-      <div class="m-note banner banner-info">
-        <Icon name="folder" />
-        <span>🦊 <b>Firefox 提醒：</b>Firefox 有原生「书签菜单」位置（星标默认存放），扩展会在 Chrome 书签栏下创建同名文件夹承接同步；删除它只会清空内容、文件夹会自动恢复。详见「帮助」。</span>
-      </div>
       <p v-if="state.onboardMsg" class="hint" style="margin-top:10px;justify-content:center">{{ state.onboardMsg }}</p>
     </div>
   </div>
