@@ -849,6 +849,17 @@ export async function init(popup) {
       state.drawer = "";
     }
   });
+
+  // SW 自动同步（事件桥 flushSoon / 定时拉取）跑完后会发 bsync-sync-done，
+  // 开着的 popup/options 收到后刷新书签数、最后同步状态——否则自动同步在后台
+  // 跑完了，UI 里还停留在打开时的旧值。
+  api.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === "bsync-sync-done") {
+      refreshStatus();
+      refreshProfile();
+      refreshSpacesDevices();
+    }
+  });
 }
 
 // ---- 计算属性（模板直接引用） ----

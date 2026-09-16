@@ -56,6 +56,7 @@ async function sync() {
         lastSyncStatus: `未同步: ${r.reason ?? "未知"}${r.error ? ` (${r.error})` : ""}`,
       });
     }
+    notifyUiRefreshed();
     return r;
   } catch (e) {
     const r = { ok: false, reason: "error", error: e?.message ?? String(e) };
@@ -63,8 +64,19 @@ async function sync() {
       lastSyncAt: Date.now(),
       lastSyncStatus: `失败: ${e?.message ?? e}`,
     });
+    notifyUiRefreshed();
     return r;
   }
+}
+
+// 自动同步（事件桥 flushSoon / 定时拉取）跑完后，通知开着的 popup/options
+// 刷新状态——否则 UI 里的书签数、最后同步时间还停留在打开时的旧值。
+function notifyUiRefreshed() {
+  try {
+    api.runtime.sendMessage({ type: "bsync-sync-done" }).catch(() => {
+      // 没有 popup 开着时 sendMessage 会 reject，忽略
+    });
+  } catch { /* ignore */ }
 }
 
 // popup/options 通过消息触发 SW 内的同步（SW 是同步权威：事件桥与
