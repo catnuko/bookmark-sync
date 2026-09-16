@@ -16,6 +16,15 @@ console.log("[bsync] Build time:", __BUILD_TIME__);
 console.log("[bsync] Boot time: ", new Date().toISOString());
 
 const ALARM_NAME = "bsync-periodic-pull";
+const AUTO_SYNC_KEY = "crdt.autoSync";
+
+// 自动同步开关（默认开）：关闭时 onInstalled / onStartup / 周期 alarm 不再
+// 自动同步；popup/options 的「立即同步」消息与事件桥 flush 的推送不受影响
+// （事件桥的 flushSoon 在 sync.js 内单独检查该开关）。
+async function autoSyncEnabled() {
+  const s = await api.storage.local.get(AUTO_SYNC_KEY);
+  return s[AUTO_SYNC_KEY] !== false;
+}
 
 // MV3：chrome.* 持久事件监听必须在 SW 顶层注册（SW 每次被唤醒都会重跑本文件）。
 // 事件桥在 coordinator 未就绪（未登录/无空间）时安全跳过，由 runSync 播种兜底。
@@ -74,12 +83,12 @@ function scheduleAlarms() {
 
 api.runtime.onInstalled.addListener(async () => {
   scheduleAlarms();
-  await sync();
+  if (await autoSyncEnabled()) await sync();
 });
 api.runtime.onStartup.addListener(async () => {
   scheduleAlarms();
-  await sync();
+  if (await autoSyncEnabled()) await sync();
 });
-api.alarms?.onAlarm?.addListener((alarm) => {
-  if (alarm.name === ALARM_NAME) sync();
+api.alarms?.onAlarm?.addListener(async (alarm) => {
+  if (alarm.name === ALARM_NAME && (await autoSyncEnabled())) sync();
 });

@@ -568,6 +568,7 @@ export async function seedExistingTree(coordinator) {
 
 /** 事件入队后去抖 flush（2s），实现「自动无感同步」。 */
 let flushTimer = null;
+const AUTO_SYNC_KEY = "crdt.autoSync";
 export function flushSoon() {
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = setTimeout(async () => {
@@ -575,6 +576,10 @@ export function flushSoon() {
     try {
       const c = getCoordinatorCached();
       if (!c) return;
+      // 自动同步开关：关闭时本地变更继续入队，但不自动推送；
+      // 手动 runSync / syncNow 不受此开关限制。
+      const { [AUTO_SYNC_KEY]: auto } = await api.storage.local.get(AUTO_SYNC_KEY);
+      if (auto === false) return;
       // 推送前先落盘计数器：即使推送后 SW 立刻被回收，下次冷启动恢复的
       // 计数器也覆盖了这批 op 的 seq（防与历史 seq 冲突被服务端静默丢弃）。
       await api.storage.local.set({ [COUNTER_KEY]: c.replica.counter });

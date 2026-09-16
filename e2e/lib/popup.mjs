@@ -20,8 +20,9 @@ export async function bodyText(page) {
 }
 
 export async function isLoggedIn(page) {
-  const t = await bodyText(page);
-  return t.includes('退出') && /@/.test(t);
+  // 新 UI：登录后主屏才有 #syncNow（弹窗主视图）；未登录是登录页
+  const r = await page.eval(`!!document.querySelector('#syncNow')`);
+  return r.val === true;
 }
 
 /** 已登录返回 true；否则填表登录（邮箱+密码），成功后返回 true。 */
@@ -57,29 +58,28 @@ export async function loginIfNeeded(page, email, password) {
  * Best-effort 确保账号下存在空间：无则尝试创建（duplicate 视为成功）。
  * 不依赖 storage.activeSpaceId（新空间没有该键；runSync 的 getActiveSpace
  * 直接查库取 is_default/最早空间）。
+ * 新 UI：空间列表在「空间与设备」抽屉（.space-row），无空间时点「新建空间」行
+ * 展开输入（placeholder 新空间名称）再点「创建」。
  */
 export async function ensureSpace(page, name = 'E2E 空间') {
-  const t = await bodyText(page);
-  // 已显示空间名（面板里有空间列表）→ 直接认为有空间
-  const r = await page.eval(`(async () => {
-    const { data } = await new Promise((res) => {
-      // 通过 storage 间接判断是否同步过空间（不可靠），改为检查面板
-      res({ data: null });
-    });
-    return null;
-  })()`);
-  // 打开空间面板（若未展开）
+  // 打开空间与设备抽屉（若未展开）
   const hasPanel = await page.eval(`!![...document.querySelectorAll('button')].find(b => b.textContent.includes('空间与设备'))`);
   if (hasPanel) {
     await page.eval(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('空间与设备'))?.click()`);
     await sleep(500);
   }
-  // 面板里若已有空间名（row），说明存在空间，直接返回
-  const panelText = await bodyText(page);
-  const hasSpaceRow = await page.eval(`!![...document.querySelectorAll('.row .row-name')].length`);
-  if (hasSpaceRow) return true;
+  // 抽屉里若已有空间行，说明存在空间，关闭抽屉后返回
+  const hasSpaceRow = await page.eval(`!![...document.querySelectorAll('.space-row')].length`);
+  if (hasSpaceRow) {
+    // 关闭抽屉（主视图 v-if 随抽屉开关卸载，不关闭会挡住后续 #syncNow 点击）
+    await page.eval(`document.querySelector('.drawer-chrome .icon-btn')?.click()`);
+    await sleep(400);
+    return true;
+  }
 
-  // 无空间：填名创建
+  // 无空间：点「新建空间」行展开输入，填名创建
+  await page.eval(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('新建空间'))?.click()`);
+  await sleep(400);
   const hasInput = await page.eval(`!![...document.querySelectorAll('input')].find(i => i.placeholder.includes('新空间名称'))`);
   if (hasInput) {
     await page.eval(`([...document.querySelectorAll('input')].find(i => i.placeholder.includes('新空间名称'))).focus()`);
@@ -87,6 +87,9 @@ export async function ensureSpace(page, name = 'E2E 空间') {
     await page.eval(`([...document.querySelectorAll('button')].find(b => b.textContent.trim() === '创建'))?.click()`);
     await sleep(2000);
   }
+  // 关闭抽屉（主视图 v-if 随抽屉开关卸载，不关闭会挡住后续 #syncNow 点击）
+  await page.eval(`document.querySelector('.drawer-chrome .icon-btn')?.click()`);
+  await sleep(400);
   return true; // duplicate/成功都视为已保证存在
 }
 
@@ -96,6 +99,9 @@ export async function ensureSpace(page, name = 'E2E 空间') {
  * 不依赖状态字符串（结果相同时字符串不变）也不依赖 UI busy。
  */
 export async function clickSyncAndWait(page, timeoutMs = 90000) {
+  // 若抽屉开着，主视图（#syncNow）不在 DOM：先关抽屉再点
+  await page.eval(`document.querySelector('.drawer-chrome .icon-btn')?.click()`);
+  await sleep(300);
   const before = await readStorageLocal(page, 'lastSyncAt');
   await page.eval(`document.querySelector('#syncNow')?.click()`);
   const deadline = Date.now() + timeoutMs;
