@@ -12,7 +12,7 @@
  *   EMAIL=xxx@x.com PASSWORD=yyy node e2e/e2e-single.mjs
  */
 import { launchChromium } from './lib/launch.mjs';
-import { waitForTargets, findExtension, sleep } from './lib/cdp.mjs';
+import { waitForExtensionSw, connect, sleep } from './lib/cdp.mjs';
 import { openPopup, loginIfNeeded, ensureSpace, clickSyncAndWait, createBookmark, getTree, flattenTree, bodyText } from './lib/popup.mjs';
 import { sql, opCount, opRows } from './lib/supabase.mjs';
 
@@ -24,9 +24,9 @@ if (!EMAIL || !PASSWORD) {
 }
 
 const { port } = launchChromium();
-const targets = await waitForTargets(port);
-const { extId, sw } = findExtension(targets);
-if (!extId) { console.error('扩展未加载（SW 未出现）'); process.exit(1); }
+// 等待扩展 SW 出现（newtab 会比 SW 先就绪，直接用 waitForTargets 会误判未加载）
+const { extId, sw } = await waitForExtensionSw(port);
+const swCdp = await connect(sw.webSocketDebuggerUrl);
 console.log(`[single] 扩展 id: ${extId}`);
 
 const page = await openPopup(port, extId);
@@ -40,7 +40,7 @@ await clickSyncAndWait(page);
 console.log('[single] 首次同步完成');
 
 const before = await opCount();
-const bm = await createBookmark(sw, { parentId: '2', title: `E2E-单设备-${Date.now() % 100000}`, url: `https://e2e-single.example.com/${Date.now()}` });
+const bm = await createBookmark(swCdp, { parentId: '2', title: `E2E-单设备-${Date.now() % 100000}`, url: `https://e2e-single.example.com/${Date.now()}` });
 console.log('[single] 创建书签:', bm.id, bm.title);
 await sleep(8000); // flushSoon 2s + 网络往返
 
@@ -58,7 +58,7 @@ if (!allEncrypted) process.exit(1);
 
 // 再次同步 → reverseApply 幂等写回
 await clickSyncAndWait(page);
-const tree = flattenTree(await getTree(sw));
+const tree = flattenTree(await getTree(swCdp));
 console.log('[single] chrome 树节点数:', tree.length, ' 含新建书签:', tree.some((n) => n.title === bm.title));
 if (!tree.some((n) => n.title === bm.title)) {
   console.error('FAIL: 本机树缺少刚创建的书签');
