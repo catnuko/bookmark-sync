@@ -39,6 +39,7 @@ export const state = reactive({
 
   // 密钥
   keyValue: "",
+  passphraseStored: "",
   keyImportInput: "",
   keyMsg: "",
   keyPhraseInput: "",
@@ -167,6 +168,7 @@ export async function loadKeyPanel() {
   const has = await hasKey();
   state.keyMsg = has ? "" : "本设备尚无密钥，首次同步时自动生成；换设备时请在此导入同一密钥。";
   state.keyValue = has ? await exportKey() : "";
+  state.passphraseStored = has ? (await api.storage.local.get("crdt.passphrase"))["crdt.passphrase"] || "" : "";
   state.hasKeyNow = has;
   state.keyStateLoaded = true;
 }
@@ -178,6 +180,14 @@ export async function copyKey() {
   } catch { /* 剪贴板受限时静默 */ }
   state.keyMsg = "密钥已复制，请妥善保管（丢失后无法解密既有数据）。";
   showToast("info", "密钥已复制", "请妥善保管——丢失后无法解密既有数据。");
+}
+
+export async function copyPhrase() {
+  if (!state.passphraseStored) return;
+  try {
+    if (navigator.clipboard) await navigator.clipboard.writeText(state.passphraseStored);
+  } catch { /* 剪贴板受限时静默 */ }
+  showToast("info", "口令已复制", "仅本机可见，未上传云端。");
 }
 
 export async function doImportKey() {
@@ -282,6 +292,8 @@ export async function submitPhraseGate() {
         return;
       }
     }
+    // 通过：在本机存一份口令明文（不上云），供加密面板查看/备份
+    await api.storage.local.set({ "crdt.passphrase": phrase });
     // 通过：关门禁，重置 coordinator 让 SW 用新密钥
     state.phraseGateVisible = false;
     state.phraseGateInput = "";
