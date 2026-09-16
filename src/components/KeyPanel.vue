@@ -13,6 +13,18 @@
     <p class="foot">口令一旦设置不可更改。忘记口令将无法解密书签，且无法找回。</p>
   </div>
 
+  <div class="kp-block" v-if="state.keyValue">
+    <div class="kp-label">当前密钥（只读）</div>
+    <div class="kp-key">
+      <div class="key-box">{{ state.keyValue }}</div>
+      <button class="icon-btn kp-copy" title="复制密钥" aria-label="复制密钥" @click="copyKey"><Icon name="copy" /></button>
+    </div>
+    <div class="hint">
+      <span class="badge badge-success badge-sub">44 字符 · base64</span>
+      <span>由口令派生，仅本机可见，可复制备份</span>
+    </div>
+  </div>
+
   <div class="banner banner-danger">
     <Icon name="alert" />
     <div>
@@ -24,7 +36,7 @@
 
 <script setup>
 import { onMounted } from "vue";
-import { state, loadKeyPanel } from "../store.js";
+import { state, loadKeyPanel, copyKey } from "../store.js";
 import Icon from "./ui/Icon.vue";
 
 onMounted(loadKeyPanel);
