@@ -269,9 +269,14 @@ export async function runSync(_opts = {}) {
     }
 
     // 2) 播种：云端无历史 && 本机未播种过 → 把现有 chrome 书签树转成 MoveOp
+    // didSeedThisRun 只记录「本次」是否真的播种，用于给 UI 返回一次性提示；
+    // seededRef 是持久化标志（跨冷启动防重复播种），不能直接当返回值——
+    // 否则播种过一次后，之后每次同步都会误报「首次同步完成」。
+    let didSeedThisRun = false;
     if (pull.applied === 0 && coordinator.afterId === 0) {
       console.log("[bsync] 开始播种本机 chrome 书签...");
       await seedExistingTree(coordinator);
+      didSeedThisRun = true;
       console.log(`[bsync] 播种完成, pending ops=${coordinator.pendingPush?.length ?? 0}`);
     } else {
       console.log(`[bsync] 跳过播种 (applied=${pull.applied} afterId=${coordinator.afterId})`);
@@ -336,7 +341,7 @@ export async function runSync(_opts = {}) {
     if (runGen === _coordinatorGen) {
       await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
     }
-    return { ok: true, pushed, pulled: pull.applied, seeded: seededRef.value, decryptFailed: allDecryptErrors.length };
+    return { ok: true, pushed, pulled: pull.applied, seeded: didSeedThisRun, decryptFailed: allDecryptErrors.length };
   } catch (e) {
     // 诊断：持久化完整错误与堆栈（readStorageLocal 可读）
     try {
