@@ -229,6 +229,11 @@ export async function runSync(_opts = {}) {
     // 统一用于：是否跳过 used_count 上报、是否在 popup 显示警告。
     const allDecryptErrors = [];
 
+    // 记录本次同步开始时本机是否还没有云端水位（afterId=0）。
+    // 若随后从云端拉到了历史数据，这是「新设备首次从云端恢复书签」，
+    // 而不是「其他设备新增了变更」——文案要区分。
+    const hadNoWatermark = coordinator.afterId === 0;
+
     if (coordinator.afterId > 0 && coordinator.replica.isBare()) {
       const replay = await coordinator.pullWithSnapshot(true);
       if (replay.applied > 0) await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
@@ -341,7 +346,10 @@ export async function runSync(_opts = {}) {
     if (runGen === _coordinatorGen) {
       await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
     }
-    return { ok: true, pushed, pulled: pull.applied, seeded: didSeedThisRun, decryptFailed: allDecryptErrors.length };
+    // restored：本机原本无云端水位（新设备/换设备），本次从云端拉到了历史书签。
+    // 这不是「其他设备新增变更」，而是把云端已有书签恢复到本机——文案要单独说。
+    const restored = hadNoWatermark && pull.applied > 0 && !didSeedThisRun;
+    return { ok: true, pushed, pulled: pull.applied, seeded: didSeedThisRun, restored, decryptFailed: allDecryptErrors.length };
   } catch (e) {
     // 诊断：持久化完整错误与堆栈（readStorageLocal 可读）
     try {

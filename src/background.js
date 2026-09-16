@@ -40,6 +40,8 @@ async function sync() {
       const p = r.pushed || 0, q = r.pulled || 0;
       const body = r.seeded
         ? "首次同步完成，书签已加密上传"
+        : r.restored
+        ? "首次同步完成，已从云端恢复书签"
         : p > 0 && q > 0 ? "双向同步完成"
         : p > 0 ? "已上传本地变更"
         : q > 0 ? "已同步其他设备的变更"

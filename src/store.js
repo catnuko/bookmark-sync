@@ -570,6 +570,7 @@ function syncSummary(r) {
     : "";
   let body;
   if (r.seeded) body = "首次同步完成，书签已加密上传";
+  else if (r.restored) body = "首次同步完成，已从云端恢复书签";
   else if (p > 0 && q > 0) body = "双向同步完成";
   else if (p > 0) body = "已上传本地变更";
   else if (q > 0) body = "已同步其他设备的变更";
