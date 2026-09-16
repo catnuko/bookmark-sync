@@ -11,7 +11,8 @@ import {
   acknowledgeFirstSync, pullOverwriteLocal,
   resetSyncState, resetCoordinator,
 } from "./sync.js";
-import { exportKey, importKey, hasKey, setKeyFromPassphrase } from "./crypto.js";
+import { decryptMoveOp } from "./sync/index.js";
+import { exportKey, importKey, hasKey, setKeyFromPassphrase, isFirstDevice, clearLocalKey, ensureLocalKey } from "./crypto.js";
 
 // ---- 常量 ----
 export const ONBOARD_SKIP_KEY = "crdt.onboardSkipped";
@@ -43,6 +44,13 @@ export const state = reactive({
   keyPhraseInput: "",
   hasKeyNow: false,
   keyStateLoaded: false,
+
+  // 口令门禁（登录后必须先过这关才能进主界面）
+  phraseGateVisible: false,
+  phraseGateMode: "", // 'setup' = 第一台设备设新口令；'verify' = 其它设备验证旧口令
+  phraseGateInput: "",
+  phraseGateMsg: "",
+  phraseGateBusy: false,
 
   // 付费档案
   profile: null, // { plan, quota_bytes, used_bytes, used_count?, purchased_at }
@@ -207,6 +215,83 @@ export async function doSetKeyByPhrase() {
   } else {
     state.keyMsg = "口令长度不足，未设置。";
     showToast("danger", "口令长度不足", "未设置。");
+  }
+}
+
+// ---- 口令门禁：登录后必须先过这关才能进主界面 ----
+// 第一台设备（云端无盐）：设置新口令；其它设备（云端有盐）：输入旧口令，
+// 用它拉云端一条 op 解密，失败即口令错。口令一旦设过就不可再改。
+export async function initPhraseGate() {
+  const has = await hasKey();
+  if (has) {
+    state.phraseGateVisible = false;
+    return;
+  }
+  state.phraseGateMode = (await isFirstDevice()) ? "setup" : "verify";
+  state.phraseGateInput = "";
+  state.phraseGateMsg = "";
+  state.phraseGateBusy = false;
+  state.phraseGateVisible = true;
+}
+
+export async function submitPhraseGate() {
+  const phrase = state.phraseGateInput;
+  if (!phrase || phrase.length < 8) {
+    state.phraseGateMsg = "口令至少 8 位。";
+    return;
+  }
+  state.phraseGateBusy = true;
+  state.phraseGateMsg = "";
+  try {
+    const ok = await setKeyFromPassphrase(phrase);
+    if (!ok) {
+      state.phraseGateMsg = "口令设置失败，请重试。";
+      return;
+    }
+    // verify 模式：云端已有数据，必须能解密一条真实 op 才算口令正确。
+    if (state.phraseGateMode === "verify") {
+      let verified = false;
+      try {
+        const { active } = await getActiveSpace();
+        if (active) {
+          const { data } = await supabase
+            .from("bsync_op_log")
+            .select("op")
+            .eq("space_id", active.id)
+            .order("id", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (data?.op) {
+            // 用刚存的密钥解一条 op；解密抛错即口令错
+            const kmKey = await ensureLocalKey();
+            await decryptMoveOp(data.op, kmKey, active.id);
+            verified = true;
+          } else {
+            // 云端还没有 op（刚设过口令还没播种）：无数据可验，先放行
+            verified = true;
+          }
+        } else {
+          verified = true; // 还没空间，放行让流程自己建
+        }
+      } catch {
+        verified = false;
+      }
+      if (!verified) {
+        await clearLocalKey();
+        state.phraseGateMsg = "口令不正确，无法解密云端书签，请重新输入。";
+        return;
+      }
+    }
+    // 通过：关门禁，重置 coordinator 让 SW 用新密钥
+    state.phraseGateVisible = false;
+    state.phraseGateInput = "";
+    resetCoordinator();
+    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
+    await Promise.all([refreshStatus(), refreshProfile(), refreshSpacesDevices(), refreshKeyState()]);
+    showToast("success", state.phraseGateMode === "setup" ? "口令已设置" : "口令正确",
+      state.phraseGateMode === "setup" ? "书签已加密，开始同步。" : "已进入插件。");
+  } finally {
+    state.phraseGateBusy = false;
   }
 }
 
@@ -833,13 +918,13 @@ export async function init(popup) {
   state.session = data.session;
   if (state.session) {
     await Promise.all([refreshStatus(), refreshProfile(), refreshSpacesDevices(), loadAutoSync(), loadCoexistPanel(), refreshKeyState()]);
-    maybeOpenOnboard();
+    await initPhraseGate();
   }
   supabase.auth.onAuthStateChange(async (_e, s) => {
     state.session = s;
     if (s) {
       await Promise.all([refreshStatus(), refreshProfile(), refreshSpacesDevices(), loadAutoSync(), loadCoexistPanel(), refreshKeyState()]);
-      maybeOpenOnboard();
+      await initPhraseGate();
     } else {
       state.profile = null;
       state.serverCount = null;

@@ -6,6 +6,7 @@ import { state, init } from "./store.js";
 import AuthView from "./components/AuthView.vue";
 import PopupView from "./components/PopupView.vue";
 import OptionsView from "./components/OptionsView.vue";
+import PhraseGate from "./components/PhraseGate.vue";
 import ModalOnboard from "./components/ModalOnboard.vue";
 import ModalFirstSync from "./components/ModalFirstSync.vue";
 import ModalUpgrade from "./components/ModalUpgrade.vue";
@@ -18,6 +19,7 @@ onMounted(() => init(props.popup));
 
 <template>
   <AuthView v-if="!state.session" />
+  <PhraseGate v-else-if="state.phraseGateVisible" />
   <PopupView v-else-if="props.popup" />
   <OptionsView v-else />
 

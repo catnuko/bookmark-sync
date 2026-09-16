@@ -100,3 +100,21 @@ export async function setKeyFromPassphrase(passphrase) {
 export async function getPhraseSalt() {
   return keyManager.getSalt();
 }
+
+/** 云端是否已有口令盐——没有就是「第一台设备」（要设新口令），有就是新设备。 */
+export async function isFirstDevice() {
+  const { data } = await supabase.auth.getSession();
+  if (!data?.session) return true;
+  const remote = await fetchRemoteSalt();
+  return !remote;
+}
+
+/** 清除本机已存的密钥和盐（口令验证失败时回滚，避免误入主界面）。 */
+export async function clearLocalKey() {
+  await keyManager.clear();
+}
+
+/** 取回本机已存的 CryptoKey（用于验证解密），无则 null。 */
+export async function ensureLocalKey() {
+  return keyManager.ensureKey();
+}

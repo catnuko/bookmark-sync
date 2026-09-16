@@ -103,6 +103,12 @@ export class KeyManager {
   async setSalt(saltB64: string): Promise<void> {
     await this.store.set(SALT_KEY, saltB64);
   }
+
+  /** Wipe the local key + salt (e.g. after a wrong-passphrase attempt). */
+  async clear(): Promise<void> {
+    await this.store.remove(KEY_KEY);
+    await this.store.remove(SALT_KEY);
+  }
 }
 
 /** Re-export for convenience. */
