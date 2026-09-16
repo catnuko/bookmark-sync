@@ -40,23 +40,23 @@ export class KeyManager {
     return !!(await this.store.get(KEY_KEY));
   }
 
-  /** Ensure a key exists; generate a fresh random one if not. Returns the CryptoKey. */
-  async ensureKey(): Promise<CryptoKey> {
+  /**
+   * Return the existing key, or null if this device has none.
+   * No longer auto-generates a random key: the only way to (re)create a key
+   * is deriving it from a user-chosen passphrase (setKeyFromPassphrase), so a
+   * new device can recover by entering the same passphrase.
+   */
+  async ensureKey(): Promise<CryptoKey | null> {
     const existing = await this.store.get(KEY_KEY);
     if (existing) return importKey(existing);
-    const key = await generateKey();
-    await this.store.set(KEY_KEY, await exportKey(key));
-    // A fresh random salt accompanies a freshly generated key.
-    await this.store.set(SALT_KEY, generateSalt());
-    return key;
+    return null;
   }
 
-  /** Export the raw key as base64url (for a user to paste on another device). */
+  /** Export the raw key as base64url (legacy; UI no longer shows it). Empty if none. */
   async exportKey(): Promise<string> {
     const existing = await this.store.get(KEY_KEY);
     if (existing) return existing;
-    const key = await this.ensureKey();
-    return exportKey(key);
+    return "";
   }
 
   /** Import a base64url key from another device. Returns true on success. */

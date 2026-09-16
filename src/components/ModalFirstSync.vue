@@ -4,41 +4,24 @@
       <!-- 分支 1：云端密文，本设备无密钥 -->
       <template v-if="state.firstSyncInfo?.remoteEncrypted">
         <div class="m-ico warning"><Icon name="lock" /></div>
-        <div class="m-title">尚无可用的同步密钥</div>
+        <div class="m-title">需要输入同步口令</div>
         <p class="m-body">
-          云端书签已开启端到端加密，本设备还没有同步密钥，无法读取云端数据。请用口令设定或导入从其他设备复制的同步密钥。
+          云端书签已加密，本设备还没有同步口令，无法读取云端数据。请输入你在其他设备上设置的<b>同一口令</b>。
         </p>
 
-        <template v-if="fsMode === 'phrase'">
-          <div class="m-stack">
-            <input
-              v-model="state.firstSyncPhraseInput"
-              class="input"
-              type="password"
-              placeholder="同一句口令（至少 8 位）"
-              autocomplete="new-password"
-              @keyup.enter="phraseFirstSyncKey"
-            />
-            <button class="btn btn-primary" :disabled="!state.firstSyncPhraseInput" @click="phraseFirstSyncKey">设定并继续</button>
-          </div>
-        </template>
-        <template v-else-if="fsMode === 'key'">
-          <div class="m-stack">
-            <input
-              v-model="state.firstSyncKeyInput"
-              class="input mono"
-              placeholder="粘贴密钥（44 字符）"
-              autocomplete="off"
-              spellcheck="false"
-              @keyup.enter="importFirstSyncKey"
-            />
-            <button class="btn btn-primary" :disabled="!state.firstSyncKeyInput" @click="importFirstSyncKey">导入并继续</button>
-          </div>
-        </template>
+        <div class="m-stack">
+          <input
+            v-model="state.firstSyncPhraseInput"
+            class="input"
+            type="password"
+            placeholder="同一句口令（至少 8 位）"
+            autocomplete="new-password"
+            @keyup.enter="phraseFirstSyncKey"
+          />
+          <button class="btn btn-primary" :disabled="!state.firstSyncPhraseInput" @click="phraseFirstSyncKey">输入并继续</button>
+        </div>
 
         <div class="m-stack">
-          <button class="btn btn-secondary" @click="fsMode = fsMode === 'phrase' ? '' : 'phrase'">用口令设定</button>
-          <button class="btn btn-secondary" @click="fsMode = fsMode === 'key' ? '' : 'key'">导入已有密钥</button>
           <button class="btn btn-ghost" @click="dismissFirstSync">暂不同步</button>
         </div>
 
@@ -95,13 +78,10 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
 import {
   state, dismissFirstSync, firstSyncMerge, firstSyncOverwrite,
-  importFirstSyncKey, phraseFirstSyncKey,
+  phraseFirstSyncKey,
 } from "../store.js";
 import ArmedButton from "./ui/ArmedButton.vue";
 import Icon from "./ui/Icon.vue";
-
-const fsMode = ref("");
 </script>

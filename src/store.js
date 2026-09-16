@@ -607,6 +607,14 @@ export async function syncNow(opts = {}) {
       showToast("info", r.remoteEncrypted ? "云端数据已加密，请先导入同步密钥" : "本机与云端都有书签，请确认如何同步", "");
       return;
     }
+    if (!r.ok && r.reason === "no_key") {
+      // 本机还没有同步口令：弹出引导让用户设置（新设备/重装后必须输入口令）
+      state.onboardMode = "phrase";
+      state.onboardMsg = "";
+      state.showOnboard = true;
+      showToast("info", "请先设置同步口令", "新设备输入与其他设备相同的口令即可同步");
+      return;
+    }
     if (!r.ok && r.reason === "quota_exceeded") {
       // 空间不足，弹升级 modal
       state.showUpgradeModal = true;

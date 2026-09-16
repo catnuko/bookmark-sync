@@ -208,6 +208,11 @@ export async function runSync(_opts = {}) {
 
     const deviceId = await getDeviceId();
     const key = await keyManager.ensureKey();
+    if (!key) {
+      // 不再自动生成随机密钥：必须由用户设置口令派生。无密钥时直接拒绝同步，
+      // 由 UI 引导用户在引导页/首次同步弹窗里输入口令。
+      return { ok: false, reason: "no_key", error: "请先设置同步口令" };
+    }
 
     // 设备心跳
     await supabase.rpc("bsync_device_touch", {
@@ -404,6 +409,7 @@ function bootCoordinatorForEvent() {
         if (!active) return null; // 未登录/无空间：无可同步对象，事件跳过是正确行为
         const deviceId = await getDeviceId();
         const key = await keyManager.ensureKey();
+        if (!key) return null; // 未设置口令：事件跳过，等用户设置后同步兜底
         if (gen !== _coordinatorGen) return null; // 密钥已变更，放弃本次 boot
         return await getCoordinator(active.id, deviceId, key);
       } catch {
