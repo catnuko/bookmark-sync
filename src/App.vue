@@ -30,7 +30,7 @@ onMounted(() => init(props.popup));
 <style>
 @import "./styles/tokens.css";
 
-/* popup 视口由扩展窗口宽度决定 */
-body.popup { width: var(--popup-width); }
-body.popup .popup-root { min-height: calc(100vh - var(--popup-padding-y) * 2); }
+/* popup 视口固定：宽高由令牌决定，内容溢出由 .popup-body 自己滚动（不再用 100vh 撑高窗口） */
+body.popup { width: var(--popup-width); height: var(--popup-height); overflow: hidden; }
+body.popup #app { height: 100%; }
 </style>
