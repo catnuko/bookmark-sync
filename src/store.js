@@ -490,10 +490,10 @@ async function doOverwriteLocal() {
     if (r.ok) {
       await api.storage.local.set({
         lastSyncAt: Date.now(),
-        lastSyncStatus: `已按云端覆盖本机 · 变更 ${r.pulled} 处`,
+        lastSyncStatus: "已按云端覆盖本机",
       });
       await refreshStatus();
-      showToast("success", "完成", `已按云端覆盖本机（变更 ${r.pulled} 处）`);
+      showToast("success", "完成", "已按云端覆盖本机书签");
       await refreshProfile();
       await refreshSpacesDevices();
     } else if (r.reason === "decrypt_error") {
@@ -558,6 +558,25 @@ export async function refreshStatus(extra) {
   if (extra) showToast("info", extra);
 }
 
+// 把 runSync 返回的 {pushed, pulled, seeded, decryptFailed} 翻译成用户能理解的自然语言。
+// 注意：pushed/pulled 是 CRDT 操作行数（一个书签的建/移/改会产 2~3 条 op，
+// 冷启动重放还会把历史 op 全计一遍），和「书签数」不是一回事，直接展示会让用户
+// 误以为传了 N 个书签。这里只描述方向与结果，不展示原始 op 数。
+function syncSummary(r) {
+  const p = r.pushed || 0;
+  const q = r.pulled || 0;
+  const warn = r.decryptFailed > 0
+    ? ` · ⚠️ ${r.decryptFailed} 条云端数据解密失败（密钥不匹配，请检查同步密钥/口令）`
+    : "";
+  let body;
+  if (r.seeded) body = "首次同步完成，书签已加密上传";
+  else if (p > 0 && q > 0) body = "双向同步完成";
+  else if (p > 0) body = "已上传本地变更";
+  else if (q > 0) body = "已同步其他设备的变更";
+  else body = "已是最新";
+  return body + warn;
+}
+
 export async function syncNow(opts = {}) {
   // 注意：模板 @click 直传时 opts 可能是事件对象，统一归一化为 force 布尔
   const force = opts === true || !!opts?.force;
@@ -598,19 +617,15 @@ export async function syncNow(opts = {}) {
       showToast("danger", "数据无法解密", r.error ?? "请检查同步密钥");
       return;
     }
-    // 诊断：解密失败（密钥不匹配）时在状态中追加醒目警告
-    const decryptWarn = r.decryptFailed > 0
-      ? ` · ⚠️ ${r.decryptFailed} 条云端数据解密失败（密钥不匹配，请检查同步密钥/口令）`
-      : "";
     await api.storage.local.set({
       lastSyncAt: Date.now(),
       lastSyncStatus: r.ok
-        ? `推送 ${r.pushed} · 拉取 ${r.pulled}${decryptWarn}`
+        ? syncSummary(r)
         : `${r.reason}${r.error ? ` (${r.error})` : ""}`,
     });
     await refreshStatus();
     if (r.ok) {
-      showToast("success", "同步完成", `推送 ${r.pushed} · 拉取 ${r.pulled}${decryptWarn}`);
+      showToast("success", "同步完成", syncSummary(r));
     } else {
       showToast("danger", `${r.reason}${r.error ? ` (${r.error})` : ""}`, "");
     }
