@@ -79,7 +79,21 @@ export async function hasKey() {
 
 export async function setKeyFromPassphrase(passphrase) {
   await ensurePhraseSalt();
-  return keyManager.setKeyFromPassphrase(passphrase);
+  const ok = await keyManager.setKeyFromPassphrase(passphrase);
+  if (ok) {
+    // keyManager.setKeyFromPassphrase 在本地无盐时会新生成一个盐存本地，
+    // 但它不知道云端情况、不会上传。ensurePhraseSalt 在它之前跑、当时本地
+    // 无盐也不会上传。这里补一刀：云端还没盐就把本设备刚生成的盐推上去——
+    // 否则另一台设备首次设置口令时会再生成一个不同盐，派生出不同密钥，
+    // 双方都解不开对方数据。
+    const { data } = await supabase.auth.getSession();
+    if (data?.session) {
+      const remote = await fetchRemoteSalt();
+      const local = await keyManager.getSalt();
+      if (!remote && local) await pushRemoteSalt(local);
+    }
+  }
+  return ok;
 }
 
 /** 当前口令盐（base64url；调试/展示用，非机密）。 */
