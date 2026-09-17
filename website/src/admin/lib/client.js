@@ -39,6 +39,7 @@ export const adminApi = {
   setUserPlan: (userId, plan) =>
     callAdmin("admin_set_user_plan", { p_user: userId, p_plan: plan }),
   resetUsage: (userId) => callAdmin("admin_reset_usage", { p_user: userId }),
+  resetUserData: (userId) => callAdmin("admin_reset_user_data", { p_user: userId }),
   listOrders: (params) =>
     callAdmin("admin_list_orders", {
       p_status: params.status ?? null,

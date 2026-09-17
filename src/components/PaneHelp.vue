@@ -1,7 +1,9 @@
 <template>
   <section class="pane active">
-    <h2>帮助</h2>
-    <p class="pane-sub">常见问题与关键行为说明。点击条目展开。</p>
+    <template v-if="!bare">
+      <h2>帮助</h2>
+      <p class="pane-sub">常见问题与关键行为说明。点击条目展开。</p>
+    </template>
 
     <div class="grp">
       <div class="acc">
@@ -22,6 +24,8 @@
 <script setup>
 import { ref } from "vue";
 import Icon from "./ui/Icon.vue";
+
+defineProps({ bare: { type: Boolean, default: false } });
 
 const openIdx = ref(-1);
 

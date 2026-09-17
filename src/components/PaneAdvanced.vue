@@ -1,7 +1,9 @@
 <template>
   <section class="pane active">
-    <h2>高级</h2>
-    <p class="pane-sub">与浏览器原生同步的共存策略，以及操作日志存储维护。</p>
+    <template v-if="!bare">
+      <h2>高级</h2>
+      <p class="pane-sub">与浏览器原生同步的共存策略，以及操作日志存储维护。</p>
+    </template>
 
     <div class="grp">
       <h4>与浏览器自带同步共存</h4>
@@ -68,35 +70,33 @@
     </div>
 
     <div class="grp">
-      <h4>测试工具</h4>
-      <div class="danger-zone">
+      <h4>本机设置</h4>
+      <div class="inset-group">
         <div class="inset-row">
-          <span class="lede" style="color:var(--danger-text)"><Icon name="trash" /></span>
+          <span class="lede"><Icon name="sync" /></span>
           <div class="r-main">
-            <div class="r-title">一键清空测试数据</div>
-            <div class="r-sub">清空当前账号在云端的所有同步数据（空间 / 操作日志 / 设备 / 快照）、清除本机缓存并登出，仅保留浏览器书签</div>
+            <div class="r-title">自动同步</div>
+            <div class="r-sub">检测到本地书签变更后，自动在后台加密上传并拉取增量</div>
           </div>
-          <ArmedButton
-            :label="'清空测试数据'"
-            :confirm-label="'再次点击以确认'"
-            :armed="state.armed === 'reset'"
-            :countdown="state.armed === 'reset' ? state.armedLeft : 0"
-            :disabled="state.resetBusy"
-            @press="onResetPress"
-          />
+          <SwitchToggle :model-value="state.autoSync" aria-label="自动同步" @update:model-value="toggleAutoSync" />
+        </div>
+        <div class="inset-row">
+          <span class="lede"><Icon name="log-out" /></span>
+          <div class="r-main">
+            <div class="r-title">退出登录</div>
+            <div class="r-sub">退出当前账号，本机密钥与同步口令保留，重新登录后可直接继续同步</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" @click="logout">退出登录</button>
         </div>
       </div>
-      <p v-if="state.resetMsg" class="foot">{{ state.resetMsg }}</p>
     </div>
   </section>
 </template>
 
 <script setup>
-import { state, saveGcThreshold, resetTestData, armAction, fmt } from "../store.js";
-import ArmedButton from "./ui/ArmedButton.vue";
+import { state, saveGcThreshold, toggleAutoSync, logout, fmt } from "../store.js";
+import SwitchToggle from "./ui/SwitchToggle.vue";
 import Icon from "./ui/Icon.vue";
 
-function onResetPress() {
-  armAction("reset", () => resetTestData());
-}
+defineProps({ bare: { type: Boolean, default: false } });
 </script>

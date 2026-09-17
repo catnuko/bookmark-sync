@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { state, submit, openHelp, openSettings } from "../store.js";
+import { state, submit, openHelp } from "../store.js";
 import SegTabs from "./ui/SegTabs.vue";
 import Icon from "./ui/Icon.vue";
 </script>

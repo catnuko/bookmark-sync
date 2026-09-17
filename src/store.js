@@ -9,7 +9,7 @@ import {
   getActiveSpace, switchSpace, createSpace, deleteSpace, renameSpace,
   listDevices, removeDevice, getDeviceId,
   acknowledgeFirstSync, pullOverwriteLocal,
-  resetSyncState, resetCoordinator,
+  resetCoordinator,
 } from "./sync.js";
 import { decryptMoveOp } from "./sync/index.js";
 import { exportKey, importKey, hasKey, setKeyFromPassphrase, isFirstDevice, clearLocalKey, ensureLocalKey } from "./crypto.js";
@@ -73,8 +73,6 @@ export const state = reactive({
   // 危险操作两步确认（armed 目标 key + 3 秒递减倒计时）
   armed: "",
   armedLeft: 3,
-  resetBusy: false,
-  resetMsg: "",
 
   // 首同步决策
   showFirstSyncModal: false,
@@ -93,7 +91,7 @@ export const state = reactive({
   onboardMsg: "",
 
   // 弹窗二级面板（抽屉）
-  drawer: "", // '' | 'spaces' | 'key'
+  drawer: "", // '' | 'spaces' | 'key' | 'advanced' | 'help'
 
   // 设置页导航
   navPane: "account", // 'account' | 'sync' | 'spaces' | 'crypto' | 'advanced' | 'help'
@@ -785,54 +783,6 @@ export async function saveGcThreshold() {
   showToast("success", `已保存 GC 阈值 ${v}`, "0 = 关闭");
 }
 
-// ---- 测试工具：一键清空云端测试数据 + 本机缓存 + 登出 ----
-export async function resetTestData() {
-  if (state.resetBusy) return;
-  state.resetBusy = true;
-  state.resetMsg = "正在清空云端数据...";
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error("未登录");
-    const uid = session.user.id;
-
-    // 按外键顺序删除当前用户的所有同步数据
-    const { data: spaces } = await supabase
-      .from("bsync_spaces").select("id").eq("owner_id", uid);
-    const spaceIds = (spaces ?? []).map(s => s.id);
-
-    if (spaceIds.length > 0) {
-      await supabase.from("bsync_snapshots").delete().in("space_id", spaceIds);
-      await supabase.from("bsync_op_log").delete().in("space_id", spaceIds);
-      await supabase.from("bsync_devices").delete().in("space_id", spaceIds);
-      await supabase.from("bsync_spaces").delete().in("id", spaceIds);
-    }
-    // 重置 profile（盐/用量清零）
-    await supabase.from("bsync_profiles")
-      .update({ e2ee_salt: null, used_count: 0, used_bytes: 0 })
-      .eq("user_id", uid);
-
-    state.resetMsg = "云端已清空，正在清除本机缓存并登出...";
-    await resetSyncState();
-    // 通知 SW 也重置 coordinator 单例（否则 SW 内存中仍持有旧 afterId）
-    api.runtime.sendMessage({ type: "bsync-reset-coordinator" }).catch(() => {});
-    await supabase.auth.signOut();
-
-    state.resetMsg = "完成！云端数据、本机缓存与登录态已清空，可重新登录测试。";
-    // 刷新 UI 状态（onAuthStateChange 会自动切回登录页，这里兜底清状态）
-    state.session = null;
-    state.profile = null;
-    state.spaces = [];
-    state.activeSpace = null;
-    state.devices = [];
-    state.serverCount = null;
-    state.status = "";
-  } catch (e) {
-    state.resetMsg = "失败：" + (e?.message ?? String(e));
-  } finally {
-    state.resetBusy = false;
-  }
-}
-
 // ---- 登录 / 注册 / 登出 ----
 export async function submit() {
   state.busy = true;
@@ -903,26 +853,18 @@ export function closeDrawer() {
 }
 
 export function openHelp() {
-  // 帮助放设置页「帮助」分区；弹窗打开时跳转设置页对应分区
+  // 帮助已整合进插件弹窗抽屉；登录页（未登录态）打开官网文档
+  const url = "https://www.bookmark-sync.top/docs";
   if (api.tabs?.create) {
-    api.tabs.create({ url: api.runtime.getURL("options.html#help") });
-  }
-}
-export function openSettings() {
-  if (api.runtime?.openOptionsPage) {
-    api.runtime.openOptionsPage();
-  } else if (api.tabs?.create) {
-    api.tabs.create({ url: api.runtime.getURL("options.html") });
+    api.tabs.create({ url });
+  } else {
+    window.open(url, "_blank");
   }
 }
 
 // ---- 初始化（App onMounted 调用） ----
 export async function init(popup) {
   if (popup) document.body.classList.add("popup");
-  // 设置页支持 #help 直达帮助分区
-  if (!popup && location.hash === "#help") {
-    state.navPane = "help";
-  }
   // 记住上次登录的邮箱（只存邮箱，不存密码），退出登录后自动填充
   const { rememberEmail } = await api.storage.local.get("rememberEmail");
   if (rememberEmail) state.email = rememberEmail;

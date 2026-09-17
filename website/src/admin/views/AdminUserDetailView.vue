@@ -45,6 +45,29 @@ async function resetUsage() {
     alert(e.message);
   }
 }
+
+const clearing = ref(false);
+const clearMsg = ref("");
+
+async function clearUserData() {
+  if (clearMsg.value) clearMsg.value = "";
+  const first = confirm(
+    `确认清空 ${data.value?.email ?? "该用户"} 的全部云端同步数据？\n\n将删除：空间、操作日志、快照、设备登记，并重置 E2EE 盐与用量。\n此操作不可恢复！`
+  );
+  if (!first) return;
+  const second = confirm("再次确认：该用户的同步数据将被永久删除，仅保留浏览器本地的书签。确定继续？");
+  if (!second) return;
+  try {
+    clearing.value = true;
+    const r = await adminApi.resetUserData(route.params.id);
+    data.value = await adminApi.getUser(route.params.id);
+    clearMsg.value = `已清空 ${r?.email ?? ""}：空间 ${r?.spaces ?? 0} 个、操作日志 ${r?.op_log ?? 0} 条、快照 ${r?.snapshots ?? 0} 份、设备 ${r?.devices ?? 0} 台。`;
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    clearing.value = false;
+  }
+}
 </script>
 
 <template>
@@ -134,6 +157,20 @@ async function resetUsage() {
         </table>
       </section>
 
+      <section class="card danger">
+        <h3>危险操作：清空测试数据</h3>
+        <p class="muted">
+          清空该用户在云端的全部同步数据（空间 / 操作日志 / 快照 / 设备）并重置 E2EE 盐与用量，
+          仅保留浏览器本地的书签。用于测试账号清理，不可恢复。
+        </p>
+        <div class="actions">
+          <button class="btn-danger" :disabled="clearing" @click="clearUserData">
+            {{ clearing ? "清空中…" : "一键清空该用户的同步数据" }}
+          </button>
+        </div>
+        <p v-if="clearMsg" class="clear-msg">{{ clearMsg }}</p>
+      </section>
+
       <p class="notice">⚠ 书签内容为端到端加密，后台不展示、也无法解密。</p>
     </template>
   </div>
@@ -153,6 +190,9 @@ h2 { margin: 8px 0 16px; }
 .btn { padding: 6px 14px; background: var(--color-accent); color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
 .btn-danger { padding: 6px 14px; background: #b91c1c; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
 .muted { color: var(--color-text-faint); }
+.card.danger { border-color: #fca5a5; background: #fff7f7; }
+.card.danger h3 { color: #b91c1c; }
+.clear-msg { margin-top: 10px; font-size: 13px; color: #15803d; }
 .tag { font-size: 11px; color: var(--color-text-faint); margin-left: 6px; }
 .err { color: #b91c1c; }
 .notice { background: #fffbeb; border: 1px solid #fde68a; padding: 10px 14px; border-radius: 6px; font-size: 13px; color: #92400e; }
