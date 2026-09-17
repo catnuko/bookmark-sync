@@ -5,6 +5,8 @@ const { t } = useI18n();
 
 const features = [
   { key: "sync", accent: false },
+  { key: "spaces", accent: false },
+  { key: "devices", accent: false },
   { key: "history", accent: true },
   { key: "order", accent: false },
   { key: "quota", accent: false },
@@ -15,6 +17,8 @@ const features = [
 
 const iconPaths = {
   sync: "M21 12a9 9 0 11-9-9 9 9 0 019 9zM12 7v5l3 3",
+  spaces: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
+  devices: "M3 5h14a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1zM9 19h4M11 14v5",
   history: "M3 12a9 9 0 109-9 9 9 0 00-9 9zM3 12h5l2-2 2 4 2-2h7",
   order: "M8 20V6M8 6L5 9M8 6l3 3M16 4v14M16 18l-3-3M16 18l3-3",
   quota: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8M9 12h6",

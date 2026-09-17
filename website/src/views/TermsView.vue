@@ -1,5 +1,6 @@
 <script setup>
 import { useI18n } from "vue-i18n";
+import { SITE_UPDATED } from "../lib/site-meta.js";
 
 const { t } = useI18n();
 
@@ -24,7 +25,7 @@ const sections = [
       <div class="container container-narrow">
         <p class="section-eyebrow">{{ t("terms.eyebrow") }}</p>
         <h1 class="section-title">{{ t("terms.title") }}</h1>
-        <p class="terms-updated">{{ t("terms.updatedAt") }}</p>
+        <p class="terms-updated">{{ t("terms.updatedAtPrefix") }} {{ SITE_UPDATED }}</p>
         <p class="terms-intro">{{ t("terms.intro") }}</p>
       </div>
     </section>

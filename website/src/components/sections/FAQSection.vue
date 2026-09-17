@@ -4,7 +4,20 @@ import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 
-const faqKeys = ["upgrade", "order", "refund", "freeLimit", "payment", "subOrOnetime"];
+const faqKeys = [
+  "upgrade",
+  "order",
+  "refund",
+  "freeLimit",
+  "payment",
+  "subOrOnetime",
+  "passphrase",
+  "newDevice",
+  "devices",
+  "autoSync",
+  "gc",
+  "quotaUnit",
+];
 const openIndex = ref(0);
 
 function toggle(i) {
@@ -107,7 +120,7 @@ function toggle(i) {
 }
 
 .faq-item.open .faq-a-wrap {
-  max-height: 200px;
+  max-height: 420px;
 }
 
 .faq-a {
