@@ -1,16 +1,18 @@
 name: Automated Release
 
-# 全自动发版：
+# 全自动发版（dev → main 合并后全程自动，无需人工介入）：
 #   1. 推送到 main 后，release-please 按「约定式提交」自动判断下一个版本号
 #      （fix: → patch，feat: → minor，BREAKING CHANGE → major）
-#   2. 自动更新 package.json 的 version、生成 CHANGELOG.md，并建一个 release PR 供你审阅合并
+#   2. 自动更新 package.json / public/manifest.json / public/manifest.firefox.json
+#      的版本并生成 CHANGELOG.md，建一个 release PR，随后本工作流自动合并它
 #   3. release PR 合并后，release-please 自动打 tag 并创建 GitHub Release
 #   4. 本工作流随后构建两个 zip 并上传到该 Release：
 #        - Chromium 包（Chrome/Edge 共用）
 #        - Firefox 包
 #    一次覆盖三个浏览器，Safari 不参与。
 #
-# 以后提交格式请使用 Conventional Commits，例如：
+# 开发流程：所有改动走 dev 分支，用 Conventional Commits 提交，合并到 main 即自动发版。
+# 提交格式示例：
 #   feat(ui): add export button      → 触发 minor（新功能）
 #   fix(sync): resolve merge crash   → 触发 patch（修复）
 #   BREAKING CHANGE                  → 触发 major（不兼容改动）
@@ -41,6 +43,23 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: node
+
+      # 全自动发版：release PR 无需人工合并，检测到即自动合并。
+      # 合并会再次触发本 workflow，由 release-please 创建 tag + Release，随后 build job 打包上传。
+      # 注意：必须用 merge commit（--merge），release-please 靠 merge commit message 识别发布。
+      - name: Auto-merge release PR
+        if: steps.release.outputs.release_created == 'false' && steps.release.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_JSON: ${{ steps.release.outputs.pr }}
+        run: |
+          PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number // empty')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "no release PR number found, skip"
+            exit 0
+          fi
+          echo "Auto-merging release PR #$PR_NUMBER"
+          gh pr merge --merge "$PR_NUMBER" --delete-branch=false
 
   build:
     needs: release-please
