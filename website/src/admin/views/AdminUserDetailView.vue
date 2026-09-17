@@ -24,6 +24,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+  loadGc();
 });
 
 async function savePlan() {
@@ -48,6 +49,60 @@ async function resetUsage() {
 
 const clearing = ref(false);
 const clearMsg = ref("");
+
+// —— GC 监控与维护（服务端托管；阈值 0 = 按计划默认） ——
+const gc = ref(null);
+const gcLoading = ref(true);
+const gcError = ref("");
+const gcThresholdInput = ref("");
+const gcBusy = ref(false);
+const gcMsg = ref("");
+
+async function loadGc() {
+  gcLoading.value = true;
+  gcError.value = "";
+  try {
+    gc.value = await adminApi.getGcStats(route.params.id);
+    gcThresholdInput.value = String(gc.value.profile?.gc_threshold ?? 0);
+  } catch (e) {
+    gcError.value = e.message;
+  } finally {
+    gcLoading.value = false;
+  }
+}
+
+async function saveGcThreshold() {
+  const v = parseInt(gcThresholdInput.value, 10);
+  if (!Number.isFinite(v) || v < 0) {
+    alert("阈值须为非负整数，0 = 按计划默认");
+    return;
+  }
+  if (!confirm(`将该用户 GC 阈值设为 ${v}？（0 表示按计划默认：free 2000 / pro 20000）`)) return;
+  try {
+    gcBusy.value = true;
+    await adminApi.setGcThreshold(route.params.id, v);
+    gcMsg.value = "阈值已更新";
+    await loadGc();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    gcBusy.value = false;
+  }
+}
+
+async function requestGc() {
+  if (!confirm("向该用户设备下发 GC 请求：下次同步时自动把操作日志压缩为加密快照并截断。确认？")) return;
+  try {
+    gcBusy.value = true;
+    await adminApi.requestGc(route.params.id);
+    gcMsg.value = "已下发 GC 请求，等待设备下次同步自动执行";
+    await loadGc();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    gcBusy.value = false;
+  }
+}
 
 async function clearUserData() {
   if (clearMsg.value) clearMsg.value = "";
@@ -157,6 +212,54 @@ async function clearUserData() {
         </table>
       </section>
 
+      <section class="card">
+        <h3>GC 监控与维护</h3>
+        <p v-if="gcError" class="err">{{ gcError }}</p>
+        <p v-else-if="gcLoading">加载中…</p>
+        <template v-else-if="gc">
+          <div class="gc-grid">
+            <div class="gc-item">
+              <span class="gc-label">有效 GC 阈值</span>
+              <span class="gc-val">{{ gc.profile?.effective_gc_threshold != null ? formatCount(gc.profile.effective_gc_threshold) + ' 行' : '—' }}</span>
+            </div>
+            <div class="gc-item">
+              <span class="gc-label">最近压缩</span>
+              <span class="gc-val">{{ gc.profile?.last_gc_at ? formatTime(gc.profile.last_gc_at) : '尚未触发' }}</span>
+            </div>
+            <div class="gc-item">
+              <span class="gc-label">后台请求状态</span>
+              <span class="gc-val">{{ gc.profile?.gc_requested ? '已请求（待设备响应）' : '无' }}</span>
+            </div>
+            <div class="gc-item">
+              <span class="gc-label">书签条数</span>
+              <span class="gc-val">{{ formatCount(gc.profile?.used_count) }}</span>
+            </div>
+          </div>
+
+          <table class="mini">
+            <thead><tr><th>空间</th><th>op 行数</th><th>快照体积</th><th>快照水位</th><th>快照时间</th></tr></thead>
+            <tbody>
+              <tr v-for="s in gc.spaces" :key="s.id">
+                <td>{{ s.name }}<span v-if="s.is_default" class="tag">default</span></td>
+                <td>{{ formatCount(s.op_count) }}</td>
+                <td>{{ s.snapshot_bytes ? formatBytes(s.snapshot_bytes) : '—' }}</td>
+                <td>{{ s.snapshot_after_op_id != null ? formatCount(s.snapshot_after_op_id) : '—' }}</td>
+                <td>{{ s.snapshot_created_at ? formatTime(s.snapshot_created_at) : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="actions">
+            <input v-model="gcThresholdInput" type="number" min="0" step="500" aria-label="GC 阈值" class="gc-input" />
+            <button class="btn" :disabled="gcBusy" @click="saveGcThreshold">保存阈值</button>
+            <button class="btn" :disabled="gcBusy" @click="requestGc">请求压缩（GC）</button>
+            <button class="btn btn-ghost" :disabled="gcBusy" @click="loadGc">刷新</button>
+          </div>
+          <p class="muted gc-note">阈值 0 = 按计划默认（free 2000 / pro 20000）。「请求压缩」向设备下发标记，下次同步自动执行——E2EE 快照投影必须由客户端生成，后台无法代替。</p>
+          <p v-if="gcMsg" class="clear-msg">{{ gcMsg }}</p>
+        </template>
+      </section>
+
       <section class="card danger">
         <h3>危险操作：清空测试数据</h3>
         <p class="muted">
@@ -187,6 +290,13 @@ h2 { margin: 8px 0 16px; }
 .mini th, .mini td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); text-align: left; }
 .actions { margin-top: 10px; display: flex; gap: 8px; align-items: center; }
 .actions select { padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 6px; }
+.gc-input { width: 110px; padding: 5px 8px; border: 1px solid var(--color-border); border-radius: 6px; }
+.btn-ghost { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); }
+.gc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.gc-item { background: var(--color-bg-muted); border-radius: 8px; padding: 8px 10px; }
+.gc-label { display: block; font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px; }
+.gc-val { font-size: 14px; font-weight: 600; }
+.gc-note { margin-top: 8px; }
 .btn { padding: 6px 14px; background: var(--color-accent); color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
 .btn-danger { padding: 6px 14px; background: #b91c1c; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
 .muted { color: var(--color-text-faint); }

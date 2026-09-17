@@ -64,6 +64,13 @@ export class SyncCoordinator {
   private pendingPush: MoveOp[] = [];
   /** global op_log id of the last row pulled + applied. */
   afterId: number;
+  /** 服务端标记：op_log 超过用户动态阈值或后台请求 GC，本机应配合压缩。 */
+  private gcNeededFlag = false;
+
+  /** 服务端要求配合 GC 的标志（本次同步中 push/pull 任一返回 true 即成立）。 */
+  get gcNeeded(): boolean {
+    return this.gcNeededFlag;
+  }
 
   constructor(opts: SyncCoordinatorOptions) {
     this.spaceId = opts.spaceId;
@@ -134,6 +141,7 @@ export class SyncCoordinator {
     // next full replay would resurrect the "deleted" nodes.
     const result = await this.transport.push(this.spaceId, this.deviceId, batch);
     this.pendingPush = [];
+    if (result.gc_needed) this.gcNeededFlag = true;
     // 返回实际插入数（ON CONFLICT DO NOTHING 可能跳过重复 seq），
     // 而非 batch.length——否则前端会误报「推送 N 条」但实际未落库。
     return result.inserted;
@@ -161,6 +169,7 @@ export class SyncCoordinator {
     let afterId = startAfterId;
     for (;;) {
       const page = await this.transport.pull(this.spaceId, afterId, 1000);
+      if (page.gc_needed) this.gcNeededFlag = true;
       for (const row of page.rows) {
         try {
           const op = await decryptMoveOp(row.op, this.key, this.spaceId);
@@ -240,14 +249,13 @@ export class SyncCoordinator {
   }
 
   /**
-   * Snapshot the current replica and ask the server to truncate the op log
-   * if it has grown past `threshold`. The projection is encrypted before it
-   * leaves the device (operation-level E2EE). Safe to call after a complete
-   * pull: the local replica then holds the full tree.
+   * Snapshot the current replica and ask the server to truncate the op log.
+   * 是否执行由服务端判定（用户动态阈值或后台请求，见 bsync_op_maybe_gc），
+   * 客户端只提供加密投影。应在完整 pull 之后调用：本地 replica 此时持有完整树。
    */
-  async maybeGc(threshold: number): Promise<GcResult> {
+  async maybeGc(): Promise<GcResult> {
     const projection = this.replica.exportSnapshot();
     const envelope = await encryptJson(projection, this.key, this.spaceId);
-    return this.transport.maybeGc(this.spaceId, threshold, envelope);
+    return this.transport.maybeGc(this.spaceId, envelope);
   }
 }

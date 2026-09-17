@@ -28,6 +28,10 @@ onMounted(async () => {
         <StatCard label="快照数" :value="formatCount(data.snapshot_count)" />
         <StatCard label="最近 GC" :value="data.latest_snapshot_at ? timeAgo(data.latest_snapshot_at) : '—'"
           :hint="data.latest_snapshot_at || '暂无快照'" />
+        <StatCard label="待响应 GC 用户" :value="formatCount(data.pending_gc_users)"
+          :hint="'后台已请求、设备尚未执行的用户数'" />
+        <StatCard label="超阈值空间" :value="formatCount(data.over_threshold_spaces)"
+          :hint="'op 行数超过各自用户动态阈值的空间数（即将自动压缩）'" />
       </div>
 
       <section class="card">
