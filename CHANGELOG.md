@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.1.0](https://github.com/catnuko/bookmark-sync/compare/v2.0.0...v2.1.0) (2026-09-17)
+
+
+### Features
+
+* **admin:** 后台管理系统 /admin 子站 ([5dce45f](https://github.com/catnuko/bookmark-sync/commit/5dce45f25dabc4d7ed7c51cadfe472a82f45a526))
+* **e2ee:** 口令模式补全——salt 云端流转，跨设备只需记住口令 ([e1111ca](https://github.com/catnuko/bookmark-sync/commit/e1111caf2d6cc58aa0daefd8f71031f5f3aaa67e))
+* **menu:** Chromium 端「书签菜单」容器按需存在——菜单有书签才显示 ([45d1128](https://github.com/catnuko/bookmark-sync/commit/45d11281eaa96ba4a89792672529bdf67c4dd6d4))
+* **ui:** 口令模式强提醒——忘记口令 = 数据丢失 ([bb072bc](https://github.com/catnuko/bookmark-sync/commit/bb072bc548875417721d7a4eb4d689e4c4a766df))
+* **ui:** 新设备密钥引导 + 帮助面板 + 首次同步自动创建默认空间 ([748251f](https://github.com/catnuko/bookmark-sync/commit/748251fa5cf0630fe90c122a7e51a4ccb27a49bc))
+* **ui:** 登录表单记住上次邮箱，退出后自动填充（密码不落盘） ([379e0b8](https://github.com/catnuko/bookmark-sync/commit/379e0b8912acca151c12e76adc958b30e47ca626))
+* 修复pnpm安装问题 ([1f3be5c](https://github.com/catnuko/bookmark-sync/commit/1f3be5c2f32d3bc31e41fef92fdc276ac9a242bd))
+* 口令门禁——登录后必须输入口令才能进主界面 ([7354e25](https://github.com/catnuko/bookmark-sync/commit/7354e25fc1c25a06bce93429b2966b186a02bb4e))
+* 同步只走口令，去掉自动生成的 44 位密钥 ([ef0fcab](https://github.com/catnuko/bookmark-sync/commit/ef0fcab35fb4a35727e03356b38457e81df1e7f9))
+* 清空测试数据移入后台管理；高级/帮助移入弹窗，设置页改为品牌占位 ([3344342](https://github.com/catnuko/bookmark-sync/commit/334434236376e99e07b2201511d6c4377d8f83a0))
+
+
+### Bug Fixes
+
+* **admin:** 移除误加的卡密模块 ([4748db6](https://github.com/catnuko/bookmark-sync/commit/4748db689759a44543a74c260503bde127ffca98))
+* **sync:** 修复删除同步在 SW 冷启动下失效（事件懒启动 + 计数器恢复 + 推送失败保留） ([d81e659](https://github.com/catnuko/bookmark-sync/commit/d81e659ca4c0d4bc353540234658ab53f3ac01a8))
+* **sync:** 修复双设备同步数据丢失 + 完善调试工具 ([04bf96a](https://github.com/catnuko/bookmark-sync/commit/04bf96ab5900906679fe60f3ac413710730bd704))
+* **sync:** 删除「书签菜单」容器同步失效——墓碑化 MENU_UUID + 残留映射防报错 + 同步期删除排队 ([425b971](https://github.com/catnuko/bookmark-sync/commit/425b97185b7900f16f04ebcfe3684a80b13cbd87))
+* **sync:** 删除「书签菜单」改为清空内容、保留位置——Firefox 菜单保持跨设备同步 ([9e69c2e](https://github.com/catnuko/bookmark-sync/commit/9e69c2e5dc6247c6b2cb459d62393464fb4358a3))
+* **sync:** 同步前确保 supabase 会话就绪——避免 SW 冷启动以 anon 调用 RPC ([3afd01d](https://github.com/catnuko/bookmark-sync/commit/3afd01d9f35c22dc5ec38aea4b0386156da22ffc))
+* **sync:** 菜单容器误删与冷启动事件丢失 ([1f3914a](https://github.com/catnuko/bookmark-sync/commit/1f3914a93518021dc1fdde3938bdd0ab11a2fc05))
+* **sync:** 顺序层接线——fractional position 全路径写入，同步不再按 uuid 重排 ([23ecff9](https://github.com/catnuko/bookmark-sync/commit/23ecff948b0083dbe3464bd6a4aa3bc1fd123796))
+* **ui:** 移除明文同步开关，同步强制端到端加密 ([a2b48c2](https://github.com/catnuko/bookmark-sync/commit/a2b48c2f05ff316af012202f59276db2363e0be3))
+* 修复多空间配额/默认空间保护前端错误映射 ([a27b7ed](https://github.com/catnuko/bookmark-sync/commit/a27b7ed59d1f2b128daf12077093c3d6e63d2bca))
+* 口令设置后立即上传新生成的盐到云端 ([83701dd](https://github.com/catnuko/bookmark-sync/commit/83701dd912634e80927576f62e000ac19f3d4d5d))
+* 同步结果不再展示 CRDT op 条数，改用自然语言 ([3963e2d](https://github.com/catnuko/bookmark-sync/commit/3963e2d2ba1b5027a436fe6b095b493ab911c52f))
+* 新设备首次从云端恢复时显示正确文案 ([edd7ec8](https://github.com/catnuko/bookmark-sync/commit/edd7ec8d29df4bd807b705aacb71f054ff70b672))
+* 自动同步后通知 popup 刷新书签数和状态 ([c33b13d](https://github.com/catnuko/bookmark-sync/commit/c33b13d3f228fe0ab96857ced5757eefd8e3e383))
+* 首次同步提示只在本次真的播种时出现 ([0e8363b](https://github.com/catnuko/bookmark-sync/commit/0e8363b8ba26e8b491e99a9b1182c449f08f4007))
+
 ## [1.1.0](https://github.com/catnuko/bookmark-sync/compare/v0.1.0...v1.1.0) (2026-09-13)
 
 
