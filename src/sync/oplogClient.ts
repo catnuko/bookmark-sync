@@ -72,6 +72,11 @@ export interface GcResult {
   /** number of op_log rows deleted (0 when not gced). */
   deleted: number;
   snapshot_id: number | null;
+  /**
+   * 客户端侧拒绝执行的附加原因（服务端拒绝时不返回）：
+   * 'replica_incomplete' = 本地 replica 有解密失败缺行，快照会丢数据，拒绝生成投影。
+   */
+  reason?: 'replica_incomplete';
 }
 
 /**
@@ -118,6 +123,13 @@ export class MemoryOpLogTransport implements OpLogTransport {
   private nextId = 1;
   private snapId = 1;
 
+  /**
+   * 内存实现的可配置 GC 阈值（默认与服务端 free 一致 2000）。
+   * 服务端托管后阈值由服务端决定；这里仅模拟「行数超过阈值即允许 GC」的判定，
+   * 测试可传小阈值触发截断。
+   */
+  constructor(private readonly gcThreshold: number = MEMORY_GC_THRESHOLD) {}
+
   async push(
     spaceId: string,
     deviceId: string,
@@ -163,7 +175,7 @@ export class MemoryOpLogTransport implements OpLogTransport {
 
   /** 内存实现的判定：行数超过内部阈值即标记（服务端以用户动态阈值为准）。 */
   private gcNeededFor(spaceId: string): boolean {
-    return this.rows.filter((r) => r.space_id === spaceId).length > MEMORY_GC_THRESHOLD;
+    return this.rows.filter((r) => r.space_id === spaceId).length > this.gcThreshold;
   }
 
   async snapshotPull(spaceId: string): Promise<SnapshotRow | null> {
@@ -185,7 +197,7 @@ export class MemoryOpLogTransport implements OpLogTransport {
     projection: EncryptedOpEnvelope,
   ): Promise<GcResult> {
     const count = this.rows.filter((r) => r.space_id === spaceId).length;
-    if (count <= MEMORY_GC_THRESHOLD) return { gced: false, deleted: 0, snapshot_id: null };
+    if (count <= this.gcThreshold) return { gced: false, deleted: 0, snapshot_id: null };
     const maxId = Math.max(
       ...this.rows.filter((r) => r.space_id === spaceId).map((r) => r.id),
       0,

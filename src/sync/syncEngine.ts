@@ -67,6 +67,18 @@ export class SyncCoordinator {
   /** 服务端标记：op_log 超过用户动态阈值或后台请求 GC，本机应配合压缩。 */
   private gcNeededFlag = false;
 
+  /**
+   * replica 完整性标志：本次实例是否跳过过解不开的 op 行。
+   *
+   * 数据安全守卫：GC 会把 ≤ 水位的历史 op 行截断为一份快照（快照由本机
+   * 加密投影生成）。若 replica 因解密失败缺行（密钥不匹配 / 改密钥迁移场景），
+   * 生成的快照会缺这些 op 的内容，截断后即永久丢失。因此任何跳过都置位；
+   * 只有「快照重建」或「从 0 全量重放且零跳过」才视为补齐并复位。
+   * 注意：增量拉取零跳过不会复位——被跳过的行在水位之下，永远不会重拉。
+   * 实例随 resetCoordinator 重建（换密钥），新实例从 false 开始。
+   */
+  private replicaIncomplete = false;
+
   /** 服务端要求配合 GC 的标志（本次同步中 push/pull 任一返回 true 即成立）。 */
   get gcNeeded(): boolean {
     return this.gcNeededFlag;
@@ -193,6 +205,10 @@ export class SyncCoordinator {
       if (!page.has_more) break;
     }
     if (afterId > this.afterId) this.afterId = afterId;
+    // 完整性守卫：任何跳过都意味着 replica 缺行（水位已越过它们，不会重拉）；
+    // 仅当「从 0 全量重放且零跳过」时才视为补齐复位（增量拉取零跳过不证明完整）。
+    if (skipped > 0) this.replicaIncomplete = true;
+    else if (startAfterId === 0) this.replicaIncomplete = false;
     return { applied, skipped, afterId: this.afterId, decryptErrors };
   }
 
@@ -232,6 +248,8 @@ export class SyncCoordinator {
         const data = await decryptJson<SnapshotData>(snap.data!, this.key, this.spaceId);
         this.replica.applySnapshot(data);
         this.afterId = snap.after_op_id!;
+        // 快照重建成功 → ≤ 水位基线段完整（尾段由 pullFrom 续判）
+        this.replicaIncomplete = false;
         return this.pullFrom(this.afterId);
       } catch (e) {
         // Snapshot undecryptable (wrong key / tamper): fall back below,
@@ -242,6 +260,9 @@ export class SyncCoordinator {
           seq: -1,
           device_id: 'snapshot',
         });
+        // 快照解不开 = 基线未知（op 可能已被 GC 截断，全量重放也补不回）→
+        // 视作不完整，禁止本实例后续 GC，防止用残缺投影覆盖并截断历史。
+        this.replicaIncomplete = true;
         return fallback;
       }
     }
@@ -252,8 +273,20 @@ export class SyncCoordinator {
    * Snapshot the current replica and ask the server to truncate the op log.
    * 是否执行由服务端判定（用户动态阈值或后台请求，见 bsync_op_maybe_gc），
    * 客户端只提供加密投影。应在完整 pull 之后调用：本地 replica 此时持有完整树。
+   *
+   * 数据安全守卫：replica 因解密失败缺行时拒绝执行（reason='replica_incomplete'）。
+   * 用残缺投影生成快照 → 服务端截断 ≤ 水位的 op → 解不开的行永久丢失。
+   * 换正确密钥（resetCoordinator 重建实例）后水位清零全量重拉，补齐后才能 GC。
    */
   async maybeGc(): Promise<GcResult> {
+    if (this.replicaIncomplete) {
+      return {
+        gced: false,
+        deleted: 0,
+        snapshot_id: null,
+        reason: 'replica_incomplete',
+      };
+    }
     const projection = this.replica.exportSnapshot();
     const envelope = await encryptJson(projection, this.key, this.spaceId);
     return this.transport.maybeGc(this.spaceId, envelope);
