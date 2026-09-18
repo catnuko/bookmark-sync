@@ -8,14 +8,13 @@
 // 事件处理：
 //   checkout.completed / subscription.active / subscription.paid
 //       => 开通或续期：bsync_subscriptions upsert，
-//          bsync_profiles 翻转 plan + quota_bytes，
-//          lic_user_profiles 同步翻转（create-token 依赖）
+//          bsync_profiles 翻转 plan + quota_bytes
 //   subscription.scheduled_cancel
 //       => 已约取消：本期结束前仍可用（current_period_end 为准）
 //   subscription.past_due
 //       => 扣款失败重试中：记录状态，暂不停服务
 //   subscription.canceled / expired / unpaid
-//       => 立即降级回 free（5MB），lic_user_profiles 置 inactive
+//       => 立即降级回 free（5MB）
 //   refund.created
 //       => 订单标记 refunded（对账用，不自动降级，人工处理）
 //
@@ -206,8 +205,6 @@ Deno.serve(async (req: Request) => {
       }
 
       // 降级与否取决于订阅是否仍生效：scheduled_cancel 到期前照样可用
-      const effective = status === 'active' || status === 'trialing' || status === 'scheduled_cancel';
-      const expiresAt = effective ? periodEnd : new Date().toISOString();
       await sb
         .from('bsync_profiles')
         .update({
@@ -216,13 +213,6 @@ Deno.serve(async (req: Request) => {
           purchased_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
-      await sb.from('lic_user_profiles').upsert({
-        user_id: userId,
-        plan,
-        subscription_status: effective ? 'active' : 'inactive',
-        expires_at: expiresAt,
-        updated_at: new Date().toISOString(),
-      });
       return json({ ok: true });
     }
 
@@ -274,13 +264,6 @@ Deno.serve(async (req: Request) => {
         .from('bsync_profiles')
         .update({ plan: 'free', quota_bytes: PLAN_QUOTA_BYTES.free })
         .eq('user_id', userId);
-      await sb.from('lic_user_profiles').upsert({
-        user_id: userId,
-        plan: 'free',
-        subscription_status: 'inactive',
-        expires_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
       return json({ ok: true });
     }
 
