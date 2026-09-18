@@ -10,7 +10,8 @@
     "download": "Download",
     "docs": "Docs",
     "privacy": "Privacy",
-    "terms": "Terms"
+    "terms": "Terms",
+    "support": "Support"
   },
   "contact": {
     "supportEmail": "support{'@'}bookmark-sync.top",
@@ -591,5 +592,61 @@
     "checkoutFailed": "Failed to start checkout. Please try again later.",
     "portalFailed": "Failed to open the subscription portal. Please try again later.",
     "close": "Close"
+  },
+  "support": {
+    "eyebrow": "Help Center",
+    "title": "Support & Help",
+    "intro": "Check the FAQ first, or email us directly — we reply within 3 business days.",
+    "contact": {
+      "title": "Contact us",
+      "note": "Support email · replies within 3 business days"
+    },
+    "faq": {
+      "title": "FAQ",
+      "subtitle": "Common questions about sign-up, browser support, security and sync.",
+      "items": {
+        "account": {
+          "q": "Do I need an account?",
+          "a": "Yes. Register with email + password, set a sync passphrase after signing in, and start syncing bookmarks across browsers."
+        },
+        "browsers": {
+          "q": "Which browsers are supported?",
+          "a": "Chrome, Edge, and Firefox (Manifest V3). Safari is not supported yet."
+        },
+        "free": {
+          "q": "Can I use the free plan?",
+          "a": "Yes. The free plan syncs 500 bookmarks with no credit card, and all sync features are identical to paid plans."
+        },
+        "restore": {
+          "q": "How do I restore bookmarks on a new device?",
+          "a": "Install the extension → sign in with the same account → enter the same sync passphrase, and your full bookmark tree is pulled automatically."
+        },
+        "security": {
+          "q": "Is my bookmark data secure?",
+          "a": "Yes. End-to-end encryption (AES-256-GCM) is enforced by default: every operation is encrypted on your device before upload, the server stores only ciphertext, and no third party — including us — can read your bookmarks."
+        },
+        "passphrase": {
+          "q": "What if I forget my sync passphrase?",
+          "a": "The passphrase is stored only on your device and never uploaded; it is the only key to decrypt cloud bookmarks. It cannot be changed once set — if forgotten, your bookmarks cannot be decrypted. Keep it safe."
+        },
+        "conflict": {
+          "q": "What happens when multiple devices edit at the same time?",
+          "a": "No. Concurrent changes are merged automatically with all additions kept; deletes propagate as tombstones, so removed bookmarks never resurrect from stale data."
+        },
+        "gc": {
+          "q": "Is cloud data cleaned up automatically?",
+          "a": "Yes. Server-managed GC automatically compacts stale operation logs with a dynamic threshold — no manual setup needed."
+        }
+      }
+    },
+    "resources": {
+      "title": "More resources",
+      "desc": "Documentation, privacy policy and terms of service:",
+      "items": {
+        "docs": "Documentation",
+        "privacy": "Privacy Policy",
+        "terms": "Terms of Service"
+      }
+    }
   }
 }

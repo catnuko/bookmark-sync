@@ -9,7 +9,10 @@ const productLinks = [
   { label: "nav.download", to: "/download" },
 ];
 
-const resourceLinks = [{ label: "nav.docs", to: "/docs" }];
+const resourceLinks = [
+  { label: "nav.docs", to: "/docs" },
+  { label: "nav.support", to: "/support" },
+];
 
 // 法律链接弱化处理：只在底部版权行以小字号呈现
 const legalLinks = [
