@@ -3,7 +3,7 @@
 > 分支：`dev` / `main`（已于 v2.2.0 随官网合并上线）
 > 范围：面向运营/作者本人的自托管后台，不开放给普通用户。
 > 一句话定位：**在官网（`website/`）内挂一套 `/admin` 子站，复用现有 Supabase Auth，用多租户 `project_members` 表做管理员鉴权，只读为主、少量写操作为辅，全程不碰用户书签密文。**
-> 文档同步状态：本文件已同步至 0026（2026-09-18）。历史差异见文末「变更记录」。
+> 文档同步状态：本文件已同步至 0027（2026-09-19）。历史差异见文末「变更记录」。
 
 ---
 
@@ -31,7 +31,7 @@ bookmark-sync v2 的后端已经具备完整的业务实体，但全部面向"�
    共享 Supabase 项目里已有 `project_members` + `is_project_member(project_id)`，bsync 的 `project_id = '885e7f27-f4ad-447d-8f17-e18fac1dcf0a'`。把作者账号加进 `project_members` 即为管理员，不引入第二套账号系统，也不需要改 `auth.users`。
 
 3. **唯一写路径仍是 Supabase 迁移文件。**
-   遵循 `AGENTS.md` 与 `supabase/TENANTS.md`：所有 admin RPC 都以迁移形式落地在中央仓库 `catnuko/supabase-snaply-multi` 的 `supabase/migrations/`（`0020`~`0026`），由 `supabase db push` 部署。不在 Dashboard / MCP 直接改结构。
+   遵循 `AGENTS.md` 与 `supabase/TENANTS.md`：所有 admin RPC 都以迁移形式落地在中央仓库 `catnuko/supabase-snaply-multi` 的 `supabase/migrations/`（`0020`~`0027`），由 `supabase db push` 部署。不在 Dashboard / MCP 直接改结构。
 
 4. **前端是官网的一部分，不是独立应用。**
    官网已是 Vue3 + Vite + vue-router + `@supabase/supabase-js`，加 `/admin` 子路由成本最低，也复用了已部署的 Vercel 域名与 SSL。`/admin/*` 路由被 robots 规则 `Disallow: /admin` 排除出收录。
@@ -193,6 +193,7 @@ website/src/admin/
 - [x] 前端只持 anon key；跨用户数据只走 `admin_*` RPC
 - [x] 每个 RPC 内部硬编码 bsync project_id 做成员校验（不接受前端传 project_id）
 - [x] 全部写操作（改 plan / 重置用量 / 清空数据 / GC 阈值 / 请求 GC）写入 `bsync_admin_audit_log`，且前台可查（0026）
+- [x] `project_members` 写入已收紧（0027）：插入策略要求「只能把自己加进自己 owner 的项目」，堵住自插管理员项目经 `assert_bsync_admin` 自封管理员的提权洞；并 revoke authenticated 的 UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER（RLS 不拦截 TRUNCATE）
 - [x] `/admin/*` 被 robots 规则 `Disallow: /admin` 排除出收录
 - [x] 不展示任何书签密文、URL 明文（快照里可能含 URL，但加密；op_log.op 是密文，不 select 它）
 - [x] 危险操作（清空数据）前端双重确认 + 后端 RPC 内只删目标用户 owner_id 数据
@@ -202,8 +203,8 @@ website/src/admin/
 ## 8. 落地与自测
 
 ### 8.1 交付物
-1. `docs/admin/PROPOSAL.md`（本文件，同步至 0026）
-2. `supabase/migrations/0020~0026`（中央仓库 `catnuko/supabase-snaply-multi`；应用仓库 `supabase/` 为子模块引用）
+1. `docs/admin/PROPOSAL.md`（本文件，同步至 0027）
+2. `supabase/migrations/0020~0027`（中央仓库 `catnuko/supabase-snaply-multi`；应用仓库 `supabase/` 为子模块引用）
 3. `website/src/admin/**`（前端全部代码）
 4. `tests/admin/**`（vitest 单测）
 
@@ -216,8 +217,8 @@ website/src/admin/
   - （作者在 `project_members` 中）各页面可加载、表格有数据、审计页可查
 
 ### 8.3 部署步骤（作者操作）
-1. 迁移已随中央仓库入库：`0020 admin_rpc` / `0021 space_create_auth` / `0022 fix_space_quota` / `0023 admin_reset_user_data` / `0024 admin_gc_managed` / `0025 waitlist` / `0026 admin_audit_view`
-2. 在 `supabase/` 目录跑 `supabase db push`（0023~0026 若尚未部署，一次补齐；0020 已于 9/15 部署）
+1. 迁移已随中央仓库入库：`0020 admin_rpc` / `0021 space_create_auth` / `0022 fix_space_quota` / `0023 admin_reset_user_data` / `0024 admin_gc_managed` / `0025 waitlist` / `0026 admin_audit_view` / `0027 tighten_project_members_insert`
+2. 在 `supabase/` 目录跑 `supabase db push`（0027 已于 9/19 部署；后续迁移一次补齐；0020 已于 9/15 部署）
 3. 在 `project_members` 给作者账号插一行 `(bsync_project_id, <author_uid>, 'admin')`
 4. 前端已随 v2.2.0 上线 main；后续 dev 提交合并 main 后 Vercel 自动部署
 5. 访问 `https://www.bookmark-sync.top/admin` 登录验证
@@ -230,7 +231,7 @@ website/src/admin/
 - 不做"实时日志 tail"——Supabase 本身有 Dashboard logs，重复建设
 - 不做"书签内容搜索/查看"——E2EE 红线
 - 不做"License/Token 卡密管理界面"——卡密子系统（`licenses`/`user_tokens`）归共享项目，0020 已移除相关 RPC，避免双重写入路径；卡密操作仍走已有边缘函数与 Dashboard
-- 不改任何已有 RLS 策略、不动扩展端代码
+- 不改扩展端代码；RLS 策略变更只在中央仓库以新迁移落地（0027 收紧了共享表 `project_members` 的写入策略）
 
 ## 10. 变更记录
 
@@ -240,3 +241,4 @@ website/src/admin/
 | 2026-09-15 | 0020 部署生产；分支迁移至 `dev` 并删除 feat 分支；卡密 RPC 移除 |
 | 2026-09-17 | 0023 一键清空、0024 GC 托管入库 |
 | 2026-09-18 | 0026 审计查看页（`/admin/audit`）；本文件同步：删 license 模块、补 GC/清空/审计，RPC 清单更新为 16 个 |
+| 2026-09-19 | 0027 收紧 `project_members` 写入权限（修「自插管理员项目 → 自封管理员」提权洞 + revoke authenticated 的 TRUNCATE 等）；已部署并通过 RLS 模拟测试；本文件同步至 0027 |
