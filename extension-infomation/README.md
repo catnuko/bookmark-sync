@@ -2,14 +2,7 @@
 
 > 用途：上传 Chrome Web Store（developer.chrome.com）与 Firefox AMO（addons.mozilla.org）时，按字段复制下方内容。
 
----
-
-## 1. 软件包中的标题
-
-```
-Bookmark Sync
-```
-
+标题：Bookmark Sync
 支持邮件：support@bookmark-sync.top
 网站：https://www.bookmark-sync.top
 
