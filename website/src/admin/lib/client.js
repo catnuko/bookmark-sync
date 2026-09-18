@@ -55,4 +55,12 @@ export const adminApi = {
   setGcThreshold: (userId, threshold) =>
     callAdmin("admin_set_gc_threshold", { p_user: userId, p_threshold: threshold }),
   requestGc: (userId) => callAdmin("admin_request_gc", { p_user: userId }),
+  // —— 审计（0026：后台写操作留痕，可查可追溯）——
+  listAuditLogs: (params) =>
+    callAdmin("admin_list_audit_log", {
+      p_action: params.action ?? null,
+      p_target: params.target ?? null,
+      p_limit: params.limit ?? 50,
+      p_offset: params.offset ?? 0,
+    }),
 };
