@@ -410,6 +410,10 @@ export async function submitRename(sp) {
   }
   const r = await renameSpace(sp.id, name);
   state.renamingId = "";
+  if (!r.ok && r.reason === "duplicate") {
+    showToast("danger", "已存在同名空间", "");
+    return;
+  }
   if (!r.ok) {
     showToast("danger", `重命名失败: ${r.error ?? r.reason}`, "");
     return;
