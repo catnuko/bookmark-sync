@@ -31,7 +31,7 @@ bookmark-sync v2 的后端已经具备完整的业务实体，但全部面向"�
    初版曾复用共享 `project_members` 表 + `is_project_member` 做鉴权，0027 审计发现该表插入策略过松可被自封管理员，0028 起 bsync 改用自有的 `bsync_admins` 表（无 RLS 策略、默认全拒，仅经 SQL/service_role 维护），与共享注册表彻底解耦。
 
 3. **唯一写路径仍是 Supabase 迁移文件。**
-   遵循 `AGENTS.md` 与 `supabase/TENANTS.md`：所有 admin RPC 都以迁移形式落地在中央仓库 `catnuko/supabase-snaply-multi` 的 `supabase/migrations/`（`0020`~`0029`），由 `supabase db push` 部署。不在 Dashboard / MCP 直接改结构。
+   遵循 `AGENTS.md` 与 `supabase/TENANTS.md`：所有 admin RPC 都以迁移形式落地在本仓库 `supabase/migrations/`（`0020`~`0029`，目录已由中央仓库内联而来），由 `supabase db push` 部署。不在 Dashboard / MCP 直接改结构。
 
 4. **前端是官网的一部分，不是独立应用。**
    官网已是 Vue3 + Vite + vue-router + `@supabase/supabase-js`，加 `/admin` 子路由成本最低，也复用了已部署的 Vercel 域名与 SSL。`/admin/*` 路由被 robots 规则 `Disallow: /admin` 排除出收录。
@@ -205,7 +205,7 @@ website/src/admin/
 
 ### 8.1 交付物
 1. `docs/admin/PROPOSAL.md`（本文件，同步至 0029）
-2. `supabase/migrations/0020~0029`（中央仓库 `catnuko/supabase-snaply-multi`；应用仓库 `supabase/` 为子模块引用）
+2. `supabase/migrations/0020~0029`（本仓库 `supabase/` 目录，已内联；历史沿革见归档仓库 `catnuko/supabase-snaply-multi`）
 3. `website/src/admin/**`（前端全部代码）
 4. `tests/admin/**`（vitest 单测）
 

@@ -1,26 +1,24 @@
-# supabase-snaply — bookmark-sync 专属 Supabase 项目中央仓库
+# supabase/ — bookmark-sync 专属 Supabase 目录（已内联于 bookmark-sync 仓库）
 
-snaply Supabase 项目（ref: `cwtqnsbpcetvqopdkcou`）的**唯一写路径仓库**，现仅服务 bookmark-sync 单项目。
-（2026-09-19 起由多租户收敛为单租户：license 子系统与共享注册表已于 0029 拆除，
-其逻辑保留在 git 历史（0008/0011 等迁移 + 原 functions/ 源码），恢复时在新项目重放即可。）
+本目录承载 snaply Supabase 项目（ref: `cwtqnsbpcetvqopdkcou`）的全部 schema 与边缘函数，
+**直接在 bookmark-sync 仓库内维护**（2026-09-19 起由独立中央仓库 + submodule 内联而来，
+旧仓库 catnuko/supabase-snaply-multi 转为归档，历史随合并保留在本仓库）。
+（单租户说明：license 子系统与共享注册表已于 0029 拆除，其逻辑保留在
+并入的 git 历史中，恢复时在新项目重放相关迁移并部署函数即可。）
 
 ## 唯一写路径
 - 数据库：`supabase/migrations/*.sql` → `supabase db push`
 - 边缘函数：`supabase/functions/<name>/index.ts` → `supabase functions deploy <name>`
 - secrets：`supabase secrets set`（不写入代码）
 
-## 仓库关系
-- 应用仓库 bookmark-sync 通过 git submodule 内置本仓库的 `supabase/` 目录；**不要在应用仓库里直接改本仓库代码**，改动在这里提交，应用仓库用 `git submodule update --remote` 同步。
+## 变更流程
+- 改 `supabase/` 内代码 → Conventional Commits 提交并 push 本仓库 → 在 `supabase/` 目录执行部署命令。
+- 需要远端写操作时，先给出迁移文件、函数代码或命令，等用户审查后再执行。
 
 ## 禁止
 - 禁止用 MCP / Dashboard SQL 编辑器直接修改远端结构。
 - 禁止跳过迁移文件直接执行 DDL。
 - 禁止修改已提交的历史迁移（只新增迁移，不回头改历史文件）。
-
-## 流程
-- 数据库：`supabase migration new <name>` → 编辑 SQL → `supabase db push`（直连远端，无需本地数据库/Docker）。
-- 边缘函数：编辑 `index.ts` → `supabase functions deploy <name>`。
-- 每次变更后提交并 push 本仓库；需要远端写操作时，先给出迁移文件、函数代码或命令，等用户审查后再执行。
 
 ## 安全纪律（0027 事故沉淀）
 - RLS 策略/权限变更必须配 role-play 测试：`SET LOCAL ROLE authenticated` + 伪造 JWT 正反用例各打一遍（见 0027 验证记录）。

@@ -2,10 +2,9 @@
 
 本地代码驱动，远端只通过 Supabase CLI / CI 部署。**MCP 只读，CLI 写远端；迁移文件和函数源码是唯一真实来源。**
 
-## 中央仓库（submodule）
-- `supabase/` 是 git submodule，指向 Supabase 项目中央仓库 https://github.com/catnuko/supabase-snaply-multi。**2026-09-19 起已收敛为 bookmark-sync 单租户**（0029 拆除了 license 子系统与共享注册表；license 逻辑保留在 git 历史，可在新项目重放恢复）。
-- **仓库规范见 `supabase/TENANTS.md`**（含命名占用、迁移号水位、10 条规范，其中 RLS 变更必须配 role-play 测试）。
-- 不要在应用仓库里直接改 `supabase/` 内的代码（迁移/函数/config）；改动提交到中央仓库或提 PR，应用仓库用 `git submodule update --remote` 同步。
+## Supabase 目录（已内联）
+- `supabase/` 是本仓库的普通目录，承载 Supabase 项目的迁移、边缘函数与配置，**直接改、直接提交**（2026-09-19 起由中央仓库 + submodule 内联而来，旧仓库 catnuko/supabase-snaply-multi 已归档，历史随 subtree 合并保留在本仓库）。
+- **仓库规范见 `supabase/TENANTS.md`**（含命名占用、迁移编号推导规则、10 条规范，其中 RLS 变更必须配 role-play 测试）。
 - 部署命令在 `supabase/` 目录下执行：`supabase db push` / `supabase functions deploy <name>`。
 
 ## 唯一写路径

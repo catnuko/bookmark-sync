@@ -1,9 +1,9 @@
 # Supabase 项目注册表（supabase-snaply）
 
-共享 Supabase 项目 ref：`cwtqnsbpcetvqopdkcou`（snaply）。本仓库是该项目的**唯一写路径**：
+共享 Supabase 项目 ref：`cwtqnsbpcetvqopdkcou`（snaply）。本目录是该项目的**唯一写路径**：
 数据库变更走 `migrations/*.sql`，边缘函数走 `functions/<name>/index.ts`，
-通过 Supabase CLI 部署到远端。应用仓库以 git submodule 内置本仓库的 `supabase/` 目录，
-**不要在应用仓库里直接改这里的代码**。
+通过 Supabase CLI 部署到远端。**本目录已内联于 bookmark-sync 仓库**，直接改、直接提交
+（旧中央仓库 catnuko/supabase-snaply-multi 已归档，历史随 subtree 合并保留）。
 
 > 2026-09-19 起本项目收敛为 bookmark-sync 单租户：license 子系统（lic_* 表/函数、
 > 7 个边缘函数）与共享注册表（projects/project_members/profiles/余额函数）已于
