@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.0](https://github.com/catnuko/bookmark-sync/compare/v2.1.0...v2.2.0) (2026-09-18)
+
+
+### Features
+
+* **sync:** GC 服务端托管——用户动态阈值自动压缩，插件移除 GC 设置，后台支持监控/调阈值/请求压缩 ([a73c903](https://github.com/catnuko/bookmark-sync/commit/a73c903b52efeb067d1fd81310319ee45e3c7ccc))
+
+
+### Bug Fixes
+
+* **sync:** 解密失败时跳过 GC，防止残缺快照截断导致云端 op 永久丢失 ([eb48a53](https://github.com/catnuko/bookmark-sync/commit/eb48a539caa6cfd59034f67dd00bbe1e606edefc))
+* **website:** 修复官网落后插件 v2.1.0 的内容 ([e616fa0](https://github.com/catnuko/bookmark-sync/commit/e616fa0b204fdac3ca367e132af82bb1bbf4fa26))
+
 ## [2.1.0](https://github.com/catnuko/bookmark-sync/compare/v2.0.0...v2.1.0) (2026-09-17)
 
 
