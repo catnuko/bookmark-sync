@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { SITE_UPDATED } from "../lib/site-meta.js";
 
 const { t } = useI18n();
 
@@ -23,7 +24,7 @@ const contactBody = computed(() => {
       <div class="container container-narrow">
         <p class="section-eyebrow">{{ t("privacy.eyebrow") }}</p>
         <h1 class="section-title">{{ t("privacy.title") }}</h1>
-        <p class="privacy-updated">{{ t("privacy.updatedAt") }}</p>
+        <p class="privacy-updated">{{ t("privacy.updatedAtPrefix") }} {{ SITE_UPDATED }}</p>
         <p class="privacy-intro">{{ t("privacy.intro") }}</p>
       </div>
     </section>

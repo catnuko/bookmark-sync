@@ -32,8 +32,7 @@ const COUNTER_KEY = "crdt.counter";
 const IDMAP_KEY = "crdt.idmap";
 const SEEDED_KEY = "crdt.seeded";
 /** op-log GC 阈值（storage 键可覆盖；E2E 注入小阈值验证 GC 链路）。 */
-const GC_THRESHOLD_KEY = "crdt.gcThreshold";
-const DEFAULT_GC_THRESHOLD = 2000;
+const GC_THRESHOLD_KEY = "crdt.gcThreshold"; // 历史遗留 key，仅 resetSyncState 清理用
 
 /** Chromium 端 MENU_UUID（书签菜单）动态容器的持久化 chromeId。 */
 const MENU_FOLDER_KEY = "crdt.menuFolderId";
@@ -312,17 +311,36 @@ export async function runSync(_opts = {}) {
     await reverseApplyIntoChrome(coordinator);
     console.log("[bsync] 反向应用完成");
 
-    // 5) op-log GC：本机树完整后，若服务端行数超阈值 → 落快照 + 截断。
-    //    阈值来自 storage（E2E 用小阈值注入验证），默认 2000 行。
-    const gcCfg = await api.storage.local.get(GC_THRESHOLD_KEY);
-    const gcThreshold = Number(gcCfg[GC_THRESHOLD_KEY] ?? DEFAULT_GC_THRESHOLD);
-    if (gcThreshold > 0 && (pushed > 0 || pull.applied > 0)) {
-      try {
-        const gc = await coordinator.maybeGc(gcThreshold);
-        if (gc.gced) {
-          await api.storage.local.set({ lastGcAt: Date.now() });
-        }
-      } catch { /* GC 失败不阻塞同步 */ }
+    // 5) op-log GC：服务端托管——push/pull 响应带 gc_needed（行数超过用户
+    //    动态阈值或后台请求），客户端只需提供加密投影配合。阈值概念对用户
+    //    不可见，插件内不再有任何 GC 设置。
+    //
+    //    数据安全守卫：GC 会把 ≤ 水位的历史 op 行截断为一份快照。若本次同步
+    //    存在解密失败（冷启动重放 / 主拉取 / 快照重建任一来源），replica 不
+    //    完整，快照会缺这些 op 的内容，截断后即永久丢失（密钥不匹配 / 改密
+    //    钥迁移场景）。有解密失败时跳过本次 GC，等正确密钥设备重拉补齐后再
+    //    压缩；协调器层的 replicaIncomplete 守卫兜底（换密钥重建实例前有效）。
+    if (coordinator.gcNeeded && (pushed > 0 || pull.applied > 0)) {
+      if (allDecryptErrors.length > 0) {
+        console.warn(`[bsync] 跳过 GC：${allDecryptErrors.length} 条解密失败，replica 不完整（防止快照丢失数据）`);
+        await api.storage.local.set({
+          lastGcSkipped: { reason: "decrypt_failed", errors: allDecryptErrors.length, at: Date.now() },
+        });
+      } else {
+        try {
+          const gc = await coordinator.maybeGc();
+          if (gc.gced) {
+            await api.storage.local.set({ lastGcAt: Date.now() });
+            await api.storage.local.remove("lastGcSkipped");
+          } else if (gc.reason === "replica_incomplete") {
+            // 协调器层守卫兜底（如快照基线解不开）：同样不生成投影
+            console.warn("[bsync] 跳过 GC：replica 不完整（快照基线不可用）");
+            await api.storage.local.set({
+              lastGcSkipped: { reason: "replica_incomplete", at: Date.now() },
+            });
+          }
+        } catch { /* GC 失败不阻塞同步 */ }
+      }
     }
 
     // 6) 上报本机书签数（服务端 used_count 口径：快照加密后服务端无法自算）
@@ -672,7 +690,7 @@ export async function resetSyncState() {
     MENU_FOLDER_KEY, GC_THRESHOLD_KEY,
     "crdt.e2eeKey", "crdt.e2eeSalt", "crdt.onboardSkipped",
     "lastSyncStatus", "lastSyncAt", "lastSyncError", "lastDecryptErrors",
-    "lastUsedReport", "lastUsedReportError", "lastGcAt",
+    "lastUsedReport", "lastUsedReportError", "lastGcAt", "lastGcSkipped",
     "activeSpace",
   ];
   await api.storage.local.remove(keys);

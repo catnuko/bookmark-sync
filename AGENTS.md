@@ -51,19 +51,32 @@
 - 注意：`pnpm build` = `vite build && node scripts/post-build-safari.mjs`，会顺带同步并尝试编译 Xcode Safari 工程 —— **CI 里不要用 `pnpm build`**，要分别跑 `npx vite build` + `node scripts/build-firefox.mjs`。
 - 每个 Release 产出两个 zip：`bookmark-sync-chromium-<ver>.zip`、`bookmark-sync-firefox-<ver>.zip`。
 
-## 2. CI 发版（`.github/workflows/release.yml`）
+## 2. 发版流程（全自动，dev → main，无需人工介入）
 
-自动闭环：改代码（约定式提交）→ push main → release-please 自动升版本 + 生成 CHANGELOG.md + 开 release PR → 合并 PR → 自动打 tag + 建 Release + 构建上传两个 zip。流程已实测通过（v0.1.0）。
+**开发流程：所有改动走 `dev` 分支，用 Conventional Commits 提交；合并到 `main` 即全自动发版，全程无人操作（release PR 自动合并，不做人工合并）。**
 
-要点（踩过的坑，勿回退）：
+### 全自动闭环（`.github/workflows/release.yml`）
+1. push / 合并到 main → release-please 按约定式提交计算下一版本
+2. release-please 自动更新 `package.json` + `CHANGELOG.md` + manifest 版本（extra-files），并开 release PR
+3. workflow 的 **Auto-merge** 步骤自动合并该 PR（`gh pr merge --merge`）
+4. 合并触发新 run → release-please 自动打 tag + 创建 GitHub Release
+5. build job 构建并上传 `bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip`
+
+### 版本管理文件（勿手动改版本号发版）
+- `release-please-config.json`：extra-files 让 release PR 同步 `public/manifest.json`、`public/manifest.firefox.json` 的 `version` 字段
+- `.release-please-manifest.json`：版本基线（当前 2.1.0）
+- **禁止**手动改 package.json 版本号或手动打 tag / 建 Release——会绕过 release-please 导致版本错乱（v2.0.0 就是这么出的岔子：release PR 悬挂、manifest 版本滞后）
+
+### 要点（踩过的坑，勿回退）
 - `permissions` 必须 `contents: write` + **`pull-requests: write`**，否则 release-please 建 PR 报 "Resource not accessible by integration"。
 - 仓库设置需开启 **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**。
 - `pnpm/action-setup@v4` 必须给 `version: 10`，否则报 "No pnpm version is specified"。
-- 不用 `pnpm build`（理由见上）。
-- **`release-as: 0.1.0` 是临时锁定**，首个 v0.1.0 发布成功后应删除该行及注释；否则以后每次都是 0.1.0 不再自动升级。
-- release-please 按 Conventional Commits 定版本：`fix:` → patch，`feat:` → minor，`BREAKING CHANGE` → major。**提交信息不带前缀会被归到 patch/忽略**。
-- 当前 package.json version = 0.1.0（开发期版本），首个正式版前别急着升 1.0。
+- 不用 `pnpm build`（会顺带跑 Safari Xcode 同步/编译，CI 里分别跑 `npx vite build` + `node scripts/build-firefox.mjs`）。
+- **Auto-merge 必须用 `--merge`（merge commit）**：release-please 靠 merge commit message 识别发布；squash 会破坏识别。
+- release-please 按 Conventional Commits 定版本：`fix:` → patch，`feat:` → minor，`BREAKING CHANGE` → major。**提交不带前缀不会触发版本升级**；`chore:` 适合 CI/配置/文档改动，不 bump。
+- **dev→main 合并不要 squash**，避免折叠掉 Conventional 前缀导致版本判断失效。
 - `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`），但该 token 无 workflow dispatch 权限，触发工作流用 push 事件即可。
+- 私有仓库：匿名 curl 下载 release asset 返回 404，须用 `gh release download <tag> --repo catnuko/bookmark-sync`。
 
 ## 3. ★ Safari 硬约束（暂缓，勿投入）
 

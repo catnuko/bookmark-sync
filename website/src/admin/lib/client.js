@@ -50,4 +50,9 @@ export const adminApi = {
   listSubscriptions: (status) =>
     callAdmin("admin_list_subscriptions", { p_status: status ?? null }),
   systemStats: () => callAdmin("admin_system_stats"),
+  // —— GC 监控与维护（服务端托管 GC）——
+  getGcStats: (userId) => callAdmin("admin_get_gc_stats", { p_user: userId }),
+  setGcThreshold: (userId, threshold) =>
+    callAdmin("admin_set_gc_threshold", { p_user: userId, p_threshold: threshold }),
+  requestGc: (userId) => callAdmin("admin_request_gc", { p_user: userId }),
 };

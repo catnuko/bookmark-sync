@@ -1,13 +1,17 @@
 <script setup>
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { supabase } from "../lib/supabase.js";
 
-const { t } = useI18n();
+const { t, tm } = useI18n();
 
+// 商店审核中：卡片统一引导到「手动安装」区块。
+// 商店详情页上线后，把 browsers[i].url 换成真实详情页 URL，
+// 并把 available 语义恢复为「商店可下载」即可。
 const browsers = [
-  { key: "chrome", color: "#4285F4", url: "https://chromewebstore.google.com", available: true },
-  { key: "edge", color: "#0078D7", url: "https://microsoftedge.microsoft.com/addons", available: true },
-  { key: "firefox", color: "#FF7139", url: "https://addons.mozilla.org", available: true },
+  { key: "chrome", color: "#4285F4", url: "#manual", available: true },
+  { key: "edge", color: "#0078D7", url: "#manual", available: true },
+  { key: "firefox", color: "#FF7139", url: "#manual", available: true },
 ];
 
 const iconPaths = {
@@ -16,14 +20,31 @@ const iconPaths = {
   firefox: "M12 2C8 2 5 5 5 9c0 4 3 7 7 7s7-3 7-7",
 };
 
+const RELEASE_URL = "https://github.com/catnuko/bookmark-sync/releases/latest";
+
 const email = ref("");
 const submitted = ref(false);
+const busy = ref(false);
+const error = ref("");
 
-function subscribe() {
+// 订阅上架通知：写入 Supabase bsync_waitlist（需先在远端执行 0025_waitlist.sql 迁移）
+async function subscribe() {
+  if (busy.value) return;
   if (!email.value || !email.value.includes("@")) return;
-  // 占位：实际接入后改成 fetch 到后端 / ConvertKit / Brevo 等
-  submitted.value = true;
-  email.value = "";
+  error.value = "";
+  busy.value = true;
+  try {
+    const { error: err } = await supabase
+      .from("bsync_waitlist")
+      .insert({ email: email.value, source: "download" });
+    if (err) throw err;
+    submitted.value = true;
+    email.value = "";
+  } catch (e) {
+    error.value = t("download.subscribe.error");
+  } finally {
+    busy.value = false;
+  }
 }
 </script>
 
@@ -35,18 +56,16 @@ function subscribe() {
           <p class="section-eyebrow">{{ t("download.eyebrow") }}</p>
           <h1 class="section-title">{{ t("download.title") }}</h1>
           <p class="section-subtitle">{{ t("download.subtitle") }}</p>
+          <p class="download-note">{{ t("download.storePendingNote") }}</p>
         </div>
 
         <div class="browser-grid">
           <a
             v-for="b in browsers"
             :key="b.key"
-            :href="b.available ? b.url : '#subscribe'"
+            :href="b.url"
             class="browser-card"
-            :class="{ disabled: !b.available }"
-            :target="b.available ? '_blank' : '_self'"
             rel="noopener noreferrer"
-            @click.prevent="!b.available"
           >
             <div class="browser-icon" :style="{ background: b.color }">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -58,9 +77,8 @@ function subscribe() {
               <p class="browser-store">{{ t(`browsers.${b.key}.desc`) }}</p>
             </div>
             <div class="browser-action">
-              <span v-if="b.available">{{ t("download.cta") }}</span>
-              <span v-else class="coming-badge">{{ t("common.comingSoon") }}</span>
-              <svg v-if="b.available" width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <span>{{ t("download.ctaManual") }}</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M7 17L17 7M17 7H8M17 7v9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </div>
@@ -69,7 +87,33 @@ function subscribe() {
       </div>
     </section>
 
-    <!-- 邮箱订阅占位 -->
+    <!-- 手动安装（GitHub Release）——当前真实可用的安装路径 -->
+    <section id="manual" class="section manual-section">
+      <div class="container container-narrow">
+        <div class="manual-card">
+          <h2 class="manual-title">{{ t("download.manual.title") }}</h2>
+          <p class="manual-sub">{{ t("download.manual.subtitle") }}</p>
+
+          <a
+            :href="RELEASE_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-primary btn-lg manual-cta"
+          >
+            {{ t("download.manual.releaseCta") }}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </a>
+
+          <ol class="manual-steps">
+            <li v-for="(step, i) in tm('download.manual.steps')" :key="i">{{ step }}</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- 邮箱订阅：商店上架后第一时间通知 -->
     <section id="subscribe" class="section subscribe-section">
       <div class="container">
         <div class="subscribe-card">
@@ -86,8 +130,8 @@ function subscribe() {
               :placeholder="t('common.subscribePlaceholder')"
               required
             />
-            <button type="submit" class="btn btn-primary btn-lg">
-              {{ t("download.subscribe.submit") }}
+            <button type="submit" class="btn btn-primary btn-lg" :disabled="busy">
+              {{ busy ? t("download.subscribe.submitting") : t("download.subscribe.submit") }}
             </button>
           </form>
 
@@ -97,6 +141,8 @@ function subscribe() {
             </svg>
             {{ t("download.subscribe.success") }}
           </p>
+
+          <p v-if="error" class="subscribe-error">{{ error }}</p>
         </div>
       </div>
     </section>
@@ -122,6 +168,12 @@ function subscribe() {
   align-items: center;
 }
 
+.download-note {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 .browser-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -141,15 +193,10 @@ function subscribe() {
   transition: all var(--transition);
 }
 
-.browser-card:hover:not(.disabled) {
+.browser-card:hover {
   border-color: var(--color-text);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
-}
-
-.browser-card.disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
 }
 
 .browser-icon {
@@ -187,17 +234,61 @@ function subscribe() {
   color: var(--color-text);
 }
 
-.coming-badge {
-  padding: 0.25rem 0.625rem;
-  background: var(--color-bg-muted);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
+.manual-section {
+  background: var(--color-bg-soft);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.container-narrow {
+  max-width: 720px;
+}
+
+.manual-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-10) var(--space-8);
+  text-align: center;
+}
+
+.manual-title {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-2);
+}
+
+.manual-sub {
+  font-size: var(--text-base);
   color: var(--color-text-muted);
+  margin-bottom: var(--space-6);
+  line-height: 1.6;
+}
+
+.manual-cta {
+  margin-bottom: var(--space-6);
+}
+
+.manual-steps {
+  max-width: 560px;
+  margin: 0 auto;
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--color-text-soft);
+  line-height: 1.75;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.manual-steps li::marker {
+  color: var(--color-accent);
+  font-weight: 600;
 }
 
 .subscribe-section {
-  background: var(--color-bg-soft);
-  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
 }
 
 .subscribe-card {
@@ -258,6 +349,12 @@ function subscribe() {
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: 500;
+}
+
+.subscribe-error {
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: #dc2626;
 }
 
 @media (max-width: 768px) {

@@ -84,9 +84,9 @@ const { t } = useI18n();
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M5 4v16l7-5 7 5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
               </svg>
-              <span>已删除 · 30 天内可恢复</span>
+              <span>已删除 · 永不复活</span>
               <svg class="restore-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M9 14l-5-5 5-5M4 9h11a5 5 0 015 5v0a5 5 0 01-5 5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </div>
           </div>

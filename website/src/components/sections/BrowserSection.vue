@@ -4,9 +4,9 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 
 const browsers = [
-  { key: "chrome", color: "#4285F4", url: "https://chromewebstore.google.com", available: true },
-  { key: "edge", color: "#0078D7", url: "https://microsoftedge.microsoft.com/addons", available: true },
-  { key: "firefox", color: "#FF7139", url: "https://addons.mozilla.org", available: true },
+  { key: "chrome", color: "#4285F4", url: "/download#manual", available: true },
+  { key: "edge", color: "#0078D7", url: "/download#manual", available: true },
+  { key: "firefox", color: "#FF7139", url: "/download#manual", available: true },
 ];
 
 // 浏览器图标统一用一个简洁的圆形书签符号，颜色用品牌色区分
@@ -27,14 +27,11 @@ const iconPaths = {
       </div>
 
       <div class="browser-grid">
-        <a
+        <RouterLink
           v-for="b in browsers"
           :key="b.key"
-          :href="b.available ? b.url : '#'"
+          :to="b.url"
           class="browser-card card card-hover"
-          :class="{ disabled: !b.available }"
-          target="_blank"
-          rel="noopener noreferrer"
         >
           <div class="browser-icon" :style="{ background: b.color }">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -46,13 +43,12 @@ const iconPaths = {
             <p class="browser-store">{{ t(`browsers.${b.key}.desc`) }}</p>
           </div>
           <div class="browser-action">
-            <span v-if="b.available" class="browser-cta">{{ t("download.cta") }}</span>
-            <span v-else class="browser-coming">{{ t("common.comingSoon") }}</span>
-            <svg v-if="b.available" width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <span class="browser-cta">{{ t("download.ctaManual") }}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M7 17L17 7M17 7H8M17 7v9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </div>
-        </a>
+        </RouterLink>
       </div>
     </div>
   </section>
@@ -86,11 +82,6 @@ const iconPaths = {
   padding: var(--space-5) var(--space-6);
   background: var(--color-bg);
   cursor: pointer;
-}
-
-.browser-card.disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 
 .browser-icon {
@@ -130,14 +121,6 @@ const iconPaths = {
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-text);
-}
-
-.browser-coming {
-  font-size: var(--text-xs);
-  padding: 0.25rem 0.625rem;
-  background: var(--color-bg-muted);
-  border-radius: var(--radius-full);
-  color: var(--color-text-muted);
 }
 
 @media (max-width: 768px) {

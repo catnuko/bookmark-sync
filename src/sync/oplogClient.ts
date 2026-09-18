@@ -47,10 +47,14 @@ export interface PullResult {
   /** largest row id in this space (use as next afterId). */
   last_id: number;
   has_more: boolean;
+  /** 服务端判定：op_log 超过用户动态阈值或后台请求 GC（客户端据此自动配合）。 */
+  gc_needed: boolean;
 }
 
 export interface PushResult {
   inserted: number;
+  /** 服务端判定：op_log 超过用户动态阈值或后台请求 GC。 */
+  gc_needed: boolean;
 }
 
 /** One snapshot row (bsync_snapshots). data is an encrypted envelope. */
@@ -68,6 +72,11 @@ export interface GcResult {
   /** number of op_log rows deleted (0 when not gced). */
   deleted: number;
   snapshot_id: number | null;
+  /**
+   * 客户端侧拒绝执行的附加原因（服务端拒绝时不返回）：
+   * 'replica_incomplete' = 本地 replica 有解密失败缺行，快照会丢数据，拒绝生成投影。
+   */
+  reason?: 'replica_incomplete';
 }
 
 /**
@@ -75,16 +84,21 @@ export interface GcResult {
  *  - push: batch-insert; ON CONFLICT(space_id, device_id, seq) DO NOTHING.
  *  - pull: rows with global id > afterId, ordered by id ASC, paginated.
  *  - snapshotPull: latest snapshot of the space (null when none).
- *  - maybeGc: if row count > threshold, store a snapshot (encrypted client
- *    projection) at the current max id and delete op_log rows <= that id
- *    (keeping at most the latest snapshot). This is the op-log GC entry point.
+ *  - maybeGc: store a snapshot (encrypted client projection) at the current
+ *    max id and delete op_log rows <= that id (keeping at most the latest
+ *    snapshot). Whether GC actually runs is decided by the SERVER (user
+ *    dynamic threshold or admin request) — the client only supplies the
+ *    encrypted projection.
  */
 export interface OpLogTransport {
   push(spaceId: string, deviceId: string, ops: PushOp[]): Promise<PushResult>;
   pull(spaceId: string, afterId: number, limit?: number): Promise<PullResult>;
   snapshotPull(spaceId: string): Promise<SnapshotRow | null>;
-  maybeGc(spaceId: string, threshold: number, projection: EncryptedOpEnvelope): Promise<GcResult>;
+  maybeGc(spaceId: string, projection: EncryptedOpEnvelope): Promise<GcResult>;
 }
+
+/** 内存实现的内部 GC 判定阈值（与服务端 free 默认一致；服务端以实际阈值为准）。 */
+const MEMORY_GC_THRESHOLD = 2000;
 
 /** Build the seq (per-device monotonic) from a MoveOp's Lamport counter. */
 export function seqOf(op: MoveOp): number {
@@ -109,6 +123,13 @@ export class MemoryOpLogTransport implements OpLogTransport {
   private nextId = 1;
   private snapId = 1;
 
+  /**
+   * 内存实现的可配置 GC 阈值（默认与服务端 free 一致 2000）。
+   * 服务端托管后阈值由服务端决定；这里仅模拟「行数超过阈值即允许 GC」的判定，
+   * 测试可传小阈值触发截断。
+   */
+  constructor(private readonly gcThreshold: number = MEMORY_GC_THRESHOLD) {}
+
   async push(
     spaceId: string,
     deviceId: string,
@@ -131,7 +152,7 @@ export class MemoryOpLogTransport implements OpLogTransport {
       });
       inserted++;
     }
-    return { inserted };
+    return { inserted, gc_needed: this.gcNeededFor(spaceId) };
   }
 
   async pull(
@@ -144,7 +165,17 @@ export class MemoryOpLogTransport implements OpLogTransport {
       .sort((a, b) => a.id - b.id);
     const page = all.slice(0, limit);
     const lastId = page.length ? page[page.length - 1].id : afterId;
-    return { rows: page, last_id: lastId, has_more: all.length > page.length };
+    return {
+      rows: page,
+      last_id: lastId,
+      has_more: all.length > page.length,
+      gc_needed: this.gcNeededFor(spaceId),
+    };
+  }
+
+  /** 内存实现的判定：行数超过内部阈值即标记（服务端以用户动态阈值为准）。 */
+  private gcNeededFor(spaceId: string): boolean {
+    return this.rows.filter((r) => r.space_id === spaceId).length > this.gcThreshold;
   }
 
   async snapshotPull(spaceId: string): Promise<SnapshotRow | null> {
@@ -163,11 +194,10 @@ export class MemoryOpLogTransport implements OpLogTransport {
 
   async maybeGc(
     spaceId: string,
-    threshold: number,
     projection: EncryptedOpEnvelope,
   ): Promise<GcResult> {
     const count = this.rows.filter((r) => r.space_id === spaceId).length;
-    if (count <= threshold) return { gced: false, deleted: 0, snapshot_id: null };
+    if (count <= this.gcThreshold) return { gced: false, deleted: 0, snapshot_id: null };
     const maxId = Math.max(
       ...this.rows.filter((r) => r.space_id === spaceId).map((r) => r.id),
       0,
@@ -221,8 +251,8 @@ export class SupabaseOpLogTransport implements OpLogTransport {
       p_ops: ops.map((o) => ({ seq: o.seq, op: o.op, cid: o.cid ?? null })),
     });
     if (error) throw error instanceof Error ? error : new Error(String(error));
-    const r = data as { inserted?: number };
-    return { inserted: r.inserted ?? 0 };
+    const r = data as { inserted?: number; gc_needed?: boolean };
+    return { inserted: r.inserted ?? 0, gc_needed: r.gc_needed ?? false };
   }
 
   async pull(
@@ -247,6 +277,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
       }>;
       last_id?: number;
       has_more?: boolean;
+      gc_needed?: boolean;
     };
     return {
       rows: (r.rows ?? []).map((x) => ({
@@ -259,6 +290,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
       })),
       last_id: Number(r.last_id ?? afterId),
       has_more: r.has_more ?? false,
+      gc_needed: r.gc_needed ?? false,
     };
   }
 
@@ -284,12 +316,11 @@ export class SupabaseOpLogTransport implements OpLogTransport {
 
   async maybeGc(
     spaceId: string,
-    threshold: number,
     projection: EncryptedOpEnvelope,
   ): Promise<GcResult> {
+    // 是否执行 GC 由服务端判定（用户动态阈值或后台请求），客户端只提供加密投影
     const { data, error } = await this.client.rpc('bsync_op_maybe_gc', {
       p_space: spaceId,
-      p_threshold: threshold,
       p_projection: projection,
     });
     if (error) throw error instanceof Error ? error : new Error(String(error));

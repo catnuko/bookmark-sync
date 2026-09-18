@@ -78,11 +78,15 @@ describe('KeyManager 口令模式（跨设备盐流转）', () => {
     expect(await b.importKey('not-a-valid-key')).toBe(false);
   });
 
-  it('exportKey 惰性确保密钥存在（未设口令时导出即生成）', async () => {
+  it('未设口令时 exportKey 返回空（不再自动生成随机密钥，只能由口令派生）', async () => {
     const km = new KeyManager(memKV());
+    expect(await km.hasKey()).toBe(false);
+    expect(await km.exportKey()).toBe('');
+    // 设口令后密钥才存在，且导出稳定（惰性生成行为已随 ef0fcab 移除）
+    await km.setKeyFromPassphrase('a passphrase long enough');
     const b64 = await km.exportKey();
     expect(b64).toBeTruthy();
-    expect((await km.exportKey())).toBe(b64);
+    expect(await km.exportKey()).toBe(b64);
   });
 
   it('派生密钥长度与格式：AES-256（32 原始字节 → 43 字符 base64url）', async () => {

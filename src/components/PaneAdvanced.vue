@@ -36,37 +36,18 @@
     </div>
 
     <div class="grp">
-      <h4>操作日志维护</h4>
+      <h4>数据维护</h4>
       <div class="inset-group">
-        <div class="inset-row">
-          <span class="lede"><Icon name="list" /></span>
-          <div class="r-main">
-            <div class="r-title">日志 GC 阈值</div>
-            <div class="r-sub">超过该条数时自动压缩为一份加密快照并截断旧日志，防止云端无限增长</div>
-          </div>
-          <input
-            v-model="state.gcThresholdInput"
-            class="input"
-            type="number"
-            min="0"
-            step="500"
-            placeholder="例如 2000"
-            aria-label="GC 阈值"
-            style="width:110px"
-            @keyup.enter="saveGcThreshold"
-          />
-          <button class="btn btn-secondary btn-sm" @click="saveGcThreshold">保存</button>
-        </div>
         <div class="inset-row">
           <span class="lede"><Icon name="folder" /></span>
           <div class="r-main">
             <div class="r-title">最近一次日志压缩</div>
-            <div class="r-sub">{{ state.lastGcAt ? fmt(state.lastGcAt) : '尚未触发' }}</div>
+            <div class="r-sub">云端自动合并历史操作记录并压缩存储，无需手动维护</div>
           </div>
           <span class="badge" :class="state.lastGcAt ? 'badge-success' : 'badge-neutral'">{{ state.lastGcAt ? '已压缩' : '未触发' }}</span>
         </div>
       </div>
-      <p class="foot">压缩仅合并历史操作记录，不删除任何书签。阈值设为 0 关闭自动压缩。</p>
+      <p class="foot">日志压缩仅合并历史操作记录，不删除任何书签。由云端按需自动执行。</p>
     </div>
 
     <div class="grp">
@@ -94,7 +75,7 @@
 </template>
 
 <script setup>
-import { state, saveGcThreshold, toggleAutoSync, logout, fmt } from "../store.js";
+import { state, toggleAutoSync, logout, fmt } from "../store.js";
 import SwitchToggle from "./ui/SwitchToggle.vue";
 import Icon from "./ui/Icon.vue";
 

@@ -76,6 +76,14 @@
         "title": "True tree structure, hierarchy never breaks",
         "desc": "Sync keeps the tree as-is instead of flattening it into path strings. Rename, move, or reorder folders and every child and level is preserved — no more \"renamed a folder and its children vanished\"."
       },
+      "spaces": {
+        "title": "Isolated sync spaces — work vs. personal",
+        "desc": "Each space is an independent bookmark tree, bindable to different browser profiles. Free 1 space / Plus 3 / Pro 10; switching spaces switches sync context."
+      },
+      "devices": {
+        "title": "Devices at a glance, unbind anytime",
+        "desc": "Syncing browsers register as devices automatically — view, rename, or unbind them. Remove old devices whenever you like."
+      },
       "history": {
         "title": "Precise deletes, they never come back",
         "desc": "Deletes propagate across devices via tombstones. A bookmark removed on device A will never resurrect on device B from stale data."
@@ -293,6 +301,30 @@
         "order": {
           "q": "Will sync scramble my bookmark and folder order?",
           "a": "No. Every bookmark carries a sort key and sync converges on it: reorder by dragging on one device, and the others follow. If two devices insert at the same spot concurrently, they still converge to one deterministic order (tie-broken by unique ID) — no overwrites, no random shuffling."
+        },
+        "passphrase": {
+          "q": "What if I forget my sync passphrase?",
+          "a": "The passphrase is the only key to decrypt: losing it means the encrypted cloud data can never be decrypted. Save it in a password manager. New versions sync the salt in the cloud, so you only need the same passphrase on a new device — no manual key export."
+        },
+        "newDevice": {
+          "q": "How do I restore bookmarks on a new device / after reinstall?",
+          "a": "1. Remember your sync passphrase on the old device;\n2. Log in with the same account on the new device;\n3. Enter the same passphrase when prompted;\n4. Tap Sync Now — bookmarks restore from the cloud, and a default sync space is created automatically."
+        },
+        "devices": {
+          "q": "Can I manage synced devices?",
+          "a": "Yes. Syncing browsers register as devices automatically; in the Spaces & Devices panel you can view, rename, or unbind them. Remove old devices whenever needed."
+        },
+        "autoSync": {
+          "q": "Can I turn off automatic sync?",
+          "a": "Yes. Turn off the auto-sync toggle under Advanced in the options page; sync then only runs when you tap Sync Now."
+        },
+        "gc": {
+          "q": "Does cloud log compaction delete my bookmarks?",
+          "a": "No. Compaction only merges historical operation records to save storage; it never deletes bookmarks. It runs automatically on the server as needed."
+        },
+        "quotaUnit": {
+          "q": "Is the quota counted by bookmarks or bytes?",
+          "a": "Enforcement is by bytes: Free 5MB / Plus 50MB / Pro 500MB. Marketing is by bookmarks: Free 500 / Plus 10,000 / Pro unlimited. Plus's 50MB holds roughly 25k bookmarks, so the advertised 10,000 leaves headroom; everyday use won't hit the limit."
         }
       }
     },
@@ -301,31 +333,151 @@
   "download": {
     "eyebrow": "Download",
     "title": "Choose your browser",
-    "subtitle": "Click the corresponding browser to jump to its app store.",
-    "cta": "Open store",
+    "subtitle": "Store listings are pending review — install manually from GitHub Releases, or leave your email to be notified once published.",
+    "cta": "Visit store",
+    "ctaManual": "Install manually",
+    "storePendingNote": "Chrome Web Store, Edge Add-ons, and Firefox Add-ons listings are under review. For now, install manually from GitHub Releases.",
+    "manual": {
+      "title": "Manual install (GitHub Release)",
+      "subtitle": "Download the zip for your browser from GitHub Releases and load it as follows. New releases generate install packages for all browsers automatically.",
+      "releaseCta": "Go to GitHub Releases",
+      "steps": [
+        "Chrome / Edge: open the extensions page (chrome://extensions or edge://extensions), enable Developer Mode in the top-right, click Load unpacked, and select the extracted chromium folder.",
+        "Firefox: open about:debugging#/runtime/this-firefox, click Load Temporary Add-on, and select the extracted manifest.json.",
+        "Open the extension options page, log in and set your sync passphrase, then start syncing."
+      ]
+    },
     "subscribe": {
-      "title": "Your browser not supported yet?",
-      "subtitle": "Leave your email and we'll notify you the moment it launches.",
+      "title": "Be notified when we hit the stores",
+      "subtitle": "Leave your email and we'll notify you when we launch on Chrome, Edge, or Firefox.",
       "submit": "Notify me",
-      "success": "Subscribed! We'll let you know when it launches."
+      "submitting": "Submitting…",
+      "success": "Subscribed! We'll notify you when the new version launches.",
+      "error": "Subscription failed. Please retry later, or contact support{'@'}bookmark-sync.top"
     }
   },
   "docs": {
     "eyebrow": "Docs",
     "title": "Documentation",
-    "subtitle": "Quick start, feature deep-dive, troubleshooting — find every answer here.",
-    "comingSoon": "Docs are being written — stay tuned.",
+    "subtitle": "Quick start, feature deep-dive, FAQ, and troubleshooting — all answered here.",
     "sections": {
-      "quickstart": "Quick Start",
-      "features": "Features",
-      "faq": "FAQ",
-      "troubleshoot": "Troubleshoot"
+      "quickstart": {
+        "title": "Quick Start",
+        "intro": "From install to first sync, about 5 minutes.",
+        "steps": [
+          {
+            "t": "Download & install",
+            "d": "Store listings are pending review: download the zip for your browser from GitHub Releases. Unzip it, then in Chrome / Edge open the extensions page, enable Developer Mode, and Load unpacked; in Firefox open about:debugging#/runtime/this-firefox and Load Temporary Add-on."
+          },
+          {
+            "t": "Log in",
+            "d": "Open the extension options page and sign up or log in with your email. The website and the extension share the same account (same Supabase Auth)."
+          },
+          {
+            "t": "Set your sync passphrase",
+            "d": "Set a sync passphrase after first login. All bookmarks are encrypted on your device before upload; the passphrase only derives the decryption key locally and is never sent to the server. Store it in a password manager — losing it means your data cannot be recovered."
+          },
+          {
+            "t": "Start syncing",
+            "d": "Tap Sync Now to upload your local bookmarks encrypted. On a new device, log in and enter the same passphrase to restore from the cloud; a default sync space is created automatically."
+          }
+        ]
+      },
+      "features": {
+        "title": "Features",
+        "intro": "The sync engine works on the real bookmark tree, not flattened path strings.",
+        "items": [
+          {
+            "t": "True-tree sync",
+            "d": "Syncs the bookmark tree as-is. Rename, move, or reorder folders without losing children or hierarchy."
+          },
+          {
+            "t": "Precise deletes, never resurrect",
+            "d": "Deletes propagate across devices as tombstones; a bookmark removed on device A never reappears on device B from stale data."
+          },
+          {
+            "t": "Automatic multi-device merge",
+            "d": "Concurrent add/edit/delete merges intelligently on both devices — both sides' changes are kept, nothing overwritten."
+          },
+          {
+            "t": "End-to-end encryption (on by default)",
+            "d": "Every bookmark op is encrypted (AES-256-GCM) on your device before upload; the server stores ciphertext only. Keys derive from your passphrase (PBKDF2, salt synced in the cloud); a new device decrypts with the same passphrase."
+          },
+          {
+            "t": "Multiple sync spaces",
+            "d": "Each space is an independent bookmark tree (e.g., work / personal), bindable to different browser profiles. Free 1 space, Plus 3, Pro 10."
+          },
+          {
+            "t": "Device management",
+            "d": "Syncing browsers register as devices automatically — view, rename, or unbind them, and remove unused old devices anytime."
+          },
+          {
+            "t": "Automatic sync",
+            "d": "Detects local bookmark changes and uploads/pulls deltas in the background automatically; can be disabled under Advanced for manual-only sync."
+          },
+          {
+            "t": "Cross-browser bookmark menu",
+            "d": "Firefox's Bookmark Menu location is mirrored as a same-named folder under Chrome's bookmark bar, synced across devices."
+          }
+        ]
+      },
+      "faq": {
+        "title": "FAQ",
+        "intro": "",
+        "items": [
+          {
+            "q": "What if I forget my sync passphrase?",
+            "a": "The passphrase is the only key to decrypt: losing it means the encrypted cloud data can never be decrypted. Save it in a password manager. New versions sync the salt in the cloud, so you only need the same passphrase on a new device."
+          },
+          {
+            "q": "How do I restore bookmarks on a new device / after reinstall?",
+            "a": "1. Remember your sync passphrase on the old device;\n2. Log in with the same account on the new device;\n3. Enter the same passphrase when prompted;\n4. Tap Sync Now — bookmarks restore from the cloud, and a default sync space is created automatically."
+          },
+          {
+            "q": "Can deleted bookmarks be recovered?",
+            "a": "No. Deleting creates a tombstone that syncs to every device; deletion is consistent across devices and is never pulled back from the cloud. Confirm before deleting."
+          },
+          {
+            "q": "How do I read the sync-done message?",
+            "a": "Messages describe the outcome instead of push/pull counts (those are internal op counts and don't match your bookmark count). First sync done = first upload or cloud restore; Two-way sync done = both sides changed and synced; Up to date = nothing new."
+          },
+          {
+            "q": "Is the quota counted by bookmarks or bytes?",
+            "a": "Enforcement is by bytes: Free 5MB / Plus 50MB / Pro 500MB. Marketing is by bookmarks: Free 500 / Plus 10,000 / Pro unlimited. Plus's 50MB holds roughly 25k bookmarks, so the advertised 10,000 leaves headroom; everyday use won't hit the limit."
+          },
+          {
+            "q": "Can I turn off automatic sync?",
+            "a": "Yes. Turn off the auto-sync toggle under Advanced in the options page; sync then only runs when you tap Sync Now."
+          }
+        ]
+      },
+      "troubleshoot": {
+        "title": "Troubleshooting",
+        "intro": "",
+        "items": [
+          {
+            "q": "Seeing 'N cloud items failed to decrypt'?",
+            "a": "It means the sync key doesn't match the cloud data. Check that you entered the correct sync passphrase, or whether the key changed. Never keep overwriting sync while decryption fails — it can truncate cloud data."
+          },
+          {
+            "q": "Deleted the Bookmark Menu folder in Chrome?",
+            "a": "That only clears the bookmarks inside (synced to all devices); the folder itself auto-recovers — designed behavior, not a bug. Don't delete it repeatedly; to clear its contents, delete the bookmarks inside."
+          },
+          {
+            "q": "Developer-mode extension doesn't update?",
+            "a": "Extensions loaded via Developer Mode don't auto-update: rebuild after code changes and click Reload on the browser's extensions page."
+          },
+          {
+            "q": "Sync isn't triggering?",
+            "a": "Check network and login state. Auto-sync is on by default: local changes push after a ~2s debounce, and a delta pull runs every 30 minutes. You can also tap Sync Now manually."
+          }
+        ]
+      }
     }
   },
   "privacy": {
     "eyebrow": "Privacy",
     "title": "Privacy Policy",
-    "updatedAt": "Updated September 2026",
     "intro": "We take your privacy seriously. This policy explains how BookmarkSync collects, stores, and uses your data.",
     "sections": {
       "collect": {
@@ -346,13 +498,14 @@
       },
       "delete": {
         "title": "How to delete data",
-        "body": "You can delete all bookmark data with one click in the extension options page. To delete your account, contact support — we will process it within 7 days."
+        "body": "To delete your account and all cloud bookmark data, contact support{'@'}bookmark-sync.top — we process it within 7 days. Bookmarks on each device can be deleted directly in the browser; deletion syncs across devices as a tombstone."
       },
       "contact": {
         "title": "Contact us",
         "body": "For any questions about this policy, contact support{'@'}bookmark-sync.top."
       }
-    }
+    },
+    "updatedAtPrefix": "Updated on"
   },
   "footer": {
     "tagline": "Cross-browser bookmark cloud sync and backup.",
@@ -364,7 +517,6 @@
   "terms": {
     "eyebrow": "Terms",
     "title": "Terms of Service",
-    "updatedAt": "Updated September 2026",
     "intro": "Welcome to BookmarkSync. These Terms of Service (\"Terms\") govern your access to and use of the BookmarkSync browser extension, website, and related services (collectively, the \"Service\"). By using the Service, you confirm you have read and agree to these Terms. If you do not agree, do not use the Service.",
     "sections": {
       "service": {
@@ -411,7 +563,8 @@
         "title": "11. Contact us",
         "body": "For any questions about these Terms, contact support{'@'}bookmark-sync.top. We will respond within 3 business days."
       }
-    }
+    },
+    "updatedAtPrefix": "Updated on"
   },
   "lang": {
     "switch": "Switch language",

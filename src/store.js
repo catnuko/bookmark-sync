@@ -17,7 +17,6 @@ import { exportKey, importKey, hasKey, setKeyFromPassphrase, isFirstDevice, clea
 // ---- 常量 ----
 export const ONBOARD_SKIP_KEY = "crdt.onboardSkipped";
 export const AUTO_SYNC_KEY = "crdt.autoSync";
-const GC_DEFAULT = 2000;
 
 // ---- 状态 ----
 export const state = reactive({
@@ -100,7 +99,6 @@ export const state = reactive({
   autoSync: true,
 
   // 共存与存储（GC）
-  gcThresholdInput: "",
   lastGcAt: null,
 
   // toast 队列
@@ -765,22 +763,10 @@ export async function toggleAutoSync() {
   );
 }
 
-// ---- 共存与存储（GC） ----
+// ---- 共存与存储（GC 由服务端托管，客户端仅展示最近一次压缩时间） ----
 export async function loadCoexistPanel() {
-  const s = await api.storage.local.get(["crdt.gcThreshold", "lastGcAt"]);
-  state.gcThresholdInput = String(s["crdt.gcThreshold"] ?? GC_DEFAULT);
+  const s = await api.storage.local.get(["lastGcAt"]);
   state.lastGcAt = s["lastGcAt"] ?? null;
-}
-
-export async function saveGcThreshold() {
-  const v = parseInt(state.gcThresholdInput, 10);
-  if (!Number.isFinite(v) || v < 0) {
-    showToast("danger", "GC 阈值须为非负整数", "0 = 关闭 GC");
-    return;
-  }
-  await api.storage.local.set({ "crdt.gcThreshold": v });
-  await loadCoexistPanel();
-  showToast("success", `已保存 GC 阈值 ${v}`, "0 = 关闭");
 }
 
 // ---- 登录 / 注册 / 登出 ----
