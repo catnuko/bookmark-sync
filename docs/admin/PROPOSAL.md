@@ -2,8 +2,8 @@
 
 > 分支：`dev` / `main`（已于 v2.2.0 随官网合并上线）
 > 范围：面向运营/作者本人的自托管后台，不开放给普通用户。
-> 一句话定位：**在官网（`website/`）内挂一套 `/admin` 子站，复用现有 Supabase Auth，用多租户 `project_members` 表做管理员鉴权，只读为主、少量写操作为辅，全程不碰用户书签密文。**
-> 文档同步状态：本文件已同步至 0027（2026-09-19）。历史差异见文末「变更记录」。
+> 一句话定位：**在官网（`website/`）内挂一套 `/admin` 子站，复用现有 Supabase Auth，用 bsync 自有的 `bsync_admins` 表做管理员鉴权，只读为主、少量写操作为辅，全程不碰用户书签密文。**
+> 文档同步状态：本文件已同步至 0029（2026-09-19）。历史差异见文末「变更记录」。
 
 ---
 
@@ -27,27 +27,27 @@ bookmark-sync v2 的后端已经具备完整的业务实体，但全部面向"�
 1. **E2EE 是红线，后台永远看不到书签内容。**
    `bsync_op_log.op` 与 `bsync_snapshots.data` 都是客户端 AES-256-GCM 加密后的密文。后台只能统计**行数、字节大小、时间戳、来源设备**，不提供"查看某用户书签列表"这种功能——哪怕作者本人也不该看，这是产品隐私承诺（官网 FAQ 已写"服务器只见密文"）。
 
-2. **复用多租户体系，不新建管理员表。**
-   共享 Supabase 项目里已有 `project_members` + `is_project_member(project_id)`，bsync 的 `project_id = '885e7f27-f4ad-447d-8f17-e18fac1dcf0a'`。把作者账号加进 `project_members` 即为管理员，不引入第二套账号系统，也不需要改 `auth.users`。
+2. **管理员名单自有化（0028 起）。**
+   初版曾复用共享 `project_members` 表 + `is_project_member` 做鉴权，0027 审计发现该表插入策略过松可被自封管理员，0028 起 bsync 改用自有的 `bsync_admins` 表（无 RLS 策略、默认全拒，仅经 SQL/service_role 维护），与共享注册表彻底解耦。
 
 3. **唯一写路径仍是 Supabase 迁移文件。**
-   遵循 `AGENTS.md` 与 `supabase/TENANTS.md`：所有 admin RPC 都以迁移形式落地在中央仓库 `catnuko/supabase-snaply-multi` 的 `supabase/migrations/`（`0020`~`0027`），由 `supabase db push` 部署。不在 Dashboard / MCP 直接改结构。
+   遵循 `AGENTS.md` 与 `supabase/TENANTS.md`：所有 admin RPC 都以迁移形式落地在中央仓库 `catnuko/supabase-snaply-multi` 的 `supabase/migrations/`（`0020`~`0029`），由 `supabase db push` 部署。不在 Dashboard / MCP 直接改结构。
 
 4. **前端是官网的一部分，不是独立应用。**
    官网已是 Vue3 + Vite + vue-router + `@supabase/supabase-js`，加 `/admin` 子路由成本最低，也复用了已部署的 Vercel 域名与 SSL。`/admin/*` 路由被 robots 规则 `Disallow: /admin` 排除出收录。
 
 5. **不使用 service role key。**
-   前端只持有 anon key。所有跨用户查询走 `SECURITY DEFINER` RPC，函数内部第一行就是 `is_project_member(...)` 校验，非成员直接 `raise exception 'forbidden'`。RLS 策略一个字都不改。
+   前端只持有 anon key。所有跨用户查询走 `SECURITY DEFINER` RPC，函数内部第一行就是 `assert_bsync_admin()` 校验，非管理员直接 `raise exception 'forbidden'`。
 
 ## 3. 角色与权限
 
 | 角色 | 判定方式 | 能做什么 |
 |---|---|---|
 | 匿名 | 未登录 | 仅能访问 `/admin/login`，其它一律跳登录 |
-| 普通登录用户 | 在 `auth.users` 但不在 `project_members` | 看到 403 页，提示"无权访问" |
-| 管理员 | 在 `project_members(project_id=bsync)` 中 | 全部页面；只读为主，仅"改 plan / 重置用量 / 清空数据 / GC 维护"等少量写操作 |
+| 普通登录用户 | 在 `auth.users` 但不在 `bsync_admins` | 看到 403 页，提示"无权访问" |
+| 管理员 | 在 `bsync_admins` 中 | 全部页面；只读为主，仅"改 plan / 重置用量 / 清空数据 / GC 维护"等少量写操作 |
 
-管理员名单维护：作者本人在 Supabase Dashboard 往 `project_members` 插一行即可，无需后台界面（人少、低频，加界面是过度设计）。所有后台写操作写入 `bsync_admin_audit_log`，前台 `/admin/audit` 可查。
+管理员名单维护：作者本人在 Supabase Dashboard 或 SQL 往 `bsync_admins` 插一行 `(<author_uid>)` 即可，无需后台界面（人少、低频，加界面是过度设计）。所有后台写操作写入 `bsync_admin_audit_log`，前台 `/admin/audit` 可查。
 
 ## 4. 功能模块清单（已落地）
 
@@ -133,7 +133,7 @@ Supabase Postgres  ◄────────────────┘
        └─ 只读 bsync_* / 订单 / 订阅 表；写操作仅改 plan / 用量 / GC / 清空数据，全部记审计
 ```
 
-### 5.1 后端 RPC 清单（迁移 0020~0026）
+### 5.1 后端 RPC 清单（迁移 0020~0029）
 
 | 函数 | 迁移 | 入参 | 说明 |
 |---|---|---|---|
@@ -193,7 +193,8 @@ website/src/admin/
 - [x] 前端只持 anon key；跨用户数据只走 `admin_*` RPC
 - [x] 每个 RPC 内部硬编码 bsync project_id 做成员校验（不接受前端传 project_id）
 - [x] 全部写操作（改 plan / 重置用量 / 清空数据 / GC 阈值 / 请求 GC）写入 `bsync_admin_audit_log`，且前台可查（0026）
-- [x] `project_members` 写入已收紧（0027）：插入策略要求「只能把自己加进自己 owner 的项目」，堵住自插管理员项目经 `assert_bsync_admin` 自封管理员的提权洞；并 revoke authenticated 的 UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER（RLS 不拦截 TRUNCATE）
+- [x] 管理员判定走自有 `bsync_admins` 名单表（0028）：无 RLS 策略（PostgREST 默认全拒），仅经 RPC / SQL 维护，彻底摆脱共享注册表
+- [x] 共享多租户层已整体拆除（0029）：lic_* 表、projects/project_members/profiles、余额函数与 7 个 license 边缘函数全部下线，0008 遗留授权问题（anon 全权限、TRUNCATE 等）随之消失；license 逻辑保留在 git 历史，可在新项目重放恢复
 - [x] `/admin/*` 被 robots 规则 `Disallow: /admin` 排除出收录
 - [x] 不展示任何书签密文、URL 明文（快照里可能含 URL，但加密；op_log.op 是密文，不 select 它）
 - [x] 危险操作（清空数据）前端双重确认 + 后端 RPC 内只删目标用户 owner_id 数据
@@ -203,8 +204,8 @@ website/src/admin/
 ## 8. 落地与自测
 
 ### 8.1 交付物
-1. `docs/admin/PROPOSAL.md`（本文件，同步至 0027）
-2. `supabase/migrations/0020~0027`（中央仓库 `catnuko/supabase-snaply-multi`；应用仓库 `supabase/` 为子模块引用）
+1. `docs/admin/PROPOSAL.md`（本文件，同步至 0029）
+2. `supabase/migrations/0020~0029`（中央仓库 `catnuko/supabase-snaply-multi`；应用仓库 `supabase/` 为子模块引用）
 3. `website/src/admin/**`（前端全部代码）
 4. `tests/admin/**`（vitest 单测）
 
@@ -214,12 +215,12 @@ website/src/admin/
 - 本地 `pnpm --dir website dev`：
   - 未登录访问 `/admin/users` → 跳 `/admin/login`
   - 登录非管理员 → 403
-  - （作者在 `project_members` 中）各页面可加载、表格有数据、审计页可查
+  - （作者在 `bsync_admins` 中）各页面可加载、表格有数据、审计页可查
 
 ### 8.3 部署步骤（作者操作）
-1. 迁移已随中央仓库入库：`0020 admin_rpc` / `0021 space_create_auth` / `0022 fix_space_quota` / `0023 admin_reset_user_data` / `0024 admin_gc_managed` / `0025 waitlist` / `0026 admin_audit_view` / `0027 tighten_project_members_insert`
-2. 在 `supabase/` 目录跑 `supabase db push`（0027 已于 9/19 部署；后续迁移一次补齐；0020 已于 9/15 部署）
-3. 在 `project_members` 给作者账号插一行 `(bsync_project_id, <author_uid>, 'admin')`
+1. 迁移已随中央仓库入库：`0020 admin_rpc` / `0021 space_create_auth` / `0022 fix_space_quota` / `0023 admin_reset_user_data` / `0024 admin_gc_managed` / `0025 waitlist` / `0026 admin_audit_view` / `0027 tighten_project_members_insert` / `0028 bsync_admins` / `0029 drop_license_and_shared_registry`
+2. 在 `supabase/` 目录跑 `supabase db push`（0028/0029 已于 9/19 随单租户化一并部署）
+3. 在 `bsync_admins` 给作者账号插一行 `(<author_uid>)`
 4. 前端已随 v2.2.0 上线 main；后续 dev 提交合并 main 后 Vercel 自动部署
 5. 访问 `https://www.bookmark-sync.top/admin` 登录验证
 
@@ -231,7 +232,7 @@ website/src/admin/
 - 不做"实时日志 tail"——Supabase 本身有 Dashboard logs，重复建设
 - 不做"书签内容搜索/查看"——E2EE 红线
 - 不做"License/Token 卡密管理界面"——卡密子系统（`licenses`/`user_tokens`）归共享项目，0020 已移除相关 RPC，避免双重写入路径；卡密操作仍走已有边缘函数与 Dashboard
-- 不改扩展端代码；RLS 策略变更只在中央仓库以新迁移落地（0027 收紧了共享表 `project_members` 的写入策略）
+- 不改扩展端代码；RLS 策略与权限变更只在中央仓库以新迁移落地（0027 收紧共享表写入 → 0028 管理员自有化 → 0029 拆除共享层）
 
 ## 10. 变更记录
 
@@ -241,4 +242,5 @@ website/src/admin/
 | 2026-09-15 | 0020 部署生产；分支迁移至 `dev` 并删除 feat 分支；卡密 RPC 移除 |
 | 2026-09-17 | 0023 一键清空、0024 GC 托管入库 |
 | 2026-09-18 | 0026 审计查看页（`/admin/audit`）；本文件同步：删 license 模块、补 GC/清空/审计，RPC 清单更新为 16 个 |
-| 2026-09-19 | 0027 收紧 `project_members` 写入权限（修「自插管理员项目 → 自封管理员」提权洞 + revoke authenticated 的 TRUNCATE 等）；已部署并通过 RLS 模拟测试；本文件同步至 0027 |
+| 2026-09-19 | 0027 收紧 `project_members` 写入权限（修「自插管理员项目 → 自封管理员」提权洞 + revoke authenticated 的 TRUNCATE 等）；已部署并通过 RLS 模拟测试 |
+| 2026-09-19 | 单租户化：0028 管理员判定改查自有 `bsync_admins`；0029 拆除 license 子系统与共享注册表（数据确认为测试数据后清空），license 逻辑保留 git 历史；本文件同步至 0029 |
