@@ -134,6 +134,12 @@ export async function removeDevice(deviceId) {
   return { ok: true };
 }
 
+export async function renameDevice(deviceId, name) {
+  const { error } = await supabase.rpc("bsync_device_rename", { p_device: deviceId, p_name: name });
+  if (error) return spaceRpcError(error);
+  return { ok: true };
+}
+
 // 服务端书签计数（v2：从 profile.used_count 读）。
 export async function countServerBookmarks() {
   try {

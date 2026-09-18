@@ -7,7 +7,7 @@ import { supabase } from "./lib/supabase.js";
 import {
   getProfile, countServerBookmarks,
   getActiveSpace, switchSpace, createSpace, deleteSpace, renameSpace,
-  listDevices, removeDevice, getDeviceId,
+  listDevices, removeDevice, renameDevice, getDeviceId,
   acknowledgeFirstSync, pullOverwriteLocal,
   resetCoordinator,
 } from "./sync.js";
@@ -68,6 +68,8 @@ export const state = reactive({
   creatingSpace: false, // 「新建空间」行展开态
   renamingId: "",
   renameInput: "",
+  renamingDeviceId: "",
+  deviceRenameInput: "",
 
   // 危险操作两步确认（armed 目标 key + 3 秒递减倒计时）
   armed: "",
@@ -448,6 +450,32 @@ export async function doRemoveDevice(d) {
       showToast("danger", `移除失败: ${e?.message ?? e}`, "");
     }
   });
+}
+
+// ---- 设备改名 ----
+export function startDeviceRename(d) {
+  state.renamingDeviceId = d.device_id;
+  state.deviceRenameInput = baseDeviceName(d); // 预填当前存储名；未命名过则为空
+}
+
+export async function submitDeviceRename(d) {
+  const name = state.deviceRenameInput.trim();
+  if (!name || name === baseDeviceName(d)) {
+    state.renamingDeviceId = "";
+    return;
+  }
+  const r = await renameDevice(d.device_id, name);
+  state.renamingDeviceId = "";
+  if (!r.ok && r.reason === "invalid_name") {
+    showToast("danger", "名称无效", "不能为空且不超过 50 个字符");
+    return;
+  }
+  if (!r.ok) {
+    showToast("danger", `改名失败: ${r.error ?? r.reason}`, "");
+    return;
+  }
+  await refreshSpacesDevices();
+  showToast("success", "设备已改名", "下次同步不会被自动探测名覆盖。");
 }
 
 // ---- 设备名展示 ----
