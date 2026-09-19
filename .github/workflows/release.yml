@@ -92,6 +92,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 注意：release-please 的 extra-files(json) 在当前版本实测不生效
+      # （v2.3.0 的 release PR 未更新 manifest，见 PR #13），这里按 package.json
+      # 的版本号回填两个 manifest，保证发出去的 zip 版本号正确。
+      - name: Sync extension manifest versions
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          node -e "
+            const fs = require('fs');
+            for (const p of ['public/manifest.json', 'public/manifest.firefox.json']) {
+              const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+              m.version = process.env.VER;
+              fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');
+              console.log(p, '->', m.version);
+            }
+          "
+        env:
+          VER: ${{ needs.release-please.outputs.version }}
+
       # 注意：不用 pnpm build（会顺带做 Safari 的 Xcode 同步/编译），
       # 这里只跑 vite build + 手工跑 Firefox 脚本。
       - name: Build Chromium (Chrome/Edge)
