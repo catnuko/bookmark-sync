@@ -5,7 +5,7 @@
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "rewrites": [
-    { "source": "/((?!assets/|favicon\\.svg).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|downloads/|favicon\\.svg).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

@@ -5,13 +5,16 @@ import { supabase } from "../lib/supabase.js";
 
 const { t, tm } = useI18n();
 
-// 商店审核中：卡片统一引导到「手动安装」区块。
-// 商店详情页上线后，把 browsers[i].url 换成真实详情页 URL，
-// 并把 available 语义恢复为「商店可下载」即可。
+// 商店审核中：卡片仅展示「即将推出」，不可点击；真实安装包走下方手动安装区。
+// 商店详情页上线后，把卡片恢复为 <a> 并指向商店详情页。
+const VERSION = "2.2.0";
+const CHROMIUM_ZIP = `/downloads/bookmark-sync-chromium-${VERSION}.zip`;
+const FIREFOX_ZIP = `/downloads/bookmark-sync-firefox-${VERSION}.zip`;
+
 const browsers = [
-  { key: "chrome", color: "#4285F4", url: "#manual", available: true },
-  { key: "edge", color: "#0078D7", url: "#manual", available: true },
-  { key: "firefox", color: "#FF7139", url: "#manual", available: true },
+  { key: "chrome", color: "#4285F4" },
+  { key: "edge", color: "#0078D7" },
+  { key: "firefox", color: "#FF7139" },
 ];
 
 const iconPaths = {
@@ -19,8 +22,6 @@ const iconPaths = {
   edge: "M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
   firefox: "M12 2C8 2 5 5 5 9c0 4 3 7 7 7s7-3 7-7",
 };
-
-const RELEASE_URL = "https://github.com/catnuko/bookmark-sync/releases/latest";
 
 const email = ref("");
 const submitted = ref(false);
@@ -60,12 +61,10 @@ async function subscribe() {
         </div>
 
         <div class="browser-grid">
-          <a
+          <div
             v-for="b in browsers"
             :key="b.key"
-            :href="b.url"
-            class="browser-card"
-            rel="noopener noreferrer"
+            class="browser-card browser-card-soon"
           >
             <div class="browser-icon" :style="{ background: b.color }">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -76,35 +75,27 @@ async function subscribe() {
               <h3 class="browser-name">{{ t(`browsers.${b.key}.name`) }}</h3>
               <p class="browser-store">{{ t(`browsers.${b.key}.desc`) }}</p>
             </div>
-            <div class="browser-action">
-              <span>{{ t("download.ctaManual") }}</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M7 17L17 7M17 7H8M17 7v9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </div>
-          </a>
+            <span class="browser-soon">{{ t("common.comingSoon") }}</span>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- 手动安装（GitHub Release）——当前真实可用的安装路径 -->
+    <!-- 手动安装——安装包直发在官网，商店上架前是唯一安装路径 -->
     <section id="manual" class="section manual-section">
       <div class="container container-narrow">
         <div class="manual-card">
-          <h2 class="manual-title">{{ t("download.manual.title") }}</h2>
+          <h2 class="manual-title">{{ t("download.manual.title", { version: VERSION }) }}</h2>
           <p class="manual-sub">{{ t("download.manual.subtitle") }}</p>
 
-          <a
-            :href="RELEASE_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-primary btn-lg manual-cta"
-          >
-            {{ t("download.manual.releaseCta") }}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </a>
+          <div class="manual-ctas">
+            <a :href="CHROMIUM_ZIP" download class="btn btn-primary btn-lg manual-cta">
+              {{ t("download.manual.chromiumCta") }}
+            </a>
+            <a :href="FIREFOX_ZIP" download class="btn btn-outline btn-lg manual-cta">
+              {{ t("download.manual.firefoxCta") }}
+            </a>
+          </div>
 
           <ol class="manual-steps">
             <li v-for="(step, i) in tm('download.manual.steps')" :key="i">{{ step }}</li>
@@ -225,13 +216,25 @@ async function subscribe() {
   color: var(--color-text-muted);
 }
 
-.browser-action {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.browser-card-soon {
+  cursor: default;
+}
+
+.browser-card-soon:hover {
+  border-color: var(--color-border);
+  box-shadow: none;
+  transform: none;
+}
+
+.browser-soon {
+  flex-shrink: 0;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-soft);
+  color: var(--color-text-faint);
   font-size: var(--text-sm);
   font-weight: 500;
-  color: var(--color-text);
 }
 
 .manual-section {
@@ -266,8 +269,16 @@ async function subscribe() {
   line-height: 1.6;
 }
 
-.manual-cta {
+.manual-ctas {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
   margin-bottom: var(--space-6);
+}
+
+.manual-cta {
+  margin-bottom: 0;
 }
 
 .manual-steps {

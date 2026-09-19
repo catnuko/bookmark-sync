@@ -22,7 +22,7 @@
     "oneTime": "一次性",
     "lifetime": "终身",
     "perMonth": "/ 月",
-    "comingSoon": "即将支持",
+    "comingSoon": "即将推出",
     "subscribe": "订阅更新",
     "subscribePlaceholder": "你的邮箱地址",
     "getStarted": "立即开始",
@@ -334,14 +334,15 @@
   "download": {
     "eyebrow": "下载",
     "title": "选择你的浏览器",
-    "subtitle": "当前商店版本审核中，可通过 GitHub Release 手动安装，或留下邮箱在上架后第一时间获知。",
+    "subtitle": "当前商店版本审核中，可从官网直接下载安装包手动安装，或留下邮箱在上架后第一时间获知。",
     "cta": "前往商店",
     "ctaManual": "手动安装",
-    "storePendingNote": "Chrome Web Store、Edge Add-ons 与 Firefox Add-ons 版本正在审核中，当前可通过 GitHub Release 手动安装。",
+    "storePendingNote": "Chrome Web Store、Edge Add-ons 与 Firefox Add-ons 版本正在审核中，当前可从官网直接下载安装包手动安装。",
     "manual": {
-      "title": "手动安装（GitHub Release）",
-      "subtitle": "在 GitHub Releases 下载对应浏览器的 zip，解压后按下面的步骤加载。发布新版本时会自动生成各浏览器的安装包。",
-      "releaseCta": "前往 GitHub Releases",
+      "title": "手动安装（v{version}）",
+      "subtitle": "下载对应浏览器的 zip，解压后按下面的步骤加载。商店上架后这里会切换为商店安装入口。",
+      "chromiumCta": "下载 Chromium 版（Chrome / Edge）",
+      "firefoxCta": "下载 Firefox 版",
       "steps": [
         "Chrome / Edge：打开扩展管理页（chrome://extensions 或 edge://extensions），开启右上角「开发者模式」，点击「加载已解压的扩展程序」，选择解压后的 chromium 目录。",
         "Firefox：打开 about:debugging#/runtime/this-firefox，点击「临时载入附加组件」，选择解压后的 manifest.json。",
@@ -368,7 +369,7 @@
         "steps": [
           {
             "t": "下载安装",
-            "d": "当前商店版本审核中：前往 GitHub Releases 下载对应浏览器的 zip。解压后，Chrome / Edge 在扩展管理页开启「开发者模式」并「加载已解压的扩展程序」；Firefox 在 about:debugging#/runtime/this-firefox 中「临时载入附加组件」。"
+            "d": "当前商店版本审核中：在官网下载页下载对应浏览器的 zip。解压后，Chrome / Edge 在扩展管理页开启「开发者模式」并「加载已解压的扩展程序」；Firefox 在 about:debugging#/runtime/this-firefox 中「临时载入附加组件」。"
           },
           {
             "t": "登录账号",

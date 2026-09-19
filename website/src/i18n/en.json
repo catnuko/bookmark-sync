@@ -334,14 +334,15 @@
   "download": {
     "eyebrow": "Download",
     "title": "Choose your browser",
-    "subtitle": "Store listings are pending review — install manually from GitHub Releases, or leave your email to be notified once published.",
+    "subtitle": "Store listings are pending review — download the install packages directly from this site, or leave your email to be notified once published.",
     "cta": "Visit store",
     "ctaManual": "Install manually",
-    "storePendingNote": "Chrome Web Store, Edge Add-ons, and Firefox Add-ons listings are under review. For now, install manually from GitHub Releases.",
+    "storePendingNote": "Chrome Web Store, Edge Add-ons, and Firefox Add-ons listings are under review. For now, download the install packages directly from this site.",
     "manual": {
-      "title": "Manual install (GitHub Release)",
-      "subtitle": "Download the zip for your browser from GitHub Releases and load it as follows. New releases generate install packages for all browsers automatically.",
-      "releaseCta": "Go to GitHub Releases",
+      "title": "Manual install (v{version})",
+      "subtitle": "Download the zip for your browser and load it as follows. Store install links will replace this once listings are approved.",
+      "chromiumCta": "Download for Chromium (Chrome / Edge)",
+      "firefoxCta": "Download for Firefox",
       "steps": [
         "Chrome / Edge: open the extensions page (chrome://extensions or edge://extensions), enable Developer Mode in the top-right, click Load unpacked, and select the extracted chromium folder.",
         "Firefox: open about:debugging#/runtime/this-firefox, click Load Temporary Add-on, and select the extracted manifest.json.",
@@ -368,7 +369,7 @@
         "steps": [
           {
             "t": "Download & install",
-            "d": "Store listings are pending review: download the zip for your browser from GitHub Releases. Unzip it, then in Chrome / Edge open the extensions page, enable Developer Mode, and Load unpacked; in Firefox open about:debugging#/runtime/this-firefox and Load Temporary Add-on."
+            "d": "Store listings are pending review: download the zip for your browser from the download page on this site. Unzip it, then in Chrome / Edge open the extensions page, enable Developer Mode, and Load unpacked; in Firefox open about:debugging#/runtime/this-firefox and Load Temporary Add-on."
           },
           {
             "t": "Log in",
