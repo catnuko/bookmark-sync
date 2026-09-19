@@ -27,10 +27,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY')!;
 const CREEM_WEBHOOK_SECRET = Deno.env.get('CREEM_WEBHOOK_SECRET') || '';
 
-// plan => 同步配额（字节）。Free 5MB / Plus 50MB（≈2.5万条）/ Pro 500MB（≈25万条）
+// plan => 同步配额（字节）。按 0035 校准（2KB/条）对齐条数承诺：
+// Free 1MB（≈500 条）/ Plus 20MB（≈1 万条）/ Pro 500MB（≈25 万条封顶，数量不限档）。
+// 必须与迁移 0035 的 bsync_effective_quota_bytes 映射保持一致。
 const PLAN_QUOTA_BYTES: Record<string, number> = {
-  free: 5 * 1024 * 1024,
-  plus: 50 * 1024 * 1024,
+  free: 1 * 1024 * 1024,
+  plus: 20 * 1024 * 1024,
   pro: 500 * 1024 * 1024,
 };
 

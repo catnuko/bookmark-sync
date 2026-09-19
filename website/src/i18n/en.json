@@ -328,7 +328,7 @@
         },
         "quotaUnit": {
           "q": "Is the quota counted by bookmarks or bytes?",
-          "a": "Enforcement is by bytes: Free 5MB / Plus 50MB / Pro 500MB. Marketing is by bookmarks: Free 500 / Plus 10,000 / Pro unlimited (500MB ≈ 250,000 cap). Plus's 50MB holds roughly 25k bookmarks, so the advertised 10,000 leaves headroom; everyday use won't hit the limit."
+          "a": "Enforcement is by bytes (the only server-enforceable metric under E2EE): Free 1MB / Plus 20MB / Pro 500MB, calibrated at ~2KB per bookmark to line up with the advertised counts — Free 500 / Plus 10,000 / Pro unlimited (500MB ≈ 250,000 cap). When over quota, new changes pause; delete bookmarks or spaces to free up space and sync resumes automatically. Already-synced data is unaffected."
         }
       }
     },
@@ -448,7 +448,7 @@
           },
           {
             "q": "Is the quota counted by bookmarks or bytes?",
-            "a": "Enforcement is by bytes: Free 5MB / Plus 50MB / Pro 500MB. Marketing is by bookmarks: Free 500 / Plus 10,000 / Pro unlimited (500MB ≈ 250,000 cap). Plus's 50MB holds roughly 25k bookmarks, so the advertised 10,000 leaves headroom; everyday use won't hit the limit."
+            "a": "Enforcement is by bytes (the only server-enforceable metric under E2EE): Free 1MB / Plus 20MB / Pro 500MB, calibrated at ~2KB per bookmark to line up with the advertised counts — Free 500 / Plus 10,000 / Pro unlimited (500MB ≈ 250,000 cap). When over quota, new changes pause; delete bookmarks or spaces to free up space and sync resumes automatically. Already-synced data is unaffected."
           },
           {
             "q": "Can I turn off automatic sync?",
