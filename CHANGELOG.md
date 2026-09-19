@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.3.0](https://github.com/catnuko/bookmark-sync/compare/v2.2.0...v2.3.0) (2026-09-19)
+
+
+### Features
+
+* **admin:** 0027 收紧 project_members 写入权限（修提权漏洞）+ PROPOSAL 同步至 0027 ([410d2ce](https://github.com/catnuko/bookmark-sync/commit/410d2ceaefe134a905df89fce1a05489e2c30696))
+* **admin:** 操作审计查看页 + PROPOSAL 同步至 0026 ([7ba37ed](https://github.com/catnuko/bookmark-sync/commit/7ba37ed1ff02d83b8c88913ece5f1edae56ce74b))
+* **ci:** 安装包改由 Supabase Storage 分发，官网运行时寻址最新版 ([71b4729](https://github.com/catnuko/bookmark-sync/commit/71b4729f577f8118cdddea5906764f73bfd9cff7))
+* **i18n:** 扩展支持中英双语并收敛口令门禁为单一页面 ([e171a13](https://github.com/catnuko/bookmark-sync/commit/e171a13330a62869694d0d42b0481a121ee3bd89))
+* **popup:** 设备支持重命名 ([9873328](https://github.com/catnuko/bookmark-sync/commit/9873328a976452bf6c3a5e908c7611587fbba1ab))
+* **supabase:** 单租户化——管理员自有化(0028) + 拆除 license/共享层(0029) ([c4a9778](https://github.com/catnuko/bookmark-sync/commit/c4a9778af52da1bb0465c8e2fa9b5b0125fb286a))
+* **supabase:** 收紧字节配额对齐条数承诺，使条数限制可服务端执行 ([46c11b9](https://github.com/catnuko/bookmark-sync/commit/46c11b919f7fa40f7e046029cdf9cd1d535743b0))
+* **supabase:** 服务端限流/字节配额/设备上限执行，收回业务表 DML ([76e732a](https://github.com/catnuko/bookmark-sync/commit/76e732a62fc889cfb33237c7542ccc5c2d0d9a76))
+* **sync:** 档位化撞顶/设备/限流提示与 Pro 字节预警；官网披露上限 ([6e61ee7](https://github.com/catnuko/bookmark-sync/commit/6e61ee7e04cff0dbd3fb2b763b755b854a1845ab))
+* **website:** 新增 /support 支持页（联系邮箱 + FAQ + 资源入口） ([ec1e001](https://github.com/catnuko/bookmark-sync/commit/ec1e00183d8052f6495cb48a8fe9038797163ea1))
+
+
+### Bug Fixes
+
+* **popup:** 空间重命名撞名时显示「已存在同名空间」友好提示 ([d1a4c4a](https://github.com/catnuko/bookmark-sync/commit/d1a4c4ab0ff6ea8cd6cdd9dffff12a71e5f23e52))
+* **sync:** 批量导入加固——持久化发件箱、分块推送、每轮重扫描 ([3eb5dda](https://github.com/catnuko/bookmark-sync/commit/3eb5dda62507e0d8d8709740a12fa19015a4c465))
+* **sync:** 登录后先判定口令门禁再渲染主界面，门禁通过自动同步清残留错误 ([80cb351](https://github.com/catnuko/bookmark-sync/commit/80cb351b1c5b7830bef28a7705645b8c49c0ad79))
+* **website:** 安装包官网直发，商店卡片改为「即将推出」 ([2b119a9](https://github.com/catnuko/bookmark-sync/commit/2b119a9c685309bfcae8e6aaa571a3aa42435781))
+
 ## [2.2.0](https://github.com/catnuko/bookmark-sync/compare/v2.1.0...v2.2.0) (2026-09-18)
 
 
