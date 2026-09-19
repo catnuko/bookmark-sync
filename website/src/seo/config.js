@@ -119,6 +119,20 @@ export const ROUTE_SEO = {
       keywords: "BookmarkSync terms,bookmark sync terms,bookmark sync refund policy",
     },
   },
+  support: {
+    zh: {
+      title: "支持与帮助 · BookmarkSync",
+      description:
+        "BookmarkSync 支持与帮助：常见问题（注册、浏览器支持、免费额度、新设备恢复、数据安全、同步口令、多设备合并），联系邮箱 support@bookmark-sync.top。",
+      keywords: "BookmarkSync 帮助,书签同步常见问题,书签同步支持,书签同步联系",
+    },
+    en: {
+      title: "Support & Help · BookmarkSync",
+      description:
+        "BookmarkSync support & help: FAQ on sign-up, browser support, free quota, restoring on a new device, data security, sync passphrase and multi-device merge. Contact support@bookmark-sync.top.",
+      keywords: "BookmarkSync help,bookmark sync FAQ,bookmark sync support,bookmark sync contact",
+    },
+  },
 };
 
 /**
@@ -187,8 +201,8 @@ export function getSoftwareAppJsonLd(locale = "zh") {
 export function getBreadcrumbJsonLd(path, locale = "zh") {
   const isZh = locale === "zh";
   const labels = {
-    zh: { home: "首页", pricing: "定价", download: "下载", docs: "文档", privacy: "隐私", terms: "条款" },
-    en: { home: "Home", pricing: "Pricing", download: "Download", docs: "Docs", privacy: "Privacy", terms: "Terms" },
+    zh: { home: "首页", pricing: "定价", download: "下载", docs: "文档", privacy: "隐私", terms: "条款", support: "支持" },
+    en: { home: "Home", pricing: "Pricing", download: "Download", docs: "Docs", privacy: "Privacy", terms: "Terms", support: "Support" },
   };
   const seg = path.split("/").filter(Boolean);
   const items = [{ name: labels[locale].home, path: "/" }];

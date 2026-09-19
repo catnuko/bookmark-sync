@@ -10,7 +10,8 @@
     "download": "下载",
     "docs": "文档",
     "privacy": "隐私",
-    "terms": "条款"
+    "terms": "条款",
+    "support": "支持"
   },
   "contact": {
     "supportEmail": "support{'@'}bookmark-sync.top",
@@ -21,7 +22,7 @@
     "oneTime": "一次性",
     "lifetime": "终身",
     "perMonth": "/ 月",
-    "comingSoon": "即将支持",
+    "comingSoon": "即将推出",
     "subscribe": "订阅更新",
     "subscribePlaceholder": "你的邮箱地址",
     "getStarted": "立即开始",
@@ -333,14 +334,15 @@
   "download": {
     "eyebrow": "下载",
     "title": "选择你的浏览器",
-    "subtitle": "当前商店版本审核中，可通过 GitHub Release 手动安装，或留下邮箱在上架后第一时间获知。",
+    "subtitle": "当前商店版本审核中，可从官网直接下载安装包手动安装，或留下邮箱在上架后第一时间获知。",
     "cta": "前往商店",
     "ctaManual": "手动安装",
-    "storePendingNote": "Chrome Web Store、Edge Add-ons 与 Firefox Add-ons 版本正在审核中，当前可通过 GitHub Release 手动安装。",
+    "storePendingNote": "Chrome Web Store、Edge Add-ons 与 Firefox Add-ons 版本正在审核中，当前可从官网直接下载安装包手动安装。",
     "manual": {
-      "title": "手动安装（GitHub Release）",
-      "subtitle": "在 GitHub Releases 下载对应浏览器的 zip，解压后按下面的步骤加载。发布新版本时会自动生成各浏览器的安装包。",
-      "releaseCta": "前往 GitHub Releases",
+      "title": "手动安装（v{version}）",
+      "subtitle": "下载对应浏览器的 zip，解压后按下面的步骤加载。商店上架后这里会切换为商店安装入口。",
+      "chromiumCta": "下载 Chromium 版（Chrome / Edge）",
+      "firefoxCta": "下载 Firefox 版",
       "steps": [
         "Chrome / Edge：打开扩展管理页（chrome://extensions 或 edge://extensions），开启右上角「开发者模式」，点击「加载已解压的扩展程序」，选择解压后的 chromium 目录。",
         "Firefox：打开 about:debugging#/runtime/this-firefox，点击「临时载入附加组件」，选择解压后的 manifest.json。",
@@ -367,7 +369,7 @@
         "steps": [
           {
             "t": "下载安装",
-            "d": "当前商店版本审核中：前往 GitHub Releases 下载对应浏览器的 zip。解压后，Chrome / Edge 在扩展管理页开启「开发者模式」并「加载已解压的扩展程序」；Firefox 在 about:debugging#/runtime/this-firefox 中「临时载入附加组件」。"
+            "d": "当前商店版本审核中：在官网下载页下载对应浏览器的 zip。解压后，Chrome / Edge 在扩展管理页开启「开发者模式」并「加载已解压的扩展程序」；Firefox 在 about:debugging#/runtime/this-firefox 中「临时载入附加组件」。"
           },
           {
             "t": "登录账号",
@@ -591,5 +593,61 @@
     "checkoutFailed": "发起订阅失败，请稍后重试。",
     "portalFailed": "打开订阅管理失败，请稍后重试。",
     "close": "关闭"
+  },
+  "support": {
+    "eyebrow": "帮助中心",
+    "title": "支持与帮助",
+    "intro": "遇到问题？先看看常见问题，或直接发邮件联系我们，我们会在 3 个工作日内回复。",
+    "contact": {
+      "title": "联系我们",
+      "note": "支持邮箱 · 通常 3 个工作日内回复"
+    },
+    "faq": {
+      "title": "常见问题",
+      "subtitle": "关于注册、浏览器支持、数据安全与同步的常见疑问。",
+      "items": {
+        "account": {
+          "q": "需要注册账号吗？",
+          "a": "需要。使用邮箱 + 密码注册，登录后设置一个同步口令，即可开始跨浏览器同步书签。"
+        },
+        "browsers": {
+          "q": "支持哪些浏览器？",
+          "a": "Chrome、Edge、Firefox（Manifest V3）。Safari 暂不支持书签同步。"
+        },
+        "free": {
+          "q": "免费版能用吗？",
+          "a": "可以。免费计划同步 500 条书签，无需信用卡，同步功能与付费版完全一致。"
+        },
+        "restore": {
+          "q": "如何在新设备上恢复书签？",
+          "a": "安装扩展 → 登录同一账号 → 输入同一同步口令，完整书签树会自动拉取到新设备。"
+        },
+        "security": {
+          "q": "我的书签数据安全吗？",
+          "a": "安全。端到端加密（AES-256-GCM）默认强制开启：每条书签操作在本机加密后才上传，服务器只保存密文，任何第三方（包括服务商）都无法读取内容。"
+        },
+        "passphrase": {
+          "q": "同步口令忘记了怎么办？",
+          "a": "同步口令只保存在本机、不上传云端，是解密云端书签的唯一凭证；口令一旦设置不可更改，忘记后将无法解密书签。请务必妥善保管。"
+        },
+        "conflict": {
+          "q": "多台设备同时修改会冲突吗？",
+          "a": "不会。多端自动三方合并，各自的新增都保留；删除以墓碑方式传播，已删除的书签不会因旧数据复活。"
+        },
+        "gc": {
+          "q": "同步的云端数据会自动清理吗？",
+          "a": "会。服务端托管 GC 按动态阈值自动压缩过期操作记录，无需手动设置。"
+        }
+      }
+    },
+    "resources": {
+      "title": "更多资源",
+      "desc": "使用文档、隐私政策与服务条款：",
+      "items": {
+        "docs": "使用文档",
+        "privacy": "隐私政策",
+        "terms": "服务条款"
+      }
+    }
   }
 }

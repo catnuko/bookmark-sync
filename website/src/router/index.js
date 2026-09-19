@@ -38,6 +38,12 @@ const routes = [
     component: () => import("../views/TermsView.vue"),
     meta: { titleKey: "nav.terms" },
   },
+  {
+    path: "/support",
+    name: "support",
+    component: () => import("../views/SupportView.vue"),
+    meta: { titleKey: "nav.support" },
+  },
   // 后台管理（/admin/**，需在 catch-all 之前注册）
   ...adminRoutes,
   {

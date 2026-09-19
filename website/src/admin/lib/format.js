@@ -116,3 +116,25 @@ export function maskEmail(email) {
   const head = name.slice(0, 3);
   return `${head}***@${domain}`;
 }
+
+/** 审计操作 → 中文标签 */
+export function actionLabel(action) {
+  return ({
+    set_plan: '改 plan',
+    reset_usage: '重置用量',
+    reset_user_data: '清空数据',
+    set_gc_threshold: '改 GC 阈值',
+    request_gc: '请求 GC',
+  })[action] || action || '—';
+}
+
+/** 审计 detail 对象 → 单行摘要（key=value，长值截断） */
+export function formatAuditDetail(detail) {
+  if (!detail || typeof detail !== 'object') return '—';
+  return Object.entries(detail)
+    .map(([k, v]) => {
+      const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      return `${k}=${s.length > 40 ? `${s.slice(0, 40)}…` : s}`;
+    })
+    .join('  ');
+}

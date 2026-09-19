@@ -26,6 +26,7 @@ export const adminRoutes = [
       { path: "users/:id", name: "admin-user-detail", component: () => import("./views/AdminUserDetailView.vue"), meta: { title: "用户详情" } },
       { path: "orders", name: "admin-orders", component: () => import("./views/AdminOrdersView.vue"), meta: { title: "订单" } },
       { path: "subscriptions", name: "admin-subs", component: () => import("./views/AdminSubscriptionsView.vue"), meta: { title: "订阅" } },
+      { path: "audit", name: "admin-audit", component: () => import("./views/AdminAuditView.vue"), meta: { title: "审计" } },
       { path: "system", name: "admin-system", component: () => import("./views/AdminSystemView.vue"), meta: { title: "系统" } },
     ],
   },
