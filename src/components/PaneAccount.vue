@@ -43,7 +43,7 @@ const planBadgeCls = computed(() => {
 });
 
 const planFoot = computed(() => {
-  if (quotaCount.value == null) return "书签数量无限 · 10 个同步空间";
+  if (quotaCount.value == null) return "数量不限（约 25 万条封顶）· 10 个同步空间";
   const cap = quotaCount.value.toLocaleString();
   const used = usedCount.value ?? 0;
   return `最多 ${cap} 条书签 · 已用 ${used.toLocaleString()} 条`;

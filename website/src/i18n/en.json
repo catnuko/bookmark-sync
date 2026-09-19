@@ -91,7 +91,7 @@
       },
       "quota": {
         "title": "Tiered by count, only for capacity",
-        "desc": "Start with 500 free, 10,000 on Plus, unlimited on Pro. All tiers share identical sync features — upgrade purely for headroom."
+        "desc": "Start with 500 free, 10,000 on Plus, unlimited on Pro (capped at ~250,000). All tiers share identical sync features — upgrade purely for headroom."
       },
       "privacy": {
         "title": "Content encryption, your choice",
@@ -145,7 +145,7 @@
         "features": [
           "Up to 500 bookmarks",
           "1 sync space",
-          "Unlimited devices",
+          "Up to 3 devices",
           "True-tree sync — rename/move folders without losing items",
           "Precise deletion, never resurrected",
           "Multi-device auto-merge, never overwrite",
@@ -162,7 +162,7 @@
         "features": [
           "Up to 10,000 bookmarks",
           "3 sync spaces",
-          "Unlimited devices",
+          "Up to 6 devices",
           "True-tree sync — rename/move folders without losing items",
           "Precise deletion, never resurrected",
           "Multi-device auto-merge, never overwrite",
@@ -172,14 +172,14 @@
       },
       "pro": {
         "name": "Pro",
-        "desc": "Heavy collector, unlimited",
+        "desc": "Heavy collector, maximum headroom",
         "price": "$50",
         "unit": "/ yr",
         "cta": "Subscribe to Pro",
         "features": [
-          "Unlimited bookmarks",
+          "Unlimited (capped at ~250,000)",
           "10 sync spaces",
-          "Unlimited devices",
+          "Up to 15 devices",
           "True-tree sync — rename/move folders without losing items",
           "Precise deletion, never resurrected",
           "Multi-device auto-merge, never overwrite",
@@ -200,7 +200,7 @@
           "feature": "Bookmark limit",
           "free": "500",
           "plus": "10,000",
-          "pro": "Unlimited"
+          "pro": "Unlimited (capped at ~250,000)"
         },
         {
           "feature": "Sync spaces",
@@ -210,9 +210,9 @@
         },
         {
           "feature": "Devices",
-          "free": "Unlimited",
-          "plus": "Unlimited",
-          "pro": "Unlimited"
+          "free": "3",
+          "plus": "6",
+          "pro": "15"
         },
         {
           "feature": "Price",
@@ -281,7 +281,7 @@
       "items": {
         "upgrade": {
           "q": "Do the tiers differ in features?",
-          "a": "No. All three tiers share identical features — true-tree sync (renaming/moving folders never loses items), precise deletion, multi-device auto-merge, and end-to-end encryption enabled by default. The only differences are capacity: bookmark count and sync spaces (Free 1 / Plus 3 / Pro 10). Device count is unlimited on every tier."
+          "a": "No. All three tiers share identical features — true-tree sync (renaming/moving folders never loses items), precise deletion, multi-device auto-merge, and end-to-end encryption enabled by default. The only differences are capacity: bookmark count (Pro unlimited, capped at ~250,000), sync spaces (Free 1 / Plus 3 / Pro 10), and devices (Free 3 / Plus 6 / Pro 15)."
         },
         "refund": {
           "q": "Do you offer refunds?",
@@ -289,7 +289,7 @@
         },
         "freeLimit": {
           "q": "How many bookmarks does each tier hold?",
-          "a": "Bookmarks: Free up to 500, Plus up to 10,000, Pro unlimited. Sync spaces: Free 1, Plus 3, Pro 10. Device count is unlimited on all tiers."
+          "a": "Bookmarks: Free up to 500, Plus up to 10,000, Pro unlimited (capped at ~250,000). Sync spaces: Free 1, Plus 3, Pro 10. Devices: Free 3, Plus 6, Pro 15."
         },
         "payment": {
           "q": "What payment methods do you accept?",
@@ -325,7 +325,7 @@
         },
         "quotaUnit": {
           "q": "Is the quota counted by bookmarks or bytes?",
-          "a": "Enforcement is by bytes: Free 5MB / Plus 50MB / Pro 500MB. Marketing is by bookmarks: Free 500 / Plus 10,000 / Pro unlimited. Plus's 50MB holds roughly 25k bookmarks, so the advertised 10,000 leaves headroom; everyday use won't hit the limit."
+          "a": "Enforcement is by bytes: Free 5MB / Plus 50MB / Pro 500MB. Marketing is by bookmarks: Free 500 / Plus 10,000 / Pro unlimited (500MB ≈ 250,000 cap). Plus's 50MB holds roughly 25k bookmarks, so the advertised 10,000 leaves headroom; everyday use won't hit the limit."
         }
       }
     },
@@ -445,7 +445,7 @@
           },
           {
             "q": "Is the quota counted by bookmarks or bytes?",
-            "a": "Enforcement is by bytes: Free 5MB / Plus 50MB / Pro 500MB. Marketing is by bookmarks: Free 500 / Plus 10,000 / Pro unlimited. Plus's 50MB holds roughly 25k bookmarks, so the advertised 10,000 leaves headroom; everyday use won't hit the limit."
+            "a": "Enforcement is by bytes: Free 5MB / Plus 50MB / Pro 500MB. Marketing is by bookmarks: Free 500 / Plus 10,000 / Pro unlimited (500MB ≈ 250,000 cap). Plus's 50MB holds roughly 25k bookmarks, so the advertised 10,000 leaves headroom; everyday use won't hit the limit."
           },
           {
             "q": "Can I turn off automatic sync?",
@@ -531,7 +531,7 @@
       },
       "plans": {
         "title": "3. Tiers and subscription",
-        "body": "The Service offers Free (up to 500 bookmarks), Plus ($20/yr, up to 10,000 bookmarks), and Pro ($50/yr, unlimited bookmarks) tiers. All three share identical sync features; only the bookmark limit differs. Plus and Pro are yearly subscriptions that auto-renew and can be cancelled at any time — after cancelling you retain access until the end of the current billing period. All payments are processed by Creem (Armitage Labs OÜ, registered in Estonia) as Merchant of Record. Invoices are issued directly by Creem."
+        "body": "The Service offers Free (up to 500 bookmarks), Plus ($20/yr, up to 10,000 bookmarks), and Pro ($50/yr, unlimited, capped at ~250,000) tiers. All three share identical sync features; only bookmark count, sync spaces (Free 1 / Plus 3 / Pro 10), and devices (Free 3 / Plus 6 / Pro 15) differ. Syncing pauses when the byte-level storage cap is reached and resumes automatically after bookmarks or spaces are removed. Plus and Pro are yearly subscriptions that auto-renew and can be cancelled at any time — after cancelling you retain access until the end of the current billing period. All payments are processed by Creem (Armitage Labs OÜ, registered in Estonia) as Merchant of Record. Invoices are issued directly by Creem."
       },
       "refund": {
         "title": "4. Refund policy",

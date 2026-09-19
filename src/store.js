@@ -741,9 +741,25 @@ export async function syncNow(opts = {}) {
       return;
     }
     if (!r.ok && r.reason === "quota_exceeded") {
-      // 空间不足，弹升级 modal
+      // 字节配额撞顶（0032 服务端执行）。已付费/试用 Pro：给出清理指引而非升级弹窗；
+      // Free/Plus：升级引导。
+      if (planLabel.value === "Pro") {
+        showToast("warning", "已达 Pro 存储上限", "删除部分书签或空间释放容量后，同步会自动恢复");
+      } else {
+        state.showUpgradeModal = true;
+        showToast("warning", "空间不足", "请升级到 Plus 或 Pro");
+      }
+      return;
+    }
+    if (!r.ok && r.reason === "device_limit_reached") {
+      // 设备数超计划上限（0033）：升级引导 + 提示可移除旧设备腾位
       state.showUpgradeModal = true;
-      showToast("warning", "空间不足", "请升级到 Plus 或 Pro");
+      showToast("warning", "设备数量已达上限", "Free 最多 3 台 · 可在空间设置中移除旧设备，或升级解锁更多");
+      return;
+    }
+    if (!r.ok && r.reason === "rate_limited") {
+      // 限流（0032）：正常客户端几乎不会触发，静默提示即可，下轮自动重试
+      showToast("info", "同步过于频繁", "本轮已跳过，稍后会自动重试");
       return;
     }
     if (!r.ok && r.reason === "decrypt_error") {
@@ -945,16 +961,39 @@ export const usedCount = computed(() => {
 
 export const quotaCount = computed(() => {
   const p = state.profile?.plan;
-  if (p === "pro" || p === "lifetime") return null; // 不限数量
+  if (p === "pro" || p === "lifetime") return null; // 不限数量（字节口径兜底）
   return p === "plus" || p === "premium" ? 10000 : 500;
 });
 
+// Pro/Lifetime 按字节口径预警：E2EE 下服务端以字节执行（0032），
+// 对外仍是「数量不限」，撞顶前按 used_bytes/quota_bytes 提醒。
+// used_bytes 由服务端在推送/GC 后回写（0032），老账号下次推送前可能还是 0。
+export const byteUsagePct = computed(() => {
+  const p = state.profile;
+  if (!p) return 0;
+  if (!(p.plan === "pro" || p.plan === "lifetime")) return 0;
+  if (!p.quota_bytes || p.used_bytes == null) return 0;
+  return Math.min(100, Math.round((p.used_bytes / p.quota_bytes) * 100));
+});
+
+export const proByteLabel = computed(() => {
+  const p = state.profile;
+  if (!p?.quota_bytes || p.used_bytes == null) return "";
+  if (!(p.plan === "pro" || p.plan === "lifetime")) return "";
+  const mb = (b) => (b / 1024 / 1024).toFixed(1).replace(/\.0$/, "");
+  return `已用 ${mb(p.used_bytes)}MB / ${mb(p.quota_bytes)}MB`;
+});
+
 export const usagePct = computed(() => {
+  if (byteUsagePct.value > 0) return byteUsagePct.value;
   if (!quotaCount.value || usedCount.value == null) return 0;
   return Math.min(100, Math.round((usedCount.value / quotaCount.value) * 100));
 });
 
 export const quotaState = computed(() => {
+  // Pro 字节口径：≥80% 提醒、≥100% 阻断（约 25 万条封顶）
+  if (byteUsagePct.value >= 100) return "over";
+  if (byteUsagePct.value >= 80) return "warn";
   if (usedCount.value == null || !quotaCount.value) return "ok";
   const pct = (usedCount.value / quotaCount.value) * 100;
   if (pct >= 100) return "over";
@@ -970,11 +1009,17 @@ export const quotaBadge = computed(() => {
 
 export const quotaFoot = computed(() => {
   const spaceName = state.activeSpace?.name ?? "";
-  if (quotaState.value === "over") return `已超出配额 ${((usedCount.value ?? 0) - quotaCount.value).toLocaleString()} 条 · 请升级后继续同步`;
-  if (quotaState.value === "warn") return `仅剩 ${(quotaCount.value - usedCount.value).toLocaleString()} 条 · 超出后新书签将无法同步`;
+  if (quotaState.value === "over") {
+    if (byteUsagePct.value >= 100) return `已达存储上限 · 删除书签或空间释放容量后同步自动恢复`;
+    return `已超出配额 ${((usedCount.value ?? 0) - quotaCount.value).toLocaleString()} 条 · 请升级后继续同步`;
+  }
+  if (quotaState.value === "warn") {
+    if (byteUsagePct.value >= 80 && proByteLabel.value) return `${proByteLabel.value} · 即将触顶，可清理书签释放容量`;
+    return `仅剩 ${(quotaCount.value - usedCount.value).toLocaleString()} 条 · 超出后新书签将无法同步`;
+  }
   const remain = quotaCount.value
     ? `剩余 ${(quotaCount.value - usedCount.value).toLocaleString()} 条`
-    : "数量不限";
+    : (proByteLabel.value ? `数量不限 · ${proByteLabel.value}` : "数量不限");
   return spaceName ? `当前空间：${spaceName} · ${remain}` : remain;
 });
 

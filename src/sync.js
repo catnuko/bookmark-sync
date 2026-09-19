@@ -81,7 +81,11 @@ function spaceRpcError(err) {
   const msg = err.message || "";
   if (err.code === "23505") return { ok: false, reason: "duplicate", error: msg };
   // RAISE EXCEPTION 的自定义 code 直接作为 reason
-  for (const code of ["plan_locked", "cannot_delete_default", "invalid_name", "not_found", "not_authenticated"]) {
+  // （0032：quota_exceeded / rate_limited；0033：device_limit_reached）
+  for (const code of [
+    "plan_locked", "cannot_delete_default", "invalid_name", "not_found", "not_authenticated",
+    "quota_exceeded", "rate_limited", "device_limit_reached",
+  ]) {
     if (msg.includes(code)) return { ok: false, reason: code, error: msg };
   }
   return { ok: false, reason: msg, error: msg };
@@ -219,12 +223,15 @@ export async function runSync(_opts = {}) {
       return { ok: false, reason: "no_key", error: "请先设置同步口令" };
     }
 
-    // 设备心跳
-    await supabase.rpc("bsync_device_touch", {
+    // 设备心跳（0033：新设备首次登记超计划上限时服务端 raise device_limit_reached）
+    const { error: touchError } = await supabase.rpc("bsync_device_touch", {
       p_space: active.id,
       p_device: deviceId,
       p_name: await detectDeviceName(),
     });
+    if (touchError && String(touchError.message ?? "").includes("device_limit_reached")) {
+      return { ok: false, reason: "device_limit_reached", error: touchError.message };
+    }
 
     const coordinator = await getCoordinator(active.id, deviceId, key);
     console.log(`[bsync] === 同步开始 === space=${active.id} device=${deviceId} afterId=${coordinator.afterId} bare=${coordinator.replica.isBare()}`);
@@ -380,6 +387,16 @@ export async function runSync(_opts = {}) {
     const restored = hadNoWatermark && pull.applied > 0 && !didSeedThisRun;
     return { ok: true, pushed, pulled: pull.applied, seeded: didSeedThisRun, restored, decryptFailed: allDecryptErrors.length };
   } catch (e) {
+    // 服务端语义码直接作为 reason（push/pull 抛出的 PostgREST 错误 message
+    // 即服务端 raise 的码：0032 quota_exceeded / rate_limited，0033 device_limit_reached），
+    // 由 store.js 映射为按档位区分的升级 / 清理指引。
+    const msg = String(e?.message ?? e);
+    for (const code of ["quota_exceeded", "rate_limited", "device_limit_reached"]) {
+      if (msg.includes(code)) {
+        try { await api.storage.local.set({ lastSyncError: msg }); } catch {}
+        return { ok: false, reason: code, error: msg };
+      }
+    }
     // 诊断：持久化完整错误与堆栈（readStorageLocal 可读）
     try {
       await api.storage.local.set({ lastSyncError: `${e?.message ?? e} | ${e?.stack ?? ''}` });

@@ -22,7 +22,7 @@
         <span class="q-total"> / {{ quotaCount ? quotaCount.toLocaleString() + ' 条' : '不限数量' }}</span>
       </template>
     </div>
-    <div v-if="quotaCount" class="progress" :class="quotaState === 'over' ? 'over' : quotaState === 'warn' ? 'warn' : ''">
+    <div v-if="usagePct > 0" class="progress" :class="quotaState === 'over' ? 'over' : quotaState === 'warn' ? 'warn' : ''">
       <i :style="{ width: usagePct + '%' }"></i>
     </div>
     <div class="q-foot">
