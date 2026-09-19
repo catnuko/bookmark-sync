@@ -52,19 +52,20 @@ jobs:
       # 全自动发版：release PR 无需人工合并，检测到即自动合并。
       # 合并会再次触发本 workflow，由 release-please 创建 tag + Release，随后 build job 打包上传。
       # 注意：必须用 merge commit（--merge），release-please 靠 merge commit message 识别发布。
+      # 注意：v4 的输出是 prs（JSON 数组），不存在 pr 单数输出——用它做条件与解析。
       - name: Auto-merge release PR
-        if: steps.release.outputs.release_created == 'false' && steps.release.outputs.pr != ''
+        if: steps.release.outputs.release_created == 'false' && steps.release.outputs.prs_created == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_JSON: ${{ steps.release.outputs.pr }}
+          PRS_JSON: ${{ steps.release.outputs.prs }}
         run: |
-          PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number // empty')
-          if [ -z "$PR_NUMBER" ]; then
-            echo "no release PR number found, skip"
-            exit 0
-          fi
-          echo "Auto-merging release PR #$PR_NUMBER"
-          gh pr merge --merge "$PR_NUMBER" --delete-branch=false
+          echo "$PRS_JSON" | jq -c '.[]' | while read -r pr; do
+            PR_NUMBER=$(echo "$pr" | jq -r '.number // empty')
+            if [ -n "$PR_NUMBER" ]; then
+              echo "Auto-merging release PR #$PR_NUMBER"
+              gh pr merge --merge "$PR_NUMBER" --delete-branch=false
+            fi
+          done
 
   build:
     needs: release-please
