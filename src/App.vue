@@ -18,6 +18,10 @@ onMounted(() => init(props.popup));
 
 <template>
   <AuthView v-if="!state.session" />
+  <!-- 门禁判定中：显示启动占位，保证「登录 → 门禁 → 主界面」顺序，不闪现主界面 -->
+  <div v-else-if="!state.gateChecked" class="boot-splash">
+    <span class="spinner" />
+  </div>
   <!-- 口令门禁是硬门槛：未设置/未验证口令前不渲染任何主界面 -->
   <PhraseGate v-else-if="state.phraseGateVisible" />
   <PopupView v-else-if="props.popup" />
@@ -34,4 +38,7 @@ onMounted(() => init(props.popup));
 /* popup 视口固定：宽高由令牌决定，内容溢出由 .popup-body 自己滚动（不再用 100vh 撑高窗口） */
 body.popup { width: var(--popup-width); height: var(--popup-height); overflow: hidden; }
 body.popup #app { height: 100%; }
+
+/* 门禁判定期间的启动占位（popup 与 options 共用） */
+.boot-splash { min-height: 100vh; display: grid; place-items: center; color: var(--text-secondary); }
 </style>

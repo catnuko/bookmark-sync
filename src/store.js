@@ -56,6 +56,9 @@ export const state = reactive({
   phraseGateInput: "",
   phraseGateMsg: "",
   phraseGateBusy: false,
+  // 口令门禁是否已判定（key 状态 + setup/verify 模式）。判定完成前主界面不渲染，
+  // 避免「先闪现主界面、再弹门禁页」的错误顺序。
+  gateChecked: false,
 
   // 付费档案
   profile: null, // { plan, quota_bytes, used_bytes, used_count?, purchased_at }
@@ -299,6 +302,9 @@ export async function submitPhraseGate() {
     showToast("success",
       state.phraseGateMode === "setup" ? t("gate_okSetupTitle") : t("gate_okVerifyTitle"),
       state.phraseGateMode === "setup" ? t("gate_okSetupSub") : t("gate_okVerifySub"));
+    // 立即同步：清掉设口令前遗留的 no_key 失败状态，也省一次手动点击。
+    // 若双方都有书签，syncNow 会按流程弹出首同步决策弹窗。
+    syncNow();
   } finally {
     state.phraseGateBusy = false;
   }
@@ -690,6 +696,13 @@ export function reasonText(reason) {
   }
 }
 
+// 原因 + 错误详情合并展示；error 与原因文案相同（引擎会对已知原因附带同一句
+// 本地化文案）时不重复括号，避免「请先设置同步口令 (请先设置同步口令)」。
+export function reasonDisplay(reason, error) {
+  const base = reasonText(reason);
+  return error && error !== base ? `${base} (${error})` : base;
+}
+
 export async function syncNow(opts = {}) {
   // 注意：模板 @click 直传时 opts 可能是事件对象，统一归一化为 force 布尔
   const force = opts === true || !!opts?.force;
@@ -720,9 +733,9 @@ export async function syncNow(opts = {}) {
       return;
     }
     if (!r.ok && r.reason === "no_key") {
-      // 本机还没有同步口令：打开口令门禁页（唯一入口，不设置无法使用插件）
+      // 本机还没有同步口令：打开口令门禁页（唯一入口，不设置无法使用插件）。
+      // 门禁页本身就是提示，不再叠加 toast。
       await initPhraseGate();
-      showToast("info", t("toast_needPhrase"), t("toast_needPhraseSub"));
       return;
     }
     if (!r.ok && r.reason === "quota_exceeded") {
@@ -762,7 +775,7 @@ export async function syncNow(opts = {}) {
     if (r.ok) {
       showToast("success", t("toast_syncDone"), summaryText(parseSummary(state.lastSyncSummary)));
     } else {
-      showToast("danger", `${reasonText(r.reason)}${r.error ? ` (${r.error})` : ""}`, "");
+      showToast("danger", reasonDisplay(r.reason, r.error), "");
     }
     // 同步后刷新配额与空间/设备状态（push 会登记本设备）。
     // 兜底超时：popup 的 supabase 查询偶尔挂起（网络/会话竞争），
@@ -834,10 +847,15 @@ export async function submit() {
       }
     }
     state.session = res.data.session;
+    // 刚登录：主界面等口令门禁判定完成后再渲染（防止先闪现主界面）
+    state.gateChecked = false;
     // 记住邮箱，方便下次登录（密码不落盘）
     await api.storage.local.set({ rememberEmail: em });
     await refreshStatus();
     await refreshProfile();
+    // 登录后立刻判定门禁：无口令 → 立即显示门禁页；有口令 → 直接进主界面
+    await initPhraseGate();
+    state.gateChecked = true;
     // 登录成功后自动触发一次同步：消除登录前的失败状态残留（如 onStartup
     // 未登录时记录的 not_authenticated），同时让 SW 中的 supabase 客户端
     // 通过 ensureSession 兜底恢复 session。
@@ -890,14 +908,26 @@ export async function init(popup) {
   const { data } = await supabase.auth.getSession();
   state.session = data.session;
   if (state.session) {
-    await Promise.all([refreshStatus(), refreshProfile(), refreshSpacesDevices(), loadAutoSync(), loadCoexistPanel(), refreshKeyState()]);
-    await initPhraseGate();
+    // 口令门禁判定与资料刷新并行；判定完成（gateChecked=true）前 App.vue
+    // 不渲染主界面，保证「登录 → 门禁 → 主界面」顺序，不会先闪现主界面。
+    await Promise.all([
+      Promise.all([refreshStatus(), refreshProfile(), refreshSpacesDevices(), loadAutoSync(), loadCoexistPanel(), refreshKeyState()]),
+      initPhraseGate(),
+    ]);
+    state.gateChecked = true;
   }
   supabase.auth.onAuthStateChange(async (_e, s) => {
+    const prev = state.session;
     state.session = s;
     if (s) {
-      await Promise.all([refreshStatus(), refreshProfile(), refreshSpacesDevices(), loadAutoSync(), loadCoexistPanel(), refreshKeyState()]);
-      await initPhraseGate();
+      // 刚登录（prev 为空）：主界面等门禁判定完成后再渲染；
+      // TOKEN_REFRESHED 等事件（prev 非空）不重置，避免已渲染界面闪烁。
+      if (!prev) state.gateChecked = false;
+      await Promise.all([
+        Promise.all([refreshStatus(), refreshProfile(), refreshSpacesDevices(), loadAutoSync(), loadCoexistPanel(), refreshKeyState()]),
+        initPhraseGate(),
+      ]);
+      state.gateChecked = true;
     } else {
       state.profile = null;
       state.serverCount = null;
@@ -1043,8 +1073,7 @@ export const syncSub = computed(() => {
     const raw = (state.lastSyncStatusDetail || st.replace(/^error:/, "")).replace(/^(未同步|失败):\s*/, "");
     const m = raw.match(/^([a-z_]+)\s*(?:\((.*)\))?\s*$/);
     if (m && m[1]) {
-      const base = reasonText(m[1]);
-      const shown = m[2] ? `${base} (${m[2]})` : base;
+      const shown = reasonDisplay(m[1], m[2]);
       if (shown) return shown;
     }
     return raw || t("err_network");

@@ -204,7 +204,9 @@ export async function runSync(_opts = {}) {
     // 但 SW 内存 session 为 null 时误报 not_authenticated。
     const sess = await ensureSession();
     if (!sess) {
-      return { ok: false, reason: "not_authenticated", error: t("err_notAuthenticated") };
+      // 已知原因不附带 error 文案：展示层（store.reasonText）按 reason 码本地化，
+      // 避免「请先在插件中登录 (请先在插件中登录)」式重复。
+      return { ok: false, reason: "not_authenticated" };
     }
 
     let { active } = await getActiveSpace();
@@ -222,8 +224,8 @@ export async function runSync(_opts = {}) {
     const key = await keyManager.ensureKey();
     if (!key) {
       // 不再自动生成随机密钥：必须由用户设置口令派生。无密钥时直接拒绝同步，
-      // 由 UI 引导用户在引导页/首次同步弹窗里输入口令。
-      return { ok: false, reason: "no_key", error: t("err_noKey") };
+      // 由 UI 引导用户在口令门禁页输入口令（文案按 reason 码在展示层本地化）。
+      return { ok: false, reason: "no_key" };
     }
 
     // 设备心跳（0033：新设备首次登记超计划上限时服务端 raise device_limit_reached）

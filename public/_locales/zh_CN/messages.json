@@ -971,12 +971,6 @@
   "toast_fsBoth": {
     "message": "本机与云端都有书签，请确认如何同步"
   },
-  "toast_needPhrase": {
-    "message": "请先设置同步口令"
-  },
-  "toast_needPhraseSub": {
-    "message": "新设备输入与其他设备相同的口令即可同步"
-  },
   "toast_proByteLimitTitle": {
     "message": "已达 Pro 存储上限"
   },

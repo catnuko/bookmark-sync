@@ -971,12 +971,6 @@
   "toast_fsBoth": {
     "message": "Bookmarks exist both locally and in the cloud — choose how to sync"
   },
-  "toast_needPhrase": {
-    "message": "Set your sync passphrase first"
-  },
-  "toast_needPhraseSub": {
-    "message": "On a new device, the same passphrase as your other devices starts syncing"
-  },
   "toast_proByteLimitTitle": {
     "message": "Pro storage limit reached"
   },
