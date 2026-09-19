@@ -34,3 +34,6 @@ e2e/.ff-profiles/
 .e2e*
 # WorkBuddy agent workspace
 .workbuddy/
+
+# 安装包托管在 Supabase Storage（release.yml 上传），仓库不存 zip 二进制
+website/public/downloads/
