@@ -1,7 +1,7 @@
 /**
- * IndexedDB schema for bookmark-crdt-sync (Phase 1).
+ * IndexedDB schema for bookmark-crdt-sync.
  *
- * Database: "bookmark-crdt-sync", version 1.
+ * Database: "bookmark-crdt-sync".
  *
  * Object stores:
  *   1. ops         — keyPath `opKey` = `${counter}:${replicaId}`.
@@ -12,6 +12,10 @@
  *   3. uuidMapping — keyPath `chromeId`. {chromeId, uuid, folderType?}.
  *                    Index `by_uuid` on `uuid` (reverse lookup).
  *   4. meta        — keyPath `key`. Scalar bookkeeping (e.g. replicaId).
+ *   5. outbox      — keyPath `key` = `${spaceId}:${seq}` (v2). 未确认推送
+ *                    成功的本地 op（含 spaceId）；SW 冷启动经 restoreOutbox
+ *                    重放。唯一事实：行存在 = 该 op 尚未确认推送成功。
+ *                    Index `by_space` on `spaceId`（按空间恢复）。
  *
  * The CRDT's tree Map is not structured-clone friendly across engines in a
  * way that survives schema evolution guarantees, so we serialize it to an
@@ -19,15 +23,17 @@
  */
 
 export const DB_NAME = 'bookmark-crdt-sync';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const STORE_OPS = 'ops';
 export const STORE_SNAPSHOT = 'snapshot';
 export const STORE_UUID_MAPPING = 'uuidMapping';
 export const STORE_META = 'meta';
+export const STORE_OUTBOX = 'outbox';
 
 export const INDEX_BY_TIMESTAMP = 'by_timestamp';
 export const INDEX_BY_UUID = 'by_uuid';
+export const INDEX_BY_SPACE = 'by_space';
 
 /** Key for the single snapshot row. */
 export const SNAPSHOT_KEY = 'current';
@@ -84,6 +90,12 @@ export function openBookmarkDb(
       // 4. meta: scalar key/value rows.
       if (!db.objectStoreNames.contains(STORE_META)) {
         db.createObjectStore(STORE_META, { keyPath: 'key' });
+      }
+
+      // 5. outbox (v2): 未确认推送成功的本地 op，按 spaceId 建索引供恢复。
+      if (!db.objectStoreNames.contains(STORE_OUTBOX)) {
+        const outbox = db.createObjectStore(STORE_OUTBOX, { keyPath: 'key' });
+        outbox.createIndex(INDEX_BY_SPACE, 'spaceId', { unique: false });
       }
     };
     req.onsuccess = () => resolve(req.result);

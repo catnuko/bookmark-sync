@@ -43,6 +43,16 @@ export interface SyncCoordinatorOptions {
    * resurrected by the next full replay.
    */
   initialCounter?: number;
+  /**
+   * 单块推送的 op 数上限（默认 500）。数千条批量导入不再塞进单个巨型
+   * POST——网关 413/超时/整批配额拒绝会把「全部或没有」变成确定性失败，
+   * 分块后失败重试范围只剩未确认的块。
+   */
+  pushChunkSize?: number;
+  /** 本地 op 入队后回调（sync.js 用它调度 outbox 落盘 tick）。 */
+  onOpEnqueued?: () => void;
+  /** 每块推送确认后回调（sync.js 删除对应 outbox 行；漏删由服务端幂等去重兜底）。 */
+  onChunkPushed?: (spaceId: string, seqs: number[]) => Promise<void> | void;
 }
 
 export interface PullOutcome {
@@ -59,13 +69,39 @@ export class SyncCoordinator {
   readonly deviceId: string;
   private readonly transport: OpLogTransport;
   private readonly key: CryptoKey;
+  private readonly pushChunkSize: number;
+  private readonly onOpEnqueued?: () => void;
+  private readonly onChunkPushed?: (spaceId: string, seqs: number[]) => Promise<void> | void;
 
   /** rows pulled from the server but not yet applied (order-agnostic anyway). */
   private pendingPush: MoveOp[] = [];
+  /**
+   * 尚未写入 outbox 的本地 op（sync.js 持久化 tick 消费）。
+   * outbox 行 = pendingPush 的持久镜像；见 storage/outbox.ts 的不变式。
+   */
+  private pendingJournal: MoveOp[] = [];
+  /** flushPush 防重入：flushSoon 与 runSync 并发触发时只跑一份分块循环。 */
+  private pushing = false;
+  /**
+   * restoreOutbox 恢复的本地 op（未确认推送成功）。applySnapshot 会整体替换
+   * replica 状态，快照重建后必须重放这些 op（经 receiveLocalOp 豁免水位守卫
+   * ——它们不可能存在于任何服务端快照中）。
+   */
+  private restoredOps: MoveOp[] = [];
   /** global op_log id of the last row pulled + applied. */
   afterId: number;
   /** 服务端标记：op_log 超过用户动态阈值或后台请求 GC，本机应配合压缩。 */
   private gcNeededFlag = false;
+
+  /**
+   * 冷启动重放判定：replica 是新建的空壳（只有固定根），或持有 outbox 恢复
+   * 的 op（同样只有部分状态）。两者都必须先从服务端基线（快照/全量重放）
+   * 重建完整历史，再做 reverseApply——否则缺历史会被当成「远端已删除」，
+   * mapped-but-unreachable 的本地书签会被误删。
+   */
+  get needsColdReplay(): boolean {
+    return this.restoredOps.length > 0 || this.replica.isBare();
+  }
 
   /**
    * replica 完整性标志：本次实例是否跳过过解不开的 op 行。
@@ -89,6 +125,9 @@ export class SyncCoordinator {
     this.deviceId = opts.deviceId;
     this.transport = opts.transport;
     this.key = opts.key;
+    this.pushChunkSize = Math.max(1, opts.pushChunkSize ?? 500);
+    this.onOpEnqueued = opts.onOpEnqueued;
+    this.onChunkPushed = opts.onChunkPushed;
     this.afterId = opts.afterId ?? 0;
     // deviceId doubles as the CRDT replicaId.
     this.replica = new Replica(opts.deviceId);
@@ -110,6 +149,8 @@ export class SyncCoordinator {
     const lm = this.replica.state.log[0];
     if (!lm) return;
     this.pendingPush.push(logMoveToOp(lm));
+    this.pendingJournal.push(logMoveToOp(lm));
+    this.onOpEnqueued?.();
   }
 
   createNode(parentId: string, meta: Metadata): string {
@@ -138,25 +179,76 @@ export class SyncCoordinator {
 
   // ── Push ────────────────────────────────────────────────────────────────
 
-  /** Encrypt queued ops and batch-push. Returns how many rows were sent. */
-  async flushPush(): Promise<number> {
-    if (this.pendingPush.length === 0) return 0;
-    const batch: PushOp[] = [];
-    for (const op of this.pendingPush) {
-      console.log(`[bsync]   推送操作: seq=${op.t.counter} node=${op.c} parent=${op.p} title=${JSON.stringify(op.m?.title ?? "")} url=${op.m?.url ?? ""}`);
-      const envelope = await encryptMoveOp(op, this.key, this.spaceId);
-      batch.push({ seq: op.t.counter, op: envelope, cid: null });
+  /**
+   * 取出尚未写入 outbox 的本地 op（由 sync.js 持久化 tick 消费）。
+   * 调用方须在成功落盘后调 clearPendingJournal，失败时保留重试。
+   */
+  peekPendingJournal(): MoveOp[] {
+    return this.pendingJournal;
+  }
+
+  clearPendingJournal(ops: MoveOp[]): void {
+    const seqs = new Set(ops.map((o) => o.t.counter));
+    this.pendingJournal = this.pendingJournal.filter((o) => !seqs.has(o.t.counter));
+  }
+
+  /**
+   * SW 冷启动恢复：outbox 中未确认推送的本地 op 重放进 replica 并重回
+   * 推送队列。receiveOp 幂等（后续服务端重放同 op 无副作用），counter
+   * 由 receiveOp 抬升到 max(counter, seq)，保证后续新 op 不复用 seq
+   * （否则 ON CONFLICT DO NOTHING 会静默丢弃新 op）。
+   */
+  restoreOutbox(rows: Array<{ seq: number; op: MoveOp }>): void {
+    const sorted = [...rows].sort((a, b) => a.seq - b.seq);
+    for (const row of sorted) {
+      if (this.pendingPush.some((o) => o.t.counter === row.seq)) continue;
+      this.replica.receiveLocalOp(row.op);
+      this.pendingPush.push(row.op);
+      this.restoredOps.push(row.op);
     }
-    // Only drop the queue AFTER a successful push. Clearing it first meant a
-    // transient transport failure (network blip, RLS hiccup) permanently lost
-    // the ops — including deletion tombstones — with no way to retry, and the
-    // next full replay would resurrect the "deleted" nodes.
-    const result = await this.transport.push(this.spaceId, this.deviceId, batch);
-    this.pendingPush = [];
-    if (result.gc_needed) this.gcNeededFlag = true;
-    // 返回实际插入数（ON CONFLICT DO NOTHING 可能跳过重复 seq），
-    // 而非 batch.length——否则前端会误报「推送 N 条」但实际未落库。
-    return result.inserted;
+  }
+
+  /**
+   * Encrypt queued ops and batch-push. Returns how many rows were sent.
+   *
+   * 分块推送：pendingPush 按上限切片顺序推，每块确认后即移出队列并回调
+   * onChunkPushed（删除对应 outbox 行）。中途失败时已确认块不重传、剩余块
+   * 留在队列（outbox 已落盘）跨 SW 生命周期重试——「推送失败 + SW 回收导致
+   * 整批丢失」的数据丢失窗口就此关闭。重复推送由服务端
+   * (space_id, device_id, seq) 幂等去重兜底。
+   */
+  async flushPush(): Promise<number> {
+    if (this.pushing) return 0; // flushSoon 与 runSync 并发触发时只跑一份
+    if (this.pendingPush.length === 0) return 0;
+    this.pushing = true;
+    try {
+      let totalInserted = 0;
+      while (this.pendingPush.length > 0) {
+        const chunk = this.pendingPush.slice(0, this.pushChunkSize);
+        const batch: PushOp[] = [];
+        for (const op of chunk) {
+          const envelope = await encryptMoveOp(op, this.key, this.spaceId);
+          batch.push({ seq: op.t.counter, op: envelope, cid: null });
+        }
+        // Only drop the chunk AFTER a successful push. Clearing it first
+        // meant a transient transport failure (network blip, RLS hiccup)
+        // permanently lost the ops — including deletion tombstones — with
+        // no way to retry, and the next full replay would resurrect the
+        // "deleted" nodes.
+        const result = await this.transport.push(this.spaceId, this.deviceId, batch);
+        if (result.gc_needed) this.gcNeededFlag = true;
+        totalInserted += result.inserted;
+        this.pendingPush.splice(0, chunk.length);
+        const seqs = chunk.map((op) => op.t.counter);
+        this.clearPendingJournal(chunk);
+        await this.onChunkPushed?.(this.spaceId, seqs);
+      }
+      // 返回实际插入数（ON CONFLICT DO NOTHING 可能跳过重复 seq），
+      // 而非 batch.length——否则前端会误报「推送 N 条」但实际未落库。
+      return totalInserted;
+    } finally {
+      this.pushing = false;
+    }
   }
 
   // ── Pull ────────────────────────────────────────────────────────────────
@@ -248,6 +340,10 @@ export class SyncCoordinator {
         const data = await decryptJson<SnapshotData>(snap.data!, this.key, this.spaceId);
         this.replica.applySnapshot(data);
         this.afterId = snap.after_op_id!;
+        // 快照重建整体替换了状态：outbox 恢复的本地 op 不在任何服务端快照里
+        // （从未推送成功），必须经 receiveLocalOp（豁免水位守卫）重放回来，
+        // 否则节点从 replica 消失 → mapped-but-unreachable → 本地误删。
+        for (const op of this.restoredOps) this.replica.receiveLocalOp(op);
         // 快照重建成功 → ≤ 水位基线段完整（尾段由 pullFrom 续判）
         this.replicaIncomplete = false;
         return this.pullFrom(this.afterId);

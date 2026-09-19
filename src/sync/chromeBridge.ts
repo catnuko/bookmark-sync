@@ -171,6 +171,18 @@ export class IdBridge {
   }
 }
 
+/** 兄弟排序（position 字典序，uuid tie-break）——computePosition 与
+ *  ensureReachableNodes 共用同一比较器，保证两侧顺序一致。 */
+function cmpSibling(
+  a: { id: string; meta: Metadata },
+  b: { id: string; meta: Metadata },
+): number {
+  const pa = a.meta.position ?? '';
+  const pb = b.meta.position ?? '';
+  if (pa !== pb) return pa < pb ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 /**
  * Compute the fractional position for a sibling insertion at `chromeIndex`
  * under `parentUuid`, consistent with the ordering used by reverseApply
@@ -189,15 +201,19 @@ export function computePosition(
   chromeIndex: number,
   selfUuid: string | null,
 ): string | null {
-  const positions = coordinator.replica
+  const siblings = coordinator.replica
     .getChildren(parentUuid)
-    .filter((n) => n.id !== selfUuid)
-    .sort((a, b) => {
-      const pa = a.meta.position ?? '';
-      const pb = b.meta.position ?? '';
-      if (pa !== pb) return pa < pb ? -1 : 1;
-      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-    })
+    .filter((n) => n.id !== selfUuid);
+  // 导入风暴快路径：追加到末尾（index ≥ 现有 CRDT 兄弟数）是批量导入/
+  // Chrome 同步灌入的绝对主流。单遍扫出排序末位即可，免去每次事件的
+  // O(N log N) 全排序（单文件夹几千书签时整体从 O(N² log N) 降到 O(N²)）。
+  if (chromeIndex >= siblings.length && siblings.length > 0) {
+    let last = siblings[0];
+    for (const n of siblings) if (cmpSibling(n, last) > 0) last = n;
+    return positionBetween(last.meta.position ?? null, null);
+  }
+  const positions = siblings
+    .sort(cmpSibling)
     .map((n) => n.meta.position ?? null);
   const idx = Math.max(0, Math.min(chromeIndex, positions.length));
   const prev = idx > 0 ? positions[idx - 1] : null;
@@ -288,10 +304,14 @@ export function captureLocalEvents(
     const c = await getC();
     if (!c) return;
     if (fixedRootUuid(id)) return; // never track chrome's own roots
+    // 已映射 = 重复事件，或与本轮 runSync 的重扫描（captureLocalTree）竞态：
+    // captureLocalTree 的树遍历相对事件处理器是原子的（遍历期间无 await，
+    // 事件回调排在其后的宏任务里），谁先映射成功另一方都会在这里看到映射
+    // 并让路——绝不重映射，否则同一书签会产生两个 CRDT 节点。
     const mapped = bridge.toUuid(id);
-    if (mapped && PROTECTED_UUIDS.has(mapped)) return; // 固定根的动态容器（如 Chromium「书签菜单」）
+    if (mapped) return;
     const parentUuid = node.parentId ? bridge.toUuid(node.parentId) : null;
-    if (!parentUuid) return; // parent not yet mapped; skip (will arrive later)
+    if (!parentUuid) return; // parent not yet mapped; skip（重扫描兜底补建）
     const uuid = globalThis.crypto.randomUUID();
     bridge.map(id, uuid);
     const meta: Metadata = { title: node.title, ...(node.url ? { url: node.url } : {}) };
@@ -377,6 +397,11 @@ export function captureLocalEvents(
  * The caller MUST set the event guard (`suppressed`) while this runs, because
  * chrome.create/move/update fire events we do not want to re-ingest as local
  * ops (the event-loop guard).
+ *
+ * 性能：chrome 侧树形状来自单次 chrome.getTree()（flattenChromeTree 顺带
+ * 产出 childrenByParent 索引），ensureReachableNodes 只查索引并在
+ * create/move 时同步维护——替代原先每节点至多 3 次 chrome.getChildren
+ * 往返（几千书签的同步从几千次 API 往返降到 1 次 getTree）。
  */
 
 /** chrome ids we must never create/delete/move/update. */
@@ -413,12 +438,20 @@ export async function reverseApply(
   // 1. Reachability set + children map from the visible CRDT tree.
   const { reachable, childrenByParent } = buildReachable(coordinator);
 
-  // 2. Flatten current Chrome tree for comparison.
-  const chromeNodes = await flattenChromeTree(chrome);
+  // 2. Flatten current Chrome tree for comparison（同一次 getTree 顺带产出
+  //    chrome 侧父子索引，供 ensureReachableNodes 查询与维护）。
+  const { nodes: chromeNodes, childrenByParent: chromeChildren } =
+    await flattenChromeTree(chrome);
 
   // 3. Ensure reachable nodes exist (BFS: parents before children).
-  const chromeIds = new Set(chromeNodes.keys());
-  await ensureReachableNodes(chrome, bridge, childrenByParent, reachable, chromeIds);
+  await ensureReachableNodes(
+    chrome,
+    bridge,
+    childrenByParent,
+    reachable,
+    chromeNodes,
+    chromeChildren,
+  );
 
   // 4. Remove Chrome nodes whose CRDT uuid is unreachable (and mapped).
   await removeTrashedNodes(chrome, bridge, reachable, chromeNodes);
@@ -447,38 +480,56 @@ function buildReachable(coordinator: SyncCoordinator): {
   return { reachable, childrenByParent };
 }
 
-/** Flatten chrome.getTree() into a chromeId -> info map (with depth). */
-async function flattenChromeTree(chrome: ChromeBookmarksAPI): Promise<Map<string, ChromeNodeInfo>> {
+/** Flatten chrome.getTree() into a chromeId -> info map（含深度），
+ *  顺带产出 chromeId -> 有序子节点数组的父子索引（getTree 顺序即 index 序）。 */
+async function flattenChromeTree(chrome: ChromeBookmarksAPI): Promise<{
+  nodes: Map<string, ChromeNodeInfo>;
+  childrenByParent: Map<string, ChromeTreeNode[]>;
+}> {
   const roots = await chrome.getTree();
-  const out = new Map<string, ChromeNodeInfo>();
+  const nodes = new Map<string, ChromeNodeInfo>();
+  const childrenByParent = new Map<string, ChromeTreeNode[]>();
   const walk = (node: ChromeTreeNode, parentId: string | null, depth: number) => {
-    out.set(node.id, {
+    nodes.set(node.id, {
       chromeId: node.id,
       parentId,
       title: node.title,
       url: node.url,
       depth,
     });
+    if (parentId !== null) {
+      const arr = childrenByParent.get(parentId);
+      if (arr) arr.push(node);
+      else childrenByParent.set(parentId, [node]);
+    }
     for (const c of node.children ?? []) walk(c, node.id, depth + 1);
   };
   for (const r of roots) walk(r, null, 0);
-  return out;
+  return { nodes, childrenByParent };
 }
 
 /**
  * Walk reachable nodes in BFS order. For each user node (not a protected
  * root), create it in Chrome if missing, otherwise align parent/index and
  * title/url. Siblings are ordered by fractional position (lexicographic).
+ *
+ * chrome 侧树形状查询全部走 chromeChildren 索引（flattenChromeTree 产出），
+ * create/move 后立即维护索引，保证同一轮 pass 内后续兄弟看到一致的树。
  */
 async function ensureReachableNodes(
   chrome: ChromeBookmarksAPI,
   bridge: IdBridge,
   childrenByParent: Map<string, Array<{ child: string; meta: Metadata }>>,
   reachable: Set<string>,
-  chromeIds: Set<string>,
+  chromeNodes: Map<string, ChromeNodeInfo>,
+  chromeChildren: Map<string, ChromeTreeNode[]>,
 ): Promise<void> {
   const queue: string[] = [ROOT_UUID];
   const visited = new Set<string>();
+  const chromeIds = new Set(chromeNodes.keys());
+  const siblingsOf = (parentId: string): ChromeTreeNode[] =>
+    chromeChildren.get(parentId) ?? [];
+
   while (queue.length > 0) {
     const parentUuid = queue.shift()!;
     if (visited.has(parentUuid)) continue;
@@ -505,19 +556,18 @@ async function ensureReachableNodes(
       const title = (meta.title as string) ?? '';
       const url = meta.url as string | undefined;
 
-      if (!existingChromeId) {
-        // Create in Chrome (real API takes a single details object).
+      const createInChrome = async (): Promise<void> => {
         // index 必须在 0..当前子节点数 之间，否则 chrome 报 "Index out of bounds"。
-        const siblings = await chrome.getChildren(parentChromeId);
+        const siblings = siblingsOf(parentChromeId);
         const createIndex = Math.max(0, Math.min(i, siblings.length));
+        let created: ChromeTreeNode;
         try {
-          const created = await chrome.create({
+          created = await chrome.create({
             parentId: parentChromeId,
             title,
             ...(url !== undefined ? { url } : {}),
             index: createIndex,
           });
-          bridge.map(created.id, childUuid);
         } catch (e) {
           // 诊断：持久化 create 入参与错误（真实 Chromium 定位签名问题用）
           try {
@@ -527,32 +577,57 @@ async function ensureReachableNodes(
           } catch {}
           throw e;
         }
+        siblings.splice(Math.min(createIndex, siblings.length), 0, created);
+        chromeNodes.set(created.id, {
+          chromeId: created.id,
+          parentId: parentChromeId,
+          title: created.title,
+          url: created.url,
+          depth: (chromeNodes.get(parentChromeId)?.depth ?? 0) + 1,
+        });
+        chromeIds.add(created.id);
+        bridge.map(created.id, childUuid);
+      };
+
+      if (!existingChromeId) {
+        // Create in Chrome (real API takes a single details object).
+        await createInChrome();
       } else {
         // Chrome 中节点已不存在（外部删除 / 级联删除，如删除整个父文件夹），
         // 但映射仍在：按“未创建”重新创建，而不是 move 一个不存在的 id
         // （chrome.bookmarks.move 会抛原生错误 "Can't find bookmark for id"）。
         if (!chromeIds.has(existingChromeId)) {
-          const siblings = await chrome.getChildren(parentChromeId);
-          const createIndex = Math.max(0, Math.min(i, siblings.length));
-          const created = await chrome.create({
-            parentId: parentChromeId,
-            title,
-            ...(url !== undefined ? { url } : {}),
-            index: createIndex,
-          });
-          bridge.map(created.id, childUuid);
+          await createInChrome();
           continue;
         }
         // Align parent/index and metadata. The node may exist in Chrome but
         // under a different parent (remote move) — move it to the target.
-        let current = (await chrome.getChildren(parentChromeId)).find((n) => n.id === existingChromeId);
+        const current = siblingsOf(parentChromeId).find((n) => n.id === existingChromeId);
         if (!current || current.parentId !== parentChromeId || current.index !== i) {
-          const siblings = await chrome.getChildren(parentChromeId);
+          // 从旧父的索引数组中摘除（若在），再插入新父的目标位置。
+          const oldParentId =
+            current?.parentId ?? chromeNodes.get(existingChromeId)?.parentId;
+          if (oldParentId && oldParentId !== parentChromeId) {
+            const oldSiblings = siblingsOf(oldParentId);
+            const at = oldSiblings.findIndex((n) => n.id === existingChromeId);
+            if (at >= 0) oldSiblings.splice(at, 1);
+          }
+          const siblings = siblingsOf(parentChromeId);
           const moveIndex = Math.max(0, Math.min(i, Math.max(0, siblings.length - 1)));
-          await chrome.move(existingChromeId, { parentId: parentChromeId, index: moveIndex });
-          current = (await chrome.getChildren(parentChromeId)).find((n) => n.id === existingChromeId) ?? current;
+          const moved = await chrome.move(existingChromeId, {
+            parentId: parentChromeId,
+            index: moveIndex,
+          });
+          siblings.splice(Math.min(moveIndex, siblings.length), 0, moved);
+          const info = chromeNodes.get(existingChromeId);
+          if (info) {
+            info.parentId = parentChromeId;
+            info.depth =
+              (chromeNodes.get(parentChromeId)?.depth ?? 0) + 1;
+          }
         }
-        if (current && (current.title !== title || current.url !== url)) {
+        const after = siblingsOf(parentChromeId).find((n) => n.id === existingChromeId);
+        if (after && (after.title !== title || after.url !== url)) {
           await chrome.update(existingChromeId, {
             title,
             ...(url !== undefined ? { url } : {}),
@@ -561,6 +636,50 @@ async function ensureReachableNodes(
       }
     }
   }
+}
+
+/**
+ * 重扫描本地 chrome 书签树：为所有未映射节点补建 MoveOp（幂等，返回补建数）。
+ *
+ * 由 sync.js 在每轮 runSync 的 pull 之后调用（替代旧「仅云端为空时播种」）。
+ * 每轮执行让以下场景的孤儿书签都能被捕获（旧实现下它们永不同步）：
+ *   - 批量导入 / Chrome 同步灌入过程中浏览器被关闭（事件与映射都没落盘）
+ *   - 事件被静默丢弃（父节点未映射、未登录/未设口令窗口、SW 冷启动竞态）
+ *   - 第二台设备本地已有书签而云端非空（「并集合并」语义的真正落实）
+ *
+ * 已映射节点跳过（继续走子树），未映射节点生成 uuid 并 createNodeWithId。
+ * 遍历相对 chrome 事件处理器是原子的：getTree 之后整个 walk 无外部 await，
+ * 事件回调（宏任务）不会插进遍历中间；onCreated 侧的「已映射即让路」守卫
+ * 保证先后到达都不会产生重复节点。
+ */
+export async function captureLocalTree(
+  chrome: ChromeBookmarksAPI,
+  coordinator: SyncCoordinator,
+  bridge: IdBridge,
+): Promise<number> {
+  const tree = await chrome.getTree();
+  let captured = 0;
+  const walk = async (node: ChromeTreeNode, parentUuid: string): Promise<void> => {
+    const existing = bridge.toUuid(node.id);
+    if (existing) {
+      // 固定根（Chrome "0".."3" / Firefox 根）与已映射用户节点直接续走
+      // 子树：不产生新 op
+      for (const child of node.children ?? []) await walk(child, existing);
+      return;
+    }
+    const uuid = globalThis.crypto.randomUUID();
+    bridge.map(node.id, uuid);
+    const meta: Metadata = { title: node.title, ...(node.url ? { url: node.url } : {}) };
+    // 按 Chrome 实际 index 生成 fractional position（与 onCreated 一致：
+    // 捕获也保留用户已有的顺序）
+    const pos = computePosition(coordinator, parentUuid, node.index ?? 0, null);
+    if (pos !== null) meta.position = pos;
+    coordinator.createNodeWithId(uuid, parentUuid, meta);
+    captured++;
+    for (const child of node.children ?? []) await walk(child, uuid);
+  };
+  for (const root of tree ?? []) await walk(root, ROOT_UUID);
+  return captured;
 }
 
 /**
