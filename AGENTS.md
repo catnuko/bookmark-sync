@@ -70,8 +70,10 @@
 - `permissions` 必须 `contents: write` + **`pull-requests: write`**，否则 release-please 建 PR 报 "Resource not accessible by integration"。
 - 仓库设置需开启 **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**。
 - `pnpm/action-setup@v4` 必须给 `version: 10`，否则报 "No pnpm version is specified"。
-- 不用 `pnpm build`（会顺带跑 Safari Xcode 同步/编译，CI 里分别跑 `npx vite build` + `node scripts/build-firefox.mjs`）。
-- **Auto-merge 必须用 `--merge`（merge commit）**：release-please 靠 merge commit message 识别发布；squash 会破坏识别。
+- 不用 `pnpm build`（会顺带跑 Safari 的 Xcode 同步/编译），CI 里分别跑 `npx vite build` + `node scripts/build-firefox.mjs`。
+- **Auto-merge 必须用 `--merge`（merge commit）**：release-please 靠 merge commit message 识别发布。
+- **release-please-action v4 输出语义（踩坑两次，v2.3.0/2.3.1 实测）**：`pr`/`prs` 仅在「release 已创建」的轮次有值，创建 release PR 的轮次是 unset；根组件的 `release_created` 无 release 时也是 unset 而非 `'false'`。auto-merge 条件必须写 `releases_created != 'true' && prs_created == 'true'`（`releases_created` 文档保证无 release 时为 'false'）。
+- **extra-files(json) 实测不生效**（PR #9/#13/#14 均未触碰 manifest）：release.yml 在 build job 里于 vite build 前按 package.json 版本回填两个 manifest，保证发出去的 zip 版本号正确；仓库内 manifest 版本号在每次 main→dev 回带时手动补齐（当前 2.3.1）。
 - release-please 按 Conventional Commits 定版本：`fix:` → patch，`feat:` → minor，`BREAKING CHANGE` → major。**提交不带前缀不会触发版本升级**；`chore:` 适合 CI/配置/文档改动，不 bump。
 - **dev→main 合并不要 squash**，避免折叠掉 Conventional 前缀导致版本判断失效。
 - `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`），但该 token 无 workflow dispatch 权限，触发工作流用 push 事件即可。
