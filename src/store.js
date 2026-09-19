@@ -13,9 +13,9 @@ import {
 } from "./sync.js";
 import { decryptMoveOp } from "./sync/index.js";
 import { exportKey, importKey, hasKey, setKeyFromPassphrase, isFirstDevice, clearLocalKey, ensureLocalKey } from "./crypto.js";
+import { t } from "./lib/i18n.js";
 
 // ---- 常量 ----
-export const ONBOARD_SKIP_KEY = "crdt.onboardSkipped";
 export const AUTO_SYNC_KEY = "crdt.autoSync";
 
 // ---- 状态 ----
@@ -33,7 +33,12 @@ export const state = reactive({
   syncBusy: false,
   status: "",
   lastSyncAt: null,
+  // lastSyncStatus 为机器可读："ok" | "error"（旧版本为中文文案，展示层兼容）；
+  // lastSyncStatusDetail 存原因码 + 错误信息，lastSyncSummary 存方向摘要 JSON，
+  // 两者都在展示时才经 t() 本地化（避免持久化文案与浏览器语言不一致）。
   lastSyncStatus: "",
+  lastSyncStatusDetail: "",
+  lastSyncSummary: "",
   lastDecryptErrors: null,
 
   // 密钥
@@ -83,13 +88,6 @@ export const state = reactive({
   firstSyncKeyInput: "",
   firstSyncPhraseInput: "",
   firstSyncKeyMsg: "",
-
-  // 新设备密钥引导
-  showOnboard: false,
-  onboardMode: "", // '' | 'key' | 'phrase'
-  onboardKeyInput: "",
-  onboardPhraseInput: "",
-  onboardMsg: "",
 
   // 弹窗二级面板（抽屉）
   drawer: "", // '' | 'spaces' | 'key' | 'advanced' | 'help'
@@ -164,7 +162,7 @@ export async function loadKeyPanel() {
   // 注意：exportKey() 内部会调 ensureKey() 自动生成密钥，因此无密钥时不能调它，
   // 否则用户只是看一眼密钥面板就被动生成了一把密钥，与提示文字矛盾。
   const has = await hasKey();
-  state.keyMsg = has ? "" : "本设备尚无密钥，首次同步时自动生成；换设备时请在此导入同一密钥。";
+  state.keyMsg = has ? "" : t("key_noneYet");
   state.keyValue = has ? await exportKey() : "";
   state.passphraseStored = has ? (await api.storage.local.get("crdt.passphrase"))["crdt.passphrase"] || "" : "";
   state.hasKeyNow = has;
@@ -176,8 +174,8 @@ export async function copyKey() {
   try {
     if (navigator.clipboard) await navigator.clipboard.writeText(state.keyValue);
   } catch { /* 剪贴板受限时静默 */ }
-  state.keyMsg = "密钥已复制，请妥善保管（丢失后无法解密既有数据）。";
-  showToast("info", "密钥已复制", "请妥善保管——丢失后无法解密既有数据。");
+  state.keyMsg = t("key_copiedMsg");
+  showToast("info", t("key_copiedTitle"), t("key_copiedSub"));
 }
 
 export async function copyPhrase() {
@@ -185,7 +183,7 @@ export async function copyPhrase() {
   try {
     if (navigator.clipboard) await navigator.clipboard.writeText(state.passphraseStored);
   } catch { /* 剪贴板受限时静默 */ }
-  showToast("info", "口令已复制", "仅本机可见，未上传云端。");
+  showToast("info", t("phrase_copiedTitle"), t("phrase_copiedSub"));
 }
 
 export async function doImportKey() {
@@ -193,36 +191,36 @@ export async function doImportKey() {
   if (ok) {
     resetCoordinator();
     api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
-    state.keyMsg = "密钥已导入。同步时即可解密换设备同步来的书签。";
+    state.keyMsg = t("key_importedMsg");
     state.keyImportInput = "";
     state.keyValue = await exportKey();
     state.hasKeyNow = true;
-    showToast("success", "密钥已导入", "同步时即可解密换设备同步来的书签。");
+    showToast("success", t("key_importedTitle"), t("key_importedSub"));
   } else {
-    state.keyMsg = "密钥格式不正确，请确认粘贴的是完整的 44 字符密钥。";
-    showToast("danger", "密钥格式不正确", "请确认粘贴的是完整的 44 字符密钥。");
+    state.keyMsg = t("key_badFormat");
+    showToast("danger", t("key_badFormatTitle"), t("key_badFormatSub"));
   }
 }
 
 export async function doSetKeyByPhrase() {
   const phrase = state.keyPhraseInput;
   if (!phrase || phrase.length < 8) {
-    state.keyMsg = "口令至少 8 位，且要够长/独特才安全。";
-    showToast("danger", "口令至少 8 位", "且要够长/独特才安全。");
+    state.keyMsg = t("phrase_tooShort");
+    showToast("danger", t("phrase_tooShortTitle"), t("phrase_tooShortSub"));
     return;
   }
   const ok = await setKeyFromPassphrase(phrase);
   if (ok) {
     resetCoordinator();
     api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
-    state.keyMsg = "已用口令设定密钥。新装一台设备时，输入同一口令即可解密同步数据。⚠️ 请务必牢记口令。";
+    state.keyMsg = t("phrase_setByKeyMsg");
     state.keyPhraseInput = "";
     state.keyValue = await exportKey();
     state.hasKeyNow = true;
-    showToast("success", "已用口令设定密钥", "新装设备输入同一口令即可解密同步数据。请牢记口令——忘记将无法找回。");
+    showToast("success", t("phrase_setByKeyTitle"), t("phrase_setByKeySub"));
   } else {
-    state.keyMsg = "口令长度不足，未设置。";
-    showToast("danger", "口令长度不足", "未设置。");
+    state.keyMsg = t("phrase_setFail");
+    showToast("danger", t("phrase_lenTitle"), t("phrase_notSet"));
   }
 }
 
@@ -245,7 +243,7 @@ export async function initPhraseGate() {
 export async function submitPhraseGate() {
   const phrase = state.phraseGateInput;
   if (!phrase || phrase.length < 8) {
-    state.phraseGateMsg = "口令至少 8 位。";
+    state.phraseGateMsg = t("gate_errShort");
     return;
   }
   state.phraseGateBusy = true;
@@ -253,7 +251,7 @@ export async function submitPhraseGate() {
   try {
     const ok = await setKeyFromPassphrase(phrase);
     if (!ok) {
-      state.phraseGateMsg = "口令设置失败，请重试。";
+      state.phraseGateMsg = t("gate_errSetFail");
       return;
     }
     // verify 模式：云端已有数据，必须能解密一条真实 op 才算口令正确。
@@ -286,7 +284,7 @@ export async function submitPhraseGate() {
       }
       if (!verified) {
         await clearLocalKey();
-        state.phraseGateMsg = "口令不正确，无法解密云端书签，请重新输入。";
+        state.phraseGateMsg = t("gate_errWrong");
         return;
       }
     }
@@ -298,58 +296,12 @@ export async function submitPhraseGate() {
     resetCoordinator();
     api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
     await Promise.all([refreshStatus(), refreshProfile(), refreshSpacesDevices(), refreshKeyState()]);
-    showToast("success", state.phraseGateMode === "setup" ? "口令已设置" : "口令正确",
-      state.phraseGateMode === "setup" ? "书签已加密，开始同步。" : "已进入插件。");
+    showToast("success",
+      state.phraseGateMode === "setup" ? t("gate_okSetupTitle") : t("gate_okVerifyTitle"),
+      state.phraseGateMode === "setup" ? t("gate_okSetupSub") : t("gate_okVerifySub"));
   } finally {
     state.phraseGateBusy = false;
   }
-}
-
-// ---- 新设备引导 ----
-export async function maybeOpenOnboard() {
-  if (state.showOnboard || state.showFirstSyncModal) return;
-  const has = await hasKey();
-  const { [ONBOARD_SKIP_KEY]: skipped } = await api.storage.local.get(ONBOARD_SKIP_KEY);
-  if (!has && !skipped) {
-    state.onboardMode = "";
-    state.onboardMsg = "";
-    state.showOnboard = true;
-  }
-}
-
-export async function onboardImportKey() {
-  const ok = await importKey(state.onboardKeyInput);
-  if (ok) {
-    resetCoordinator();
-    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
-    state.onboardMsg = "密钥已导入，可以开始同步了。";
-    setTimeout(() => { state.showOnboard = false; }, 1200);
-  } else {
-    state.onboardMsg = "密钥格式不正确，请粘贴完整的 44 字符密钥。";
-  }
-}
-
-export async function onboardSetPhrase() {
-  const phrase = state.onboardPhraseInput;
-  if (!phrase || phrase.length < 8) {
-    state.onboardMsg = "口令至少 8 位，且要够长、独特才安全。";
-    return;
-  }
-  const ok = await setKeyFromPassphrase(phrase);
-  if (ok) {
-    resetCoordinator();
-    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
-    state.onboardMsg = "已用口令设定密钥。⚠️ 请牢记口令——忘记将无法解密既有数据，且无法找回。";
-    setTimeout(() => { state.showOnboard = false; }, 1600);
-  } else {
-    state.onboardMsg = "口令设置失败，请重试。";
-  }
-}
-
-export function skipOnboard() {
-  state.showOnboard = false;
-  api.storage.local.set({ [ONBOARD_SKIP_KEY]: true });
-  showToast("info", "已跳过密钥设置", "之后不再自动提醒；可随时打开「同步密钥」或「帮助」设置。");
 }
 
 // ---- 空间 / 设备 ----
@@ -369,7 +321,7 @@ export async function doSwitchSpace(sp) {
   if (sp.id === state.activeSpace?.id) return;
   await switchSpace(sp.id);
   await refreshSpacesDevices();
-  showToast("info", `已切换到空间「${sp.name}」`, "下次同步将与该空间的数据按并集合并（本设备书签会并入该空间）。");
+  showToast("info", t("spaces_switchedTitle", sp.name), t("spaces_switchedSub"));
 }
 
 export async function doCreateSpace() {
@@ -379,21 +331,21 @@ export async function doCreateSpace() {
     const r = await createSpace(state.newSpaceName);
     if (!r.ok && r.reason === "plan_locked") {
       state.showUpgradeModal = true;
-      showToast("warning", "空间数量已达上限", "升级可获得更多空间");
+      showToast("warning", t("spaces_limitTitle"), t("spaces_limitSub"));
       return;
     }
     if (!r.ok && r.reason === "duplicate") {
-      showToast("danger", "已存在同名空间", "");
+      showToast("danger", t("spaces_dupTitle"), "");
       return;
     }
     if (!r.ok) {
-      showToast("danger", `创建失败: ${r.error ?? r.reason}`, "");
+      showToast("danger", t("common_failPrefix", r.error ?? r.reason), "");
       return;
     }
     state.newSpaceName = "";
     state.creatingSpace = false;
     await refreshSpacesDevices();
-    showToast("success", "空间已创建", "点击空间名即可切换");
+    showToast("success", t("spaces_createdTitle"), t("spaces_createdSub"));
   } finally {
     state.spaceBusy = false;
   }
@@ -413,30 +365,30 @@ export async function submitRename(sp) {
   const r = await renameSpace(sp.id, name);
   state.renamingId = "";
   if (!r.ok && r.reason === "duplicate") {
-    showToast("danger", "已存在同名空间", "");
+    showToast("danger", t("spaces_dupTitle"), "");
     return;
   }
   if (!r.ok) {
-    showToast("danger", `重命名失败: ${r.error ?? r.reason}`, "");
+    showToast("danger", t("spaces_renameFail", r.error ?? r.reason), "");
     return;
   }
   await refreshSpacesDevices();
-  showToast("success", "已重命名", "");
+  showToast("success", t("spaces_renamed"), "");
 }
 
 export async function doDeleteSpace(sp) {
   armAction(`space:${sp.id}`, async () => {
     const r = await deleteSpace(sp.id);
     if (!r.ok && r.reason === "cannot_delete_default") {
-      showToast("danger", "默认空间不可删除", "");
+      showToast("danger", t("spaces_cantDeleteDefault"), "");
       return;
     }
     if (!r.ok) {
-      showToast("danger", `删除失败: ${r.error ?? r.reason}`, "");
+      showToast("danger", t("spaces_deleteFail", r.error ?? r.reason), "");
       return;
     }
     await refreshSpacesDevices();
-    showToast("success", `空间「${sp.name}」已删除`, "");
+    showToast("success", t("spaces_deletedTitle", sp.name), "");
   });
 }
 
@@ -445,9 +397,9 @@ export async function doRemoveDevice(d) {
     try {
       await removeDevice(d.device_id);
       await refreshSpacesDevices();
-      showToast("success", "已解除该浏览器的同步", "其删除记录一并清除。");
+      showToast("success", t("devices_removedTitle"), t("devices_removedSub"));
     } catch (e) {
-      showToast("danger", `移除失败: ${e?.message ?? e}`, "");
+      showToast("danger", t("common_failPrefix", e?.message ?? e), "");
     }
   });
 }
@@ -467,15 +419,15 @@ export async function submitDeviceRename(d) {
   const r = await renameDevice(d.device_id, name);
   state.renamingDeviceId = "";
   if (!r.ok && r.reason === "invalid_name") {
-    showToast("danger", "名称无效", "不能为空且不超过 50 个字符");
+    showToast("danger", t("devices_invalidName"), t("devices_invalidNameSub"));
     return;
   }
   if (!r.ok) {
-    showToast("danger", `改名失败: ${r.error ?? r.reason}`, "");
+    showToast("danger", t("devices_renameFail", r.error ?? r.reason), "");
     return;
   }
   await refreshSpacesDevices();
-  showToast("success", "设备已改名", "下次同步不会被自动探测名覆盖。");
+  showToast("success", t("devices_renamed"), t("devices_renamedSub"));
 }
 
 // ---- 设备名展示 ----
@@ -497,7 +449,7 @@ function shortTag(id) {
 const dupDeviceNames = computed(() => {
   const m = new Map();
   for (const d of state.devices) {
-    const n = baseDeviceName(d) || `未知设备 · ${shortTag(d.device_id)}`;
+    const n = baseDeviceName(d) || t("device_unknown", shortTag(d.device_id));
     m.set(n, (m.get(n) ?? 0) + 1);
   }
   return m;
@@ -505,7 +457,7 @@ const dupDeviceNames = computed(() => {
 
 export function deviceLabel(d) {
   const known = baseDeviceName(d);
-  const name = known || `未知设备 · ${shortTag(d.device_id)}`;
+  const name = known || t("device_unknown", shortTag(d.device_id));
   return (dupDeviceNames.value.get(name) ?? 0) > 1 ? `${name} · ${shortTag(d.device_id)}` : name;
 }
 
@@ -537,7 +489,7 @@ export async function startCheckout(plan) {
     });
     const url = data?.checkout_url;
     if (error || !url) {
-      showToast("danger", "创建支付会话失败", data?.message ?? error?.message ?? "请稍后重试");
+      showToast("danger", t("pay_checkoutFail"), data?.message ?? error?.message ?? t("pay_tryLater"));
       return;
     }
     if (api.tabs?.create) {
@@ -546,9 +498,9 @@ export async function startCheckout(plan) {
       window.open(url, "_blank");
     }
     state.showUpgradeModal = false;
-    showToast("info", "已打开支付页面", "完成后回到这里点「立即同步」即可生效");
+    showToast("info", t("pay_checkoutOpened"), t("pay_checkoutOpenedSub"));
   } catch (e) {
-    showToast("danger", "创建支付会话失败", e?.message ?? e);
+    showToast("danger", t("pay_checkoutFail"), e?.message ?? e);
   } finally {
     state.checkoutBusy = false;
   }
@@ -561,7 +513,7 @@ export async function manageSubscription() {
     });
     const url = data?.portal_url;
     if (error || !url) {
-      showToast("danger", "打开订阅管理失败", data?.message ?? error?.message ?? "请稍后重试");
+      showToast("danger", t("pay_portalFail"), data?.message ?? error?.message ?? t("pay_tryLater"));
       return;
     }
     if (api.tabs?.create) {
@@ -570,7 +522,7 @@ export async function manageSubscription() {
       window.open(url, "_blank");
     }
   } catch (e) {
-    showToast("danger", "打开订阅管理失败", e?.message ?? e);
+    showToast("danger", t("pay_portalFail"), e?.message ?? e);
   }
 }
 
@@ -615,22 +567,24 @@ async function doOverwriteLocal() {
     if (r.ok) {
       await api.storage.local.set({
         lastSyncAt: Date.now(),
-        lastSyncStatus: "已按云端覆盖本机",
+        lastSyncStatus: "ok",
+        lastSyncStatusDetail: "",
+        lastSyncSummary: JSON.stringify({ overwritten: true }),
       });
       await refreshStatus();
-      showToast("success", "完成", "已按云端覆盖本机书签");
+      showToast("success", t("common_done"), t("status_overwritten"));
       await refreshProfile();
       await refreshSpacesDevices();
     } else if (r.reason === "decrypt_error") {
-      showToast("danger", "云端数据无法解密", r.error ?? "请检查同步密钥");
+      showToast("danger", t("toast_decryptTitle"), r.error ?? t("toast_checkKey"));
     } else if (r.reason === "quota_exceeded") {
       state.showUpgradeModal = true;
-      showToast("warning", "空间不足", "请升级到 Plus 或 Pro");
+      showToast("warning", t("toast_quotaTitle"), t("toast_quotaSub"));
     } else {
-      showToast("danger", `覆盖失败: ${r.error ?? r.reason}`, "");
+      showToast("danger", t("spaces_overwriteFail", r.error ?? r.reason), "");
     }
   } catch (e) {
-    showToast("danger", `失败: ${e?.message ?? e}`, "");
+    showToast("danger", t("common_failPrefix", e?.message ?? e), "");
   } finally {
     state.syncBusy = false;
   }
@@ -638,7 +592,7 @@ async function doOverwriteLocal() {
 
 export function dismissFirstSync() {
   state.showFirstSyncModal = false;
-  showToast("info", "已暂不同步", "下次同步时会再次询问如何处理。");
+  showToast("info", t("fs_dismissedTitle"), t("fs_dismissedSub"));
 }
 
 export async function importFirstSyncKey() {
@@ -651,14 +605,14 @@ export async function importFirstSyncKey() {
     state.showFirstSyncModal = false;
     await syncNow({});
   } else {
-    state.firstSyncKeyMsg = "密钥格式不正确，请确认粘贴的是完整的 44 字符密钥。";
+    state.firstSyncKeyMsg = t("key_badFormat");
   }
 }
 
 export async function phraseFirstSyncKey() {
   const phrase = state.firstSyncPhraseInput;
   if (!phrase || phrase.length < 8) {
-    state.firstSyncKeyMsg = "口令至少 8 位，且要够长/独特才安全。";
+    state.firstSyncKeyMsg = t("phrase_tooShort");
     return;
   }
   const ok = await setKeyFromPassphrase(phrase);
@@ -670,37 +624,70 @@ export async function phraseFirstSyncKey() {
     state.showFirstSyncModal = false;
     await syncNow({});
   } else {
-    state.firstSyncKeyMsg = "口令长度不足，未设置。";
+    state.firstSyncKeyMsg = t("phrase_setFail");
   }
 }
 
 // ---- 同步 ----
 export async function refreshStatus(extra) {
-  const s = await api.storage.local.get(["lastSyncAt", "lastSyncStatus", "lastDecryptErrors"]);
+  const s = await api.storage.local.get(["lastSyncAt", "lastSyncStatus", "lastSyncStatusDetail", "lastSyncSummary", "lastDecryptErrors"]);
   state.lastSyncAt = s.lastSyncAt ?? null;
   state.lastSyncStatus = s.lastSyncStatus ?? "";
+  state.lastSyncStatusDetail = s.lastSyncStatusDetail ?? "";
+  state.lastSyncSummary = s.lastSyncSummary ?? "";
   state.lastDecryptErrors = s.lastDecryptErrors ?? null;
   if (extra) showToast("info", extra);
 }
 
-// 把 runSync 返回的 {pushed, pulled, seeded, decryptFailed} 翻译成用户能理解的自然语言。
+// 把 runSync 返回的 {pushed, pulled, seeded, restored, decryptFailed} 压成可持久化的摘要。
 // 注意：pushed/pulled 是 CRDT 操作行数（一个书签的建/移/改会产 2~3 条 op，
 // 冷启动重放还会把历史 op 全计一遍），和「书签数」不是一回事，直接展示会让用户
-// 误以为传了 N 个书签。这里只描述方向与结果，不展示原始 op 数。
-function syncSummary(r) {
-  const p = r.pushed || 0;
-  const q = r.pulled || 0;
-  const warn = r.decryptFailed > 0
-    ? ` · ⚠️ ${r.decryptFailed} 条云端数据解密失败（密钥不匹配，请检查同步密钥/口令）`
-    : "";
+// 误以为传了 N 个书签。持久层只存方向码，展示层（summaryText）再本地化。
+function summarize(r) {
+  return {
+    seeded: !!r.seeded,
+    restored: !!r.restored,
+    push: (r.pushed || 0) > 0,
+    pull: (r.pulled || 0) > 0,
+    dec: r.decryptFailed || 0,
+  };
+}
+
+function summaryText(sum) {
+  if (!sum) return "";
   let body;
-  if (r.seeded) body = "首次同步完成，书签已加密上传";
-  else if (r.restored) body = "首次同步完成，已从云端恢复书签";
-  else if (p > 0 && q > 0) body = "双向同步完成";
-  else if (p > 0) body = "已上传本地变更";
-  else if (q > 0) body = "已同步其他设备的变更";
-  else body = "已是最新";
-  return body + warn;
+  if (sum.seeded) body = t("status_seeded");
+  else if (sum.restored) body = t("status_restored");
+  else if (sum.push && sum.pull) body = t("status_bidirectional");
+  else if (sum.push) body = t("status_pushed");
+  else if (sum.pull) body = t("status_pulled");
+  else body = t("status_uptodate");
+  return sum.dec > 0 ? body + ` · ${t("status_decryptWarn", sum.dec)}` : body;
+}
+
+function parseSummary(raw) {
+  try {
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+// 原因码 → 用户可读文案（未知原因原样展示）
+export function reasonText(reason) {
+  switch (reason) {
+    case "not_authenticated": return t("err_notAuthenticated");
+    case "no_space": return t("err_noSpace");
+    case "no_key": return t("err_noKey");
+    case "timeout":
+    case "no_response": return t("err_timeout");
+    case "rate_limited": return t("err_rateLimited");
+    case "quota_exceeded": return t("err_quota");
+    case "device_limit_reached": return t("err_deviceLimit");
+    case "decrypt_error": return t("err_decrypt");
+    case "replica_incomplete": return t("err_replicaIncomplete");
+    default: return reason ?? "";
+  }
 }
 
 export async function syncNow(opts = {}) {
@@ -720,7 +707,7 @@ export async function syncNow(opts = {}) {
       }
     });
     const timeout = new Promise((resolve) =>
-      setTimeout(() => resolve({ ok: false, reason: "timeout", error: "Service Worker 未响应" }), 60000)
+      setTimeout(() => resolve({ ok: false, reason: "timeout", error: t("err_timeout") }), 60000)
     );
     const r = await Promise.race([msgResult, timeout]);
     if (!r.ok && r.reason === "first_sync_confirm_needed") {
@@ -729,55 +716,53 @@ export async function syncNow(opts = {}) {
       state.overwriteArmed = false;
       state.firstSyncKeyMsg = "";
       state.showFirstSyncModal = true;
-      showToast("info", r.remoteEncrypted ? "云端数据已加密，请先导入同步密钥" : "本机与云端都有书签，请确认如何同步", "");
+      showToast("info", r.remoteEncrypted ? t("toast_fsEncrypted") : t("toast_fsBoth"), "");
       return;
     }
     if (!r.ok && r.reason === "no_key") {
-      // 本机还没有同步口令：弹出引导让用户设置（新设备/重装后必须输入口令）
-      state.onboardMode = "phrase";
-      state.onboardMsg = "";
-      state.showOnboard = true;
-      showToast("info", "请先设置同步口令", "新设备输入与其他设备相同的口令即可同步");
+      // 本机还没有同步口令：打开口令门禁页（唯一入口，不设置无法使用插件）
+      await initPhraseGate();
+      showToast("info", t("toast_needPhrase"), t("toast_needPhraseSub"));
       return;
     }
     if (!r.ok && r.reason === "quota_exceeded") {
       // 字节配额撞顶（0032 服务端执行）。已付费/试用 Pro：给出清理指引而非升级弹窗；
       // Free/Plus：升级引导。
       if (planLabel.value === "Pro") {
-        showToast("warning", "已达 Pro 存储上限", "删除部分书签或空间释放容量后，同步会自动恢复");
+        showToast("warning", t("toast_proByteLimitTitle"), t("toast_proByteLimitSub"));
       } else {
         state.showUpgradeModal = true;
-        showToast("warning", "空间不足", "请升级到 Plus 或 Pro");
+        showToast("warning", t("toast_quotaTitle"), t("toast_quotaSub"));
       }
       return;
     }
     if (!r.ok && r.reason === "device_limit_reached") {
       // 设备数超计划上限（0033）：升级引导 + 提示可移除旧设备腾位
       state.showUpgradeModal = true;
-      showToast("warning", "设备数量已达上限", "Free 最多 3 台 · 可在空间设置中移除旧设备，或升级解锁更多");
+      showToast("warning", t("toast_deviceLimitTitle"), t("toast_deviceLimitSub"));
       return;
     }
     if (!r.ok && r.reason === "rate_limited") {
       // 限流（0032）：正常客户端几乎不会触发，静默提示即可，下轮自动重试
-      showToast("info", "同步过于频繁", "本轮已跳过，稍后会自动重试");
+      showToast("info", t("toast_rateTitle"), t("toast_rateSub"));
       return;
     }
     if (!r.ok && r.reason === "decrypt_error") {
       // 端到端加密：密钥不匹配 / 数据损坏，引导用户导入密钥
-      showToast("danger", "数据无法解密", r.error ?? "请检查同步密钥");
+      showToast("danger", t("toast_decryptTitle"), r.error ?? t("toast_checkKey"));
       return;
     }
     await api.storage.local.set({
       lastSyncAt: Date.now(),
-      lastSyncStatus: r.ok
-        ? syncSummary(r)
-        : `${r.reason}${r.error ? ` (${r.error})` : ""}`,
+      lastSyncStatus: r.ok ? "ok" : "error",
+      lastSyncStatusDetail: r.ok ? "" : `${r.reason ?? ""}${r.error ? ` (${r.error})` : ""}`,
+      lastSyncSummary: r.ok ? JSON.stringify(summarize(r)) : "",
     });
     await refreshStatus();
     if (r.ok) {
-      showToast("success", "同步完成", syncSummary(r));
+      showToast("success", t("toast_syncDone"), summaryText(parseSummary(state.lastSyncSummary)));
     } else {
-      showToast("danger", `${r.reason}${r.error ? ` (${r.error})` : ""}`, "");
+      showToast("danger", `${reasonText(r.reason)}${r.error ? ` (${r.error})` : ""}`, "");
     }
     // 同步后刷新配额与空间/设备状态（push 会登记本设备）。
     // 兜底超时：popup 的 supabase 查询偶尔挂起（网络/会话竞争），
@@ -789,7 +774,7 @@ export async function syncNow(opts = {}) {
       ]);
     }
   } catch (e) {
-    showToast("danger", `失败: ${e?.message ?? e}`, "");
+    showToast("danger", t("common_failPrefix", e?.message ?? e), "");
   } finally {
     state.syncBusy = false;
   }
@@ -806,8 +791,8 @@ export async function toggleAutoSync() {
   await api.storage.local.set({ [AUTO_SYNC_KEY]: state.autoSync });
   showToast(
     "info",
-    state.autoSync ? "已开启自动同步" : "已关闭自动同步",
-    state.autoSync ? "检测到变更后自动在后台同步" : "本地变更将不再自动上传，可随时手动「立即同步」"
+    state.autoSync ? t("autosync_onTitle") : t("autosync_offTitle"),
+    state.autoSync ? t("autosync_onSub") : t("autosync_offSub")
   );
 }
 
@@ -826,25 +811,25 @@ export async function submit() {
     const em = state.email.trim();
     const pw = state.password;
     if (!em || !pw) {
-      state.authError = "请输入邮箱和密码";
+      state.authError = t("auth_errRequired");
       return;
     }
     let res;
     if (state.mode === "register") {
       res = await supabase.auth.signUp({ email: em, password: pw });
       if (res.error) {
-        state.authError = `注册失败: ${res.error.message}`;
+        state.authError = t("auth_errRegister", res.error.message);
         return;
       }
       if (!res.data.session) {
         state.session = null;
-        state.authSuccess = "注册成功，请查收确认邮件后登录";
+        state.authSuccess = t("auth_successRegister");
         return;
       }
     } else {
       res = await supabase.auth.signInWithPassword({ email: em, password: pw });
       if (res.error) {
-        state.authError = `登录失败: ${res.error.message}`;
+        state.authError = t("auth_errLogin", res.error.message);
         return;
       }
     }
@@ -872,8 +857,8 @@ export async function logout() {
   state.activeSpace = null;
   state.drawer = "";
   state.armed = "";
-  state.status = "已退出登录";
-  showToast("info", "已退出登录", "");
+  state.status = t("toast_loggedOut");
+  showToast("info", t("toast_loggedOut"), "");
 }
 
 // ---- 弹窗抽屉 / 设置页导航 ----
@@ -981,7 +966,7 @@ export const proByteLabel = computed(() => {
   if (!p?.quota_bytes || p.used_bytes == null) return "";
   if (!(p.plan === "pro" || p.plan === "lifetime")) return "";
   const mb = (b) => (b / 1024 / 1024).toFixed(1).replace(/\.0$/, "");
-  return `已用 ${mb(p.used_bytes)}MB / ${mb(p.quota_bytes)}MB`;
+  return t("quota_proBytes", mb(p.used_bytes), mb(p.quota_bytes));
 });
 
 export const usagePct = computed(() => {
@@ -1002,25 +987,26 @@ export const quotaState = computed(() => {
 });
 
 export const quotaBadge = computed(() => {
-  if (quotaState.value === "over") return { text: "已超出配额", cls: "badge-danger" };
-  if (quotaState.value === "warn") return { text: "接近上限", cls: "badge-warning" };
+  if (quotaState.value === "over") return { text: t("quota_over"), cls: "badge-danger" };
+  if (quotaState.value === "warn") return { text: t("quota_warn"), cls: "badge-warning" };
   return { text: planLabel.value.toUpperCase(), cls: "badge-neutral" };
 });
 
 export const quotaFoot = computed(() => {
   const spaceName = state.activeSpace?.name ?? "";
+  let remain;
   if (quotaState.value === "over") {
-    if (byteUsagePct.value >= 100) return `已达存储上限 · 删除书签或空间释放容量后同步自动恢复`;
-    return `已超出配额 ${((usedCount.value ?? 0) - quotaCount.value).toLocaleString()} 条 · 请升级后继续同步`;
+    if (byteUsagePct.value >= 100) return t("quota_footOverBytes");
+    return t("quota_footOver", ((usedCount.value ?? 0) - quotaCount.value).toLocaleString());
   }
   if (quotaState.value === "warn") {
-    if (byteUsagePct.value >= 80 && proByteLabel.value) return `${proByteLabel.value} · 即将触顶，可清理书签释放容量`;
-    return `仅剩 ${(quotaCount.value - usedCount.value).toLocaleString()} 条 · 超出后新书签将无法同步`;
+    if (byteUsagePct.value >= 80 && proByteLabel.value) return t("quota_footWarnBytes", proByteLabel.value);
+    return t("quota_footWarn", (quotaCount.value - usedCount.value).toLocaleString());
   }
-  const remain = quotaCount.value
-    ? `剩余 ${(quotaCount.value - usedCount.value).toLocaleString()} 条`
-    : (proByteLabel.value ? `数量不限 · ${proByteLabel.value}` : "数量不限");
-  return spaceName ? `当前空间：${spaceName} · ${remain}` : remain;
+  remain = quotaCount.value
+    ? t("quota_remain", (quotaCount.value - usedCount.value).toLocaleString())
+    : (proByteLabel.value ? t("quota_unlimitedBytes", proByteLabel.value) : t("quota_unlimitedFoot"));
+  return spaceName ? t("quota_footSpace", spaceName, remain) : remain;
 });
 
 export const quotaBtn = computed(() => {
@@ -1034,53 +1020,64 @@ export const syncState = computed(() => {
   if (state.syncBusy) return "syncing";
   if (!state.lastSyncAt) return "never";
   const st = state.lastSyncStatus ?? "";
-  if (st.startsWith("未同步") || st.startsWith("失败")) return "error";
+  // 新格式 "error"；兼容旧版本持久化的中文前缀文案
+  if (st === "error" || st.startsWith("未同步") || st.startsWith("失败")) return "error";
   return "ok";
 });
 
 export const syncTitle = computed(() => {
   switch (syncState.value) {
-    case "syncing": return "正在同步…";
-    case "never": return "尚未同步";
-    case "error": return "同步失败";
-    default: return "已同步";
+    case "syncing": return t("status_syncing");
+    case "never": return t("status_never");
+    case "error": return t("status_error");
+    default: return t("status_ok");
   }
 });
 
 export const syncSub = computed(() => {
   const st = state.lastSyncStatus ?? "";
-  if (syncState.value === "syncing") return "正在上传本地变更…";
-  if (syncState.value === "never") return "点击下方按钮开始首次同步";
+  if (syncState.value === "syncing") return t("status_syncingSub");
+  if (syncState.value === "never") return t("status_neverSub");
   if (syncState.value === "error") {
-    // 去掉「未同步: / 失败: 」前缀，保留可读原因
-    const clean = st.replace(/^(未同步|失败):\s*/, "");
-    return clean || "网络异常，请检查连接后重试";
+    // 新格式：lastSyncStatusDetail = "原因码 (错误信息)"；旧格式：中文「未同步:/失败:」前缀
+    const raw = (state.lastSyncStatusDetail || st.replace(/^error:/, "")).replace(/^(未同步|失败):\s*/, "");
+    const m = raw.match(/^([a-z_]+)\s*(?:\((.*)\))?\s*$/);
+    if (m && m[1]) {
+      const base = reasonText(m[1]);
+      const shown = m[2] ? `${base} (${m[2]})` : base;
+      if (shown) return shown;
+    }
+    return raw || t("err_network");
   }
   const decrypt = state.lastDecryptErrors?.errors?.length;
-  if (decrypt) return `${decrypt} 条云端数据解密失败（密钥不匹配）`;
-  return `${usedCount.value ?? 0} 条书签 · 已加密上传`;
+  if (decrypt) return t("status_decryptLine", decrypt);
+  const sum = parseSummary(state.lastSyncSummary);
+  if (sum) return summaryText(sum);
+  // 兼容旧版本持久化的中文摘要文案
+  if (st && st !== "ok") return st;
+  return t("status_okSub", usedCount.value ?? 0);
 });
 
 export const syncTail = computed(() => {
-  if (syncState.value === "never") return "未登记";
+  if (syncState.value === "never") return t("status_unregistered");
   return fmtRelative(state.lastSyncAt);
 });
 
 export function fmtRelative(ts) {
-  if (!ts) return "从未";
+  if (!ts) return t("time_never");
   const diff = Date.now() - new Date(ts).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "刚刚";
-  if (m < 60) return `${m} 分钟前`;
+  if (m < 1) return t("time_now");
+  if (m < 60) return t("time_min", m);
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} 小时前`;
+  if (h < 24) return t("time_hour", h);
   const d = Math.floor(h / 24);
-  if (d < 30) return `${d} 天前`;
+  if (d < 30) return t("time_day", d);
   return fmt(ts);
 }
 
 export function fmt(ts) {
-  return ts ? new Date(ts).toLocaleString() : "从未";
+  return ts ? new Date(ts).toLocaleString() : t("time_never");
 }
 
 // 空间数量档位：Free 1 · Plus 3 · Pro/Lifetime 10

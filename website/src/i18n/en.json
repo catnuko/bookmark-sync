@@ -39,7 +39,10 @@
     "subtitle": "Install the extension, sign in, and your Chrome, Edge, and Firefox bookmarks become one tree. Keep organizing the way you always have — the sync engine handles the rest.",
     "ctaPrimary": "Download Free",
     "ctaSecondary": "View Pricing",
-    "trustBadge": "No credit card · 500 bookmarks free · End-to-end encryption on by default · Reorder once, synced everywhere"
+    "trustBadge": "No credit card · 500 bookmarks free · End-to-end encryption on by default · Reorder once, synced everywhere",
+    "previewFolder1": "Development",
+    "previewFolder2": "Design resources",
+    "previewDeleted": "Deleted · never resurrected"
   },
   "pain": {
     "eyebrow": "Why you need it",

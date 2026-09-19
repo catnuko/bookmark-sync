@@ -34,5 +34,12 @@
     <div class="name">Bookmark Sync</div>
     <p class="note">设置已整合进插件弹窗，点击浏览器工具栏图标即可使用。</p>
   </div>
+  <script type="module">
+    // 静态占位文案 + html lang 本地化（__MSG__ 占位符在 HTML 中不生效，需 JS 替换）
+    document.documentElement.lang = chrome.i18n.getUILanguage();
+    const note = document.querySelector(".note");
+    const msg = chrome.i18n.getMessage("opts_note");
+    if (note && msg) note.textContent = msg;
+  </script>
 </body>
 </html>

@@ -9,45 +9,45 @@
     <div class="auth-body">
       <div class="auth-brand">
         <div class="brandmark">B</div>
-        <h1>登录以同步书签</h1>
-        <p class="sub">跨 Chrome / Edge / Firefox 一致的书签</p>
+        <h1>{{ t("auth_h1") }}</h1>
+        <p class="sub">{{ t("auth_sub") }}</p>
       </div>
 
       <SegTabs
         v-model="state.mode"
-        :options="[{ value: 'login', label: '登录' }, { value: 'register', label: '注册' }]"
-        aria-label="登录或注册"
+        :options="[{ value: 'login', label: t('auth_login') }, { value: 'register', label: t('auth_register') }]"
+        :aria-label="t('auth_tabsAria')"
       />
 
       <div class="field">
-        <label for="email">邮箱</label>
+        <label for="email">{{ t("auth_email") }}</label>
         <input
           id="email"
           v-model="state.email"
           class="input"
           type="email"
-          placeholder="邮箱地址"
+          :placeholder="t('auth_emailPh')"
           autocomplete="email"
-          aria-label="邮箱"
+          :aria-label="t('auth_email')"
         />
       </div>
       <div class="field">
-        <label for="password">密码</label>
+        <label for="password">{{ t("auth_password") }}</label>
         <input
           id="password"
           v-model="state.password"
           class="input"
           type="password"
-          :placeholder="state.mode === 'login' ? '密码' : '密码（至少 6 位）'"
+          :placeholder="state.mode === 'login' ? t('auth_pwPhLogin') : t('auth_pwPhRegister')"
           autocomplete="current-password"
-          aria-label="密码"
+          :aria-label="t('auth_password')"
           @keyup.enter="submit"
         />
       </div>
 
       <button id="authSubmit" class="btn btn-primary btn-lg" :disabled="state.busy" @click="submit">
         <span v-if="state.busy" class="spinner" />
-        {{ state.mode === "login" ? "登录" : "创建账号" }}
+        {{ state.mode === "login" ? t("auth_login") : t("auth_create") }}
       </button>
 
       <div v-if="state.authSuccess" class="banner banner-success">
@@ -60,13 +60,13 @@
       </div>
 
       <div class="auth-hint">
-        按 <kbd>Enter</kbd> 亦可提交 · 邮箱已记住并自动回填
+        {{ t("auth_hint") }}
       </div>
 
       <div class="popup-foot">
-        <button type="button" class="link-btn" @click="openHelp">忘记密码？</button>
+        <button type="button" class="link-btn" @click="openHelp">{{ t("auth_forgot") }}</button>
         <i class="fw-sep"></i>
-        <button type="button" class="link-btn" @click="openHelp">帮助</button>
+        <button type="button" class="link-btn" @click="openHelp">{{ t("common_help") }}</button>
       </div>
     </div>
   </div>
@@ -74,6 +74,7 @@
 
 <script setup>
 import { state, submit, openHelp } from "../store.js";
+import { t } from "../lib/i18n.js";
 import SegTabs from "./ui/SegTabs.vue";
 import Icon from "./ui/Icon.vue";
 </script>

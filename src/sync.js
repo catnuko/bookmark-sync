@@ -12,6 +12,7 @@
 
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
+import { t } from "./lib/i18n.js";
 import {
   SupabaseOpLogTransport,
   SyncCoordinator,
@@ -203,7 +204,7 @@ export async function runSync(_opts = {}) {
     // 但 SW 内存 session 为 null 时误报 not_authenticated。
     const sess = await ensureSession();
     if (!sess) {
-      return { ok: false, reason: "not_authenticated", error: "请先在插件中登录" };
+      return { ok: false, reason: "not_authenticated", error: t("err_notAuthenticated") };
     }
 
     let { active } = await getActiveSpace();
@@ -212,7 +213,7 @@ export async function runSync(_opts = {}) {
       // bsync_space_create 首个空间自动 is_default=true）。后续推送/拉取
       // 以此为落点，老客户端行为不变。
       const r = await createSpace("默认空间");
-      if (!r.ok) return { ok: false, reason: "no_space", error: r.error ?? "无法创建默认空间" };
+      if (!r.ok) return { ok: false, reason: "no_space", error: r.error ?? t("err_noSpace") };
       ({ active } = await getActiveSpace());
       if (!active) return { ok: false, reason: "no_space" };
     }
@@ -222,7 +223,7 @@ export async function runSync(_opts = {}) {
     if (!key) {
       // 不再自动生成随机密钥：必须由用户设置口令派生。无密钥时直接拒绝同步，
       // 由 UI 引导用户在引导页/首次同步弹窗里输入口令。
-      return { ok: false, reason: "no_key", error: "请先设置同步口令" };
+      return { ok: false, reason: "no_key", error: t("err_noKey") };
     }
 
     // 设备心跳（0033：新设备首次登记超计划上限时服务端 raise device_limit_reached）

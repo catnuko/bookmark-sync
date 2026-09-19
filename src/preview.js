@@ -3,11 +3,29 @@
 // 用法：pnpm dev 后打开 /preview.html?view=popup|key|spaces|auth|options&pane=sync
 import { createApp, h } from "vue";
 import "./styles/tokens.css";
+import zhMessages from "../public/_locales/zh_CN/messages.json";
 import { state } from "./store.js";
+
+// 普通浏览器没有 chrome.i18n：mock 成中文语言包，让预览渲染真实文案而非键名
+globalThis.chrome = {
+  i18n: {
+    getMessage: (key, subs) => {
+      const msg = zhMessages[key]?.message ?? "";
+      return Array.isArray(subs)
+        ? msg.replace(/\$([A-Z_]+)\$/g, (_, name) => {
+            const ph = zhMessages[key]?.placeholders?.[name.toLowerCase()];
+            return ph ? subs[parseInt(ph.content.slice(1), 10) - 1] ?? "" : "";
+          })
+        : msg;
+    },
+    getUILanguage: () => "zh-CN",
+  },
+};
 
 import PopupView from "./components/PopupView.vue";
 import AuthView from "./components/AuthView.vue";
 import OptionsView from "./components/OptionsView.vue";
+import PhraseGate from "./components/PhraseGate.vue";
 
 const q = new URLSearchParams(location.search);
 const view = q.get("view") || "popup";
@@ -21,7 +39,8 @@ state.session = { user: { email: "lin.wei@example.com" }, access_token: "demo" }
 state.profile = { plan: "free", used_count: 128, used_bytes: 0, quota_bytes: 0 };
 state.serverCount = 128;
 state.lastSyncAt = Date.now() - 2 * 60 * 1000;
-state.lastSyncStatus = "已加密上传";
+state.lastSyncStatus = "ok";
+state.lastSyncSummary = JSON.stringify({ seeded: false, restored: false, push: false, pull: true, dec: 0 });
 state.lastDecryptErrors = null;
 state.hasKeyNow = true;
 state.keyStateLoaded = true;
@@ -50,13 +69,17 @@ if (isPopup) {
   // 不加 body.popup：preview.html 的 dev-frame 已用 #app{width:400px;height:600px} 还原弹窗尺寸，
   // 若再加 popup 类会与 dev-frame 的 padding 冲突（body 又被压到固定宽高）。
   state.drawer = view === "key" ? "key" : view === "spaces" ? "spaces" : "";
+} else if (view === "gate") {
+  // 口令门禁页：?mode=setup|verify（默认 setup）
+  state.phraseGateVisible = true;
+  state.phraseGateMode = q.get("mode") === "verify" ? "verify" : "setup";
 } else {
   state.session = view === "auth" ? null : state.session;
 }
 
 document.body.classList.add("dev-frame", `view-${view}`);
 
-const Comp = view === "auth" ? AuthView : isPopup ? PopupView : OptionsView;
+const Comp = view === "auth" ? AuthView : view === "gate" ? PhraseGate : isPopup ? PopupView : OptionsView;
 createApp({ render: () => h(Comp) }).mount("#app");
 
 // 开发辅助：?fill=<px> 往当前滚动容器注入超长块，用于演示「固定高度 + 内容区自滚动 + 滚动条样式」。

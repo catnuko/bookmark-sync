@@ -4,9 +4,9 @@
       <!-- 分支 1：云端密文，本设备无密钥 -->
       <template v-if="state.firstSyncInfo?.remoteEncrypted">
         <div class="m-ico warning"><Icon name="lock" /></div>
-        <div class="m-title">需要输入同步口令</div>
+        <div class="m-title">{{ t("fs_phraseTitle") }}</div>
         <p class="m-body">
-          云端书签已加密，本设备还没有同步口令，无法读取云端数据。请输入你在其他设备上设置的<b>同一口令</b>。
+          {{ t("fs_phraseBody1") }}<b>{{ t("fs_phraseBodyBold") }}</b>{{ t("fs_phraseBody2") }}
         </p>
 
         <div class="m-stack">
@@ -14,15 +14,15 @@
             v-model="state.firstSyncPhraseInput"
             class="input"
             type="password"
-            placeholder="同一句口令（至少 8 位）"
+            :placeholder="t('fs_phrasePh')"
             autocomplete="new-password"
             @keyup.enter="phraseFirstSyncKey"
           />
-          <button class="btn btn-primary" :disabled="!state.firstSyncPhraseInput" @click="phraseFirstSyncKey">输入并继续</button>
+          <button class="btn btn-primary" :disabled="!state.firstSyncPhraseInput" @click="phraseFirstSyncKey">{{ t("fs_phraseCta") }}</button>
         </div>
 
         <div class="m-stack">
-          <button class="btn btn-ghost" @click="dismissFirstSync">暂不同步</button>
+          <button class="btn btn-ghost" @click="dismissFirstSync">{{ t("fs_later") }}</button>
         </div>
 
         <p v-if="state.firstSyncKeyMsg" class="hint" style="margin-top:10px;justify-content:center;color:var(--danger-text)">{{ state.firstSyncKeyMsg }}</p>
@@ -31,37 +31,37 @@
       <!-- 分支 2：双方都有书签，四象限决策 -->
       <template v-else>
         <div class="m-ico info"><Icon name="list" /></div>
-        <div class="m-title">云端与本机都有书签</div>
+        <div class="m-title">{{ t("fs_bothTitle") }}</div>
         <p class="m-body">
-          本机 {{ state.firstSyncInfo?.localCount ?? "?" }} 条 · 云端 {{ state.firstSyncInfo?.remoteCount ?? "?" }} 条书签。请选择如何处理：
+          {{ t("fs_bothBody", state.firstSyncInfo?.localCount ?? "?", state.firstSyncInfo?.remoteCount ?? "?") }}
         </p>
 
         <div class="m-stack">
           <div class="plan-card reco">
             <div class="pc-top">
-              <span class="pc-name">合并</span>
-              <span class="badge badge-success badge-sub">推荐</span>
+              <span class="pc-name">{{ t("fs_mergeName") }}</span>
+              <span class="badge badge-success badge-sub">{{ t("plan_reco") }}</span>
             </div>
             <ul>
-              <li><Icon name="check" />云端 {{ state.firstSyncInfo?.remoteCount ?? "?" }} 条与本地 {{ state.firstSyncInfo?.localCount ?? "?" }} 条取并集，双方书签都保留</li>
-              <li><Icon name="check" />删除双向生效，之后继续增量同步</li>
+              <li><Icon name="check" />{{ t("fs_mergeFeat1", state.firstSyncInfo?.remoteCount ?? "?", state.firstSyncInfo?.localCount ?? "?") }}</li>
+              <li><Icon name="check" />{{ t("fs_mergeFeat2") }}</li>
             </ul>
-            <button class="btn btn-primary" style="width:100%;margin-top:12px" @click="firstSyncMerge">合并并继续</button>
+            <button class="btn btn-primary" style="width:100%;margin-top:12px" @click="firstSyncMerge">{{ t("fs_mergeCta") }}</button>
           </div>
 
           <div class="plan-card">
             <div class="pc-top">
-              <span class="pc-name" style="color:var(--danger-text)">覆盖本机</span>
+              <span class="pc-name" style="color:var(--danger-text)">{{ t("fs_overName") }}</span>
             </div>
             <ul>
-              <li><Icon name="alert" style="color:var(--danger-text)" />将删除本机独有 {{ state.firstSyncInfo?.localOnlyCount ?? "?" }} 条书签</li>
-              <li><Icon name="alert" style="color:var(--danger-text)" />以云端为准，本机书签树将被替换</li>
+              <li><Icon name="alert" style="color:var(--danger-text)" />{{ t("fs_overFeat1", state.firstSyncInfo?.localOnlyCount ?? "?") }}</li>
+              <li><Icon name="alert" style="color:var(--danger-text)" />{{ t("fs_overFeat2") }}</li>
             </ul>
             <ArmedButton
               class="fs-overwrite"
               style="width:100%;margin-top:12px;height:36px"
-              :label="'用云端覆盖本机'"
-              :confirm-label="'再次点击以确认覆盖'"
+              :label="t('fs_overCta')"
+              :confirm-label="t('fs_overConfirm')"
               :armed="state.overwriteArmed"
               :countdown="state.overwriteArmed ? state.overwriteLeft : 0"
               @press="firstSyncOverwrite"
@@ -70,7 +70,7 @@
         </div>
 
         <div class="m-actions">
-          <button class="btn btn-ghost" @click="dismissFirstSync">暂不同步</button>
+          <button class="btn btn-ghost" @click="dismissFirstSync">{{ t("fs_later") }}</button>
         </div>
       </template>
     </div>
@@ -82,6 +82,7 @@ import {
   state, dismissFirstSync, firstSyncMerge, firstSyncOverwrite,
   phraseFirstSyncKey,
 } from "../store.js";
+import { t } from "../lib/i18n.js";
 import ArmedButton from "./ui/ArmedButton.vue";
 import Icon from "./ui/Icon.vue";
 </script>

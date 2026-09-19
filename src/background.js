@@ -36,24 +36,27 @@ async function sync() {
   try {
     const r = await runSync();
     if (r.ok) {
-      // 与 store.js syncSummary 同款自然语言：不展示 CRDT op 行数（与书签数对不上）。
+      // 与 store.js summarize 同款方向摘要：持久层只存机器可读摘要 JSON，
+      // 展示层（store.js summaryText）再按浏览器语言本地化。
       const p = r.pushed || 0, q = r.pulled || 0;
-      const body = r.seeded
-        ? "首次同步完成，书签已加密上传"
-        : r.restored
-        ? "首次同步完成，已从云端恢复书签"
-        : p > 0 && q > 0 ? "双向同步完成"
-        : p > 0 ? "已上传本地变更"
-        : q > 0 ? "已同步其他设备的变更"
-        : "已是最新";
       await api.storage.local.set({
         lastSyncAt: Date.now(),
-        lastSyncStatus: body,
+        lastSyncStatus: "ok",
+        lastSyncStatusDetail: "",
+        lastSyncSummary: JSON.stringify({
+          seeded: !!r.seeded,
+          restored: !!r.restored,
+          push: p > 0,
+          pull: q > 0,
+          dec: r.decryptFailed || 0,
+        }),
       });
     } else {
       await api.storage.local.set({
         lastSyncAt: Date.now(),
-        lastSyncStatus: `未同步: ${r.reason ?? "未知"}${r.error ? ` (${r.error})` : ""}`,
+        lastSyncStatus: "error",
+        lastSyncStatusDetail: `${r.reason ?? "unknown"}${r.error ? ` (${r.error})` : ""}`,
+        lastSyncSummary: "",
       });
     }
     notifyUiRefreshed();
@@ -62,7 +65,9 @@ async function sync() {
     const r = { ok: false, reason: "error", error: e?.message ?? String(e) };
     await api.storage.local.set({
       lastSyncAt: Date.now(),
-      lastSyncStatus: `失败: ${e?.message ?? e}`,
+      lastSyncStatus: "error",
+      lastSyncStatusDetail: `error (${e?.message ?? e})`,
+      lastSyncSummary: "",
     });
     notifyUiRefreshed();
     return r;

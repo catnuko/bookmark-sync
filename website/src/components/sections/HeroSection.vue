@@ -50,7 +50,7 @@ const { t } = useI18n();
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="1.6" />
               </svg>
-              <span>开发</span>
+              <span>{{ t("hero.previewFolder1") }}</span>
               <svg class="sync-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 <path d="M20 10a8 8 0 00-15-2M4 14a8 8 0 0015 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -72,7 +72,7 @@ const { t } = useI18n();
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="1.6" />
               </svg>
-              <span>设计资源</span>
+              <span>{{ t("hero.previewFolder2") }}</span>
             </div>
             <div class="preview-bookmark">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -84,7 +84,7 @@ const { t } = useI18n();
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M5 4v16l7-5 7 5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
               </svg>
-              <span>已删除 · 永不复活</span>
+              <span>{{ t("hero.previewDeleted") }}</span>
               <svg class="restore-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>

@@ -12,7 +12,7 @@
 
   <template v-else>
     <div class="opt">
-      <nav class="opt-nav" aria-label="设置分区">
+      <nav class="opt-nav" :aria-label="t('opts_navAria')">
         <div class="nav-title">Bookmark Sync</div>
         <button
           v-for="p in panes"
@@ -22,7 +22,7 @@
           @click="state.navPane = p.id"
         >
           <Icon :name="p.icon" />
-          {{ p.label }}
+          {{ p.label() }}
         </button>
       </nav>
       <div class="opt-content">
@@ -39,6 +39,7 @@
 
 <script setup>
 import { state } from "../store.js";
+import { t } from "../lib/i18n.js";
 import AuthView from "./AuthView.vue";
 import PaneAccount from "./PaneAccount.vue";
 import PaneSync from "./PaneSync.vue";
@@ -49,11 +50,11 @@ import PaneHelp from "./PaneHelp.vue";
 import Icon from "./ui/Icon.vue";
 
 const panes = [
-  { id: "account", label: "账户", icon: "user" },
-  { id: "sync", label: "同步", icon: "sync" },
-  { id: "spaces", label: "空间与设备", icon: "monitor" },
-  { id: "crypto", label: "加密", icon: "shield" },
-  { id: "advanced", label: "高级", icon: "gear" },
-  { id: "help", label: "帮助", icon: "help" },
+  { id: "account", label: () => t("account_title"), icon: "user" },
+  { id: "sync", label: () => t("sync_title"), icon: "sync" },
+  { id: "spaces", label: () => t("spaces_title"), icon: "monitor" },
+  { id: "crypto", label: () => t("crypto_title"), icon: "shield" },
+  { id: "advanced", label: () => t("adv_title"), icon: "gear" },
+  { id: "help", label: () => t("common_help"), icon: "help" },
 ];
 </script>

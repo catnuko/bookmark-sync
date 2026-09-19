@@ -7,7 +7,6 @@ import AuthView from "./components/AuthView.vue";
 import PopupView from "./components/PopupView.vue";
 import OptionsView from "./components/OptionsView.vue";
 import PhraseGate from "./components/PhraseGate.vue";
-import ModalOnboard from "./components/ModalOnboard.vue";
 import ModalFirstSync from "./components/ModalFirstSync.vue";
 import ModalUpgrade from "./components/ModalUpgrade.vue";
 import ToastHost from "./components/ui/ToastHost.vue";
@@ -19,11 +18,11 @@ onMounted(() => init(props.popup));
 
 <template>
   <AuthView v-if="!state.session" />
+  <!-- 口令门禁是硬门槛：未设置/未验证口令前不渲染任何主界面 -->
   <PhraseGate v-else-if="state.phraseGateVisible" />
   <PopupView v-else-if="props.popup" />
   <OptionsView v-else />
 
-  <ModalOnboard v-if="state.showOnboard" />
   <ModalFirstSync v-if="state.showFirstSyncModal" />
   <ModalUpgrade v-if="state.showUpgradeModal" />
   <ToastHost />

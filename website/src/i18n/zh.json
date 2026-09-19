@@ -39,7 +39,10 @@
     "subtitle": "装上扩展、登录账号，Chrome、Edge、Firefox 的书签就汇成同一棵树。保持你现有的整理习惯就好，剩下的交给同步引擎。",
     "ctaPrimary": "免费下载",
     "ctaSecondary": "查看定价",
-    "trustBadge": "无需信用卡 · 免费 500 条书签 · 端到端加密默认开启 · 重排同步不乱序"
+    "trustBadge": "无需信用卡 · 免费 500 条书签 · 端到端加密默认开启 · 重排同步不乱序",
+    "previewFolder1": "开发",
+    "previewFolder2": "设计资源",
+    "previewDeleted": "已删除 · 永不复活"
   },
   "pain": {
     "eyebrow": "为什么需要",

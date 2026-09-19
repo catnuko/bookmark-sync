@@ -1,0 +1,1064 @@
+{
+  "ext_description": {
+    "message": "Sync bookmarks across Chrome, Edge and Firefox with end-to-end encryption"
+  },
+  "common_retry": {
+    "message": "Retry"
+  },
+  "common_save": {
+    "message": "Save"
+  },
+  "common_cancel": {
+    "message": "Cancel"
+  },
+  "common_upgrade": {
+    "message": "Upgrade"
+  },
+  "common_manage": {
+    "message": "Manage"
+  },
+  "common_help": {
+    "message": "Help"
+  },
+  "common_back": {
+    "message": "Back"
+  },
+  "common_done": {
+    "message": "Done"
+  },
+  "common_failPrefix": {
+    "message": "Failed: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_syncing": {
+    "message": "Syncing…"
+  },
+  "status_syncingSub": {
+    "message": "Uploading local changes…"
+  },
+  "status_never": {
+    "message": "Not synced yet"
+  },
+  "status_neverSub": {
+    "message": "Click the button below to start your first sync"
+  },
+  "status_error": {
+    "message": "Sync failed"
+  },
+  "status_ok": {
+    "message": "Synced"
+  },
+  "status_unregistered": {
+    "message": "Not registered"
+  },
+  "status_okSub": {
+    "message": "$COUNT$ bookmarks · uploaded encrypted",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_decryptLine": {
+    "message": "$COUNT$ cloud entries failed to decrypt (key mismatch)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_seeded": {
+    "message": "First sync complete — bookmarks uploaded encrypted"
+  },
+  "status_restored": {
+    "message": "First sync complete — bookmarks restored from the cloud"
+  },
+  "status_bidirectional": {
+    "message": "Two-way sync complete"
+  },
+  "status_pushed": {
+    "message": "Uploaded local changes"
+  },
+  "status_pulled": {
+    "message": "Synced changes from other devices"
+  },
+  "status_uptodate": {
+    "message": "Already up to date"
+  },
+  "status_decryptWarn": {
+    "message": "⚠️ $COUNT$ cloud entries failed to decrypt (key mismatch — check your sync key/passphrase)",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_overwritten": {
+    "message": "Local bookmarks were overwritten from the cloud"
+  },
+  "err_notAuthenticated": {
+    "message": "Please sign in from the extension first"
+  },
+  "err_noSpace": {
+    "message": "Could not create the default space"
+  },
+  "err_noKey": {
+    "message": "Set your sync passphrase first"
+  },
+  "err_timeout": {
+    "message": "The service worker did not respond"
+  },
+  "err_rateLimited": {
+    "message": "Syncing too frequently"
+  },
+  "err_quota": {
+    "message": "Storage quota exceeded"
+  },
+  "err_deviceLimit": {
+    "message": "Device limit reached"
+  },
+  "err_decrypt": {
+    "message": "Data could not be decrypted"
+  },
+  "err_replicaIncomplete": {
+    "message": "Local replica incomplete — sync aborted to protect data"
+  },
+  "err_network": {
+    "message": "Network problem — check your connection and retry"
+  },
+  "time_never": {
+    "message": "Never"
+  },
+  "time_now": {
+    "message": "Just now"
+  },
+  "time_min": {
+    "message": "$N$ min ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "time_hour": {
+    "message": "$N$ h ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "time_day": {
+    "message": "$N$ d ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_keyBanner": {
+    "message": "Check your sync key before the first sync. End-to-end encryption is mandatory — a lost key means unrecoverable data."
+  },
+  "popup_syncNow": {
+    "message": "Sync now"
+  },
+  "popup_resync": {
+    "message": "Sync again"
+  },
+  "popup_syncing": {
+    "message": "Syncing…"
+  },
+  "popup_spacesDevices": {
+    "message": "$COUNT$ spaces · $DEVICES$ devices",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "devices": {
+        "content": "$2"
+      }
+    }
+  },
+  "popup_keyRow": {
+    "message": "Sync key"
+  },
+  "popup_keyReady": {
+    "message": "Ready"
+  },
+  "popup_keyTodo": {
+    "message": "Not set"
+  },
+  "popup_advTail": {
+    "message": "Coexistence · GC · auto sync"
+  },
+  "popup_helpTail": {
+    "message": "FAQ & notes"
+  },
+  "quota_loading": {
+    "message": "Loading quota…"
+  },
+  "quota_countOf": {
+    "message": "/ $N$ items",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_unlimited": {
+    "message": "Unlimited"
+  },
+  "quota_over": {
+    "message": "Over quota"
+  },
+  "quota_warn": {
+    "message": "Near limit"
+  },
+  "quota_proBytes": {
+    "message": "$USED$ MB of $TOTAL$ MB used",
+    "placeholders": {
+      "used": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "quota_footOverBytes": {
+    "message": "Storage limit reached — sync resumes automatically after deleting bookmarks or spaces"
+  },
+  "quota_footOver": {
+    "message": "Over quota by $COUNT$ items — upgrade to continue syncing",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_footWarnBytes": {
+    "message": "$LABEL$ — nearing the cap; free up space by removing bookmarks",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_footWarn": {
+    "message": "Only $COUNT$ left — new bookmarks won't sync once exceeded",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_remain": {
+    "message": "$COUNT$ remaining",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_unlimitedBytes": {
+    "message": "Unlimited items · $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_unlimitedFoot": {
+    "message": "Unlimited items"
+  },
+  "quota_footSpace": {
+    "message": "Current space: $NAME$ · $REMAIN$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "remain": {
+        "content": "$2"
+      }
+    }
+  },
+  "key_e2eBanner": {
+    "message": "End-to-end encryption (AES-256-GCM) is always on. Bookmarks are encrypted locally before upload; the server only stores ciphertext."
+  },
+  "key_label": {
+    "message": "Sync passphrase (stored locally, view only)"
+  },
+  "key_copy": {
+    "message": "Copy passphrase"
+  },
+  "key_foot": {
+    "message": "The passphrase is stored only on this device and never uploaded. Enter the same passphrase on another device to sync. It can't be changed once set — forget it and your bookmarks can't be decrypted."
+  },
+  "key_noneYet": {
+    "message": "No key on this device yet — one is generated on first sync. On a new device, import the same key here."
+  },
+  "key_copiedMsg": {
+    "message": "Key copied. Keep it safe — without it, existing data can't be decrypted."
+  },
+  "key_copiedTitle": {
+    "message": "Key copied"
+  },
+  "key_copiedSub": {
+    "message": "Keep it safe — without it, existing data can't be decrypted."
+  },
+  "key_importedMsg": {
+    "message": "Key imported. It will decrypt bookmarks synced from your other devices."
+  },
+  "key_importedTitle": {
+    "message": "Key imported"
+  },
+  "key_importedSub": {
+    "message": "Decrypts bookmarks synced from your other devices."
+  },
+  "key_badFormat": {
+    "message": "Invalid key format — make sure you pasted the complete 44-character key."
+  },
+  "key_badFormatTitle": {
+    "message": "Invalid key format"
+  },
+  "key_badFormatSub": {
+    "message": "Make sure you pasted the complete 44-character key."
+  },
+  "phrase_copiedTitle": {
+    "message": "Passphrase copied"
+  },
+  "phrase_copiedSub": {
+    "message": "Visible on this device only; never uploaded."
+  },
+  "phrase_tooShort": {
+    "message": "The passphrase needs at least 8 characters, and should be long/unique enough to be safe."
+  },
+  "phrase_tooShortTitle": {
+    "message": "At least 8 characters"
+  },
+  "phrase_tooShortSub": {
+    "message": "Make it long and unique enough to be safe."
+  },
+  "phrase_lenTitle": {
+    "message": "Passphrase too short"
+  },
+  "phrase_notSet": {
+    "message": "Not set."
+  },
+  "phrase_setFail": {
+    "message": "Couldn't set the passphrase — try again."
+  },
+  "phrase_setByKeyMsg": {
+    "message": "Key derived from your passphrase. On a new device, the same passphrase decrypts your synced data. ⚠️ Remember it."
+  },
+  "phrase_setByKeyTitle": {
+    "message": "Key set from passphrase"
+  },
+  "phrase_setByKeySub": {
+    "message": "The same passphrase decrypts synced data on new devices. Remember it — it can't be recovered."
+  },
+  "gate_titleSetup": {
+    "message": "Set your sync passphrase"
+  },
+  "gate_titleVerify": {
+    "message": "Enter your sync passphrase"
+  },
+  "gate_phSetup": {
+    "message": "Set passphrase (at least 8 characters)"
+  },
+  "gate_phVerify": {
+    "message": "Enter sync passphrase"
+  },
+  "gate_busy": {
+    "message": "Verifying…"
+  },
+  "gate_ctaSetup": {
+    "message": "Set & continue"
+  },
+  "gate_ctaVerify": {
+    "message": "Verify & continue"
+  },
+  "gate_errShort": {
+    "message": "At least 8 characters."
+  },
+  "gate_errSetFail": {
+    "message": "Couldn't set the passphrase — try again."
+  },
+  "gate_errWrong": {
+    "message": "Wrong passphrase — it can't decrypt the cloud bookmarks. Try again."
+  },
+  "gate_okSetupTitle": {
+    "message": "Passphrase set"
+  },
+  "gate_okSetupSub": {
+    "message": "Bookmarks are encrypted — sync away."
+  },
+  "gate_okVerifyTitle": {
+    "message": "Passphrase verified"
+  },
+  "gate_okVerifySub": {
+    "message": "You're in."
+  },
+  "fs_phraseTitle": {
+    "message": "Sync passphrase required"
+  },
+  "fs_phraseBody1": {
+    "message": "Cloud bookmarks are encrypted and this device doesn't have the sync passphrase yet, so the cloud data can't be read. Enter the "
+  },
+  "fs_phraseBodyBold": {
+    "message": "same passphrase"
+  },
+  "fs_phraseBody2": {
+    "message": " you set on your other devices."
+  },
+  "fs_phrasePh": {
+    "message": "The same passphrase (at least 8 characters)"
+  },
+  "fs_phraseCta": {
+    "message": "Enter & continue"
+  },
+  "fs_later": {
+    "message": "Not now"
+  },
+  "fs_bothTitle": {
+    "message": "Bookmarks exist on both this device and the cloud"
+  },
+  "fs_bothBody": {
+    "message": "$LOCAL$ local · $REMOTE$ cloud bookmarks. Choose what to do:",
+    "placeholders": {
+      "local": {
+        "content": "$1"
+      },
+      "remote": {
+        "content": "$2"
+      }
+    }
+  },
+  "fs_mergeName": {
+    "message": "Merge"
+  },
+  "fs_mergeFeat1": {
+    "message": "Union of $REMOTE$ cloud and $LOCAL$ local bookmarks — both sides are kept",
+    "placeholders": {
+      "remote": {
+        "content": "$1"
+      },
+      "local": {
+        "content": "$2"
+      }
+    }
+  },
+  "fs_mergeFeat2": {
+    "message": "Deletes apply both ways, then incremental sync continues"
+  },
+  "fs_mergeCta": {
+    "message": "Merge & continue"
+  },
+  "fs_overName": {
+    "message": "Overwrite local"
+  },
+  "fs_overFeat1": {
+    "message": "Will delete $COUNT$ local-only bookmarks",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "fs_overFeat2": {
+    "message": "The cloud wins — the local bookmark tree will be replaced"
+  },
+  "fs_overCta": {
+    "message": "Overwrite local with cloud"
+  },
+  "fs_overConfirm": {
+    "message": "Click again to confirm overwrite"
+  },
+  "fs_dismissedTitle": {
+    "message": "Skipped for now"
+  },
+  "fs_dismissedSub": {
+    "message": "You'll be asked again next time you sync."
+  },
+  "spaces_title": {
+    "message": "Spaces & devices"
+  },
+  "spaces_sub": {
+    "message": "Each space is an independent bookmark tree that can bind to a different browser profile (e.g. work / personal)."
+  },
+  "spaceslist_title": {
+    "message": "Sync spaces"
+  },
+  "spaceslist_nameAria": {
+    "message": "Space name"
+  },
+  "spaceslist_switchTitle": {
+    "message": "Click to switch to this space"
+  },
+  "spaceslist_default": {
+    "message": "Default"
+  },
+  "spaceslist_current": {
+    "message": "Current"
+  },
+  "spaceslist_deviceCount": {
+    "message": "$COUNT$ devices",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaceslist_renameTitle": {
+    "message": "Rename $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaceslist_rename": {
+    "message": "Rename"
+  },
+  "spaceslist_delete": {
+    "message": "Delete"
+  },
+  "spaceslist_newPh": {
+    "message": "New space name"
+  },
+  "spaceslist_create": {
+    "message": "Create"
+  },
+  "spaceslist_new": {
+    "message": "New space"
+  },
+  "spaceslist_limit": {
+    "message": "$PLAN$ allows $LIMIT$ spaces · $USED$ used",
+    "placeholders": {
+      "plan": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      },
+      "used": {
+        "content": "$3"
+      }
+    }
+  },
+  "spaces_switchedTitle": {
+    "message": "Switched to space \"$NAME$\"",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_switchedSub": {
+    "message": "Your next sync merges this space's data as a union (this device's bookmarks join the space)."
+  },
+  "spaces_limitTitle": {
+    "message": "Space limit reached"
+  },
+  "spaces_limitSub": {
+    "message": "Upgrade for more spaces"
+  },
+  "spaces_dupTitle": {
+    "message": "A space with this name already exists"
+  },
+  "spaces_createdTitle": {
+    "message": "Space created"
+  },
+  "spaces_createdSub": {
+    "message": "Click a space name to switch"
+  },
+  "spaces_renamed": {
+    "message": "Renamed"
+  },
+  "spaces_cantDeleteDefault": {
+    "message": "The default space can't be deleted"
+  },
+  "spaces_renameFail": {
+    "message": "Rename failed: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_deleteFail": {
+    "message": "Delete failed: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_deletedTitle": {
+    "message": "Space \"$NAME$\" deleted",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_overwriteFail": {
+    "message": "Overwrite failed: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "devices_title": {
+    "message": "Synced browsers"
+  },
+  "devices_namePh": {
+    "message": "Device name"
+  },
+  "devices_thisDevice": {
+    "message": "This device"
+  },
+  "devices_lastSync": {
+    "message": "Last sync $TIME$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "devices_rename": {
+    "message": "Rename device"
+  },
+  "devices_renameTitle": {
+    "message": "Rename $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "devices_disconnect": {
+    "message": "Unlink"
+  },
+  "devices_empty": {
+    "message": "Nothing here yet — this browser registers itself after one sync."
+  },
+  "devices_foot": {
+    "message": "\"Unlink\" is for handing over or reinstalling a computer: that browser leaves the list and no longer affects your bookmarks."
+  },
+  "devices_removedTitle": {
+    "message": "Browser unlinked"
+  },
+  "devices_removedSub": {
+    "message": "Its delete records were cleared too."
+  },
+  "devices_invalidName": {
+    "message": "Invalid name"
+  },
+  "devices_invalidNameSub": {
+    "message": "Can't be empty; up to 50 characters"
+  },
+  "devices_renameFail": {
+    "message": "Rename failed: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "devices_renamed": {
+    "message": "Device renamed"
+  },
+  "devices_renamedSub": {
+    "message": "It won't be overwritten by auto-detected names on the next sync."
+  },
+  "device_unknown": {
+    "message": "Unknown device · $TAG$",
+    "placeholders": {
+      "tag": {
+        "content": "$1"
+      }
+    }
+  },
+  "plan_perYear": {
+    "message": "/yr"
+  },
+  "plan_plusFeat1": {
+    "message": "Up to 10,000 bookmarks"
+  },
+  "plan_plusFeat2": {
+    "message": "3 sync spaces"
+  },
+  "plan_devicesUnlimited": {
+    "message": "Unlimited devices"
+  },
+  "plan_proFeat1": {
+    "message": "Unlimited bookmarks"
+  },
+  "plan_proFeat2": {
+    "message": "10 sync spaces"
+  },
+  "plan_reco": {
+    "message": "Recommended"
+  },
+  "plan_subPlus": {
+    "message": "Subscribe to Plus"
+  },
+  "plan_subPro": {
+    "message": "Subscribe to Pro"
+  },
+  "checkout_busy": {
+    "message": "Redirecting…"
+  },
+  "upgrade_title": {
+    "message": "Upgrade for more bookmarks"
+  },
+  "upgrade_body": {
+    "message": "You've used $COUNT$ bookmarks. Upgrades apply immediately, billed yearly, cancel anytime.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "upgrade_later": {
+    "message": "Maybe later"
+  },
+  "account_title": {
+    "message": "Account"
+  },
+  "account_sub": {
+    "message": "Sign-in, plan and subscription."
+  },
+  "account_logout": {
+    "message": "Sign out"
+  },
+  "account_plan": {
+    "message": "Current plan"
+  },
+  "account_foot": {
+    "message": "Your sign-in email restores sessions and syncs data; passwords are never stored. Upgrades apply immediately, billed yearly, cancel anytime."
+  },
+  "account_planFootUnlimited": {
+    "message": "Unlimited bookmarks (capped at ~250,000) · 10 sync spaces"
+  },
+  "account_planFoot": {
+    "message": "Up to $CAP$ bookmarks · $USED$ used",
+    "placeholders": {
+      "cap": {
+        "content": "$1"
+      },
+      "used": {
+        "content": "$2"
+      }
+    }
+  },
+  "pay_checkoutFail": {
+    "message": "Couldn't start checkout"
+  },
+  "pay_tryLater": {
+    "message": "Please try again later"
+  },
+  "pay_checkoutOpened": {
+    "message": "Checkout page opened"
+  },
+  "pay_checkoutOpenedSub": {
+    "message": "Once done, come back and click \"Sync now\" to apply"
+  },
+  "pay_portalFail": {
+    "message": "Couldn't open subscription management"
+  },
+  "auth_h1": {
+    "message": "Sign in to sync bookmarks"
+  },
+  "auth_sub": {
+    "message": "Consistent bookmarks across Chrome, Edge and Firefox"
+  },
+  "auth_login": {
+    "message": "Sign in"
+  },
+  "auth_register": {
+    "message": "Sign up"
+  },
+  "auth_tabsAria": {
+    "message": "Sign in or sign up"
+  },
+  "auth_email": {
+    "message": "Email"
+  },
+  "auth_emailPh": {
+    "message": "Email address"
+  },
+  "auth_password": {
+    "message": "Password"
+  },
+  "auth_pwPhLogin": {
+    "message": "Password"
+  },
+  "auth_pwPhRegister": {
+    "message": "Password (at least 6 characters)"
+  },
+  "auth_create": {
+    "message": "Create account"
+  },
+  "auth_hint": {
+    "message": "Press Enter to submit · Your email is remembered and filled in automatically"
+  },
+  "auth_forgot": {
+    "message": "Forgot password?"
+  },
+  "auth_errRequired": {
+    "message": "Enter your email and password"
+  },
+  "auth_errRegister": {
+    "message": "Sign-up failed: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "auth_errLogin": {
+    "message": "Sign-in failed: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "auth_successRegister": {
+    "message": "Check your confirmation email, then sign in"
+  },
+  "sync_title": {
+    "message": "Sync"
+  },
+  "sync_sub": {
+    "message": "Control automatic sync behavior."
+  },
+  "sync_auto": {
+    "message": "Auto sync"
+  },
+  "sync_autoSub": {
+    "message": "Detects local bookmark changes and automatically uploads encrypted data and pulls updates in the background"
+  },
+  "sync_conflict": {
+    "message": "Conflict handling"
+  },
+  "sync_conflictSub": {
+    "message": "Move-CRDT union merge with automatic deduplication"
+  },
+  "sync_builtin": {
+    "message": "Built-in"
+  },
+  "sync_now": {
+    "message": "Sync now"
+  },
+  "sync_lastSync": {
+    "message": "Last sync $TIME$ · $COUNT$ bookmarks",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "sync_syncing": {
+    "message": "Syncing"
+  },
+  "sync_do": {
+    "message": "Sync"
+  },
+  "sync_foot": {
+    "message": "Encryption and decryption happen locally; only ciphertext is uploaded. Offline changes queue up and sync once you're back online."
+  },
+  "crypto_title": {
+    "message": "Encryption"
+  },
+  "crypto_sub": {
+    "message": "End-to-end encryption (AES-256-GCM) is always on and can't be turned off. The sync key is the only credential that can decrypt your cloud data."
+  },
+  "adv_title": {
+    "message": "Advanced"
+  },
+  "adv_sub": {
+    "message": "How this coexists with your browser's native sync, plus oplog storage maintenance."
+  },
+  "adv_coexist": {
+    "message": "Coexisting with browser sync"
+  },
+  "adv_row1Title": {
+    "message": "Doesn't take over Chrome Sync"
+  },
+  "adv_row1Sub": {
+    "message": "Syncs your local bookmark tree through the chrome.bookmarks API; your browser's native sync stays untouched"
+  },
+  "adv_independent": {
+    "message": "Independent"
+  },
+  "adv_row2Title": {
+    "message": "Both on? No data loss"
+  },
+  "adv_row2Sub": {
+    "message": "Every local bookmark change (whatever its source) enters the sync log; Move-CRDT merging converges on a single tree"
+  },
+  "adv_safe": {
+    "message": "Safe"
+  },
+  "adv_row3Title": {
+    "message": "Pick one, ideally"
+  },
+  "adv_row3Sub": {
+    "message": "Two cloud copies each hold bookmark state; stacked delete/merge semantics can make it hard to tell which one is authoritative"
+  },
+  "adv_advice": {
+    "message": "Advisory"
+  },
+  "adv_maintain": {
+    "message": "Data maintenance"
+  },
+  "adv_gcTitle": {
+    "message": "Last log compaction"
+  },
+  "adv_gcSub": {
+    "message": "The server merges and compacts the oplog history automatically — no manual upkeep"
+  },
+  "adv_gcDone": {
+    "message": "Compacted"
+  },
+  "adv_gcNone": {
+    "message": "Not yet"
+  },
+  "adv_gcFoot": {
+    "message": "Compaction only merges operation history; it never deletes bookmarks. The server runs it automatically as needed."
+  },
+  "adv_local": {
+    "message": "Local settings"
+  },
+  "adv_logoutSub": {
+    "message": "Signs out of the current account; the local key and passphrase are kept, so signing back in resumes sync right away"
+  },
+  "opts_navAria": {
+    "message": "Settings sections"
+  },
+  "opts_note": {
+    "message": "Settings have moved into the extension popup — click the toolbar icon."
+  },
+  "autosync_onTitle": {
+    "message": "Auto sync on"
+  },
+  "autosync_onSub": {
+    "message": "Changes sync automatically in the background"
+  },
+  "autosync_offTitle": {
+    "message": "Auto sync off"
+  },
+  "autosync_offSub": {
+    "message": "Local changes will no longer upload automatically; use \"Sync now\" anytime"
+  },
+  "toast_syncDone": {
+    "message": "Sync complete"
+  },
+  "toast_fsEncrypted": {
+    "message": "Cloud data is encrypted — import your sync key first"
+  },
+  "toast_fsBoth": {
+    "message": "Bookmarks exist both locally and in the cloud — choose how to sync"
+  },
+  "toast_needPhrase": {
+    "message": "Set your sync passphrase first"
+  },
+  "toast_needPhraseSub": {
+    "message": "On a new device, the same passphrase as your other devices starts syncing"
+  },
+  "toast_proByteLimitTitle": {
+    "message": "Pro storage limit reached"
+  },
+  "toast_proByteLimitSub": {
+    "message": "Delete some bookmarks or spaces to free up space; sync resumes automatically"
+  },
+  "toast_quotaTitle": {
+    "message": "Not enough space"
+  },
+  "toast_quotaSub": {
+    "message": "Upgrade to Plus or Pro"
+  },
+  "toast_deviceLimitTitle": {
+    "message": "Device limit reached"
+  },
+  "toast_deviceLimitSub": {
+    "message": "Free allows up to 3 devices — remove old ones in space settings, or upgrade for more"
+  },
+  "toast_rateTitle": {
+    "message": "Syncing too often"
+  },
+  "toast_rateSub": {
+    "message": "This round was skipped; it'll retry automatically"
+  },
+  "toast_decryptTitle": {
+    "message": "Data can't be decrypted"
+  },
+  "toast_checkKey": {
+    "message": "Check your sync key"
+  },
+  "toast_loggedOut": {
+    "message": "Signed out"
+  },
+  "help_sub": {
+    "message": "Common questions and key behaviors. Click an item to expand."
+  },
+  "help_1_title": {
+    "message": "🦊 Firefox's \"Bookmarks menu\""
+  },
+  "help_1_body": {
+    "message": "<p>Firefox has a built-in <strong>\"Bookmarks menu\"</strong> location (starred addresses are saved there by default). Chrome has no equivalent, so the extension creates a same-named folder under Chrome's bookmarks bar to hold them.</p><p>In Chrome, <strong>deleting this \"Bookmarks menu\" folder only clears the bookmarks inside it (synced to all devices); the folder itself is restored automatically</strong> — by design, not a bug. Please don't delete it repeatedly; to empty the menu, delete the bookmarks inside instead.</p>"
+  },
+  "help_2_title": {
+    "message": "🔑 Sync passphrase (end-to-end encryption)"
+  },
+  "help_2_body": {
+    "message": "<p>All bookmark operations are encrypted on your device before upload (AES-256-GCM); the server only stores ciphertext. On first use you set a <strong>sync passphrase</strong>; on a new device or after reinstalling, sign in and enter the <strong>same passphrase</strong> to sync. The passphrase itself is never uploaded — only a decryption key derived from it, on your device. <strong>Forgot the passphrase = data unrecoverable</strong>, so save it in a password manager.</p>"
+  },
+  "help_3_title": {
+    "message": "🗑️ Deletion behavior"
+  },
+  "help_3_body": {
+    "message": "<p>Deleting a bookmark or folder creates a \"tombstone\" synced to all devices — deletes are consistent everywhere and deleted items won't be pulled back from the cloud. Deleting the \"Bookmarks menu\" folder is the exception: only its contents are cleared, the folder stays.</p>"
+  },
+  "help_4_title": {
+    "message": "🔄 New device / reinstall"
+  },
+  "help_4_body": {
+    "message": "<p>1. Remember your sync passphrase on the old device;<br />2. On the new device, install the extension and sign in to the same account;<br />3. Enter the <strong>same passphrase</strong> when prompted;<br />4. Click \"Sync now\" and your bookmarks are restored from the cloud. A default sync space is created automatically — no need to make one.</p>"
+  },
+  "help_5_title": {
+    "message": "🧩 Extension updates"
+  },
+  "help_5_body": {
+    "message": "<p>Extensions loaded via developer mode don't auto-update: after changing code, rebuild (<strong>npm run build</strong>) and click \"Reload\" on the browser's extension management page.</p>"
+  },
+  "help_6_title": {
+    "message": "🗂️ Spaces & devices"
+  },
+  "help_6_body": {
+    "message": "<p>Each space is an independent bookmark tree (e.g. work / personal) that can bind to a different browser profile; Free includes 1 space, Plus 3, Pro / Lifetime 10. Synced browsers register automatically — view, rename or unlink them here.</p>"
+  },
+  "help_7_title": {
+    "message": "📡 How to read the sync-complete message?"
+  },
+  "help_7_body": {
+    "message": "<p>Sync messages describe the direction of the result; they no longer show \"pushed/pulled N\" — that number counts internal sync operations, which never matches your actual bookmark count. Reference:</p><table class=\"help-tbl\"><thead><tr><th>Message</th><th>Meaning</th></tr></thead><tbody><tr><td>First sync complete — bookmarks uploaded encrypted</td><td>This device uploaded its bookmarks to the cloud for the first time (the cloud was empty)</td></tr><tr><td>First sync complete — bookmarks restored from the cloud</td><td>New device or reinstall pulled existing cloud bookmarks</td></tr><tr><td>Two-way sync complete</td><td>Both this device and others had changes; both directions synced</td></tr><tr><td>Uploaded local changes</td><td>Only local new/changed bookmarks were uploaded</td></tr><tr><td>Synced changes from other devices</td><td>Received new bookmarks added by other devices</td></tr><tr><td>Already up to date</td><td>No changes, nothing to do</td></tr></tbody></table><p>The \"N bookmarks\" on the status card is the true total and is accurate. \"⚠️ N cloud entries failed to decrypt\" means your sync key doesn't match the cloud data — check your key or passphrase.</p>"
+  },
+  "gate_hintSetup": {
+    "message": "Set a sync passphrase — it's the only credential that can decrypt your bookmarks. It can't be changed once set, and it can't be recovered if forgotten."
+  },
+  "gate_hintVerify": {
+    "message": "Cloud bookmarks are encrypted. Enter the same sync passphrase as your other devices."
+  }
+}
