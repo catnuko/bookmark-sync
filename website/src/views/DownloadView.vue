@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { supabase } from "../lib/supabase.js";
 
@@ -7,9 +7,27 @@ const { t, tm } = useI18n();
 
 // 商店审核中：卡片仅展示「即将推出」，不可点击；真实安装包走下方手动安装区。
 // 商店详情页上线后，把卡片恢复为 <a> 并指向商店详情页。
-const VERSION = "2.2.0";
-const CHROMIUM_ZIP = `/downloads/bookmark-sync-chromium-${VERSION}.zip`;
-const FIREFOX_ZIP = `/downloads/bookmark-sync-firefox-${VERSION}.zip`;
+//
+// 安装包托管在 Supabase Storage public bucket `downloads`（release.yml 发版时
+// 上传 + 写 latest.json），这里运行时读取最新版本号生成下载链接——发新版官网
+// 无需重新部署。latest.json 拉取失败时回落到 FALLBACK_VERSION。
+const FALLBACK_VERSION = "2.2.0";
+const STORAGE_BASE = "https://cwtqnsbpcetvqopdkcou.supabase.co/storage/v1/object/public/downloads";
+
+const version = ref(FALLBACK_VERSION);
+const chromiumZip = computed(() => `${STORAGE_BASE}/bookmark-sync-chromium-${version.value}.zip`);
+const firefoxZip = computed(() => `${STORAGE_BASE}/bookmark-sync-firefox-${version.value}.zip`);
+
+onMounted(async () => {
+  try {
+    const r = await fetch(`${STORAGE_BASE}/latest.json`, { cache: "no-store" });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (typeof j?.version === "string" && /^\d+(\.\d+)*$/.test(j.version)) {
+      version.value = j.version;
+    }
+  } catch { /* 网络异常时用内置版本号 */ }
+});
 
 const browsers = [
   { key: "chrome", color: "#4285F4" },
@@ -85,14 +103,14 @@ async function subscribe() {
     <section id="manual" class="section manual-section">
       <div class="container container-narrow">
         <div class="manual-card">
-          <h2 class="manual-title">{{ t("download.manual.title", { version: VERSION }) }}</h2>
+          <h2 class="manual-title">{{ t("download.manual.title", { version }) }}</h2>
           <p class="manual-sub">{{ t("download.manual.subtitle") }}</p>
 
           <div class="manual-ctas">
-            <a :href="CHROMIUM_ZIP" download class="btn btn-primary btn-lg manual-cta">
+            <a :href="chromiumZip" download class="btn btn-primary btn-lg manual-cta">
               {{ t("download.manual.chromiumCta") }}
             </a>
-            <a :href="FIREFOX_ZIP" download class="btn btn-outline btn-lg manual-cta">
+            <a :href="firefoxZip" download class="btn btn-outline btn-lg manual-cta">
               {{ t("download.manual.firefoxCta") }}
             </a>
           </div>

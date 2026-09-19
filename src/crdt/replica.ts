@@ -206,6 +206,23 @@ export class Replica {
   }
 
   /**
+   * Same as receiveOp, but bypasses the gcWatermark guard.
+   *
+   * outbox 恢复专用（Phase C-3）：未推送成功的本地 op 不可能存在于任何服务端
+   * 快照里，但其 Lamport 时间戳可能低于其他设备刚打的快照水位——receiveOp
+   * 的「水位以下即已折叠进快照」守卫会把它错误丢弃（节点从 replica 消失 →
+   * mapped-but-unreachable → 本地书签被误删）。若该 op 其实已推送过（崩溃点
+   * 在推送成功与 outbox 清理之间），重复 apply 无副作用（幂等收敛）。
+   */
+  receiveLocalOp(op: MoveOp): void {
+    if (op.t.counter > this.counter) {
+      this.counter = op.t.counter;
+    }
+    this.state = apply_op(op, this.state);
+    this.bumpVersion();
+  }
+
+  /**
    * Export all known operations sorted by timestamp ASCENDING, suitable
    * for transmission to a peer. The log is descending, so we reverse and
    * project each LogMove back into a MoveOp.

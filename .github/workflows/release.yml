@@ -9,7 +9,12 @@ name: Automated Release
 #   4. 本工作流随后构建两个 zip 并上传到该 Release：
 #        - Chromium 包（Chrome/Edge 共用）
 #        - Firefox 包
-#    一次覆盖三个浏览器，Safari 不参与。
+    #    一次覆盖三个浏览器，Safari 不参与。
+    #
+    # 5) 上传 GitHub Release 后，同步上传 Supabase Storage public bucket
+    #    `downloads`（官网下载页的分发源）+ latest.json（版本寻址）。
+    #    官网 DownloadView 运行时读 latest.json 生成下载链接，发新版官网无需重新部署。
+    #    仓库不再提交 zip 二进制（website/public/downloads 已 gitignore）。
 #
 # 开发流程：所有改动走 dev 分支，用 Conventional Commits 提交，合并到 main 即自动发版。
 # 提交格式示例：
@@ -112,3 +117,25 @@ jobs:
             --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 官网分发层：public bucket，匿名可下载；x-upsert 支持同版本重传覆盖。
+      # 顺序：先 zip 后 latest.json，避免 latest 指向尚不存在的文件。
+      - name: Upload zips to Supabase Storage
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VER: ${{ needs.release-please.outputs.version }}
+        run: |
+          BASE="https://cwtqnsbpcetvqopdkcou.supabase.co/storage/v1/object/downloads"
+          upload() {
+            code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/$1" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Content-Type: $2" \
+              -H "x-upsert: true" \
+              --data-binary @"$3")
+            echo "$1 -> HTTP $code"
+            [ "$code" = "200" ] || { echo "::error::upload failed: $1 (HTTP $code)"; exit 1; }
+          }
+          upload "bookmark-sync-chromium-$VER.zip"  "application/zip"  "dist/bookmark-sync-chromium-$VER.zip"
+          upload "bookmark-sync-firefox-$VER.zip"   "application/zip"  "dist/bookmark-sync-firefox-$VER.zip"
+          printf '{"version":"%s"}\n' "$VER" > latest.json
+          upload "latest.json" "application/json" "latest.json"

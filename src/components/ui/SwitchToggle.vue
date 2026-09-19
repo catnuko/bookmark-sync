@@ -12,7 +12,7 @@
 <script setup>
 defineProps({
   modelValue: { type: Boolean, required: true },
-  ariaLabel: { type: String, default: "开关" },
+  ariaLabel: { type: String, default: "" },
 });
 defineEmits(["update:modelValue"]);
 </script>

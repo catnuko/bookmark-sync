@@ -15,14 +15,22 @@ export {
   STORE_SNAPSHOT,
   STORE_UUID_MAPPING,
   STORE_META,
+  STORE_OUTBOX,
   INDEX_BY_TIMESTAMP,
   INDEX_BY_UUID,
+  INDEX_BY_SPACE,
   SNAPSHOT_KEY,
   META_REPLICA_ID,
   META_COUNTER,
   opKey,
   openBookmarkDb,
 } from './schema.js';
+
+export {
+  OutboxStore,
+  outboxKey,
+} from './outbox.js';
+export type { OutboxRow } from './outbox.js';
 
 export {
   ReplicaStateStore,

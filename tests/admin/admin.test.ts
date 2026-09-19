@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   formatBytes, formatCount, formatMoney, formatTime, timeAgo,
   planLabel, planTone, orderStatusMeta, subStatusMeta,
-  formatRate, maskEmail,
+  formatRate, maskEmail, actionLabel, formatAuditDetail,
 } from "../../website/src/admin/lib/format.js";
 
 describe("formatBytes", () => {
@@ -93,6 +93,21 @@ describe("formatRate / maskEmail / formatCount", () => {
   });
 });
 
+describe("审计展示辅助", () => {
+  it("actionLabel 映射", () => {
+    expect(actionLabel("set_plan")).toBe("改 plan");
+    expect(actionLabel("request_gc")).toBe("请求 GC");
+    expect(actionLabel("unknown_op")).toBe("unknown_op");
+    expect(actionLabel(null)).toBe("—");
+  });
+  it("formatAuditDetail 单行摘要", () => {
+    expect(formatAuditDetail({ old: "free", new: "pro", quota_bytes: 524288000 }))
+      .toBe("old=free  new=pro  quota_bytes=524288000");
+    expect(formatAuditDetail(null)).toBe("—");
+    expect(formatAuditDetail({ long: "x".repeat(60) })).toMatch(/…$/);
+  });
+});
+
 // —— client.js 参数构造 ——
 // 用 vi.mock 掉 supabase 客户端，验证 adminApi 把页面参数正确翻译成 RPC 入参。
 const rpcMock = vi.fn();
@@ -132,6 +147,18 @@ describe("adminApi 参数构造", () => {
     expect(rpcMock).toHaveBeenCalledWith("admin_set_user_plan", {
       p_user: "00000000-0000-0000-0000-000000000001",
       p_plan: "pro",
+    });
+  });
+
+  it("listAuditLogs 把筛选/分页映射成 p_ 前缀", async () => {
+    rpcMock.mockResolvedValue({ data: { rows: [], total: 0 }, error: null });
+    const { adminApi } = await import("../../website/src/admin/lib/client.js");
+    await adminApi.listAuditLogs({ action: "set_plan", limit: 50, offset: 100 });
+    expect(rpcMock).toHaveBeenCalledWith("admin_list_audit_log", {
+      p_action: "set_plan",
+      p_target: null,
+      p_limit: 50,
+      p_offset: 100,
     });
   });
 });

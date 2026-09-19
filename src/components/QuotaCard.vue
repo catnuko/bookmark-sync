@@ -9,20 +9,20 @@
         :class="quotaState === 'over' ? 'btn-primary' : ''"
         @click="openUpgrade"
       >
-        升级
+        {{ t("common_upgrade") }}
       </button>
-      <button v-else class="btn btn-ghost btn-sm" @click="manageSubscription">管理</button>
+      <button v-else class="btn btn-ghost btn-sm" @click="manageSubscription">{{ t("common_manage") }}</button>
     </div>
     <div class="q-line">
       <template v-if="usedCount == null">
-        <span class="q-total">额度加载中…</span>
+        <span class="q-total">{{ t("quota_loading") }}</span>
       </template>
       <template v-else>
         <span class="q-used">{{ usedCount.toLocaleString() }}</span>
-        <span class="q-total"> / {{ quotaCount ? quotaCount.toLocaleString() + ' 条' : '不限数量' }}</span>
+        <span class="q-total"> {{ quotaCount ? t("quota_countOf", quotaCount.toLocaleString()) : t("quota_unlimited") }}</span>
       </template>
     </div>
-    <div v-if="quotaCount" class="progress" :class="quotaState === 'over' ? 'over' : quotaState === 'warn' ? 'warn' : ''">
+    <div v-if="usagePct > 0" class="progress" :class="quotaState === 'over' ? 'over' : quotaState === 'warn' ? 'warn' : ''">
       <i :style="{ width: usagePct + '%' }"></i>
     </div>
     <div class="q-foot">
@@ -34,4 +34,5 @@
 
 <script setup>
 import { usedCount, quotaCount, usagePct, quotaState, quotaBadge, quotaFoot, quotaBtn, openUpgrade, manageSubscription } from "../store.js";
+import { t } from "../lib/i18n.js";
 </script>

@@ -1,0 +1,1058 @@
+{
+  "ext_description": {
+    "message": "通过端到端加密在 Chrome / Edge / Firefox 间同步书签"
+  },
+  "common_retry": {
+    "message": "重试"
+  },
+  "common_save": {
+    "message": "保存"
+  },
+  "common_cancel": {
+    "message": "取消"
+  },
+  "common_upgrade": {
+    "message": "升级"
+  },
+  "common_manage": {
+    "message": "管理"
+  },
+  "common_help": {
+    "message": "帮助"
+  },
+  "common_back": {
+    "message": "返回"
+  },
+  "common_done": {
+    "message": "完成"
+  },
+  "common_failPrefix": {
+    "message": "失败: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_syncing": {
+    "message": "正在同步…"
+  },
+  "status_syncingSub": {
+    "message": "正在上传本地变更…"
+  },
+  "status_never": {
+    "message": "尚未同步"
+  },
+  "status_neverSub": {
+    "message": "点击下方按钮开始首次同步"
+  },
+  "status_error": {
+    "message": "同步失败"
+  },
+  "status_ok": {
+    "message": "已同步"
+  },
+  "status_unregistered": {
+    "message": "未登记"
+  },
+  "status_okSub": {
+    "message": "$COUNT$ 条书签 · 已加密上传",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_decryptLine": {
+    "message": "$COUNT$ 条云端数据解密失败（密钥不匹配）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_seeded": {
+    "message": "首次同步完成，书签已加密上传"
+  },
+  "status_restored": {
+    "message": "首次同步完成，已从云端恢复书签"
+  },
+  "status_bidirectional": {
+    "message": "双向同步完成"
+  },
+  "status_pushed": {
+    "message": "已上传本地变更"
+  },
+  "status_pulled": {
+    "message": "已同步其他设备的变更"
+  },
+  "status_uptodate": {
+    "message": "已是最新"
+  },
+  "status_decryptWarn": {
+    "message": "⚠️ $COUNT$ 条云端数据解密失败（密钥不匹配，请检查同步密钥/口令）",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_overwritten": {
+    "message": "已按云端覆盖本机"
+  },
+  "err_notAuthenticated": {
+    "message": "请先在插件中登录"
+  },
+  "err_noSpace": {
+    "message": "无法创建默认空间"
+  },
+  "err_noKey": {
+    "message": "请先设置同步口令"
+  },
+  "err_timeout": {
+    "message": "Service Worker 未响应"
+  },
+  "err_rateLimited": {
+    "message": "同步过于频繁"
+  },
+  "err_quota": {
+    "message": "存储配额已超限"
+  },
+  "err_deviceLimit": {
+    "message": "设备数量已达上限"
+  },
+  "err_decrypt": {
+    "message": "数据无法解密"
+  },
+  "err_replicaIncomplete": {
+    "message": "本地副本不完整，已中止同步以保护数据"
+  },
+  "err_network": {
+    "message": "网络异常，请检查连接后重试"
+  },
+  "time_never": {
+    "message": "从未"
+  },
+  "time_now": {
+    "message": "刚刚"
+  },
+  "time_min": {
+    "message": "$N$ 分钟前",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "time_hour": {
+    "message": "$N$ 小时前",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "time_day": {
+    "message": "$N$ 天前",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_keyBanner": {
+    "message": "首次同步前请确认同步密钥。端到端加密强制开启，密钥丢失即数据不可恢复。"
+  },
+  "popup_syncNow": {
+    "message": "立即同步"
+  },
+  "popup_resync": {
+    "message": "重新同步"
+  },
+  "popup_syncing": {
+    "message": "正在同步…"
+  },
+  "popup_spacesDevices": {
+    "message": "$COUNT$ 个空间 · $DEVICES$ 台设备",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "devices": {
+        "content": "$2"
+      }
+    }
+  },
+  "popup_keyRow": {
+    "message": "同步密钥"
+  },
+  "popup_keyReady": {
+    "message": "已就绪"
+  },
+  "popup_keyTodo": {
+    "message": "待设置"
+  },
+  "popup_advTail": {
+    "message": "共存策略 · GC · 自动同步"
+  },
+  "popup_helpTail": {
+    "message": "常见问题与说明"
+  },
+  "quota_loading": {
+    "message": "额度加载中…"
+  },
+  "quota_countOf": {
+    "message": "/ $N$ 条",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_unlimited": {
+    "message": "不限数量"
+  },
+  "quota_over": {
+    "message": "已超出配额"
+  },
+  "quota_warn": {
+    "message": "接近上限"
+  },
+  "quota_proBytes": {
+    "message": "已用 $USED$MB / $TOTAL$MB",
+    "placeholders": {
+      "used": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "quota_footOverBytes": {
+    "message": "已达存储上限 · 删除书签或空间释放容量后同步自动恢复"
+  },
+  "quota_footOver": {
+    "message": "已超出配额 $COUNT$ 条 · 请升级后继续同步",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_footWarnBytes": {
+    "message": "$LABEL$ · 即将触顶，可清理书签释放容量",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_footWarn": {
+    "message": "仅剩 $COUNT$ 条 · 超出后新书签将无法同步",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_remain": {
+    "message": "剩余 $COUNT$ 条",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_unlimitedBytes": {
+    "message": "数量不限 · $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_unlimitedFoot": {
+    "message": "数量不限"
+  },
+  "quota_footSpace": {
+    "message": "当前空间：$NAME$ · $REMAIN$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      },
+      "remain": {
+        "content": "$2"
+      }
+    }
+  },
+  "key_e2eBanner": {
+    "message": "端到端加密（AES-256-GCM）强制开启。书签只在本机加密后上传，服务器只存密文。"
+  },
+  "key_label": {
+    "message": "同步口令（本机保存，仅查看）"
+  },
+  "key_copy": {
+    "message": "复制口令"
+  },
+  "key_foot": {
+    "message": "口令仅保存在本机，不上传云端。换设备时输入同一口令即可同步。口令一旦设置不可更改，忘记后将无法解密书签。"
+  },
+  "key_noneYet": {
+    "message": "本设备尚无密钥，首次同步时自动生成；换设备时请在此导入同一密钥。"
+  },
+  "key_copiedMsg": {
+    "message": "密钥已复制，请妥善保管（丢失后无法解密既有数据）。"
+  },
+  "key_copiedTitle": {
+    "message": "密钥已复制"
+  },
+  "key_copiedSub": {
+    "message": "请妥善保管——丢失后无法解密既有数据。"
+  },
+  "key_importedMsg": {
+    "message": "密钥已导入。同步时即可解密换设备同步来的书签。"
+  },
+  "key_importedTitle": {
+    "message": "密钥已导入"
+  },
+  "key_importedSub": {
+    "message": "同步时即可解密换设备同步来的书签。"
+  },
+  "key_badFormat": {
+    "message": "密钥格式不正确，请确认粘贴的是完整的 44 字符密钥。"
+  },
+  "key_badFormatTitle": {
+    "message": "密钥格式不正确"
+  },
+  "key_badFormatSub": {
+    "message": "请确认粘贴的是完整的 44 字符密钥。"
+  },
+  "phrase_copiedTitle": {
+    "message": "口令已复制"
+  },
+  "phrase_copiedSub": {
+    "message": "仅本机可见，未上传云端。"
+  },
+  "phrase_tooShort": {
+    "message": "口令至少 8 位，且要够长/独特才安全。"
+  },
+  "phrase_tooShortTitle": {
+    "message": "口令至少 8 位"
+  },
+  "phrase_tooShortSub": {
+    "message": "且要够长/独特才安全。"
+  },
+  "phrase_lenTitle": {
+    "message": "口令长度不足"
+  },
+  "phrase_notSet": {
+    "message": "未设置。"
+  },
+  "phrase_setFail": {
+    "message": "口令设置失败，请重试。"
+  },
+  "phrase_setByKeyMsg": {
+    "message": "已用口令设定密钥。新装一台设备时，输入同一口令即可解密同步数据。⚠️ 请务必牢记口令。"
+  },
+  "phrase_setByKeyTitle": {
+    "message": "已用口令设定密钥"
+  },
+  "phrase_setByKeySub": {
+    "message": "新装设备输入同一口令即可解密同步数据。请牢记口令——忘记将无法找回。"
+  },
+  "gate_titleSetup": {
+    "message": "设置同步口令"
+  },
+  "gate_titleVerify": {
+    "message": "输入同步口令"
+  },
+  "gate_phSetup": {
+    "message": "设置口令（至少 8 位）"
+  },
+  "gate_phVerify": {
+    "message": "输入同步口令"
+  },
+  "gate_busy": {
+    "message": "验证中…"
+  },
+  "gate_ctaSetup": {
+    "message": "设置并进入"
+  },
+  "gate_ctaVerify": {
+    "message": "验证并进入"
+  },
+  "gate_errShort": {
+    "message": "口令至少 8 位。"
+  },
+  "gate_errSetFail": {
+    "message": "口令设置失败，请重试。"
+  },
+  "gate_errWrong": {
+    "message": "口令不正确，无法解密云端书签，请重新输入。"
+  },
+  "gate_okSetupTitle": {
+    "message": "口令已设置"
+  },
+  "gate_okSetupSub": {
+    "message": "书签已加密，开始同步。"
+  },
+  "gate_okVerifyTitle": {
+    "message": "口令正确"
+  },
+  "gate_okVerifySub": {
+    "message": "已进入插件。"
+  },
+  "fs_phraseTitle": {
+    "message": "需要输入同步口令"
+  },
+  "fs_phraseBody1": {
+    "message": "云端书签已加密，本设备还没有同步口令，无法读取云端数据。请输入你在其他设备上设置的"
+  },
+  "fs_phraseBodyBold": {
+    "message": "同一口令"
+  },
+  "fs_phraseBody2": {
+    "message": "。"
+  },
+  "fs_phrasePh": {
+    "message": "同一句口令（至少 8 位）"
+  },
+  "fs_phraseCta": {
+    "message": "输入并继续"
+  },
+  "fs_later": {
+    "message": "暂不同步"
+  },
+  "fs_bothTitle": {
+    "message": "云端与本机都有书签"
+  },
+  "fs_bothBody": {
+    "message": "本机 $LOCAL$ 条 · 云端 $REMOTE$ 条书签。请选择如何处理：",
+    "placeholders": {
+      "local": {
+        "content": "$1"
+      },
+      "remote": {
+        "content": "$2"
+      }
+    }
+  },
+  "fs_mergeName": {
+    "message": "合并"
+  },
+  "fs_mergeFeat1": {
+    "message": "云端 $REMOTE$ 条与本地 $LOCAL$ 条取并集，双方书签都保留",
+    "placeholders": {
+      "remote": {
+        "content": "$1"
+      },
+      "local": {
+        "content": "$2"
+      }
+    }
+  },
+  "fs_mergeFeat2": {
+    "message": "删除双向生效，之后继续增量同步"
+  },
+  "fs_mergeCta": {
+    "message": "合并并继续"
+  },
+  "fs_overName": {
+    "message": "覆盖本机"
+  },
+  "fs_overFeat1": {
+    "message": "将删除本机独有 $COUNT$ 条书签",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "fs_overFeat2": {
+    "message": "以云端为准，本机书签树将被替换"
+  },
+  "fs_overCta": {
+    "message": "用云端覆盖本机"
+  },
+  "fs_overConfirm": {
+    "message": "再次点击以确认覆盖"
+  },
+  "fs_dismissedTitle": {
+    "message": "已暂不同步"
+  },
+  "fs_dismissedSub": {
+    "message": "下次同步时会再次询问如何处理。"
+  },
+  "spaces_title": {
+    "message": "空间与设备"
+  },
+  "spaces_sub": {
+    "message": "每个空间是一棵独立书签树，可分别绑定不同浏览器资料（如工作 / 个人）。"
+  },
+  "spaceslist_title": {
+    "message": "同步空间"
+  },
+  "spaceslist_nameAria": {
+    "message": "空间名称"
+  },
+  "spaceslist_switchTitle": {
+    "message": "点击切换到该空间"
+  },
+  "spaceslist_default": {
+    "message": "默认"
+  },
+  "spaceslist_current": {
+    "message": "当前"
+  },
+  "spaceslist_deviceCount": {
+    "message": "$COUNT$ 台设备",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaceslist_renameTitle": {
+    "message": "重命名 $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaceslist_rename": {
+    "message": "重命名"
+  },
+  "spaceslist_delete": {
+    "message": "删除"
+  },
+  "spaceslist_newPh": {
+    "message": "新空间名称"
+  },
+  "spaceslist_create": {
+    "message": "创建"
+  },
+  "spaceslist_new": {
+    "message": "新建空间"
+  },
+  "spaceslist_limit": {
+    "message": "$PLAN$ 限 $LIMIT$ 个 · 已用 $USED$",
+    "placeholders": {
+      "plan": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      },
+      "used": {
+        "content": "$3"
+      }
+    }
+  },
+  "spaces_switchedTitle": {
+    "message": "已切换到空间「$NAME$」",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_switchedSub": {
+    "message": "下次同步将与该空间的数据按并集合并（本设备书签会并入该空间）。"
+  },
+  "spaces_limitTitle": {
+    "message": "空间数量已达上限"
+  },
+  "spaces_limitSub": {
+    "message": "升级可获得更多空间"
+  },
+  "spaces_dupTitle": {
+    "message": "已存在同名空间"
+  },
+  "spaces_createdTitle": {
+    "message": "空间已创建"
+  },
+  "spaces_createdSub": {
+    "message": "点击空间名即可切换"
+  },
+  "spaces_renamed": {
+    "message": "已重命名"
+  },
+  "spaces_cantDeleteDefault": {
+    "message": "默认空间不可删除"
+  },
+  "spaces_renameFail": {
+    "message": "重命名失败: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_deleteFail": {
+    "message": "删除失败: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_deletedTitle": {
+    "message": "空间「$NAME$」已删除",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_overwriteFail": {
+    "message": "覆盖失败: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "devices_title": {
+    "message": "同步中的浏览器"
+  },
+  "devices_namePh": {
+    "message": "设备名称"
+  },
+  "devices_thisDevice": {
+    "message": "本设备"
+  },
+  "devices_lastSync": {
+    "message": "最近同步 $TIME$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "devices_rename": {
+    "message": "重命名设备"
+  },
+  "devices_renameTitle": {
+    "message": "重命名 $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "devices_disconnect": {
+    "message": "解除"
+  },
+  "devices_empty": {
+    "message": "尚无记录，完成一次同步后自动登记。"
+  },
+  "devices_foot": {
+    "message": "「解除」用于电脑转手 / 重装：该浏览器退出列表，不再影响你的书签。"
+  },
+  "devices_removedTitle": {
+    "message": "已解除该浏览器的同步"
+  },
+  "devices_removedSub": {
+    "message": "其删除记录一并清除。"
+  },
+  "devices_invalidName": {
+    "message": "名称无效"
+  },
+  "devices_invalidNameSub": {
+    "message": "不能为空且不超过 50 个字符"
+  },
+  "devices_renameFail": {
+    "message": "改名失败: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "devices_renamed": {
+    "message": "设备已改名"
+  },
+  "devices_renamedSub": {
+    "message": "下次同步不会被自动探测名覆盖。"
+  },
+  "device_unknown": {
+    "message": "未知设备 · $TAG$",
+    "placeholders": {
+      "tag": {
+        "content": "$1"
+      }
+    }
+  },
+  "plan_perYear": {
+    "message": "/年"
+  },
+  "plan_plusFeat1": {
+    "message": "最多 10,000 条书签"
+  },
+  "plan_plusFeat2": {
+    "message": "3 个同步空间"
+  },
+  "plan_devicesUnlimited": {
+    "message": "设备数量不限"
+  },
+  "plan_proFeat1": {
+    "message": "书签数量无限"
+  },
+  "plan_proFeat2": {
+    "message": "10 个同步空间"
+  },
+  "plan_reco": {
+    "message": "推荐"
+  },
+  "plan_subPlus": {
+    "message": "订阅 Plus"
+  },
+  "plan_subPro": {
+    "message": "订阅 Pro"
+  },
+  "checkout_busy": {
+    "message": "跳转中…"
+  },
+  "upgrade_title": {
+    "message": "升级解锁更多书签"
+  },
+  "upgrade_body": {
+    "message": "当前已用 $COUNT$ 条。升级后立即生效，按年计费，可随时取消。",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "upgrade_later": {
+    "message": "稍后再说"
+  },
+  "account_title": {
+    "message": "账户"
+  },
+  "account_sub": {
+    "message": "登录账号、方案与订阅。"
+  },
+  "account_logout": {
+    "message": "退出登录"
+  },
+  "account_plan": {
+    "message": "当前方案"
+  },
+  "account_foot": {
+    "message": "登录邮箱用于恢复会话与同步数据；密码不落盘。升级后立即生效，按年计费，可随时取消。"
+  },
+  "account_planFootUnlimited": {
+    "message": "数量不限（约 25 万条封顶）· 10 个同步空间"
+  },
+  "account_planFoot": {
+    "message": "最多 $CAP$ 条书签 · 已用 $USED$ 条",
+    "placeholders": {
+      "cap": {
+        "content": "$1"
+      },
+      "used": {
+        "content": "$2"
+      }
+    }
+  },
+  "pay_checkoutFail": {
+    "message": "创建支付会话失败"
+  },
+  "pay_tryLater": {
+    "message": "请稍后重试"
+  },
+  "pay_checkoutOpened": {
+    "message": "已打开支付页面"
+  },
+  "pay_checkoutOpenedSub": {
+    "message": "完成后回到这里点「立即同步」即可生效"
+  },
+  "pay_portalFail": {
+    "message": "打开订阅管理失败"
+  },
+  "auth_h1": {
+    "message": "登录以同步书签"
+  },
+  "auth_sub": {
+    "message": "跨 Chrome / Edge / Firefox 一致的书签"
+  },
+  "auth_login": {
+    "message": "登录"
+  },
+  "auth_register": {
+    "message": "注册"
+  },
+  "auth_tabsAria": {
+    "message": "登录或注册"
+  },
+  "auth_email": {
+    "message": "邮箱"
+  },
+  "auth_emailPh": {
+    "message": "邮箱地址"
+  },
+  "auth_password": {
+    "message": "密码"
+  },
+  "auth_pwPhLogin": {
+    "message": "密码"
+  },
+  "auth_pwPhRegister": {
+    "message": "密码（至少 6 位）"
+  },
+  "auth_create": {
+    "message": "创建账号"
+  },
+  "auth_hint": {
+    "message": "按 Enter 亦可提交 · 邮箱已记住并自动回填"
+  },
+  "auth_forgot": {
+    "message": "忘记密码？"
+  },
+  "auth_errRequired": {
+    "message": "请输入邮箱和密码"
+  },
+  "auth_errRegister": {
+    "message": "注册失败: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "auth_errLogin": {
+    "message": "登录失败: $MSG$",
+    "placeholders": {
+      "msg": {
+        "content": "$1"
+      }
+    }
+  },
+  "auth_successRegister": {
+    "message": "注册成功，请查收确认邮件后登录"
+  },
+  "sync_title": {
+    "message": "同步"
+  },
+  "sync_sub": {
+    "message": "控制自动同步行为。"
+  },
+  "sync_auto": {
+    "message": "自动同步"
+  },
+  "sync_autoSub": {
+    "message": "检测到本地书签变更后，自动在后台加密上传并拉取增量"
+  },
+  "sync_conflict": {
+    "message": "冲突处理"
+  },
+  "sync_conflictSub": {
+    "message": "Move-CRDT 并集合并，重复项自动去重"
+  },
+  "sync_builtin": {
+    "message": "内置"
+  },
+  "sync_now": {
+    "message": "立即同步"
+  },
+  "sync_lastSync": {
+    "message": "上次同步 $TIME$ · $COUNT$ 条",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "sync_syncing": {
+    "message": "同步中"
+  },
+  "sync_do": {
+    "message": "同步"
+  },
+  "sync_foot": {
+    "message": "同步在本地完成加解密，仅上传密文。断网后自动排队，恢复后补同步。"
+  },
+  "crypto_title": {
+    "message": "加密"
+  },
+  "crypto_sub": {
+    "message": "端到端加密（AES-256-GCM）强制开启，不可关闭。同步密钥是解密云端数据的唯一凭证。"
+  },
+  "adv_title": {
+    "message": "高级"
+  },
+  "adv_sub": {
+    "message": "与浏览器原生同步的共存策略，以及操作日志存储维护。"
+  },
+  "adv_coexist": {
+    "message": "与浏览器自带同步共存"
+  },
+  "adv_row1Title": {
+    "message": "不接管 Chrome Sync"
+  },
+  "adv_row1Sub": {
+    "message": "通过 chrome.bookmarks 接口同步本机书签树，不接管 Chrome 原生「同步」功能"
+  },
+  "adv_independent": {
+    "message": "独立"
+  },
+  "adv_row2Title": {
+    "message": "两者同开不丢数据"
+  },
+  "adv_row2Sub": {
+    "message": "本机任何书签变化（无论来自哪个来源）都会进入同步日志，Move-CRDT 合并后收敛为同一棵树"
+  },
+  "adv_safe": {
+    "message": "安全"
+  },
+  "adv_row3Title": {
+    "message": "建议二选一"
+  },
+  "adv_row3Sub": {
+    "message": "两套云端各自保存书签状态，删除/合并语义叠加后可能难以判断「哪个是权威」"
+  },
+  "adv_advice": {
+    "message": "建议"
+  },
+  "adv_maintain": {
+    "message": "数据维护"
+  },
+  "adv_gcTitle": {
+    "message": "最近一次日志压缩"
+  },
+  "adv_gcSub": {
+    "message": "云端自动合并历史操作记录并压缩存储，无需手动维护"
+  },
+  "adv_gcDone": {
+    "message": "已压缩"
+  },
+  "adv_gcNone": {
+    "message": "未触发"
+  },
+  "adv_gcFoot": {
+    "message": "日志压缩仅合并历史操作记录，不删除任何书签。由云端按需自动执行。"
+  },
+  "adv_local": {
+    "message": "本机设置"
+  },
+  "adv_logoutSub": {
+    "message": "退出当前账号，本机密钥与同步口令保留，重新登录后可直接继续同步"
+  },
+  "opts_navAria": {
+    "message": "设置分区"
+  },
+  "opts_note": {
+    "message": "设置已整合进插件弹窗，点击浏览器工具栏图标即可使用。"
+  },
+  "autosync_onTitle": {
+    "message": "已开启自动同步"
+  },
+  "autosync_onSub": {
+    "message": "检测到变更后自动在后台同步"
+  },
+  "autosync_offTitle": {
+    "message": "已关闭自动同步"
+  },
+  "autosync_offSub": {
+    "message": "本地变更将不再自动上传，可随时手动「立即同步」"
+  },
+  "toast_syncDone": {
+    "message": "同步完成"
+  },
+  "toast_fsEncrypted": {
+    "message": "云端数据已加密，请先导入同步密钥"
+  },
+  "toast_fsBoth": {
+    "message": "本机与云端都有书签，请确认如何同步"
+  },
+  "toast_proByteLimitTitle": {
+    "message": "已达 Pro 存储上限"
+  },
+  "toast_proByteLimitSub": {
+    "message": "删除部分书签或空间释放容量后，同步会自动恢复"
+  },
+  "toast_quotaTitle": {
+    "message": "空间不足"
+  },
+  "toast_quotaSub": {
+    "message": "请升级到 Plus 或 Pro"
+  },
+  "toast_deviceLimitTitle": {
+    "message": "设备数量已达上限"
+  },
+  "toast_deviceLimitSub": {
+    "message": "Free 最多 3 台 · 可在空间设置中移除旧设备，或升级解锁更多"
+  },
+  "toast_rateTitle": {
+    "message": "同步过于频繁"
+  },
+  "toast_rateSub": {
+    "message": "本轮已跳过，稍后会自动重试"
+  },
+  "toast_decryptTitle": {
+    "message": "数据无法解密"
+  },
+  "toast_checkKey": {
+    "message": "请检查同步密钥"
+  },
+  "toast_loggedOut": {
+    "message": "已退出登录"
+  },
+  "help_sub": {
+    "message": "常见问题与关键行为说明。点击条目展开。"
+  },
+  "help_1_title": {
+    "message": "🦊 Firefox 的「书签菜单」"
+  },
+  "help_1_body": {
+    "message": "<p>Firefox 自带一个<strong>「书签菜单」</strong>位置（地址栏星标添加书签时默认存到这里），Chrome 里没有对应位置，所以扩展会在 Chrome 的书签栏下自动创建一个同名文件夹来承接。</p><p>在 Chrome 里<strong>删除这个「书签菜单」文件夹，只会清空菜单里的书签（会同步到所有设备），文件夹本身会自动恢复</strong>——这是设计行为，不是故障。请不要反复删除它；想清空菜单内容时，直接删除里面的书签即可。</p>"
+  },
+  "help_2_title": {
+    "message": "🔑 同步口令（端到端加密）"
+  },
+  "help_2_body": {
+    "message": "<p>所有书签操作都在本机加密后上传（AES-256-GCM），服务器只保存密文。首次使用时设置一个<strong>同步口令</strong>；换设备 / 重装后，在新设备登录并输入<strong>同一口令</strong>即可同步书签。口令本身不上传服务器，只在本机派生出解密密钥。<strong>忘记口令 = 数据无法找回</strong>，请把口令另存到密码管理器。</p>"
+  },
+  "help_3_title": {
+    "message": "🗑️ 删除行为"
+  },
+  "help_3_body": {
+    "message": "<p>删除书签 / 文件夹会生成「墓碑」并同步到所有设备，删除是跨设备一致的；删除的文件不会被云端重新拉回。删除「书签菜单」文件夹例外：只清空内容、位置保留。</p>"
+  },
+  "help_4_title": {
+    "message": "🔄 换设备 / 重装"
+  },
+  "help_4_body": {
+    "message": "<p>1. 在旧设备上牢记同步口令；<br />2. 新设备安装后登录同一账号；<br />3. 按引导输入<strong>同一口令</strong>；<br />4. 点「立即同步」，书签自动从云端恢复。新设备会自动创建默认同步空间，无需手动建空间。</p>"
+  },
+  "help_5_title": {
+    "message": "🧩 版本更新提示"
+  },
+  "help_5_body": {
+    "message": "<p>通过开发者模式加载的扩展不会自动更新：改动代码后需重新构建（<strong>npm run build</strong>）并到浏览器扩展管理页「重新加载」。</p>"
+  },
+  "help_6_title": {
+    "message": "🗂️ 同步空间与设备"
+  },
+  "help_6_body": {
+    "message": "<p>每个空间是一棵独立书签树（如工作 / 个人），可绑定不同浏览器资料；Free 档 1 个空间，Plus 3 个，Pro / Lifetime 10 个。同步中的浏览器会自动登记，可在此查看、改名或解除。</p>"
+  },
+  "help_7_title": {
+    "message": "📡 同步完成提示怎么看？"
+  },
+  "help_7_body": {
+    "message": "<p>同步后的提示按结果方向描述，不再显示「推送 / 拉取几条」——那个数字是内部同步操作数，和你实际的书签数对不上，容易误导。对照如下：</p><table class=\"help-tbl\"><thead><tr><th>你看到的提示</th><th>含义</th></tr></thead><tbody><tr><td>首次同步完成，书签已加密上传</td><td>本机第一次把本地书签整体上传到云端（云端原本是空的）</td></tr><tr><td>首次同步完成，已从云端恢复书签</td><td>新设备 / 重装后，把云端已有书签拉到本机</td></tr><tr><td>双向同步完成</td><td>本机和其他设备都有改动，已互相同步</td></tr><tr><td>已上传本地变更</td><td>只把本机新增 / 修改的书签传到了云端</td></tr><tr><td>已同步其他设备的变更</td><td>收到了别的设备新加的书签</td></tr><tr><td>已是最新</td><td>没有新变更，无需操作</td></tr></tbody></table><p>状态卡上的「N 条书签」是真实书签总数，是准确的。看到「⚠️ N 条云端数据解密失败」说明同步密钥和云端数据不匹配，请检查密钥或口令。</p>"
+  },
+  "gate_hintSetup": {
+    "message": "请设置一个同步口令——它是解密书签的唯一凭证，一旦设置不可更改，忘记将无法找回。"
+  },
+  "gate_hintVerify": {
+    "message": "云端书签已加密，请输入与其他设备相同的同步口令。"
+  }
+}

@@ -30,6 +30,7 @@ export type { KVStore } from './keyManager.js';
 
 export {
   captureLocalEvents,
+  captureLocalTree,
   reverseApply,
   IdBridge,
   IS_FIREFOX,

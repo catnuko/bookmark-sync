@@ -1,4 +1,0 @@
-[submodule "supabase"]
-	path = supabase
-	url = https://github.com/catnuko/supabase-snaply-multi.git
-	branch = main

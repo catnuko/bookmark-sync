@@ -12,17 +12,18 @@
 
 import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
+import { t } from "./lib/i18n.js";
 import {
   SupabaseOpLogTransport,
   SyncCoordinator,
   MemoryOpLogTransport,
   captureLocalEvents,
+  captureLocalTree as captureUnmappedTree,
   IdBridge,
   reverseApply,
-  computePosition,
 } from "./sync/index.js";
 import { KeyManager } from "./sync/index.js";
-import { ROOT_UUID, MENU_UUID } from "./crdt/index.js";
+import { MENU_UUID, openBookmarkDb, OutboxStore } from "./crdt/index.js";
 import { IS_FIREFOX } from "./sync/index.js";
 
 const DEVICE_ID_KEY = "crdt.deviceId";
@@ -30,7 +31,6 @@ const AFTER_ID_KEY = "crdt.afterId";
 /** 本设备 Lamport 计数器（与 afterId 一起持久化，冷启动恢复防 seq 冲突）。 */
 const COUNTER_KEY = "crdt.counter";
 const IDMAP_KEY = "crdt.idmap";
-const SEEDED_KEY = "crdt.seeded";
 /** op-log GC 阈值（storage 键可覆盖；E2E 注入小阈值验证 GC 链路）。 */
 const GC_THRESHOLD_KEY = "crdt.gcThreshold"; // 历史遗留 key，仅 resetSyncState 清理用
 
@@ -81,7 +81,11 @@ function spaceRpcError(err) {
   const msg = err.message || "";
   if (err.code === "23505") return { ok: false, reason: "duplicate", error: msg };
   // RAISE EXCEPTION 的自定义 code 直接作为 reason
-  for (const code of ["plan_locked", "cannot_delete_default", "invalid_name", "not_found", "not_authenticated"]) {
+  // （0032：quota_exceeded / rate_limited；0033：device_limit_reached）
+  for (const code of [
+    "plan_locked", "cannot_delete_default", "invalid_name", "not_found", "not_authenticated",
+    "quota_exceeded", "rate_limited", "device_limit_reached",
+  ]) {
     if (msg.includes(code)) return { ok: false, reason: code, error: msg };
   }
   return { ok: false, reason: msg, error: msg };
@@ -106,7 +110,10 @@ export async function deleteSpace(id) {
 }
 
 export async function switchSpace(id) {
-  // CRDT 模型下切换空间 = 切换本地 afterId 水位（不同 space 各自水位）。
+  // 切换空间 = 切换本地 afterId 水位（不同 space 各自水位）。切换前先把
+  // 当前空间的未推送 op 落进 outbox（旧 coordinator 单例将被丢弃，其
+  // outbox 行在该空间下次激活时经 restoreOutbox 恢复推送）。
+  await flushPersist();
   await api.storage.local.set({ activeSpaceId: id, [AFTER_ID_KEY]: 0 });
   return { ok: true };
 }
@@ -131,6 +138,12 @@ export async function listDevices(spaceId) {
 export async function removeDevice(deviceId) {
   const { error } = await supabase.rpc("bsync_device_remove", { p_device: deviceId });
   if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function renameDevice(deviceId, name) {
+  const { error } = await supabase.rpc("bsync_device_rename", { p_device: deviceId, p_name: name });
+  if (error) return spaceRpcError(error);
   return { ok: true };
 }
 
@@ -191,7 +204,9 @@ export async function runSync(_opts = {}) {
     // 但 SW 内存 session 为 null 时误报 not_authenticated。
     const sess = await ensureSession();
     if (!sess) {
-      return { ok: false, reason: "not_authenticated", error: "请先在插件中登录" };
+      // 已知原因不附带 error 文案：展示层（store.reasonText）按 reason 码本地化，
+      // 避免「请先在插件中登录 (请先在插件中登录)」式重复。
+      return { ok: false, reason: "not_authenticated" };
     }
 
     let { active } = await getActiveSpace();
@@ -200,7 +215,7 @@ export async function runSync(_opts = {}) {
       // bsync_space_create 首个空间自动 is_default=true）。后续推送/拉取
       // 以此为落点，老客户端行为不变。
       const r = await createSpace("默认空间");
-      if (!r.ok) return { ok: false, reason: "no_space", error: r.error ?? "无法创建默认空间" };
+      if (!r.ok) return { ok: false, reason: "no_space", error: r.error ?? t("err_noSpace") };
       ({ active } = await getActiveSpace());
       if (!active) return { ok: false, reason: "no_space" };
     }
@@ -209,26 +224,30 @@ export async function runSync(_opts = {}) {
     const key = await keyManager.ensureKey();
     if (!key) {
       // 不再自动生成随机密钥：必须由用户设置口令派生。无密钥时直接拒绝同步，
-      // 由 UI 引导用户在引导页/首次同步弹窗里输入口令。
-      return { ok: false, reason: "no_key", error: "请先设置同步口令" };
+      // 由 UI 引导用户在口令门禁页输入口令（文案按 reason 码在展示层本地化）。
+      return { ok: false, reason: "no_key" };
     }
 
-    // 设备心跳
-    await supabase.rpc("bsync_device_touch", {
+    // 设备心跳（0033：新设备首次登记超计划上限时服务端 raise device_limit_reached）
+    const { error: touchError } = await supabase.rpc("bsync_device_touch", {
       p_space: active.id,
       p_device: deviceId,
       p_name: await detectDeviceName(),
     });
+    if (touchError && String(touchError.message ?? "").includes("device_limit_reached")) {
+      return { ok: false, reason: "device_limit_reached", error: touchError.message };
+    }
 
     const coordinator = await getCoordinator(active.id, deviceId, key);
     console.log(`[bsync] === 同步开始 === space=${active.id} device=${deviceId} afterId=${coordinator.afterId} bare=${coordinator.replica.isBare()}`);
 
 
     // 冷启动保护：MV3 SW 闲置终止后重建的 replica 只有固定根（isBare），
-    // 但云端已有历史。此时必须先从基线恢复，否则 reverseApply 的空 CRDT
-    // 视图会把本机书签树当「已删除」清空（removeTrashedNodes 误删）。
-    // 基线优先取 GC 快照（快照存在且可用 → 重建 + 增量；op 已被截断时
-    // pullFrom(0) 会漏行）；无快照时退回全量重放 pullFrom(0)。
+    // 或持有 outbox 恢复的 op（needsColdReplay，同样只有部分状态）。此时
+    // 必须先从基线恢复，否则 reverseApply 的空/缺历史 CRDT 视图会把本机
+    // 书签树当「已删除」清空（removeTrashedNodes 误删）。基线优先取 GC
+    // 快照（快照存在且可用 → 重建 + 增量；op 已被截断时 pullFrom(0) 会漏
+    // 行）；无快照时退回全量重放 pullFrom(0)。
     // 累计本次同步所有阶段的解密失败（冷启动重放 + 主 pull），
     // 统一用于：是否跳过 used_count 上报、是否在 popup 显示警告。
     const allDecryptErrors = [];
@@ -238,7 +257,7 @@ export async function runSync(_opts = {}) {
     // 而不是「其他设备新增了变更」——文案要区分。
     const hadNoWatermark = coordinator.afterId === 0;
 
-    if (coordinator.afterId > 0 && coordinator.replica.isBare()) {
+    if (coordinator.afterId > 0 && coordinator.needsColdReplay) {
       const replay = await coordinator.pullWithSnapshot(true);
       if (replay.applied > 0) await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
       if (replay.decryptErrors?.length) allDecryptErrors.push(...replay.decryptErrors);
@@ -277,18 +296,16 @@ export async function runSync(_opts = {}) {
       } catch { /* 探测失败不阻塞 */ }
     }
 
-    // 2) 播种：云端无历史 && 本机未播种过 → 把现有 chrome 书签树转成 MoveOp
-    // didSeedThisRun 只记录「本次」是否真的播种，用于给 UI 返回一次性提示；
-    // seededRef 是持久化标志（跨冷启动防重复播种），不能直接当返回值——
-    // 否则播种过一次后，之后每次同步都会误报「首次同步完成」。
-    let didSeedThisRun = false;
-    if (pull.applied === 0 && coordinator.afterId === 0) {
-      console.log("[bsync] 开始播种本机 chrome 书签...");
-      await seedExistingTree(coordinator);
-      didSeedThisRun = true;
-      console.log(`[bsync] 播种完成, pending ops=${coordinator.pendingPush?.length ?? 0}`);
-    } else {
-      console.log(`[bsync] 跳过播种 (applied=${pull.applied} afterId=${coordinator.afterId})`);
+    // 2) 重扫描本地树（每轮执行，幂等）：为未映射节点补建 MoveOp。
+    //    替代旧「仅云端为空时播种」——批量导入中途关浏览器、事件被静默丢弃
+    //    （父未映射/未设口令窗口/SW 冷启动竞态）、第二台设备本地书签（云端
+    //    非空时旧实现不播种），这些孤儿在旧实现下永不同步。重扫描让「任一
+    //    设备有而服务端没有的都保留」（并集合并）真正成立。
+    //    didSeedThisRun 仅用于 UI 一次性提示（首台设备云端为空时的首次上传）。
+    const captured = await captureLocalTree(coordinator);
+    const didSeedThisRun = captured > 0 && hadNoWatermark && pull.applied === 0;
+    if (captured > 0) {
+      console.log(`[bsync] 本地重扫描: 补建 ${captured} 条 op, pending ops=${coordinator.pendingPush?.length ?? 0}`);
     }
 
     // 3) 推本地 → 远端（播种/本地变更的 op 尽快推送，减少 SW 回收导致
@@ -374,6 +391,16 @@ export async function runSync(_opts = {}) {
     const restored = hadNoWatermark && pull.applied > 0 && !didSeedThisRun;
     return { ok: true, pushed, pulled: pull.applied, seeded: didSeedThisRun, restored, decryptFailed: allDecryptErrors.length };
   } catch (e) {
+    // 服务端语义码直接作为 reason（push/pull 抛出的 PostgREST 错误 message
+    // 即服务端 raise 的码：0032 quota_exceeded / rate_limited，0033 device_limit_reached），
+    // 由 store.js 映射为按档位区分的升级 / 清理指引。
+    const msg = String(e?.message ?? e);
+    for (const code of ["quota_exceeded", "rate_limited", "device_limit_reached"]) {
+      if (msg.includes(code)) {
+        try { await api.storage.local.set({ lastSyncError: msg }); } catch {}
+        return { ok: false, reason: code, error: msg };
+      }
+    }
     // 诊断：持久化完整错误与堆栈（readStorageLocal 可读）
     try {
       await api.storage.local.set({ lastSyncError: `${e?.message ?? e} | ${e?.stack ?? ''}` });
@@ -384,13 +411,12 @@ export async function runSync(_opts = {}) {
 
 // ---- 事件桥接线（background.js 顶层调用）----
 // MV3 要求 chrome.* 事件监听在 SW 顶层注册；coordinator 未就绪（未登录/无空间）
-// 时事件安全跳过，下次 runSync 的播种兜底。
+// 时事件安全跳过，下次 runSync 的重扫描兜底。
 let bridgeRegistered = false;
 let _coordinator = null; // 惰性单例（按 spaceId 缓存）
 let _coordinatorGen = 0; // 递增世代：resetCoordinator 后旧 boot 不再覆盖单例
 let _bridge = null;
 let _eventGuard = { suppressed: { value: false } }; // captureLocalEvents 返回的 suppressed 标志
-const seededRef = { value: false };
 
 export function registerLocalEventBridge() {
   if (bridgeRegistered) return;
@@ -545,33 +571,94 @@ export async function getCoordinator(spaceId, deviceId, key) {
   // (device, seq) 冲突，服务端 ON CONFLICT DO NOTHING 静默丢弃 → 删除失效。
   const initialCounter = Number(stored[COUNTER_KEY] ?? 0);
   const transport = new SupabaseOpLogTransport(supabase);
-  _coordinator = new SyncCoordinator({ spaceId, deviceId, transport, key, afterId, initialCounter });
+  _coordinator = new SyncCoordinator({
+    spaceId,
+    deviceId,
+    transport,
+    key,
+    afterId,
+    initialCounter,
+    onOpEnqueued: () => schedulePersist(),
+    onChunkPushed: async (sid, seqs) => {
+      try {
+        (await getOutboxStore()).deleteSeqs(sid, seqs);
+      } catch { /* 漏删由服务端 (space,device,seq) 幂等去重兜底 */ }
+    },
+  });
+  // SW 冷启动恢复：outbox 里未确认推送成功的本地 op 重放进 replica 并重回
+  // 推送队列。没有这一步，推送失败/推送中 SW 被回收会让整批本地 op 丢失，
+  // 而 IDMAP 已落盘——下一轮 reverseApply 会把「已映射但 CRDT 不可达」的
+  // 书签从浏览器里删掉（批量导入的书签因此消失）。receiveOp 幂等。
+  try {
+    const rows = await (await getOutboxStore()).loadSpace(spaceId);
+    if (rows.length > 0) {
+      _coordinator.restoreOutbox(rows);
+      console.log(`[bsync] outbox 恢复: ${rows.length} 条未确认 op 重新入队`);
+    }
+  } catch { /* IndexedDB 不可用：退回内存队列行为 */ }
   return _coordinator;
 }
 
-/** chromeId↔uuid 映射桥：内存 + chrome.storage.local 持久化（重启不丢）。 */
+// ── 本地变更持久化 tick ─────────────────────────────────────────────────
+// 单一 300ms 去抖 tick 同时落盘三件事：outbox 未推送 op（IndexedDB）、
+// IDMAP 快照（chromeId↔uuid）、Lamport counter。成对落盘是崩溃安全的关键：
+// 若只有映射落盘而 op 丢失，「已映射但 CRDT 不可达」会让 reverseApply 把
+// 本地书签误删；顺序固定为 outbox 先、IDMAP 后——残余崩溃窗口（亚毫秒级）
+// 的最坏情况是重复书签（可恢复），绝不是数据丢失。
 let persistTimer = null;
-let _idMapReady = null; // Promise：idMap / seeded 标志从 storage 恢复完成
+let persistRunning = false;
+function schedulePersist() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void flushPersist();
+  }, 300);
+}
+
+let _outboxStore = null;
+async function getOutboxStore() {
+  if (!_outboxStore) {
+    const db = await openBookmarkDb(globalThis.indexedDB);
+    _outboxStore = new OutboxStore(db);
+  }
+  return _outboxStore;
+}
+
+async function flushPersist() {
+  if (persistRunning) return;
+  persistRunning = true;
+  try {
+    const c = getCoordinatorCached();
+    if (!c) return;
+    const journal = c.peekPendingJournal();
+    if (journal.length > 0) {
+      try {
+        const store = await getOutboxStore();
+        await store.putOps(c.spaceId, journal);
+        c.clearPendingJournal(journal);
+      } catch { /* IndexedDB 不可用：退回内存队列行为，重扫描兜底 */ }
+    }
+    await api.storage.local.set({
+      [IDMAP_KEY]: _bridge ? _bridge.snapshot() : {},
+      [COUNTER_KEY]: c.replica.counter,
+    });
+  } catch { /* 持久化失败不阻塞同步 */ } finally {
+    persistRunning = false;
+  }
+}
+
+/** chromeId↔uuid 映射桥：内存 + chrome.storage.local 持久化（重启不丢）。 */
+let _idMapReady = null; // Promise：idMap / 持久化从 storage 恢复完成
 
 function getOrCreateBridge() {
   if (_bridge) return _bridge;
-  _bridge = new IdBridge(() => {
-    // 持久化快照（防抖到微任务避免高频写）
-    clearTimeout(persistTimer);
-    persistTimer = setTimeout(() => {
-      api.storage.local.set({ [IDMAP_KEY]: _bridge.snapshot() }).catch(() => {});
-    }, 300);
-  });
+  _bridge = new IdBridge(() => schedulePersist());
   // 冷启动竞态修复：idMap 恢复是异步的，必须等 load 完成后再 reverseApply /
-  // seedExistingTree，否则映射缺失会让 reverseApply 把「已存在的书签」当
+  // capture，否则映射缺失会让 reverseApply 把「已存在的书签」当
   // 「缺失」重复创建（SW 每次冷启动/回收后同步都复制一批书签）。
   _idMapReady = (async () => {
-    const [idmap, seeded] = await Promise.all([
-      api.storage.local.get(IDMAP_KEY),
-      api.storage.local.get(SEEDED_KEY),
-    ]);
+    const idmap = await api.storage.local.get(IDMAP_KEY);
     if (idmap[IDMAP_KEY]) _bridge.load(idmap[IDMAP_KEY]);
-    seededRef.value = !!seeded[SEEDED_KEY];
   })().catch(() => {});
   return _bridge;
 }
@@ -582,40 +669,18 @@ async function ensureBridgeReady() {
 }
 
 /**
- * 播种：把现有 chrome 书签树转成一批 MoveOp（仅首设备/云端空时调用）。
- * 幂等：已映射的 chromeId 跳过；未映射的生成 uuid 并 createNodeWithId。
+ * 重扫描本机 chrome 书签树：为未映射节点补建 op（每轮同步执行，幂等）。
+ * 遍历核心在 chromeBridge.captureLocalTree（可独立测试）；此处负责 idMap
+ * 恢复等待，以及捕获结果的立即落盘——outbox 先、IDMAP 后（成对语义见
+ * flushPersist 注释），不等 300ms tick，避免大批量捕获的持久化空窗。
  */
-export async function seedExistingTree(coordinator) {
-  if (seededRef.value) return { seeded: false };
+export async function captureLocalTree(coordinator) {
   const bridge = getOrCreateBridge();
   await ensureBridgeReady(); // 已映射判断依赖 idMap 恢复完成
-  if (!globalThis.chrome?.bookmarks) return { seeded: false, reason: "no-chrome-bookmarks" };
-  const tree = await globalThis.chrome.bookmarks.getTree();
-  let seeded = 0;
-  const walk = async (node, parentUuid) => {
-    const existing = bridge.toUuid(node.id);
-    if (existing) {
-      // 固定根（Chrome "0".."3" / Firefox root/menu/toolbar/unfiled/mobile）
-      // 直接续走子树：它们不产生新 op，其下用户节点正常播种
-      for (const child of node.children ?? []) await walk(child, existing);
-      return;
-    }
-    const uuid = globalThis.crypto.randomUUID();
-    bridge.map(node.id, uuid);
-    const meta = { title: node.title, ...(node.url ? { url: node.url } : {}) };
-    // 按 Chrome 实际 index 生成 fractional position（与 onCreated 一致：
-    // 首次导入也保留用户已有的顺序，而不是同步后被 uuid 序覆盖）
-    const pos = computePosition(coordinator, parentUuid, node.index ?? 0, null);
-    if (pos !== null) meta.position = pos;
-    coordinator.createNodeWithId(uuid, parentUuid, meta);
-    seeded++;
-    for (const child of node.children ?? []) await walk(child, uuid);
-  };
-  for (const root of tree ?? []) await walk(root, ROOT_UUID);
-  await api.storage.local.set({ [SEEDED_KEY]: true });
-  seededRef.value = true;
-  await api.storage.local.set({ [IDMAP_KEY]: bridge.snapshot() });
-  return { seeded };
+  if (!globalThis.chrome?.bookmarks) return 0;
+  const captured = await captureUnmappedTree(globalThis.chrome.bookmarks, coordinator, bridge);
+  if (captured > 0) await flushPersist();
+  return captured;
 }
 
 /** 事件入队后去抖 flush（2s），实现「自动无感同步」。 */
@@ -686,7 +751,7 @@ export function resetCoordinator() {
 export async function resetSyncState() {
   _coordinator = null;
   const keys = [
-    DEVICE_ID_KEY, AFTER_ID_KEY, COUNTER_KEY, IDMAP_KEY, SEEDED_KEY,
+    DEVICE_ID_KEY, AFTER_ID_KEY, COUNTER_KEY, IDMAP_KEY, "crdt.seeded",
     MENU_FOLDER_KEY, GC_THRESHOLD_KEY,
     "crdt.e2eeKey", "crdt.e2eeSalt", "crdt.onboardSkipped",
     "lastSyncStatus", "lastSyncAt", "lastSyncError", "lastDecryptErrors",
