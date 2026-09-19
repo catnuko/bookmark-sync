@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.1](https://github.com/catnuko/bookmark-sync/compare/v2.3.0...v2.3.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **ci:** auto-merge 改用 v4 的 prs 输出，修复 release PR 不自动合并 ([0a02e59](https://github.com/catnuko/bookmark-sync/commit/0a02e5912ae67aa1058c29680ad9ee5dc31e392c))
+* **ci:** 构建期按 package.json 回填 manifest 版本，修正发版产物版本号 ([c292f78](https://github.com/catnuko/bookmark-sync/commit/c292f78017cacaf7bcee08d9de217e15dd009503))
+
 ## [2.3.0](https://github.com/catnuko/bookmark-sync/compare/v2.2.0...v2.3.0) (2026-09-19)
 
 
