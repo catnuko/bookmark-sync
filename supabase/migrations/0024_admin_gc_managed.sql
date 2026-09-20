@@ -168,7 +168,7 @@ BEGIN
     FROM (
       SELECT s.id, s.name, s.is_default,
              (SELECT count(*) FROM public.bsync_op_log o WHERE o.space_id = s.id) AS op_count,
-             (SELECT octet_length(snap.data) FROM public.bsync_snapshots snap
+             (SELECT octet_length(snap.data::text) FROM public.bsync_snapshots snap
                WHERE snap.space_id = s.id ORDER BY snap.id DESC LIMIT 1) AS snapshot_bytes,
              (SELECT snap.after_op_id FROM public.bsync_snapshots snap
                WHERE snap.space_id = s.id ORDER BY snap.id DESC LIMIT 1) AS snapshot_after_op_id,
