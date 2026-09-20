@@ -572,7 +572,7 @@ async function ensureReachableNodes(
           // 诊断：持久化 create 入参与错误（真实 Chromium 定位签名问题用）
           try {
             await (globalThis as any).chrome?.storage?.local?.set({
-              lastRaError: `create ${e?.message} | parentId=${JSON.stringify(parentChromeId)} title=${JSON.stringify(title)} url=${JSON.stringify(url)} index=${createIndex}`,
+              lastRaError: `create ${(e as Error)?.message ?? e} | parentId=${JSON.stringify(parentChromeId)} title=${JSON.stringify(title)} url=${JSON.stringify(url)} index=${createIndex}`,
             });
           } catch {}
           throw e;

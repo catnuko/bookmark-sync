@@ -29,6 +29,7 @@ import {
   IdBridge,
   type ChromeBookmarksAPI,
   type ChromeTreeNode,
+  type PushOp,
 } from '../../src/sync/index.js';
 import {
   generateKey,
@@ -40,7 +41,7 @@ const SPACE = 'aaaaaaaa-0000-4000-8000-111111111111';
 const DEVICE = 'dev-cold';
 
 function makeChrome() {
-  const listeners: Record<string, Array<(...args: never[]) => void>> = {};
+  const listeners: Record<string, Array<(...args: any[]) => void>> = {};
   const api: ChromeBookmarksAPI = {
     getTree: async () => [],
     get: async () => [],
@@ -50,12 +51,12 @@ function makeChrome() {
     remove: async () => {},
     removeTree: async () => {},
     getChildren: async () => [],
-    onCreated: { addListener: (cb: (...args: never[]) => void) => { (listeners.created ??= []).push(cb); } },
-    onChanged: { addListener: (cb: (...args: never[]) => void) => { (listeners.changed ??= []).push(cb); } },
-    onMoved: { addListener: (cb: (...args: never[]) => void) => { (listeners.moved ??= []).push(cb); } },
-    onRemoved: { addListener: (cb: (...args: never[]) => void) => { (listeners.removed ??= []).push(cb); } },
+    onCreated: { addListener: (cb: (...args: any[]) => void) => { (listeners.created ??= []).push(cb); } },
+    onChanged: { addListener: (cb: (...args: any[]) => void) => { (listeners.changed ??= []).push(cb); } },
+    onMoved: { addListener: (cb: (...args: any[]) => void) => { (listeners.moved ??= []).push(cb); } },
+    onRemoved: { addListener: (cb: (...args: any[]) => void) => { (listeners.removed ??= []).push(cb); } },
   };
-  const emit = (name: string, ...args: never[]) => {
+  const emit = (name: string, ...args: any[]) => {
     for (const cb of listeners[name] ?? []) void cb(...args);
   };
   return { api, emit };
@@ -168,7 +169,7 @@ describe('删除事件 × SW 冷启动', () => {
     // 包装 transport：第一次 push 抛错，第二次成功
     const failing = new (class extends MemoryOpLogTransport {
       private failNext = true;
-      override async push(spaceId: string, deviceId: string, ops: never[]) {
+      override async push(spaceId: string, deviceId: string, ops: PushOp[]) {
         if (this.failNext) {
           this.failNext = false;
           throw new Error('network down');

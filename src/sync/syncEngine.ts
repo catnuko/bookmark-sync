@@ -277,7 +277,6 @@ export class SyncCoordinator {
       for (const row of page.rows) {
         try {
           const op = await decryptMoveOp(row.op, this.key, this.spaceId);
-          console.log(`[bsync]   拉取行 #${row.id}: seq=${row.seq} device=${row.device_id} node=${op.c} parent=${op.p} title=${JSON.stringify(op.m?.title ?? "")} url=${op.m?.url ?? ""}`);
           this.replica.receiveOp(op);
           applied++;
         } catch (e) {

@@ -48,6 +48,7 @@ function makeChrome() {
       const clone = (n: N): N => ({ ...n, children: (n.children ?? []).map(clone) });
       return ROOTS.map(clone);
     },
+    get: async () => [],
     getChildren: async (parentId: string) => {
       const p = tree.get(parentId);
       return (p?.children ?? []).map((c) => ({ ...c }));

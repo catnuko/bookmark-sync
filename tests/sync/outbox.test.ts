@@ -193,6 +193,7 @@ describe('captureLocalTree (rescan)', () => {
         const clone = (n: N): N => ({ ...n, children: (n.children ?? []).map(clone) });
         return ROOTS.map(clone);
       },
+      get: async () => [],
       getChildren: async (parentId: string) => (tree.get(parentId)?.children ?? []).map((c) => ({ ...c })),
       create: async () => { throw new Error('not used in rescan tests'); },
       move: async () => { throw new Error('not used'); },

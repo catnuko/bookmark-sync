@@ -94,6 +94,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 发版前质量门：类型检查 + lint + 单测全过后才打包（防止坏代码进 Release）。
+      - name: Quality gate
+        run: pnpm typecheck && pnpm lint && pnpm test
+
       # 注意：release-please 的 extra-files(json) 在当前版本实测不生效
       # （v2.3.0 的 release PR 未更新 manifest，见 PR #13），这里按 package.json
       # 的版本号回填两个 manifest，保证发出去的 zip 版本号正确。

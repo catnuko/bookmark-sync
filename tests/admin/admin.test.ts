@@ -112,7 +112,7 @@ describe("审计展示辅助", () => {
 // 用 vi.mock 掉 supabase 客户端，验证 adminApi 把页面参数正确翻译成 RPC 入参。
 const rpcMock = vi.fn();
 vi.mock("../../website/src/lib/supabase.js", () => ({
-  supabase: { rpc: (...args) => rpcMock(...args) },
+  supabase: { rpc: (...args: any[]) => rpcMock(...args) },
 }));
 
 describe("adminApi 参数构造", () => {

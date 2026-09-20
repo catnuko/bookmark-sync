@@ -81,8 +81,8 @@
 
 - **二进制**：Chromium `/opt/browser/chrome`；Firefox `/home/user/tools/ff/firefox/firefox`（155.0.1）；Edge `/home/user/tools/msedge/opt/microsoft/msedge/msedge`（153）；geckodriver `/home/user/tools/geckodriver`。
 - **端口**：A(Chromium)=9345、B(Firefox)=9346（geckodriver 9444 / BiDi 9446 / 桥 9455）、C(Edge)=9347；Xvfb `:99`（DISPLAY=:99，必须有头）。
-- **Supabase**：项目 `cwtqnsbpcetvqopdkcou`；测试账号 `346746061@qq.com`/`Qzy123456`；ANON key `sb_publishable_ezewylV3uHkEXOC6s-eJPg_svk8kI3H`；CLI `/home/user/.local/bin/supabase`；子模块迁移水位 0018（catnuko/supabase-snaply-multi）。
-- **E2E 清单**：`e2e-two-device.mjs`（双端+场景3）、`e2e-ff-sync.mjs`（跨浏览器+菜单，先 `pnpm build:firefox`）、`e2e-gc.mjs`（快照 GC 三端）、`e2e-triple-sync.mjs`（三浏览器联合，`EDGE_BIN` 可覆盖）。统一：`EMAIL=346746061@qq.com PASSWORD='Qzy123456' E2E_RESET=1 node e2e/…`。
+- **Supabase**：项目 `cwtqnsbpcetvqopdkcou`；测试账号与 ANON key **不写入版本库**（见个人密码管理器 / 环境变量，若已泄露请在 Dashboard 重置）；CLI `/home/user/.local/bin/supabase`；迁移水位以 `supabase/migrations/` 为准（代码已入库，非 submodule）。
+- **E2E 清单**：`e2e-two-device.mjs`（双端+场景3）、`e2e-ff-sync.mjs`（跨浏览器+菜单，先 `pnpm build:firefox`）、`e2e-gc.mjs`（快照 GC 三端）、`e2e-triple-sync.mjs`（三浏览器联合，`EDGE_BIN` 可覆盖）。统一：`EMAIL="$BSYNC_E2E_EMAIL" PASSWORD="$BSYNC_E2E_PASSWORD" E2E_RESET=1 node e2e/…`。
 - **单测**：`npx vitest run` → 95/95。
 - **清理**：`ps -eo args | grep -E "e2e/.profiles|e2e/.ff-profiles|geckodriver"`，端口被占先杀。
 

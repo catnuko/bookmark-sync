@@ -13,8 +13,8 @@
 | 开发分支 | `refactor/plan`（**禁止直接改 main**） |
 | Supabase 子模块 | `supabase/` → catnuko/supabase-snaply-multi（main，迁移水位 **0018**） |
 | 项目 ref | `cwtqnsbpcetvqopdkcou` |
-| 测试账号 | `346746061@qq.com` / `Qzy123456`（Supabase Auth 邮箱登录） |
-| Management API token | `~/.supabase_access_token`（sbp_fcf98872fbc66d31e8f5d3f251fa6b4ad499f303） |
+| 测试账号 | 见个人密码管理器 / 环境变量（凭据不写入版本库；若旧值已泄露请在 Supabase Dashboard 重置密码） |
+| Management API token | `~/.supabase_access_token`（仅文件路径；值不写入版本库。若旧值已泄露请尽快在 Supabase 轮换） |
 | 测试浏览器 | Chromium 146 @ `/opt/browser/chrome`（进程名 `chrome`），Xvfb `:99` |
 | 参考实现 | `/home/user/Doubao/chats/38441509014479362/bookmark-crdt-sync`（已验证 MV3 E2E 8/8） |
 
@@ -205,18 +205,18 @@ npx vitest run                      # 92/92 全绿
 pnpm package                        # extension/（Chromium）
 pnpm build:firefox                  # extension-firefox/（Firefox）
 
-# 3. 双设备 E2E（需要 Xvfb :99 已启动）
-EMAIL=346746061@qq.com PASSWORD='Qzy123456' E2E_RESET=1 node e2e/e2e-two-device.mjs
+# 3. 双设备 E2E（需要 Xvfb :99 已启动；先 export 测试账号，见「项目全景」表）
+EMAIL="$BSYNC_E2E_EMAIL" PASSWORD="$BSYNC_E2E_PASSWORD" E2E_RESET=1 node e2e/e2e-two-device.mjs
 # 前置：DISPLAY=:99 Xvfb；脚本自带自清理（杀残留 Chromium + 清 profile + TRUNCATE op_log）
 
 # 3b. 快照 GC E2E（P3：三端，自清 op_log + snapshots）
-EMAIL=346746061@qq.com PASSWORD='Qzy123456' node e2e/e2e-gc.mjs
+EMAIL="$BSYNC_E2E_EMAIL" PASSWORD="$BSYNC_E2E_PASSWORD" node e2e/e2e-gc.mjs
 
 # 4. Firefox 单端 smoke（需先 pnpm build:firefox）
-EMAIL=346746061@qq.com PASSWORD='Qzy123456' E2E_RESET=1 node e2e/ff-smoke.mjs
+EMAIL="$BSYNC_E2E_EMAIL" PASSWORD="$BSYNC_E2E_PASSWORD" E2E_RESET=1 node e2e/ff-smoke.mjs
 
 # 5. Chromium × Firefox 跨浏览器双端（P1 验收）
-EMAIL=346746061@qq.com PASSWORD='Qzy123456' E2E_RESET=1 node e2e/e2e-ff-sync.mjs
+EMAIL="$BSYNC_E2E_EMAIL" PASSWORD="$BSYNC_E2E_PASSWORD" E2E_RESET=1 node e2e/e2e-ff-sync.mjs
 
 # 6. 推送迁移（改 supabase/ 子模块后）
 cd supabase && SUPABASE_ACCESS_TOKEN=$(cat ~/.supabase_access_token) /home/user/.local/bin/supabase db push

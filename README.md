@@ -5,7 +5,7 @@
 - 登录/注册复用 Supabase 官方 Auth（邮箱 + 密码），RLS 行级隔离，每个用户只能读写自己的书签。
 - 同步引擎 v2：**Move-CRDT 操作日志模型**（取代旧的「快照 + 墓碑」三态合并）。书签增删改/移动转成 MoveOp（Kleppmann 树 CRDT），经 AES-256-GCM 操作级加密写入 `bsync_op_log`，多设备按 Lamport 时间戳收敛，不丢书签、不成环。
 - **端到端加密默认开启**：每一条书签操作在设备上加密后才上传，服务器只见密文（快照 GC 同理）。密钥由口令派生（PBKDF2，盐存云端按用户同步）或导出/导入，新设备登录 + 输入同一口令即可解密。
-- 已通过 **Chromium × Firefox × Edge 三浏览器联合验证**（`e2e/e2e-triple-sync.mjs`），含书签菜单双向同步与冷重启保留。
+- 已通过 **Chromium × Firefox × Edge 三浏览器联合验证**（`scripts/e2e/e2e-triple-sync.mjs`），含书签菜单双向同步与冷重启保留。
 - 同步权威在 MV3 Service Worker：chrome.bookmarks 事件 → 本地 op 入队 → 去抖推送；popup 通过 `chrome.runtime.sendMessage` 触发同步（见 `src/background.js` / `src/sync.js`）。
 
 ## 技术栈
@@ -17,7 +17,7 @@
 ## 目录结构
 
 - `src/` — 扩展源码（选项页、service worker、同步引擎）；**这里才是源码真相**
-- `supabase/` — 数据库迁移 submodule（`bsync_*` 表 + RPC），需 `git submodule update --init`
+- `supabase/` — 数据库迁移（`bsync_*` 表 + RPC，迁移代码已直接入库，非 submodule）
 - `public/` — `manifest.json`（Chromium）；`manifest.firefox.json`（Firefox）；图标
 - `extension/` — Chromium 构建产物（gitignore，勿提交）
 - `extension-firefox/` — Firefox 构建产物（gitignore，勿提交）
@@ -33,14 +33,13 @@
 
 ### 1. 初始化 Supabase
 
-1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，按顺序执行 `supabase/migrations/0001_init.sql` ～ `0007_pull_latest_by_id.sql`（或本地 `supabase db push`）。
+1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，按顺序执行 `supabase/migrations/` 下全部迁移（当前共 37 个，从 `0001_init.sql` 起；或用本地 `supabase db push` 一键应用）。
 2. 开启注册即用：**Authentication → Providers → Email → 关闭「Confirm email」**。
 3. 把 `src/lib/supabase.js` 里的 `SUPABASE_URL` 与 `SUPABASE_ANON_KEY` 改成你自己项目的值。
 
 ### 2. 构建
 
 ```bash
-git submodule update --init   # 初始化 Supabase 迁移 submodule
 pnpm install
 npx vite build        # Chrome / Edge -> extension/
 node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
@@ -62,6 +61,8 @@ node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
 
 - `bookmark-sync-chromium-<ver>.zip`（Chrome / Edge）
 - `bookmark-sync-firefox-<ver>.zip`（Firefox）
+
+任何推送到 `dev` / `main` 或 PR 都会先跑 **Quality Gate**（`tsc` 类型检查 + eslint + vitest 单测，本地可用 `pnpm check` 一键执行），未通过不会发版。
 
 ## 已知限制
 

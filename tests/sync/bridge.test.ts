@@ -29,7 +29,7 @@ const SPACE = 'aaaaaaaa-0000-4000-8000-111111111111';
 
 /** Minimal chrome.bookmarks mock with a manual event emitter. */
 function makeChrome() {
-  const listeners: Record<string, Array<(...args: never[]) => void>> = {};
+  const listeners: Record<string, Array<(...args: any[]) => void>> = {};
   const api: ChromeBookmarksAPI = {
     getTree: async () => [],
     get: async () => [],
@@ -39,12 +39,12 @@ function makeChrome() {
     remove: async () => {},
     removeTree: async () => {},
     getChildren: async () => [],
-    onCreated: { addListener: (cb: (...args: never[]) => void) => { (listeners.created ??= []).push(cb); } },
-    onChanged: { addListener: (cb: (...args: never[]) => void) => { (listeners.changed ??= []).push(cb); } },
-    onMoved: { addListener: (cb: (...args: never[]) => void) => { (listeners.moved ??= []).push(cb); } },
-    onRemoved: { addListener: (cb: (...args: never[]) => void) => { (listeners.removed ??= []).push(cb); } },
+    onCreated: { addListener: (cb: (...args: any[]) => void) => { (listeners.created ??= []).push(cb); } },
+    onChanged: { addListener: (cb: (...args: any[]) => void) => { (listeners.changed ??= []).push(cb); } },
+    onMoved: { addListener: (cb: (...args: any[]) => void) => { (listeners.moved ??= []).push(cb); } },
+    onRemoved: { addListener: (cb: (...args: any[]) => void) => { (listeners.removed ??= []).push(cb); } },
   };
-  const emit = (name: string, ...args: never[]) => {
+  const emit = (name: string, ...args: any[]) => {
     // event handlers are async; fire them in order and let promises settle later
     for (const cb of listeners[name] ?? []) void cb(...args);
   };

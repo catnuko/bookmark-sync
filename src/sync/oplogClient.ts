@@ -35,6 +35,8 @@ export interface PushOp {
 export interface OpRow {
   /** global bigserial cursor. */
   id: number;
+  /** owning space (bsync_op_pull 返回的行含该列；内存实现亦按此过滤). */
+  space_id: string;
   device_id: string;
   seq: number;
   op: EncryptedOpEnvelope;
@@ -244,7 +246,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
     deviceId: string,
     ops: PushOp[],
   ): Promise<PushResult> {
-    if (ops.length === 0) return { inserted: 0 };
+    if (ops.length === 0) return { inserted: 0, gc_needed: false };
     const { data, error } = await this.client.rpc('bsync_op_push', {
       p_space: spaceId,
       p_device: deviceId,
@@ -269,6 +271,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
     const r = data as {
       rows?: Array<{
         id: number;
+        space_id: string;
         device_id: string;
         seq: number;
         op: EncryptedOpEnvelope;
@@ -282,6 +285,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
     return {
       rows: (r.rows ?? []).map((x) => ({
         id: Number(x.id),
+        space_id: x.space_id,
         device_id: x.device_id,
         seq: Number(x.seq),
         op: x.op,

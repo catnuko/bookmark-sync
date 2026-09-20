@@ -317,12 +317,7 @@ export async function runSync(_opts = {}) {
     // 4) 反向应用：把合并后的 CRDT 可见树写回本机 chrome.bookmarks
     //    （远端新书签/移动/删除在本机生效；事件守卫防回环）
     const visTree = coordinator.replica.getVisibleTree();
-    console.log(`[bsync] CRDT 可见树 (${visTree.length} 个节点):`);
-    for (const e of visTree) {
-      const t = e.meta?.title ?? "";
-      const u = e.meta?.url ?? "";
-      console.log(`[bsync]   - node=${e.child} parent=${e.parent} title="${t}" url=${u}`);
-    }
+    console.log(`[bsync] CRDT 可见树 (${visTree.length} 个节点)`);
     console.log(`[bsync] 开始反向应用 (decryptErrors=${allDecryptErrors.length})...`);
     await ensureBridgeReady();
     await reverseApplyIntoChrome(coordinator);
