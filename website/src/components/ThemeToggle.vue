@@ -1,13 +1,13 @@
 <script setup>
-import { computed } from "vue";
-import { useI18n } from "vue-i18n";
-import { toggleTheme } from "../theme";
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { toggleTheme } from '../theme';
 
 const { t } = useI18n();
 
 const isDark = computed(() => {
-  if (typeof document === "undefined") return false;
-  return document.documentElement.dataset.theme === "dark";
+  if (typeof document === 'undefined') return false;
+  return document.documentElement.dataset.theme === 'dark';
 });
 </script>
 

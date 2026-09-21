@@ -1,5 +1,5 @@
 <script setup>
-import { useI18n } from "vue-i18n";
+import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 </script>
@@ -15,26 +15,32 @@ const { t } = useI18n();
     <div class="container hero-inner">
       <span class="badge badge-accent hero-badge">
         <span class="badge-dot"></span>
-        {{ t("hero.badge") }}
+        {{ t('hero.badge') }}
       </span>
 
-      <h1 class="hero-title">{{ t("hero.title") }}</h1>
+      <h1 class="hero-title">{{ t('hero.title') }}</h1>
 
-      <p class="hero-subtitle">{{ t("hero.subtitle") }}</p>
+      <p class="hero-subtitle">{{ t('hero.subtitle') }}</p>
 
       <div class="hero-cta">
         <RouterLink to="/download" class="btn btn-primary btn-lg">
-          {{ t("hero.ctaPrimary") }}
+          {{ t('hero.ctaPrimary') }}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path
+              d="M5 12h14M13 6l6 6-6 6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
         </RouterLink>
         <RouterLink to="/pricing" class="btn btn-outline btn-lg">
-          {{ t("hero.ctaSecondary") }}
+          {{ t('hero.ctaSecondary') }}
         </RouterLink>
       </div>
 
-      <p class="hero-trust">{{ t("hero.trustBadge") }}</p>
+      <p class="hero-trust">{{ t('hero.trustBadge') }}</p>
 
       <!-- 产品预览：模拟浏览器书签面板 -->
       <div class="hero-preview">
@@ -48,45 +54,90 @@ const { t } = useI18n();
           <div class="preview-body">
             <div class="preview-folder">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="1.6" />
+                <path
+                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
               </svg>
-              <span>{{ t("hero.previewFolder1") }}</span>
+              <span>{{ t('hero.previewFolder1') }}</span>
               <svg class="sync-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M20 10a8 8 0 00-15-2M4 14a8 8 0 0015 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <path
+                  d="M4 4v6h6M20 20v-6h-6"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M20 10a8 8 0 00-15-2M4 14a8 8 0 0015 2"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
               </svg>
             </div>
             <div class="preview-bookmark">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M5 4v16l7-5 7 5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                <path
+                  d="M5 4v16l7-5 7 5V4z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
               </svg>
               <span>GitHub · github.com</span>
             </div>
             <div class="preview-bookmark">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M5 4v16l7-5 7 5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                <path
+                  d="M5 4v16l7-5 7 5V4z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
               </svg>
               <span>MDN Web Docs</span>
             </div>
             <div class="preview-folder">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="1.6" />
+                <path
+                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
               </svg>
-              <span>{{ t("hero.previewFolder2") }}</span>
+              <span>{{ t('hero.previewFolder2') }}</span>
             </div>
             <div class="preview-bookmark">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M5 4v16l7-5 7 5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                <path
+                  d="M5 4v16l7-5 7 5V4z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
               </svg>
               <span>Figma · figma.com</span>
             </div>
             <div class="preview-bookmark preview-deleted">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M5 4v16l7-5 7 5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                <path
+                  d="M5 4v16l7-5 7 5V4z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
               </svg>
-              <span>{{ t("hero.previewDeleted") }}</span>
+              <span>{{ t('hero.previewDeleted') }}</span>
               <svg class="restore-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <path
+                  d="M5 13l4 4L19 7"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
             </div>
           </div>
@@ -155,8 +206,13 @@ const { t } = useI18n();
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .hero-title {
@@ -231,9 +287,15 @@ const { t } = useI18n();
   border-radius: 50%;
 }
 
-.dot-red { background: #ff5f57; }
-.dot-yellow { background: #febc2e; }
-.dot-green { background: #28c840; }
+.dot-red {
+  background: #ff5f57;
+}
+.dot-yellow {
+  background: #febc2e;
+}
+.dot-green {
+  background: #28c840;
+}
 
 .preview-addr {
   flex: 1;
@@ -254,7 +316,8 @@ const { t } = useI18n();
   gap: 0.25rem;
 }
 
-.preview-folder, .preview-bookmark {
+.preview-folder,
+.preview-bookmark {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -277,8 +340,12 @@ const { t } = useI18n();
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .preview-bookmark {

@@ -39,10 +39,26 @@ function makeChrome() {
     remove: async () => {},
     removeTree: async () => {},
     getChildren: async () => [],
-    onCreated: { addListener: (cb: (...args: any[]) => void) => { (listeners.created ??= []).push(cb); } },
-    onChanged: { addListener: (cb: (...args: any[]) => void) => { (listeners.changed ??= []).push(cb); } },
-    onMoved: { addListener: (cb: (...args: any[]) => void) => { (listeners.moved ??= []).push(cb); } },
-    onRemoved: { addListener: (cb: (...args: any[]) => void) => { (listeners.removed ??= []).push(cb); } },
+    onCreated: {
+      addListener: (cb: (...args: any[]) => void) => {
+        (listeners.created ??= []).push(cb);
+      },
+    },
+    onChanged: {
+      addListener: (cb: (...args: any[]) => void) => {
+        (listeners.changed ??= []).push(cb);
+      },
+    },
+    onMoved: {
+      addListener: (cb: (...args: any[]) => void) => {
+        (listeners.moved ??= []).push(cb);
+      },
+    },
+    onRemoved: {
+      addListener: (cb: (...args: any[]) => void) => {
+        (listeners.removed ??= []).push(cb);
+      },
+    },
   };
   const emit = (name: string, ...args: any[]) => {
     // event handlers are async; fire them in order and let promises settle later
@@ -81,7 +97,10 @@ describe('captureLocalEvents wiring', () => {
     // The CRDT node must exist under the SAME uuid (previously a second random
     // uuid was created inside createNode, breaking the mapping).
     expect(coordinator.replica.getParent(uuid!)).toBe(BOOKMARKS_BAR_UUID);
-    expect(coordinator.replica.getNodeMeta(uuid!)).toMatchObject({ title: 'foo', url: 'https://foo' });
+    expect(coordinator.replica.getNodeMeta(uuid!)).toMatchObject({
+      title: 'foo',
+      url: 'https://foo',
+    });
 
     // Op is queued for push and flushes to the transport.
     expect(await coordinator.flushPush()).toBe(1);
@@ -180,7 +199,12 @@ describe('captureLocalEvents wiring', () => {
     expect(await coordinator.flushPush()).toBe(0);
 
     // 菜单仍可达：Firefox 原生菜单（menu________）里手动放的书签正常入 CRDT 并同步
-    chrome.emit('created', 'm1', { id: 'm1', parentId: 'menu________', title: '菜单书签', url: 'https://menu' });
+    chrome.emit('created', 'm1', {
+      id: 'm1',
+      parentId: 'menu________',
+      title: '菜单书签',
+      url: 'https://menu',
+    });
     await new Promise((r) => setTimeout(r, 10));
     const mUuid = bridge.toUuid('m1');
     expect(mUuid).toBeTruthy();
@@ -193,7 +217,12 @@ describe('captureLocalEvents wiring', () => {
     bridge.map('dyn-menu', MENU_UUID);
     captureLocalEvents(chrome.api, coordinator, bridge);
     // 菜单里有一个普通书签（父 = MENU_UUID）
-    chrome.emit('created', 'm1', { id: 'm1', parentId: 'menu________', title: '百度百科', url: 'https://baike.baidu.com' });
+    chrome.emit('created', 'm1', {
+      id: 'm1',
+      parentId: 'menu________',
+      title: '百度百科',
+      url: 'https://baike.baidu.com',
+    });
     await new Promise((r) => setTimeout(r, 10));
     const mUuid = bridge.toUuid('m1')!;
     expect(coordinator.replica.getParent(mUuid)).toBe(MENU_UUID);
@@ -201,7 +230,13 @@ describe('captureLocalEvents wiring', () => {
 
     // 删除容器 → 只 tombstone 容器内书签（内容清空、跨设备一致），MENU_UUID 保留
     chrome.emit('removed', 'dyn-menu', {
-      removedNode: { id: 'dyn-menu', title: '书签菜单', children: [{ id: 'm1', parentId: 'dyn-menu', title: '百度百科', url: 'https://baike.baidu.com' }] },
+      removedNode: {
+        id: 'dyn-menu',
+        title: '书签菜单',
+        children: [
+          { id: 'm1', parentId: 'dyn-menu', title: '百度百科', url: 'https://baike.baidu.com' },
+        ],
+      },
     });
     await new Promise((r) => setTimeout(r, 20));
     expect(coordinator.replica.getParent(MENU_UUID)).toBe(ROOT_UUID); // 位置保留
@@ -209,7 +244,12 @@ describe('captureLocalEvents wiring', () => {
     await coordinator.flushPush(); // 墓碑推送到 transport
 
     // 全量重放（另一设备视角）：菜单位置仍在、内容不复活
-    const fresh = new SyncCoordinator({ spaceId: SPACE, deviceId: 'dev-fresh', transport, key: sharedKey });
+    const fresh = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'dev-fresh',
+      transport,
+      key: sharedKey,
+    });
     await fresh.pull();
     expect(fresh.replica.getVisibleTree().some((e) => e.child === MENU_UUID)).toBe(true);
     expect(fresh.replica.getVisibleTree().some((e) => e.child === mUuid)).toBe(false);
@@ -269,25 +309,61 @@ describe('captureLocalEvents wiring', () => {
     const bridge = new IdBridge();
     captureLocalEvents(chrome.api, coordinator, bridge);
     // Chrome 创建顺序 A,B,C（index 0,1,2）
-    chrome.emit('created', 'a1', { id: 'a1', parentId: '1', title: 'AAA', url: 'https://a', index: 0 });
-    chrome.emit('created', 'b1', { id: 'b1', parentId: '1', title: 'BBB', url: 'https://b', index: 1 });
-    chrome.emit('created', 'c1', { id: 'c1', parentId: '1', title: 'CCC', url: 'https://c', index: 2 });
+    chrome.emit('created', 'a1', {
+      id: 'a1',
+      parentId: '1',
+      title: 'AAA',
+      url: 'https://a',
+      index: 0,
+    });
+    chrome.emit('created', 'b1', {
+      id: 'b1',
+      parentId: '1',
+      title: 'BBB',
+      url: 'https://b',
+      index: 1,
+    });
+    chrome.emit('created', 'c1', {
+      id: 'c1',
+      parentId: '1',
+      title: 'CCC',
+      url: 'https://c',
+      index: 2,
+    });
     await new Promise((r) => setTimeout(r, 20));
     expect(sortedTitles(BOOKMARKS_BAR_UUID)).toEqual(['AAA', 'BBB', 'CCC']);
     // position 严格递增
     const poses = coordinator.replica
       .getChildren(BOOKMARKS_BAR_UUID)
-      .sort((a, b) => (a.meta.position ?? '') < (b.meta.position ?? '') ? -1 : 1)
+      .sort((a, b) => ((a.meta.position ?? '') < (b.meta.position ?? '') ? -1 : 1))
       .map((n) => n.meta.position);
-    expect(poses.every((p, i) => i === 0 || (poses[i - 1]! < p!))).toBe(true);
+    expect(poses.every((p, i) => i === 0 || poses[i - 1]! < p!)).toBe(true);
   });
 
   it('onMoved recomputes position so a drag-to-front wins locally', async () => {
     const bridge = new IdBridge();
     captureLocalEvents(chrome.api, coordinator, bridge);
-    chrome.emit('created', 'a1', { id: 'a1', parentId: '1', title: 'AAA', url: 'https://a', index: 0 });
-    chrome.emit('created', 'b1', { id: 'b1', parentId: '1', title: 'BBB', url: 'https://b', index: 1 });
-    chrome.emit('created', 'c1', { id: 'c1', parentId: '1', title: 'CCC', url: 'https://c', index: 2 });
+    chrome.emit('created', 'a1', {
+      id: 'a1',
+      parentId: '1',
+      title: 'AAA',
+      url: 'https://a',
+      index: 0,
+    });
+    chrome.emit('created', 'b1', {
+      id: 'b1',
+      parentId: '1',
+      title: 'BBB',
+      url: 'https://b',
+      index: 1,
+    });
+    chrome.emit('created', 'c1', {
+      id: 'c1',
+      parentId: '1',
+      title: 'CCC',
+      url: 'https://c',
+      index: 2,
+    });
     await new Promise((r) => setTimeout(r, 20));
     expect(sortedTitles(BOOKMARKS_BAR_UUID)).toEqual(['AAA', 'BBB', 'CCC']);
 
@@ -316,7 +392,13 @@ describe('captureLocalEvents wiring', () => {
     captureLocalEvents(ch2.api, coord2, b2);
 
     // 设备 1：建 A（index 0）；设备 2：建 X（index 0）——同一锚点并发
-    chrome.emit('created', 'a1', { id: 'a1', parentId: '1', title: 'A', url: 'https://a', index: 0 });
+    chrome.emit('created', 'a1', {
+      id: 'a1',
+      parentId: '1',
+      title: 'A',
+      url: 'https://a',
+      index: 0,
+    });
     await new Promise((r) => setTimeout(r, 10));
     ch2.emit('created', 'x1', { id: 'x1', parentId: '1', title: 'X', url: 'https://x', index: 0 });
     await new Promise((r) => setTimeout(r, 10));

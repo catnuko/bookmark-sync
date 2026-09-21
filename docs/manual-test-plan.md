@@ -21,10 +21,10 @@ node scripts/build-firefox.mjs   # → extension-firefox/（Firefox 用这份）
 
 ### A2. 三端加载扩展
 
-| 浏览器 | 加载方式 | 目标目录 |
-|---|---|---|
-| A = Chrome | `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」 | `extension/` |
-| B = Edge | `edge://extensions` → 开启「开发人员模式」→「加载解压缩的扩展」 | `extension/`（可与 Chrome 同一份） |
+| 浏览器      | 加载方式                                                                         | 目标目录                                  |
+| ----------- | -------------------------------------------------------------------------------- | ----------------------------------------- |
+| A = Chrome  | `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」              | `extension/`                              |
+| B = Edge    | `edge://extensions` → 开启「开发人员模式」→「加载解压缩的扩展」                  | `extension/`（可与 Chrome 同一份）        |
 | C = Firefox | `about:debugging#/runtime/this-firefox` → 「临时载入附加组件」→ 选 manifest 文件 | `extension-firefox/manifest.firefox.json` |
 
 Firefox 注意：**临时加载重启浏览器后失效**，需重新载入；重载后 `deviceId` 不变（存在 storage.local），但 **登录取决于 storage 是否保留**（about:debugging 重载不清 storage，重启浏览器后临时扩展整个消失，storage 一并丢失 → 之后每套件尽量别重启 Firefox；若必须重启，把 Firefox 的步骤集中在一次会话里做完）。
@@ -38,16 +38,17 @@ Firefox 注意：**临时加载重启浏览器后失效**，需重新载入；�
 ### A4. 每端先设置设备名
 
 登录后 → 「空间 / 设备」→ 底部输入框填「本设备显示名称」→ 保存名称：
+
 - [ ] A 填 `Chrome-测试机`，B 填 `Edge-测试机`，C 填 `Firefox-测试机`
 
 ### A5. 观察工具（排查问题时用）
 
-| 看什么 | 怎么看 |
-|---|---|
-| 同步状态行 | 扩展 UI 底部灰字：`完成: 推送 N · 拉取 N` / 各种错误原因 |
-| 后台日志 | Chrome/Edge：`chrome://extensions` → Bookmark Sync → 点「Service Worker」；Firefox：`about:debugging` → Bookmark Sync → 「检查」 |
+| 看什么                              | 怎么看                                                                                                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 同步状态行                          | 扩展 UI 底部灰字：`完成: 推送 N · 拉取 N` / 各种错误原因                                                                                                                                                                                          |
+| 后台日志                            | Chrome/Edge：`chrome://extensions` → Bookmark Sync → 点「Service Worker」；Firefox：`about:debugging` → Bookmark Sync → 「检查」                                                                                                                  |
 | 本地存储（映射/基线/墓碑/确认标记） | options 页 F12 控制台执行 `chrome.storage.local.get(null, console.log)`（Firefox 用 `browser.storage.local.get().then(console.log)`）；关注 `deviceId`、`activeSpaceId`、`mergeAck:<uid>`、`lastSyncBaseline*`、`syncIdMaps*`、`localTombstones*` |
-| 远端数据 | 可用只读 MCP `list_tables` / SELECT `bsync_snapshots`、`bsync_devices`、`bsync_spaces`（不要写） |
+| 远端数据                            | 可用只读 MCP `list_tables` / SELECT `bsync_snapshots`、`bsync_devices`、`bsync_spaces`（不要写）                                                                                                                                                  |
 
 ### A6. 首次同步 + 多设备合并确认弹窗
 
@@ -243,19 +244,19 @@ Firefox 注意：**临时加载重启浏览器后失效**，需重新载入；�
 
 ## 附录 1：结果记录表（每套件一行）
 
-| 套件 | 步骤 | 预期 | 实际 | 结果(✓/✗) | 备注 |
-|---|---|---|---|---|---|
-| A6 | B 首次同步弹合并确认 | 弹窗列出 Chrome-测试机 | | | |
-| B2 | C 拉取落点 | （观察点）书签菜单 or 工具栏 | | | |
-| B4-2 | C 二次同步迁移 | （疑似 bug）菜单→工具栏 | | | |
-| B4-3 | A 二次同步迁移 | （疑似 bug）书签栏→其他书签 | | | |
-| B4-4 | Firefox 其他书签 | 不参与同步 | | | |
-| C4 | 并发改名 | 后改者胜，无重复 | | | |
-| D2 | 删改冲突 | 删除获胜 | | | |
-| D3 | 删除端重加 | 被吞，不复活 | | | |
-| D4 | 非删除端重加 | 以新节点复活，记录条数 | | | |
-| E3 | 切回默认空间 | （预测）工作书签泄漏进默认空间 | | | |
-| ... | ... | ... | | | |
+| 套件 | 步骤                 | 预期                           | 实际 | 结果(✓/✗) | 备注 |
+| ---- | -------------------- | ------------------------------ | ---- | --------- | ---- |
+| A6   | B 首次同步弹合并确认 | 弹窗列出 Chrome-测试机         |      |           |      |
+| B2   | C 拉取落点           | （观察点）书签菜单 or 工具栏   |      |           |      |
+| B4-2 | C 二次同步迁移       | （疑似 bug）菜单→工具栏        |      |           |      |
+| B4-3 | A 二次同步迁移       | （疑似 bug）书签栏→其他书签    |      |           |      |
+| B4-4 | Firefox 其他书签     | 不参与同步                     |      |           |      |
+| C4   | 并发改名             | 后改者胜，无重复               |      |           |      |
+| D2   | 删改冲突             | 删除获胜                       |      |           |      |
+| D3   | 删除端重加           | 被吞，不复活                   |      |           |      |
+| D4   | 非删除端重加         | 以新节点复活，记录条数         |      |           |      |
+| E3   | 切回默认空间         | （预测）工作书签泄漏进默认空间 |      |           |      |
+| ...  | ...                  | ...                            |      |           |      |
 
 ## 附录 2：已知/疑似问题清单（测试时优先验证）
 

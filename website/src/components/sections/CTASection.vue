@@ -1,5 +1,5 @@
 <script setup>
-import { useI18n } from "vue-i18n";
+import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 </script>
@@ -9,14 +9,14 @@ const { t } = useI18n();
     <div class="container">
       <div class="cta-card">
         <div class="cta-grid-bg" aria-hidden="true"></div>
-        <h2 class="cta-title">{{ t("hero.title") }}</h2>
-        <p class="cta-subtitle">{{ t("hero.subtitle") }}</p>
+        <h2 class="cta-title">{{ t('hero.title') }}</h2>
+        <p class="cta-subtitle">{{ t('hero.subtitle') }}</p>
         <div class="cta-actions">
           <RouterLink to="/download" class="btn btn-primary btn-lg">
-            {{ t("hero.ctaPrimary") }}
+            {{ t('hero.ctaPrimary') }}
           </RouterLink>
           <RouterLink to="/pricing" class="btn btn-outline btn-lg cta-outline">
-            {{ t("hero.ctaSecondary") }}
+            {{ t('hero.ctaSecondary') }}
           </RouterLink>
         </div>
       </div>
@@ -47,8 +47,8 @@ const { t } = useI18n();
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
   background-size: 40px 40px;
   mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, #000 30%, transparent 70%);
   -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, #000 30%, transparent 70%);

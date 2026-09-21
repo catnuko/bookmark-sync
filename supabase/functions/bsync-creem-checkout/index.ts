@@ -49,7 +49,10 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: 'Method not allowed' }, 405);
   }
   if (!CREEM_API_KEY) {
-    return json({ ok: false, error: 'not_configured', message: '支付渠道未配置（缺少 CREEM_API_KEY）' }, 500);
+    return json(
+      { ok: false, error: 'not_configured', message: '支付渠道未配置（缺少 CREEM_API_KEY）' },
+      500,
+    );
   }
 
   let body: { plan?: string };
@@ -93,7 +96,10 @@ Deno.serve(async (req: Request) => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data?.checkout_url) {
       console.error('creem checkout failed:', res.status, JSON.stringify(data));
-      return json({ ok: false, error: 'checkout_failed', message: '创建支付会话失败，请稍后重试' }, 502);
+      return json(
+        { ok: false, error: 'checkout_failed', message: '创建支付会话失败，请稍后重试' },
+        502,
+      );
     }
     return json({ ok: true, checkout_url: data.checkout_url, checkout_id: data.id });
   } catch (e) {

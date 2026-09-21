@@ -1,34 +1,34 @@
 <script setup>
-import { useI18n } from "vue-i18n";
-import { computed } from "vue";
-import PricingCard from "../components/PricingCard.vue";
-import FAQSection from "../components/sections/FAQSection.vue";
+import { useI18n } from 'vue-i18n';
+import { computed } from 'vue';
+import PricingCard from '../components/PricingCard.vue';
+import FAQSection from '../components/sections/FAQSection.vue';
 
 const { t, tm, rt } = useI18n();
 
 const plans = [
-  { plan: "free", highlighted: false },
-  { plan: "plus", highlighted: true },
-  { plan: "pro", highlighted: false },
+  { plan: 'free', highlighted: false },
+  { plan: 'plus', highlighted: true },
+  { plan: 'pro', highlighted: false },
 ];
 
 // 解析 i18n 对比表行，把 boolean / string 都还原成可渲染格式
 const compareRows = computed(() =>
-  tm("pricing.compare.rows").map((row) => ({
+  tm('pricing.compare.rows').map((row) => ({
     feature: rt(row.feature),
     free: row.free,
     plus: row.plus,
     pro: row.pro,
-  }))
+  })),
 );
 
 function isBool(v) {
-  return typeof v === "boolean";
+  return typeof v === 'boolean';
 }
 
 function cellValue(v) {
-  if (isBool(v)) return v ? "yes" : "no";
-  return "text";
+  if (isBool(v)) return v ? 'yes' : 'no';
+  return 'text';
 }
 </script>
 
@@ -37,9 +37,9 @@ function cellValue(v) {
     <section class="section pricing-hero">
       <div class="container">
         <div class="section-header">
-          <p class="section-eyebrow">{{ t("pricing.eyebrow") }}</p>
-          <h1 class="section-title">{{ t("pricing.title") }}</h1>
-          <p class="section-subtitle">{{ t("pricing.subtitle") }}</p>
+          <p class="section-eyebrow">{{ t('pricing.eyebrow') }}</p>
+          <h1 class="section-title">{{ t('pricing.title') }}</h1>
+          <p class="section-subtitle">{{ t('pricing.subtitle') }}</p>
         </div>
 
         <div class="plans-grid">
@@ -57,17 +57,17 @@ function cellValue(v) {
     <section class="section compare-section">
       <div class="container">
         <div class="section-header">
-          <h2 class="section-title">{{ t("pricing.compare.title") }}</h2>
+          <h2 class="section-title">{{ t('pricing.compare.title') }}</h2>
         </div>
 
         <div class="compare-table-wrap">
           <table class="compare-table">
             <thead>
               <tr>
-                <th class="col-feature">{{ t("pricing.compare.colFeature") }}</th>
-                <th>{{ t("pricing.compare.colFree") }}</th>
-                <th class="col-highlight">{{ t("pricing.compare.colPlus") }}</th>
-                <th>{{ t("pricing.compare.colPro") }}</th>
+                <th class="col-feature">{{ t('pricing.compare.colFeature') }}</th>
+                <th>{{ t('pricing.compare.colFree') }}</th>
+                <th class="col-highlight">{{ t('pricing.compare.colPlus') }}</th>
+                <th>{{ t('pricing.compare.colPro') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -94,10 +94,10 @@ function cellValue(v) {
         </div>
 
         <p class="pricing-legal-note">
-          {{ t("pricing.legalNote") }}
-          <RouterLink to="/terms" class="link">{{ t("nav.terms") }}</RouterLink>
+          {{ t('pricing.legalNote') }}
+          <RouterLink to="/terms" class="link">{{ t('nav.terms') }}</RouterLink>
           ·
-          <RouterLink to="/privacy" class="link">{{ t("nav.privacy") }}</RouterLink>
+          <RouterLink to="/privacy" class="link">{{ t('nav.privacy') }}</RouterLink>
         </p>
       </div>
     </section>

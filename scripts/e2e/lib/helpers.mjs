@@ -32,7 +32,10 @@ export async function ensureCleanStart(cfg, report) {
   const junkOps = stats0.ops;
 
   report.info('测试账号', `${prof.email}（plan=${prof.plan}）`);
-  report.info('云端起跑线', `盐=${prof.e2ee_salt ? '有' : '无'} / op=${junkOps} / 空间=${spaces0.length}`);
+  report.info(
+    '云端起跑线',
+    `盐=${prof.e2ee_salt ? '有' : '无'} / op=${junkOps} / 空间=${spaces0.length}`,
+  );
 
   const dirty = !!prof.e2ee_salt || junkOps > 0 || spaces0.length > 0;
   if (!dirty) {
@@ -57,13 +60,20 @@ export async function ensureCleanStart(cfg, report) {
 
   report.info('⚠ --fresh 将删除', `op=${junkOps} / 空间=${spaces0.length} / 设备 / 快照 / 盐`);
   if (spaces0.length) {
-    report.info('⚠ 换盐的副作用', '该账号其它设备仍持旧密钥：换盐后解不开新数据，需重设口令或重装扩展');
+    report.info(
+      '⚠ 换盐的副作用',
+      '该账号其它设备仍持旧密钥：换盐后解不开新数据，需重设口令或重装扩展',
+    );
   }
   cloud.resetUser(uid);
   const after = cloud.profile(uid);
   const st = cloud.opStats();
   const okStart = !after?.e2ee_salt && st.ops === 0 && cloud.spaces().length === 0;
-  report.assert('复位后云端为干净起点', okStart, `盐=${after?.e2ee_salt ? '有' : '无'} / op=${st.ops} / 空间=${cloud.spaces().length}`);
+  report.assert(
+    '复位后云端为干净起点',
+    okStart,
+    `盐=${after?.e2ee_salt ? '有' : '无'} / op=${st.ops} / 空间=${cloud.spaces().length}`,
+  );
   if (!okStart) throw new Error('云端复位失败，中止（否则后面的断言全是假的）');
   return { uid, prof, spaces0: [] };
 }
@@ -166,7 +176,10 @@ export async function createSpaceViaUI(page, device, name, { timeoutMs = 25_000 
   if (!(await page.waitForSelector('.inset-row.clickable', 8_000))) {
     throw new Error(`[${device.name}] 空间抽屉没打开`);
   }
-  await page.clickByText('.inset-group button.inset-row.clickable', await device.i18n('spaceslist_new'));
+  await page.clickByText(
+    '.inset-group button.inset-row.clickable',
+    await device.i18n('spaceslist_new'),
+  );
   if (!(await page.waitForSelector('.inset-group input.input', 8_000))) {
     throw new Error(`[${device.name}] 「新建空间」输入框没出现`);
   }
@@ -220,7 +233,11 @@ export function searchTitles(tree, needle) {
 }
 
 /** 轮询本机书签树直到 pred(flat) 为真；返回最后一次的摊平结果。 */
-export async function waitTree(device, pred, { timeoutMs = 60_000, intervalMs = 1_500, label = '' } = {}) {
+export async function waitTree(
+  device,
+  pred,
+  { timeoutMs = 60_000, intervalMs = 1_500, label = '' } = {},
+) {
   const t0 = Date.now();
   let last = flattenTree(await device.bookmarksGetTree());
   while (Date.now() - t0 < timeoutMs) {
@@ -251,10 +268,13 @@ export async function logoutViaUI(page, device, { timeoutMs = 25_000 } = {}) {
     throw new Error(`[${device.name}] 高级抽屉没打开`);
   }
   await page.clickByText('.drawer-body button.btn-secondary', await device.i18n('account_logout'));
-  const back = await page.waitUntil(async (pg) => ((await pg.exists('#authSubmit')) ? true : null), {
-    timeoutMs,
-    intervalMs: 400,
-  });
+  const back = await page.waitUntil(
+    async (pg) => ((await pg.exists('#authSubmit')) ? true : null),
+    {
+      timeoutMs,
+      intervalMs: 400,
+    },
+  );
   if (!back) throw new Error(`[${device.name}] 退出登录后没回到登录页`);
   return true;
 }

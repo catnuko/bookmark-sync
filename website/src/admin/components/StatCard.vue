@@ -1,8 +1,8 @@
 <script setup>
 defineProps({
   label: { type: String, required: true },
-  value: { type: [String, Number], default: "—" },
-  hint: { type: String, default: "" },
+  value: { type: [String, Number], default: '—' },
+  hint: { type: String, default: '' },
 });
 </script>
 
@@ -22,7 +22,19 @@ defineProps({
   padding: 16px 18px;
   box-shadow: var(--shadow-xs);
 }
-.label { font-size: 13px; color: var(--color-text-muted); }
-.value { font-size: 26px; font-weight: 700; margin-top: 4px; color: var(--color-text); }
-.hint { font-size: 12px; color: var(--color-text-faint); margin-top: 4px; }
+.label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.value {
+  font-size: 26px;
+  font-weight: 700;
+  margin-top: 4px;
+  color: var(--color-text);
+}
+.hint {
+  font-size: 12px;
+  color: var(--color-text-faint);
+  margin-top: 4px;
+}
 </style>

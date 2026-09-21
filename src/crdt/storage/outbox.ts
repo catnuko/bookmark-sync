@@ -70,10 +70,7 @@ export class OutboxStore {
   async loadSpace(spaceId: string): Promise<OutboxRow[]> {
     const tx = this.db.transaction(STORE_OUTBOX, 'readonly');
     const rows = await new Promise<OutboxRow[]>((resolve, reject) => {
-      const req = tx
-        .objectStore(STORE_OUTBOX)
-        .index(INDEX_BY_SPACE)
-        .getAll(spaceId);
+      const req = tx.objectStore(STORE_OUTBOX).index(INDEX_BY_SPACE).getAll(spaceId);
       req.onsuccess = () => resolve(req.result ?? []);
       req.onerror = () => reject(req.error ?? new Error('IDB request failed'));
     });

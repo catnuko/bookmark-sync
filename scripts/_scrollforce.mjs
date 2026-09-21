@@ -1,14 +1,15 @@
-import { chromium } from "playwright";
+import { chromium } from 'playwright';
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 520, height: 760 } });
-await page.goto("http://localhost:5199/preview.html?view=key", { waitUntil: "networkidle" });
+await page.goto('http://localhost:5199/preview.html?view=key', { waitUntil: 'networkidle' });
 await page.waitForTimeout(300);
 const r = await page.evaluate(async () => {
-  const body = document.querySelector(".drawer-body");
+  const body = document.querySelector('.drawer-body');
   // 注入超长内容，强制溢出
-  const filler = document.createElement("div");
-  filler.style.cssText = "height:900px;flex:none;background:linear-gradient(#eee,#ddd);border-radius:10px";
-  filler.textContent = "forced overflow";
+  const filler = document.createElement('div');
+  filler.style.cssText =
+    'height:900px;flex:none;background:linear-gradient(#eee,#ddd);border-radius:10px';
+  filler.textContent = 'forced overflow';
   body.appendChild(filler);
   await new Promise((res) => setTimeout(res, 50));
   const before = body.scrollTop;

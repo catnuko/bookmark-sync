@@ -1,52 +1,115 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bookmark Sync · 视觉预览（开发用）</title>
-  <style>
-    html, body { margin: 0; }
-    body.dev-frame { background: #d9d9d6; padding: 24px; }
-    body.dev-frame #app { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 14px 40px rgba(0,0,0,.14); margin: 0 auto; }
-    body.view-popup.dev-frame #app,
-    body.view-key.dev-frame #app,
-    body.view-spaces.dev-frame #app,
-    body.view-auth.dev-frame #app { width: 400px; height: 600px; }
-    body.view-options.dev-frame #app { width: 980px; }
-  </style>
-  <!-- 关键：必须在模块脚本之前注入 mock，让 src/lib/ext.js 的 api 拿到内存实现 -->
-  <script>
-    (function () {
-      var mem = {};
-      var store = {
-        get: function (keys) {
-          if (keys == null) return Promise.resolve(Object.assign({}, mem));
-          if (typeof keys === "string") return Promise.resolve(keys in mem ? { [keys]: mem[keys] } : {});
-          if (Array.isArray(keys)) { var o = {}; keys.forEach(function (k) { if (k in mem) o[k] = mem[k]; }); return Promise.resolve(o); }
-          var d = {}; Object.keys(keys).forEach(function (k) { d[k] = k in mem ? mem[k] : keys[k]; }); return Promise.resolve(d);
-        },
-        set: function (obj) { Object.assign(mem, obj); return Promise.resolve(); },
-        remove: function (k) { (Array.isArray(k) ? k : [k]).forEach(function (x) { delete mem[x]; }); return Promise.resolve(); },
-        clear: function () { Object.keys(mem).forEach(function (k) { delete mem[k]; }); return Promise.resolve(); },
-      };
-      var noop = new Proxy(function () {}, {
-        get: function (t, p) { if (p === "then") return undefined; return noop; },
-        apply: function () { return Promise.resolve(undefined); },
-      });
-      var mock = new Proxy({}, {
-        get: function (t, p) {
-          if (p === "storage") return { local: store, sync: store, session: store };
-          if (p === "runtime") return { id: "preview", sendMessage: function () { return Promise.resolve(); }, onMessage: noop };
-          return noop;
-        },
-      });
-      try { Object.defineProperty(globalThis, "chrome", { value: mock, writable: true, configurable: true }); }
-      catch (e) { globalThis.chrome = mock; }
-    })();
-  </script>
-</head>
-<body>
-  <div id="app"></div>
-  <script type="module" src="/src/preview.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bookmark Sync · 视觉预览（开发用）</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+      }
+      body.dev-frame {
+        background: #d9d9d6;
+        padding: 24px;
+      }
+      body.dev-frame #app {
+        background: #fff;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.14);
+        margin: 0 auto;
+      }
+      body.view-popup.dev-frame #app,
+      body.view-key.dev-frame #app,
+      body.view-spaces.dev-frame #app,
+      body.view-auth.dev-frame #app {
+        width: 400px;
+        height: 600px;
+      }
+      body.view-options.dev-frame #app {
+        width: 980px;
+      }
+    </style>
+    <!-- 关键：必须在模块脚本之前注入 mock，让 src/lib/ext.js 的 api 拿到内存实现 -->
+    <script>
+      (function () {
+        var mem = {};
+        var store = {
+          get: function (keys) {
+            if (keys == null) return Promise.resolve(Object.assign({}, mem));
+            if (typeof keys === 'string')
+              return Promise.resolve(keys in mem ? { [keys]: mem[keys] } : {});
+            if (Array.isArray(keys)) {
+              var o = {};
+              keys.forEach(function (k) {
+                if (k in mem) o[k] = mem[k];
+              });
+              return Promise.resolve(o);
+            }
+            var d = {};
+            Object.keys(keys).forEach(function (k) {
+              d[k] = k in mem ? mem[k] : keys[k];
+            });
+            return Promise.resolve(d);
+          },
+          set: function (obj) {
+            Object.assign(mem, obj);
+            return Promise.resolve();
+          },
+          remove: function (k) {
+            (Array.isArray(k) ? k : [k]).forEach(function (x) {
+              delete mem[x];
+            });
+            return Promise.resolve();
+          },
+          clear: function () {
+            Object.keys(mem).forEach(function (k) {
+              delete mem[k];
+            });
+            return Promise.resolve();
+          },
+        };
+        var noop = new Proxy(function () {}, {
+          get: function (t, p) {
+            if (p === 'then') return undefined;
+            return noop;
+          },
+          apply: function () {
+            return Promise.resolve(undefined);
+          },
+        });
+        var mock = new Proxy(
+          {},
+          {
+            get: function (t, p) {
+              if (p === 'storage') return { local: store, sync: store, session: store };
+              if (p === 'runtime')
+                return {
+                  id: 'preview',
+                  sendMessage: function () {
+                    return Promise.resolve();
+                  },
+                  onMessage: noop,
+                };
+              return noop;
+            },
+          },
+        );
+        try {
+          Object.defineProperty(globalThis, 'chrome', {
+            value: mock,
+            writable: true,
+            configurable: true,
+          });
+        } catch (e) {
+          globalThis.chrome = mock;
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/preview.js"></script>
+  </body>
 </html>

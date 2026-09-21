@@ -24,7 +24,8 @@ export function launchChromium({ port, profileDir, extDir, chromeBin } = {}) {
   const CDP_PORT = port ?? Number(process.env.CDP_PORT ?? 9345);
   const CHROME_BIN = chromeBin ?? process.env.CHROME_BIN ?? '/usr/local/bin/chromium';
   const EXT_DIR = extDir ?? process.env.EXT_DIR ?? join(ROOT, 'extension');
-  const PROFILE_DIR = profileDir ?? process.env.PROFILE_DIR ?? join(ROOT, 'e2e', '.profiles', String(CDP_PORT));
+  const PROFILE_DIR =
+    profileDir ?? process.env.PROFILE_DIR ?? join(ROOT, 'e2e', '.profiles', String(CDP_PORT));
   const DISPLAY = process.env.DISPLAY ?? ':99';
 
   if (!existsSync(EXT_DIR)) {

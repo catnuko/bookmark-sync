@@ -54,9 +54,7 @@ async function verifySignature(rawBody: string, signature: string): Promise<bool
     ['sign'],
   );
   const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
-  const expected = [...new Uint8Array(mac)]
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  const expected = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('');
   // 常量时间比较，避免时序侧信道
   if (expected.length !== signature.length) return false;
   let diff = 0;
@@ -151,7 +149,10 @@ Deno.serve(async (req: Request) => {
     }
     if (!userId) {
       // 无法定位用户（如光顾但未登录过本产品的客户），记日志后确认接收，避免 Creem 无限重试
-      console.warn(`creem-webhook: ${eventType} cannot resolve user_id`, JSON.stringify(obj).slice(0, 500));
+      console.warn(
+        `creem-webhook: ${eventType} cannot resolve user_id`,
+        JSON.stringify(obj).slice(0, 500),
+      );
       return json({ ok: true, skipped: 'no_user' });
     }
     const customerId = customerIdOf(obj);
@@ -276,10 +277,7 @@ Deno.serve(async (req: Request) => {
           ? obj.order
           : ((obj.order as { id?: string } | undefined)?.id ?? null);
       if (orderId) {
-        await sb
-          .from('bsync_orders')
-          .update({ status: 'refunded' })
-          .eq('creem_order_id', orderId);
+        await sb.from('bsync_orders').update({ status: 'refunded' }).eq('creem_order_id', orderId);
       }
       return json({ ok: true });
     }

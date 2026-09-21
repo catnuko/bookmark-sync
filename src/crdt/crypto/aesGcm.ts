@@ -53,11 +53,7 @@ function aadFor(parents: string[]): Uint8Array<ArrayBuffer> {
  * @param parents the DAG parent CIDs at creation time (bound as AAD).
  * @returns JSON.stringify({ iv, ciphertext }).
  */
-export async function encryptOp(
-  op: MoveOp,
-  key: CryptoKey,
-  parents: string[],
-): Promise<string> {
+export async function encryptOp(op: MoveOp, key: CryptoKey, parents: string[]): Promise<string> {
   // Fresh 96-bit IV on every call. GCM mandates a unique (key, IV) pair.
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
   const plaintext = new TextEncoder().encode(JSON.stringify(op));

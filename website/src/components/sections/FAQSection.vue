@@ -1,22 +1,22 @@
 <script setup>
-import { ref } from "vue";
-import { useI18n } from "vue-i18n";
+import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
 const faqKeys = [
-  "upgrade",
-  "order",
-  "refund",
-  "freeLimit",
-  "payment",
-  "subOrOnetime",
-  "passphrase",
-  "newDevice",
-  "devices",
-  "autoSync",
-  "gc",
-  "quotaUnit",
+  'upgrade',
+  'order',
+  'refund',
+  'freeLimit',
+  'payment',
+  'subOrOnetime',
+  'passphrase',
+  'newDevice',
+  'devices',
+  'autoSync',
+  'gc',
+  'quotaUnit',
 ];
 const openIndex = ref(0);
 
@@ -29,8 +29,8 @@ function toggle(i) {
   <section class="section section-faq">
     <div class="container">
       <div class="section-header">
-        <p class="section-eyebrow">{{ t("pricing.eyebrow") }}</p>
-        <h2 class="section-title">{{ t("pricing.faq.title") }}</h2>
+        <p class="section-eyebrow">{{ t('pricing.eyebrow') }}</p>
+        <h2 class="section-title">{{ t('pricing.faq.title') }}</h2>
       </div>
 
       <div class="faq-list">
@@ -43,7 +43,13 @@ function toggle(i) {
           <button class="faq-q" @click="toggle(i)">
             <span>{{ t(`pricing.faq.items.${key}.q`) }}</span>
             <svg class="faq-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path
+                d="M6 9l6 6 6-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </button>
           <div class="faq-a-wrap">

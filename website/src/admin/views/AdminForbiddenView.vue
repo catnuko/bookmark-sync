@@ -1,5 +1,5 @@
 <script setup>
-import { adminSignOut } from "../lib/auth.js";
+import { adminSignOut } from '../lib/auth.js';
 </script>
 
 <template>
@@ -14,12 +14,25 @@ import { adminSignOut } from "../lib/auth.js";
 
 <style scoped>
 .f-wrap {
-  min-height: 100vh; display: flex; flex-direction: column; gap: 12px;
-  align-items: center; justify-content: center; font-family: var(--font-sans);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
 }
-h1 { font-size: 56px; margin: 0; color: #b91c1c; }
+h1 {
+  font-size: 56px;
+  margin: 0;
+  color: #b91c1c;
+}
 button {
-  padding: 8px 16px; background: var(--color-accent); color: #fff;
-  border: 0; border-radius: 6px; cursor: pointer;
+  padding: 8px 16px;
+  background: var(--color-accent);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
 }
 </style>

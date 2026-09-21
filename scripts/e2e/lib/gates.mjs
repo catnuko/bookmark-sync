@@ -40,7 +40,13 @@ export async function readGate(page) {
     };
   }
   if (await has(SELECTORS.bind)) {
-    return { kind: 'bind', title: await page.textOf('.bg-title'), cta: await page.textOf('.bg-actions .btn-primary'), err: '', text };
+    return {
+      kind: 'bind',
+      title: await page.textOf('.bg-title'),
+      cta: await page.textOf('.bg-actions .btn-primary'),
+      err: '',
+      text,
+    };
   }
   if (await has(SELECTORS.main)) return { kind: 'main', title: '', cta: '', err: '', text };
   return { kind: 'unknown', title: '', cta: '', err: '', text };
@@ -81,7 +87,9 @@ export async function submitPhrase(page, phrase) {
  */
 export async function login(page, { email, password }, timeoutMs = 40_000) {
   if (!(await page.waitForSelector('#authSubmit', 20_000))) {
-    throw new Error(`[${page.name}] 登录页没出现（当前界面: ${(await page.text()).slice(0, 120)}）`);
+    throw new Error(
+      `[${page.name}] 登录页没出现（当前界面: ${(await page.text()).slice(0, 120)}）`,
+    );
   }
   await page.fill('#email', email);
   await page.fill('#password', password);

@@ -32,12 +32,19 @@ function cli(args, { timeoutMs = 60_000 } = {}) {
     const stderr = String(e.stderr ?? '').trim();
     let detail = '';
     try {
-      const j = JSON.parse(stdout.trim().split('\n').find((l) => l.trim().startsWith('{')) ?? '{}');
+      const j = JSON.parse(
+        stdout
+          .trim()
+          .split('\n')
+          .find((l) => l.trim().startsWith('{')) ?? '{}',
+      );
       detail = j?.error?.message ?? j?.message ?? '';
     } catch {
       detail = stdout.trim().slice(0, 300);
     }
-    throw new Error(`supabase ${args.slice(0, 4).join(' ')} 失败: ${detail || stderr || e.message}`);
+    throw new Error(
+      `supabase ${args.slice(0, 4).join(' ')} 失败: ${detail || stderr || e.message}`,
+    );
   }
 }
 

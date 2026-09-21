@@ -1,21 +1,21 @@
 <script setup>
-import { useI18n } from "vue-i18n";
-import { SITE_UPDATED } from "../lib/site-meta.js";
+import { useI18n } from 'vue-i18n';
+import { SITE_UPDATED } from '../lib/site-meta.js';
 
 const { t } = useI18n();
 
 const sections = [
-  "service",
-  "accounts",
-  "plans",
-  "refund",
-  "acceptable",
-  "ip",
-  "disclaimer",
-  "termination",
-  "changes",
-  "governing",
-  "contact",
+  'service',
+  'accounts',
+  'plans',
+  'refund',
+  'acceptable',
+  'ip',
+  'disclaimer',
+  'termination',
+  'changes',
+  'governing',
+  'contact',
 ];
 </script>
 
@@ -23,21 +23,17 @@ const sections = [
   <div class="terms-page">
     <section class="section terms-hero">
       <div class="container container-narrow">
-        <p class="section-eyebrow">{{ t("terms.eyebrow") }}</p>
-        <h1 class="section-title">{{ t("terms.title") }}</h1>
-        <p class="terms-updated">{{ t("terms.updatedAtPrefix") }} {{ SITE_UPDATED }}</p>
-        <p class="terms-intro">{{ t("terms.intro") }}</p>
+        <p class="section-eyebrow">{{ t('terms.eyebrow') }}</p>
+        <h1 class="section-title">{{ t('terms.title') }}</h1>
+        <p class="terms-updated">{{ t('terms.updatedAtPrefix') }} {{ SITE_UPDATED }}</p>
+        <p class="terms-intro">{{ t('terms.intro') }}</p>
       </div>
     </section>
 
     <section class="section terms-body">
       <div class="container container-narrow">
         <div class="terms-sections">
-          <div
-            v-for="key in sections"
-            :key="key"
-            class="terms-section"
-          >
+          <div v-for="key in sections" :key="key" class="terms-section">
             <h2 class="terms-h2">{{ t(`terms.sections.${key}.title`) }}</h2>
             <p class="terms-p">{{ t(`terms.sections.${key}.body`) }}</p>
           </div>

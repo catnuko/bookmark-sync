@@ -1,9 +1,9 @@
 <script setup>
-import { useI18n } from "vue-i18n";
+import { useI18n } from 'vue-i18n';
 
 const { t, tm } = useI18n();
 
-const sections = ["quickstart", "features", "faq", "troubleshoot"];
+const sections = ['quickstart', 'features', 'faq', 'troubleshoot'];
 </script>
 
 <template>
@@ -11,9 +11,9 @@ const sections = ["quickstart", "features", "faq", "troubleshoot"];
     <section class="section docs-hero">
       <div class="container">
         <div class="section-header">
-          <p class="section-eyebrow">{{ t("docs.eyebrow") }}</p>
-          <h1 class="section-title">{{ t("docs.title") }}</h1>
-          <p class="section-subtitle">{{ t("docs.subtitle") }}</p>
+          <p class="section-eyebrow">{{ t('docs.eyebrow') }}</p>
+          <h1 class="section-title">{{ t('docs.title') }}</h1>
+          <p class="section-subtitle">{{ t('docs.subtitle') }}</p>
         </div>
       </div>
     </section>
@@ -22,7 +22,9 @@ const sections = ["quickstart", "features", "faq", "troubleshoot"];
       <div class="container container-narrow">
         <div v-for="sec in sections" :key="sec" class="docs-section">
           <h2 class="docs-h2">{{ t(`docs.sections.${sec}.title`) }}</h2>
-          <p v-if="t(`docs.sections.${sec}.intro`)" class="docs-intro">{{ t(`docs.sections.${sec}.intro`) }}</p>
+          <p v-if="t(`docs.sections.${sec}.intro`)" class="docs-intro">
+            {{ t(`docs.sections.${sec}.intro`) }}
+          </p>
 
           <!-- 快速开始：步骤列表 -->
           <ol v-if="sec === 'quickstart'" class="docs-steps">
@@ -45,7 +47,11 @@ const sections = ["quickstart", "features", "faq", "troubleshoot"];
 
           <!-- FAQ / 故障排查：折叠问答 -->
           <div v-else class="docs-qa">
-            <details v-for="(qa, i) in tm(`docs.sections.${sec}.items`)" :key="i" class="docs-details">
+            <details
+              v-for="(qa, i) in tm(`docs.sections.${sec}.items`)"
+              :key="i"
+              class="docs-details"
+            >
               <summary class="docs-q">{{ qa.q }}</summary>
               <p class="docs-a">{{ qa.a }}</p>
             </details>
@@ -207,7 +213,7 @@ const sections = ["quickstart", "features", "faq", "troubleshoot"];
 }
 
 .docs-q::after {
-  content: "+";
+  content: '+';
   position: absolute;
   right: var(--space-5);
   top: 50%;
@@ -217,7 +223,7 @@ const sections = ["quickstart", "features", "faq", "troubleshoot"];
 }
 
 .docs-details[open] .docs-q::after {
-  content: "−";
+  content: '−';
 }
 
 .docs-a {

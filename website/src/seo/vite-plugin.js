@@ -6,27 +6,27 @@
  *   - 输出到 dist/ 根目录，Vercel 直接静态服务
  *   - 同时输出 zh / en 两个 locale 的 hreflang alternate，帮助 Google 选择对应语言版本
  */
-import { writeFileSync, mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 
-const SITE_URL = "https://www.bookmark-sync.top";
-const LOCALES = ["zh", "en"];
+const SITE_URL = 'https://www.bookmark-sync.top';
+const LOCALES = ['zh', 'en'];
 
 const ROUTES = [
-  { path: "/", priority: "1.0", changefreq: "weekly" },
-  { path: "/pricing", priority: "0.9", changefreq: "monthly" },
-  { path: "/download", priority: "0.9", changefreq: "monthly" },
-  { path: "/docs", priority: "0.7", changefreq: "monthly" },
-  { path: "/privacy", priority: "0.3", changefreq: "yearly" },
-  { path: "/terms", priority: "0.3", changefreq: "yearly" },
+  { path: '/', priority: '1.0', changefreq: 'weekly' },
+  { path: '/pricing', priority: '0.9', changefreq: 'monthly' },
+  { path: '/download', priority: '0.9', changefreq: 'monthly' },
+  { path: '/docs', priority: '0.7', changefreq: 'monthly' },
+  { path: '/privacy', priority: '0.3', changefreq: 'yearly' },
+  { path: '/terms', priority: '0.3', changefreq: 'yearly' },
 ];
 
 function buildSitemap() {
   const urls = ROUTES.map((r) => {
     const alternates = LOCALES.map(
       (loc) =>
-        `    <xhtml:link rel="alternate" hreflang="${loc === "zh" ? "zh-CN" : "en"}" href="${SITE_URL}${r.path}"/>`
-    ).join("\n");
+        `    <xhtml:link rel="alternate" hreflang="${loc === 'zh' ? 'zh-CN' : 'en'}" href="${SITE_URL}${r.path}"/>`,
+    ).join('\n');
 
     return `  <url>
     <loc>${SITE_URL}${r.path}</loc>
@@ -35,7 +35,7 @@ function buildSitemap() {
     <priority>${r.priority}</priority>
 ${alternates}
   </url>`;
-  }).join("\n");
+  }).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -58,18 +58,18 @@ Sitemap: ${SITE_URL}/sitemap.xml
 
 export function seoStaticPlugin() {
   return {
-    name: "seo-static",
-    apply: "build",
+    name: 'seo-static',
+    apply: 'build',
     closeBundle() {
-      const distDir = resolve(process.cwd(), "dist");
+      const distDir = resolve(process.cwd(), 'dist');
       mkdirSync(distDir, { recursive: true });
 
-      writeFileSync(resolve(distDir, "sitemap.xml"), buildSitemap(), "utf8");
-      writeFileSync(resolve(distDir, "robots.txt"), buildRobots(), "utf8");
+      writeFileSync(resolve(distDir, 'sitemap.xml'), buildSitemap(), 'utf8');
+      writeFileSync(resolve(distDir, 'robots.txt'), buildRobots(), 'utf8');
 
       // 同时输出到 public/，让 dev 服务器也能访问到（dev 模式下 closeBundle 不触发，
       // 但 build 模式下 public/ 的副本会被 Vite 自动复制到 dist/，所以这里写 dist 即可）
-      console.log("[seo-static] sitemap.xml + robots.txt generated in dist/");
+      console.log('[seo-static] sitemap.xml + robots.txt generated in dist/');
     },
   };
 }

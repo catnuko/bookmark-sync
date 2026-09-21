@@ -11,9 +11,9 @@
 // 见 sync/binding.ts）——那是「本机书签归属」唯一一次可选的时机。
 // ------------------------------------------------------------------
 
-import { api } from "./lib/ext.js";
-import { supabase } from "./lib/supabase.js";
-import { t } from "./lib/i18n.js";
+import { api } from './lib/ext.js';
+import { supabase } from './lib/supabase.js';
+import { t } from './lib/i18n.js';
 import {
   SupabaseOpLogTransport,
   SyncCoordinator,
@@ -28,26 +28,21 @@ import {
   isPaidPlan,
   normalizeBindMode,
   parseBinding,
-} from "./sync/index.js";
-import { KeyManager } from "./sync/index.js";
-import {
-  MENU_UUID,
-  MOBILE_UUID,
-  openBookmarkDb,
-  OutboxStore,
-} from "./crdt/index.js";
+} from './sync/index.js';
+import { KeyManager } from './sync/index.js';
+import { MENU_UUID, MOBILE_UUID, openBookmarkDb, OutboxStore } from './crdt/index.js';
 
-const DEVICE_ID_KEY = "crdt.deviceId";
+const DEVICE_ID_KEY = 'crdt.deviceId';
 /**
  * 按空间分区的持久化键（每个空间各自一套水位/计数器/映射）。
  * 项目未上架、无历史部署，故不做「历史全局键继承」——旧的 `crdt.afterId` /
  * `crdt.counter` / `crdt.idmap` 单键只在 resetSyncState 里当垃圾清理。
  */
-const AFTER_ID_PREFIX = "crdt.afterId.";
-const COUNTER_PREFIX = "crdt.counter.";
-const IDMAP_PREFIX = "crdt.idmap.";
+const AFTER_ID_PREFIX = 'crdt.afterId.';
+const COUNTER_PREFIX = 'crdt.counter.';
+const IDMAP_PREFIX = 'crdt.idmap.';
 /** 历史（全局）键：仅 resetSyncState 清理用。 */
-const LEGACY_KEYS = ["crdt.afterId", "crdt.counter", "crdt.idmap"];
+const LEGACY_KEYS = ['crdt.afterId', 'crdt.counter', 'crdt.idmap'];
 /**
  * 本机**绑定**的空间（一设备一空间）。
  *
@@ -59,19 +54,19 @@ const LEGACY_KEYS = ["crdt.afterId", "crdt.counter", "crdt.idmap"];
  * 存盘值 = `{ u: 账号 id, s: 空间 id }`：绑定是「账号 × 设备」的事实，换个账号
  * 登录不能继承上一个账号的绑定（见 binding.ts parseBinding 的注释）。
  */
-export const BOUND_SPACE_KEY = "boundSpaceId";
+export const BOUND_SPACE_KEY = 'boundSpaceId';
 /** 旧「活动空间」键（B2 热切换遗留）：一次性迁移清理用。 */
-const LEGACY_ACTIVE_SPACE_KEY = "activeSpaceId";
+const LEGACY_ACTIVE_SPACE_KEY = 'activeSpaceId';
 /** 旧「容器注册表」键（B2 多容器并存遗留）：一次性迁移清理用。 */
-const LEGACY_SPACE_ROOTS_KEY = "crdt.spaceRoots";
+const LEGACY_SPACE_ROOTS_KEY = 'crdt.spaceRoots';
 /** B2 → 设备绑定空间的一次性迁移标记。 */
-const SPACE_MIGRATED_KEY = "crdt.spaceMigrated";
+const SPACE_MIGRATED_KEY = 'crdt.spaceMigrated';
 /** op-log GC 阈值（storage 键可覆盖；E2E 注入小阈值验证 GC 链路）。 */
-const GC_THRESHOLD_KEY = "crdt.gcThreshold"; // 历史遗留 key，仅 resetSyncState 清理用
+const GC_THRESHOLD_KEY = 'crdt.gcThreshold'; // 历史遗留 key，仅 resetSyncState 清理用
 
 /** Chromium 端 MENU_UUID（书签菜单）动态容器的持久化 chromeId。 */
-const MENU_FOLDER_KEY = "crdt.menuFolderId";
-const MENU_FOLDER_TITLE = "书签菜单";
+const MENU_FOLDER_KEY = 'crdt.menuFolderId';
+const MENU_FOLDER_TITLE = '书签菜单';
 
 /** 按空间分区的键名（多空间下每个空间各自一套水位/计数器/映射）。 */
 const afterIdKey = (spaceId) => AFTER_ID_PREFIX + spaceId;
@@ -84,13 +79,21 @@ async function removeAllScoped(prefix) {
     const all = await api.storage.local.get();
     const keys = Object.keys(all ?? {}).filter((k) => k.startsWith(prefix));
     if (keys.length) await api.storage.local.remove(keys);
-  } catch { /* storage 不可用时忽略 */ }
+  } catch {
+    /* storage 不可用时忽略 */
+  }
 }
 
 const keyManager = new KeyManager({
-  async get(key) { return (await api.storage.local.get(key))[key]; },
-  async set(key, value) { await api.storage.local.set({ [key]: value }); },
-  async remove(key) { await api.storage.local.remove(key); },
+  async get(key) {
+    return (await api.storage.local.get(key))[key];
+  },
+  async set(key, value) {
+    await api.storage.local.set({ [key]: value });
+  },
+  async remove(key) {
+    await api.storage.local.remove(key);
+  },
 });
 
 // ---- 设备 ID（UUID，同时作为 CRDT replicaId）----
@@ -104,7 +107,7 @@ export async function getDeviceId() {
 
 // ---- Profile / 空间 / 设备 控制面 ----
 export async function getProfile() {
-  const { data, error } = await supabase.rpc("bsync_get_profile");
+  const { data, error } = await supabase.rpc('bsync_get_profile');
   if (error) throw error;
   return data;
 }
@@ -118,9 +121,9 @@ export async function getProfile() {
 async function currentUserId() {
   try {
     const { data } = await supabase.auth.getSession();
-    return data?.session?.user?.id ?? "";
+    return data?.session?.user?.id ?? '';
   } catch {
-    return "";
+    return '';
   }
 }
 
@@ -166,16 +169,16 @@ async function planCanCreateSpace() {
  */
 export async function getBoundSpace() {
   const { data, error } = await supabase
-    .from("bsync_spaces")
-    .select("*")
-    .order("is_default", { ascending: false })
-    .order("created_at", { ascending: true });
+    .from('bsync_spaces')
+    .select('*')
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: true });
   if (error) throw error;
   const spaces = data ?? [];
   const owner = await currentUserId();
   const { [BOUND_SPACE_KEY]: stored } = await api.storage.local.get(BOUND_SPACE_KEY);
   const rec = parseBinding(stored, owner);
-  const bound = rec.mine ? spaces.find((s) => s.id === rec.spaceId) ?? null : null;
+  const bound = rec.mine ? (spaces.find((s) => s.id === rec.spaceId) ?? null) : null;
   if (rec.legacy && rec.mine) {
     await api.storage.local.set({ [BOUND_SPACE_KEY]: { u: owner, s: rec.spaceId } });
   }
@@ -202,19 +205,23 @@ async function migrateFromMultiSpaceOnce() {
     const registry = res[LEGACY_SPACE_ROOTS_KEY];
     const chrome = globalThis.chrome?.bookmarks;
     dropBridgeCache();
-    if (registry && typeof registry === "object" && chrome) {
+    if (registry && typeof registry === 'object' && chrome) {
       const nativeIds = new Set(nativeRootPairs(IS_FIREFOX).map(([cid]) => cid));
       for (const row of Object.values(registry)) {
-        const cid = (row && typeof row === "object" && row.rootId) || "";
-        if (!cid || typeof cid !== "string" || nativeIds.has(cid)) continue;
+        const cid = (row && typeof row === 'object' && row.rootId) || '';
+        if (!cid || typeof cid !== 'string' || nativeIds.has(cid)) continue;
         try {
           await chrome.removeTree(cid); // 容器（其内容在云端有副本，不丢数据）
-        } catch { /* 已被用户删掉：忽略 */ }
+        } catch {
+          /* 已被用户删掉：忽略 */
+        }
       }
     }
     await api.storage.local.remove([LEGACY_SPACE_ROOTS_KEY, LEGACY_ACTIVE_SPACE_KEY]);
     await api.storage.local.set({ [SPACE_MIGRATED_KEY]: 1 });
-  } catch { /* 迁移失败不阻塞同步：下轮再试 */ }
+  } catch {
+    /* 迁移失败不阻塞同步：下轮再试 */
+  }
 }
 
 // 把 RPC 错误归一化为 { ok:false, reason, error }。
@@ -222,14 +229,20 @@ async function migrateFromMultiSpaceOnce() {
 // cannot_delete_default / invalid_name / not_found）；唯一索引冲突（23505）
 // 归一为 duplicate，与 store.js 的 reason 分支对齐。
 function spaceRpcError(err) {
-  if (!err) return { ok: false, reason: "unknown", error: "unknown error" };
-  const msg = err.message || "";
-  if (err.code === "23505") return { ok: false, reason: "duplicate", error: msg };
+  if (!err) return { ok: false, reason: 'unknown', error: 'unknown error' };
+  const msg = err.message || '';
+  if (err.code === '23505') return { ok: false, reason: 'duplicate', error: msg };
   // RAISE EXCEPTION 的自定义 code 直接作为 reason
   // （0032：quota_exceeded / rate_limited；0033：device_limit_reached）
   for (const code of [
-    "plan_locked", "cannot_delete_default", "invalid_name", "not_found", "not_authenticated",
-    "quota_exceeded", "rate_limited", "device_limit_reached",
+    'plan_locked',
+    'cannot_delete_default',
+    'invalid_name',
+    'not_found',
+    'not_authenticated',
+    'quota_exceeded',
+    'rate_limited',
+    'device_limit_reached',
   ]) {
     if (msg.includes(code)) return { ok: false, reason: code, error: msg };
   }
@@ -237,19 +250,19 @@ function spaceRpcError(err) {
 }
 
 export async function createSpace(name) {
-  const { data, error } = await supabase.rpc("bsync_space_create", { p_name: name });
+  const { data, error } = await supabase.rpc('bsync_space_create', { p_name: name });
   if (error) return spaceRpcError(error);
   return { ok: true, space: data };
 }
 
 export async function renameSpace(id, name) {
-  const { error } = await supabase.rpc("bsync_space_rename", { p_space: id, p_name: name });
+  const { error } = await supabase.rpc('bsync_space_rename', { p_space: id, p_name: name });
   if (error) return spaceRpcError(error);
   return { ok: true };
 }
 
 export async function deleteSpace(id) {
-  const { error } = await supabase.rpc("bsync_space_delete", { p_space: id });
+  const { error } = await supabase.rpc('bsync_space_delete', { p_space: id });
   if (error) return spaceRpcError(error);
   return { ok: true };
 }
@@ -287,9 +300,9 @@ export async function bindSpace(id, { mode } = {}) {
   // mode 来自 UI 消息，不可信：非法值一律退回 merge（不破坏本机数据的那个）。
   const m = normalizeBindMode(mode);
   await flushPersist(); // 未推送 op 先落 outbox（IndexedDB）
-  if (m === "overwrite") await clearNativeBookmarks();
+  if (m === 'overwrite') await clearNativeBookmarks();
   await commitBinding(id);
-  console.log(`[bsync] 已绑定本机空间 → ${id}（${m === "overwrite" ? "覆盖本机" : "并入本机"}）`);
+  console.log(`[bsync] 已绑定本机空间 → ${id}（${m === 'overwrite' ? '覆盖本机' : '并入本机'}）`);
   return { ok: true };
 }
 
@@ -313,7 +326,7 @@ export async function rebindSpace(id) {
   if (cur) {
     await flushPersist(); // 未推送 op 先落 outbox（IndexedDB），推送失败也不丢
     if (!(await drainPush(cur))) {
-      return { ok: false, reason: "push_failed" };
+      return { ok: false, reason: 'push_failed' };
     }
   }
   await flushPersist();
@@ -342,15 +355,23 @@ async function clearNativeBookmarks() {
     let kids = [];
     try {
       kids = (await chrome.getChildren(rootId)) ?? [];
-    } catch { continue; }
+    } catch {
+      continue;
+    }
     for (const k of kids) {
       try {
         await chrome.removeTree(k.id);
-      } catch { /* 已被删：忽略 */ }
+      } catch {
+        /* 已被删：忽略 */
+      }
     }
   }
   // Chromium 的「书签菜单」容器挂在书签栏下，已随上面一并删掉 → 清掉记录。
-  try { await api.storage.local.remove(MENU_FOLDER_KEY); } catch { /* ignore */ }
+  try {
+    await api.storage.local.remove(MENU_FOLDER_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -365,7 +386,9 @@ async function drainPush(coordinator, timeoutMs = 20000) {
     if (pendingCount(coordinator) === 0) return true;
     try {
       await coordinator.flushPush();
-      await api.storage.local.set({ [counterKey(coordinator.spaceId)]: coordinator.replica.counter });
+      await api.storage.local.set({
+        [counterKey(coordinator.spaceId)]: coordinator.replica.counter,
+      });
       await api.storage.local.set({ [afterIdKey(coordinator.spaceId)]: coordinator.afterId });
     } catch (e) {
       console.warn(`[bsync] 切换空间前推送失败: ${e?.message ?? e}`);
@@ -388,10 +411,10 @@ export async function listDevices(spaceId) {
   const sid = spaceId ?? (await getBoundSpace()).bound?.id;
   if (!sid) return [];
   const { data, error } = await supabase
-    .from("bsync_devices")
-    .select("*")
-    .eq("space_id", sid)
-    .order("last_seen_at", { ascending: false });
+    .from('bsync_devices')
+    .select('*')
+    .eq('space_id', sid)
+    .order('last_seen_at', { ascending: false });
   if (error) throw error;
   // 归一化到 App.vue 期望的字段名（v2 表是 id / last_seen_at）。
   return (data ?? []).map((d) => ({
@@ -402,13 +425,13 @@ export async function listDevices(spaceId) {
 }
 
 export async function removeDevice(deviceId) {
-  const { error } = await supabase.rpc("bsync_device_remove", { p_device: deviceId });
+  const { error } = await supabase.rpc('bsync_device_remove', { p_device: deviceId });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
 export async function renameDevice(deviceId, name) {
-  const { error } = await supabase.rpc("bsync_device_rename", { p_device: deviceId, p_name: name });
+  const { error } = await supabase.rpc('bsync_device_rename', { p_device: deviceId, p_name: name });
   if (error) return spaceRpcError(error);
   return { ok: true };
 }
@@ -449,7 +472,9 @@ async function ensureSession() {
       });
       if (!error && data.session) return data.session;
     }
-  } catch { /* 兜底失败按未登录处理 */ }
+  } catch {
+    /* 兜底失败按未登录处理 */
+  }
   return null;
 }
 
@@ -468,7 +493,7 @@ export async function runSync(_opts = {}) {
     if (!sess) {
       // 已知原因不附带 error 文案：展示层（store.reasonText）按 reason 码本地化，
       // 避免「请先在插件中登录 (请先在插件中登录)」式重复。
-      return { ok: false, reason: "not_authenticated" };
+      return { ok: false, reason: 'not_authenticated' };
     }
 
     // B2「多容器并存」→「设备绑定空间」的一次性本机迁移（清掉残留的其它空间容器）
@@ -478,7 +503,7 @@ export async function runSync(_opts = {}) {
     if (stale) {
       // 绑定的空间已被删除：不自动回落（那会在用户不知情时换掉同步目标），
       // 交给 UI 引导重新绑定。
-      return { ok: false, reason: "space_unbound" };
+      return { ok: false, reason: 'space_unbound' };
     }
     if (!bound) {
       // 本机从未绑定过 → 首绑（决策逻辑见 sync/binding.ts，有单测）。
@@ -486,20 +511,20 @@ export async function runSync(_opts = {}) {
       // 为本机新建」的选择；免费用户只有一个空间可加入，没得选就别打扰他。
       const canCreate = await planCanCreateSpace();
       switch (firstBindAction(spaces.length, false, canCreate)) {
-        case "create_default": {
+        case 'create_default': {
           // 全新账号：没有空间可选，自动建「默认空间」并绑定（后端
           // bsync_space_create 首个空间自动 is_default=true）。
           // 空间名跟着界面语言走：它出现在空间列表与 quota 卡里，硬编码中文会让
           // 英文界面下冒出一个中文空间名。
-          const r = await createSpace(t("spaces_defaultName"));
-          if (!r.ok) return { ok: false, reason: "no_space", error: r.error ?? t("err_noSpace") };
+          const r = await createSpace(t('spaces_defaultName'));
+          if (!r.ok) return { ok: false, reason: 'no_space', error: r.error ?? t('err_noSpace') };
           ({ spaces } = await getBoundSpace());
-          if (!spaces.length) return { ok: false, reason: "no_space" };
+          if (!spaces.length) return { ok: false, reason: 'no_space' };
           await bindSpace(spaces[0].id);
           bound = spaces[0];
           break;
         }
-        case "auto_bind":
+        case 'auto_bind':
           // 唯一空间且建不了新的：没得选，静默绑定（不拿必选页面打扰）。
           await bindSpace(spaces[0].id);
           bound = spaces[0];
@@ -510,7 +535,7 @@ export async function runSync(_opts = {}) {
           // 绑定过」的事实就没了，用户再也没机会选（这正是本方案最容易踩的坑）。
           return {
             ok: false,
-            reason: "bind_needed",
+            reason: 'bind_needed',
             spaces: spaces.map((s) => ({ id: s.id, name: s.name, is_default: !!s.is_default })),
           };
       }
@@ -522,17 +547,17 @@ export async function runSync(_opts = {}) {
     if (!key) {
       // 不再自动生成随机密钥：必须由用户设置口令派生。无密钥时直接拒绝同步，
       // 由 UI 引导用户在口令门禁页输入口令（文案按 reason 码在展示层本地化）。
-      return { ok: false, reason: "no_key" };
+      return { ok: false, reason: 'no_key' };
     }
 
     // 设备心跳（0033：新设备首次登记超计划上限时服务端 raise device_limit_reached）
-    const { error: touchError } = await supabase.rpc("bsync_device_touch", {
+    const { error: touchError } = await supabase.rpc('bsync_device_touch', {
       p_space: active.id,
       p_device: deviceId,
       p_name: await detectDeviceName(),
     });
-    if (touchError && String(touchError.message ?? "").includes("device_limit_reached")) {
-      return { ok: false, reason: "device_limit_reached", error: touchError.message };
+    if (touchError && String(touchError.message ?? '').includes('device_limit_reached')) {
+      return { ok: false, reason: 'device_limit_reached', error: touchError.message };
     }
 
     // 绑定空间的映射桥 / 水位按空间分区：先确立活动桥（落地区恒为本环境原生
@@ -540,8 +565,9 @@ export async function runSync(_opts = {}) {
     await ensureActiveBridge(active);
 
     const coordinator = await getCoordinator(active.id, deviceId, key);
-    console.log(`[bsync] === 同步开始 === space=${active.id} device=${deviceId} afterId=${coordinator.afterId} bare=${coordinator.replica.isBare()}`);
-
+    console.log(
+      `[bsync] === 同步开始 === space=${active.id} device=${deviceId} afterId=${coordinator.afterId} bare=${coordinator.replica.isBare()}`,
+    );
 
     // 冷启动保护：MV3 SW 闲置终止后重建的 replica 只有固定根（isBare），
     // 或持有 outbox 恢复的 op（needsColdReplay，同样只有部分状态）。此时
@@ -560,20 +586,28 @@ export async function runSync(_opts = {}) {
 
     if (coordinator.afterId > 0 && coordinator.needsColdReplay) {
       const replay = await coordinator.pullWithSnapshot(true);
-      if (replay.applied > 0) await api.storage.local.set({ [afterIdKey(active.id)]: coordinator.afterId });
+      if (replay.applied > 0)
+        await api.storage.local.set({ [afterIdKey(active.id)]: coordinator.afterId });
       if (replay.decryptErrors?.length) allDecryptErrors.push(...replay.decryptErrors);
-      console.log(`[bsync] 冷启动重放: applied=${replay.applied} decryptErrors=${replay.decryptErrors?.length ?? 0} afterId=${coordinator.afterId}`);
+      console.log(
+        `[bsync] 冷启动重放: applied=${replay.applied} decryptErrors=${replay.decryptErrors?.length ?? 0} afterId=${coordinator.afterId}`,
+      );
     }
 
     // 1) 拉远端 → 本地 CRDT（快照优先：快照新于本地水位时重建 + 增量）
     const pull = await coordinator.pullWithSnapshot(false);
     if (pull.decryptErrors?.length) allDecryptErrors.push(...pull.decryptErrors);
-    console.log(`[bsync] 拉取: applied=${pull.applied} skipped=${pull.skipped ?? 0} decryptErrors=${pull.decryptErrors?.length ?? 0} afterId=${coordinator.afterId}`);
-    if (pull.decryptErrors?.length) console.log("[bsync]   解密失败行:", JSON.stringify(pull.decryptErrors));
+    console.log(
+      `[bsync] 拉取: applied=${pull.applied} skipped=${pull.skipped ?? 0} decryptErrors=${pull.decryptErrors?.length ?? 0} afterId=${coordinator.afterId}`,
+    );
+    if (pull.decryptErrors?.length)
+      console.log('[bsync]   解密失败行:', JSON.stringify(pull.decryptErrors));
 
     // 诊断：解密失败（密钥不匹配）时持久化详情，popup 可展示警告
     if (allDecryptErrors.length) {
-      await api.storage.local.set({ lastDecryptErrors: { errors: allDecryptErrors.slice(0, 5), at: Date.now() } });
+      await api.storage.local.set({
+        lastDecryptErrors: { errors: allDecryptErrors.slice(0, 5), at: Date.now() },
+      });
     } else {
       await api.storage.local.remove('lastDecryptErrors');
     }
@@ -585,16 +619,26 @@ export async function runSync(_opts = {}) {
       try {
         // 只有云端最大 op id < 本地 afterId 时，才说明数据库被清空过（序列重置）。
         // 不能只看 count>0：PostgreSQL 序列不随 DELETE 重置，新 op id 可能远大于 afterId。
-        const { data: maxRow } = await supabase.from("bsync_op_log").select("id").eq("space_id", active.id).order("id", { ascending: false }).limit(1).maybeSingle();
+        const { data: maxRow } = await supabase
+          .from('bsync_op_log')
+          .select('id')
+          .eq('space_id', active.id)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
         const maxId = maxRow?.id ?? 0;
         if (maxId > 0 && maxId < coordinator.afterId) {
-          console.log(`[bsync] afterId 自愈: 远端最大 id=${maxId} < 本地 afterId=${coordinator.afterId}，重置为 0`);
+          console.log(
+            `[bsync] afterId 自愈: 远端最大 id=${maxId} < 本地 afterId=${coordinator.afterId}，重置为 0`,
+          );
           coordinator.afterId = 0;
           const rePull = await coordinator.pullWithSnapshot(false);
           if (rePull.decryptErrors?.length) allDecryptErrors.push(...rePull.decryptErrors);
           pull.applied = rePull.applied;
         }
-      } catch { /* 探测失败不阻塞 */ }
+      } catch {
+        /* 探测失败不阻塞 */
+      }
     }
 
     // 空间已在本次同步途中被换绑（用户在同步进行中点了换绑 / 换了密钥）：
@@ -602,7 +646,7 @@ export async function runSync(_opts = {}) {
     // 指回旧空间——而本机书签此时已被清空、正由新空间的同步重建，两边的投影
     // 会互相覆盖。旧空间的 op 已由 rebindSpace 落盘 + 推完，不会丢。
     if (runGen !== _coordinatorGen) {
-      console.log("[bsync] 同步途中空间已切换，放弃本轮投影");
+      console.log('[bsync] 同步途中空间已切换，放弃本轮投影');
       return { ok: true, pushed: 0, pulled: pull.applied, superseded: true };
     }
 
@@ -615,7 +659,9 @@ export async function runSync(_opts = {}) {
     const captured = await captureLocalTree(coordinator, active, spaces);
     const didSeedThisRun = captured > 0 && hadNoWatermark && pull.applied === 0;
     if (captured > 0) {
-      console.log(`[bsync] 本地重扫描: 补建 ${captured} 条 op, pending ops=${coordinator.pendingPush?.length ?? 0}`);
+      console.log(
+        `[bsync] 本地重扫描: 补建 ${captured} 条 op, pending ops=${coordinator.pendingPush?.length ?? 0}`,
+      );
     }
 
     // 3) 推本地 → 远端（播种/本地变更的 op 尽快推送，减少 SW 回收导致
@@ -630,7 +676,7 @@ export async function runSync(_opts = {}) {
     console.log(`[bsync] CRDT 可见树 (${visTree.length} 个节点)`);
     console.log(`[bsync] 开始反向应用 (decryptErrors=${allDecryptErrors.length})...`);
     await reverseApplyIntoChrome(coordinator, active, spaces);
-    console.log("[bsync] 反向应用完成");
+    console.log('[bsync] 反向应用完成');
 
     // 5) op-log GC：服务端托管——push/pull 响应带 gc_needed（行数超过用户
     //    动态阈值或后台请求），客户端只需提供加密投影配合。阈值概念对用户
@@ -643,24 +689,32 @@ export async function runSync(_opts = {}) {
     //    压缩；协调器层的 replicaIncomplete 守卫兜底（换密钥重建实例前有效）。
     if (coordinator.gcNeeded && (pushed > 0 || pull.applied > 0)) {
       if (allDecryptErrors.length > 0) {
-        console.warn(`[bsync] 跳过 GC：${allDecryptErrors.length} 条解密失败，replica 不完整（防止快照丢失数据）`);
+        console.warn(
+          `[bsync] 跳过 GC：${allDecryptErrors.length} 条解密失败，replica 不完整（防止快照丢失数据）`,
+        );
         await api.storage.local.set({
-          lastGcSkipped: { reason: "decrypt_failed", errors: allDecryptErrors.length, at: Date.now() },
+          lastGcSkipped: {
+            reason: 'decrypt_failed',
+            errors: allDecryptErrors.length,
+            at: Date.now(),
+          },
         });
       } else {
         try {
           const gc = await coordinator.maybeGc();
           if (gc.gced) {
             await api.storage.local.set({ lastGcAt: Date.now() });
-            await api.storage.local.remove("lastGcSkipped");
-          } else if (gc.reason === "replica_incomplete") {
+            await api.storage.local.remove('lastGcSkipped');
+          } else if (gc.reason === 'replica_incomplete') {
             // 协调器层守卫兜底（如快照基线解不开）：同样不生成投影
-            console.warn("[bsync] 跳过 GC：replica 不完整（快照基线不可用）");
+            console.warn('[bsync] 跳过 GC：replica 不完整（快照基线不可用）');
             await api.storage.local.set({
-              lastGcSkipped: { reason: "replica_incomplete", at: Date.now() },
+              lastGcSkipped: { reason: 'replica_incomplete', at: Date.now() },
             });
           }
-        } catch { /* GC 失败不阻塞同步 */ }
+        } catch {
+          /* GC 失败不阻塞同步 */
+        }
       }
     }
 
@@ -668,20 +722,33 @@ export async function runSync(_opts = {}) {
     // 关键：pull 有解密失败时 CRDT 不完整，绝不能上报 used=0 覆盖之前的正确值——
     // 否则用户会看到额度从 N/500 跳成 0/500。
     if (allDecryptErrors.length) {
-      console.log(`[bsync] 跳过 used_count 上报 (${allDecryptErrors.length} 条解密失败, CRDT 不完整)`);
-      await api.storage.local.set({ lastUsedReport: { skipped: true, reason: "decrypt_failed", visibleNodes: coordinator.replica.getVisibleTree().length, at: Date.now() } });
+      console.log(
+        `[bsync] 跳过 used_count 上报 (${allDecryptErrors.length} 条解密失败, CRDT 不完整)`,
+      );
+      await api.storage.local.set({
+        lastUsedReport: {
+          skipped: true,
+          reason: 'decrypt_failed',
+          visibleNodes: coordinator.replica.getVisibleTree().length,
+          at: Date.now(),
+        },
+      });
     } else {
       try {
         let used = 0;
         const visible = coordinator.replica.getVisibleTree();
         for (const edge of visible) {
-          if (typeof edge.meta?.url === "string" && edge.meta.url) used++;
+          if (typeof edge.meta?.url === 'string' && edge.meta.url) used++;
         }
         console.log(`[bsync] 上报 used_count=${used} (visibleNodes=${visible.length})`);
-        await supabase.rpc("bsync_profile_set_used", { p_used: used });
-        await api.storage.local.set({ lastUsedReport: { used, visibleNodes: visible.length, at: Date.now() } });
+        await supabase.rpc('bsync_profile_set_used', { p_used: used });
+        await api.storage.local.set({
+          lastUsedReport: { used, visibleNodes: visible.length, at: Date.now() },
+        });
       } catch (e) {
-        try { await api.storage.local.set({ lastUsedReportError: e?.message ?? String(e) }); } catch {}
+        try {
+          await api.storage.local.set({ lastUsedReportError: e?.message ?? String(e) });
+        } catch {}
       }
     }
 
@@ -693,15 +760,24 @@ export async function runSync(_opts = {}) {
     // restored：本机原本无云端水位（新设备/换设备），本次从云端拉到了历史书签。
     // 这不是「其他设备新增变更」，而是把云端已有书签恢复到本机——文案要单独说。
     const restored = hadNoWatermark && pull.applied > 0 && !didSeedThisRun;
-    return { ok: true, pushed, pulled: pull.applied, seeded: didSeedThisRun, restored, decryptFailed: allDecryptErrors.length };
+    return {
+      ok: true,
+      pushed,
+      pulled: pull.applied,
+      seeded: didSeedThisRun,
+      restored,
+      decryptFailed: allDecryptErrors.length,
+    };
   } catch (e) {
     // 服务端语义码直接作为 reason（push/pull 抛出的 PostgREST 错误 message
     // 即服务端 raise 的码：0032 quota_exceeded / rate_limited，0033 device_limit_reached），
     // 由 store.js 映射为按档位区分的升级 / 清理指引。
     const msg = String(e?.message ?? e);
-    for (const code of ["quota_exceeded", "rate_limited", "device_limit_reached"]) {
+    for (const code of ['quota_exceeded', 'rate_limited', 'device_limit_reached']) {
       if (msg.includes(code)) {
-        try { await api.storage.local.set({ lastSyncError: msg }); } catch {}
+        try {
+          await api.storage.local.set({ lastSyncError: msg });
+        } catch {}
         return { ok: false, reason: code, error: msg };
       }
     }
@@ -709,7 +785,7 @@ export async function runSync(_opts = {}) {
     try {
       await api.storage.local.set({ lastSyncError: `${e?.message ?? e} | ${e?.stack ?? ''}` });
     } catch {}
-    return { ok: false, reason: "error", error: e?.message ?? String(e) };
+    return { ok: false, reason: 'error', error: e?.message ?? String(e) };
   }
 }
 
@@ -833,9 +909,11 @@ async function ensureMenuFolder(coordinator, bridge) {
     try {
       const nodes = await chrome.get(savedId);
       if (nodes && nodes[0] && nodes[0].id === savedId) return; // 仍在
-    } catch { /* 已被删除 → 重建 */ }
+    } catch {
+      /* 已被删除 → 重建 */
+    }
   }
-  const created = await chrome.create({ parentId: "1", title: MENU_FOLDER_TITLE });
+  const created = await chrome.create({ parentId: '1', title: MENU_FOLDER_TITLE });
   bridge.map(created.id, MENU_UUID);
   await api.storage.local.set({ [MENU_FOLDER_KEY]: created.id });
 }
@@ -900,7 +978,9 @@ export async function getCoordinator(spaceId, deviceId, key) {
     onChunkPushed: async (sid, seqs) => {
       try {
         (await getOutboxStore()).deleteSeqs(sid, seqs);
-      } catch { /* 漏删由服务端 (space,device,seq) 幂等去重兜底 */ }
+      } catch {
+        /* 漏删由服务端 (space,device,seq) 幂等去重兜底 */
+      }
     },
   });
   // SW 冷启动恢复：outbox 里未确认推送成功的本地 op 重放进 replica 并重回
@@ -913,7 +993,9 @@ export async function getCoordinator(spaceId, deviceId, key) {
       _coordinator.restoreOutbox(rows);
       console.log(`[bsync] outbox 恢复: ${rows.length} 条未确认 op 重新入队`);
     }
-  } catch { /* IndexedDB 不可用：退回内存队列行为 */ }
+  } catch {
+    /* IndexedDB 不可用：退回内存队列行为 */
+  }
   return _coordinator;
 }
 
@@ -954,7 +1036,9 @@ async function flushPersist() {
         const store = await getOutboxStore();
         await store.putOps(c.spaceId, journal);
         c.clearPendingJournal(journal);
-      } catch { /* IndexedDB 不可用：退回内存队列行为，重扫描兜底 */ }
+      } catch {
+        /* IndexedDB 不可用：退回内存队列行为，重扫描兜底 */
+      }
     }
     // IDMAP / counter 按空间分区落盘（与 outbox 的 spaceId 维度一致）。
     const entry = _bridges.get(c.spaceId);
@@ -962,7 +1046,9 @@ async function flushPersist() {
       [idmapKey(c.spaceId)]: entry ? entry.bridge.snapshot() : {},
       [counterKey(c.spaceId)]: c.replica.counter,
     });
-  } catch { /* 持久化失败不阻塞同步 */ } finally {
+  } catch {
+    /* 持久化失败不阻塞同步 */
+  } finally {
     persistRunning = false;
   }
 }
@@ -1000,7 +1086,9 @@ async function ensureActiveBridge(space) {
   if (cached) {
     try {
       await api.storage.local.set({ [idmapKey(space.id)]: cached.bridge.snapshot() });
-    } catch { /* 落盘失败：重建后由 capture 兜底（最坏是重复节点，不会丢数据） */ }
+    } catch {
+      /* 落盘失败：重建后由 capture 兜底（最坏是重复节点，不会丢数据） */
+    }
   }
   const bridge = new IdBridge(() => schedulePersist(), {
     spaceId: space.id,
@@ -1013,7 +1101,9 @@ async function ensureActiveBridge(space) {
     const res = await api.storage.local.get(idmapKey(space.id));
     const map = res[idmapKey(space.id)];
     if (map) bridge.load(map);
-  } catch { /* storage 不可用：本轮按空映射处理 */ }
+  } catch {
+    /* storage 不可用：本轮按空映射处理 */
+  }
   _bridges.set(space.id, { bridge, sig });
   _activeBridge = bridge;
   return bridge;
@@ -1054,7 +1144,7 @@ export async function captureLocalTree(coordinator, space) {
 
 /** 事件入队后去抖 flush（2s），实现「自动无感同步」。 */
 let flushTimer = null;
-const AUTO_SYNC_KEY = "crdt.autoSync";
+const AUTO_SYNC_KEY = 'crdt.autoSync';
 export function flushSoon() {
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = setTimeout(async () => {
@@ -1077,7 +1167,9 @@ export function flushSoon() {
         // 用户看到状态在 1 和 0 之间跳变，以为数据丢了。
         await api.storage.local.set({ lastAutoPushAt: Date.now(), lastAutoPushCount: pushed });
       }
-    } catch { /* 推送失败时 op 保留在 pendingPush，下轮 runSync / flushSoon 重试 */ }
+    } catch {
+      /* 推送失败时 op 保留在 pendingPush，下轮 runSync / flushSoon 重试 */
+    }
   }, 2000);
 }
 
@@ -1085,19 +1177,27 @@ export function flushSoon() {
 async function detectDeviceName() {
   try {
     const ua = navigator.userAgent;
-    const browser =
-      /Edg\//.test(ua) ? "Edge" :
-      /OPR\//.test(ua) ? "Opera" :
-      /Chrome\//.test(ua) ? "Chrome" :
-      /Firefox\//.test(ua) ? "Firefox" : "浏览器";
-    const os =
-      /Windows/.test(ua) ? "Windows" :
-      /Mac OS/.test(ua) ? "macOS" :
-      /Android/.test(ua) ? "Android" :
-      /Linux/.test(ua) ? "Linux" : "";
-    return [browser, os].filter(Boolean).join(" · ");
+    const browser = /Edg\//.test(ua)
+      ? 'Edge'
+      : /OPR\//.test(ua)
+        ? 'Opera'
+        : /Chrome\//.test(ua)
+          ? 'Chrome'
+          : /Firefox\//.test(ua)
+            ? 'Firefox'
+            : '浏览器';
+    const os = /Windows/.test(ua)
+      ? 'Windows'
+      : /Mac OS/.test(ua)
+        ? 'macOS'
+        : /Android/.test(ua)
+          ? 'Android'
+          : /Linux/.test(ua)
+            ? 'Linux'
+            : '';
+    return [browser, os].filter(Boolean).join(' · ');
   } catch {
-    return "设备";
+    return '设备';
   }
 }
 
@@ -1127,12 +1227,26 @@ export async function resetSyncState() {
   _coordinatorGen++;
   dropBridgeCache();
   const keys = [
-    DEVICE_ID_KEY, LEGACY_SPACE_ROOTS_KEY, "crdt.seeded",
-    MENU_FOLDER_KEY, GC_THRESHOLD_KEY, BOUND_SPACE_KEY, SPACE_MIGRATED_KEY,
-    "crdt.e2eeKey", "crdt.e2eeSalt", "crdt.onboardSkipped",
-    "lastSyncStatus", "lastSyncAt", "lastSyncError", "lastDecryptErrors",
-    "lastUsedReport", "lastUsedReportError", "lastGcAt", "lastGcSkipped",
-    "activeSpace", LEGACY_ACTIVE_SPACE_KEY,
+    DEVICE_ID_KEY,
+    LEGACY_SPACE_ROOTS_KEY,
+    'crdt.seeded',
+    MENU_FOLDER_KEY,
+    GC_THRESHOLD_KEY,
+    BOUND_SPACE_KEY,
+    SPACE_MIGRATED_KEY,
+    'crdt.e2eeKey',
+    'crdt.e2eeSalt',
+    'crdt.onboardSkipped',
+    'lastSyncStatus',
+    'lastSyncAt',
+    'lastSyncError',
+    'lastDecryptErrors',
+    'lastUsedReport',
+    'lastUsedReportError',
+    'lastGcAt',
+    'lastGcSkipped',
+    'activeSpace',
+    LEGACY_ACTIVE_SPACE_KEY,
     ...LEGACY_KEYS,
   ];
   await api.storage.local.remove(keys);
@@ -1143,13 +1257,13 @@ export async function resetSyncState() {
   // 清除 IndexedDB 中的 CRDT 持久化状态（ops/snapshot/uuidMapping/meta）
   try {
     await new Promise((resolve, reject) => {
-      const req = indexedDB.deleteDatabase("bookmark-crdt-sync");
+      const req = indexedDB.deleteDatabase('bookmark-crdt-sync');
       req.onsuccess = resolve;
       req.onerror = () => reject(req.error);
       req.onblocked = resolve;
     });
   } catch (e) {
-    console.warn("[bsync] resetSyncState: IndexedDB 删除失败:", e?.message);
+    console.warn('[bsync] resetSyncState: IndexedDB 删除失败:', e?.message);
   }
 }
 // 供测试：暴露内存传输 + 协调器类型（避免重复实例化）。

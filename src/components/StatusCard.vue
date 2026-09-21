@@ -11,7 +11,7 @@
       <div class="sc-s">{{ syncSub }}</div>
     </div>
     <template v-if="syncState === 'error'">
-      <button class="btn btn-ghost btn-sm retry" @click="syncNow()">{{ t("common_retry") }}</button>
+      <button class="btn btn-ghost btn-sm retry" @click="syncNow()">{{ t('common_retry') }}</button>
     </template>
     <template v-else>
       <span class="sc-tail">{{ syncTail }}</span>
@@ -20,16 +20,19 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { state, syncNow, syncState, syncTitle, syncSub, syncTail } from "../store.js";
-import { t } from "../lib/i18n.js";
-import Icon from "./ui/Icon.vue";
+import { computed } from 'vue';
+import { state, syncNow, syncState, syncTitle, syncSub, syncTail } from '../store.js';
+import { t } from '../lib/i18n.js';
+import Icon from './ui/Icon.vue';
 
 const statusCls = computed(() => {
   switch (syncState.value) {
-    case "syncing": return "info";
-    case "error": return "error";
-    default: return "ok";
+    case 'syncing':
+      return 'info';
+    case 'error':
+      return 'error';
+    default:
+      return 'ok';
   }
 });
 </script>

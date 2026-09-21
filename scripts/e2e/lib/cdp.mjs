@@ -50,7 +50,9 @@ export class CDP {
     return { err: null, val: r.result?.result?.value };
   }
   async close() {
-    try { this.ws.close(); } catch {}
+    try {
+      this.ws.close();
+    } catch {}
   }
 }
 

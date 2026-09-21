@@ -1,19 +1,19 @@
 <script setup>
-import { useI18n } from "vue-i18n";
-import { toggleLocale } from "../i18n";
+import { useI18n } from 'vue-i18n';
+import { toggleLocale } from '../i18n';
 
 const { t, locale } = useI18n();
 </script>
 
 <template>
-  <button
-    class="lang-toggle"
-    :title="t('lang.switch')"
-    @click="toggleLocale"
-  >
+  <button class="lang-toggle" :title="t('lang.switch')" @click="toggleLocale">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" />
-      <path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" stroke="currentColor" stroke-width="2" />
+      <path
+        d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"
+        stroke="currentColor"
+        stroke-width="2"
+      />
     </svg>
     <span class="lang-label">{{ locale === 'zh' ? 'EN' : '中' }}</span>
   </button>

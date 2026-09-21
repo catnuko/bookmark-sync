@@ -20,11 +20,7 @@
  */
 
 import type { MoveOp } from '../crdt/index.js';
-import {
-  DecryptionError,
-  bytesToBase64url,
-  base64urlToBytes,
-} from '../crdt/index.js';
+import { DecryptionError, bytesToBase64url, base64urlToBytes } from '../crdt/index.js';
 
 /** The shape stored in bsync_op_log.op (JSONB). */
 export interface EncryptedOpEnvelope {
@@ -88,11 +84,7 @@ export async function decryptJson<T>(
   key: CryptoKey,
   spaceId: string,
 ): Promise<T> {
-  if (
-    !envelope ||
-    typeof envelope.iv !== 'string' ||
-    typeof envelope.ciphertext !== 'string'
-  ) {
+  if (!envelope || typeof envelope.iv !== 'string' || typeof envelope.ciphertext !== 'string') {
     throw new DecryptionError('op envelope missing iv/ciphertext strings');
   }
   let iv: Uint8Array<ArrayBuffer>;
@@ -111,9 +103,6 @@ export async function decryptJson<T>(
     );
     return JSON.parse(new TextDecoder().decode(plain)) as T;
   } catch (e) {
-    throw new DecryptionError(
-      'AES-GCM auth failed (wrong key, tamper, or space mismatch)',
-      e,
-    );
+    throw new DecryptionError('AES-GCM auth failed (wrong key, tamper, or space mismatch)', e);
   }
 }

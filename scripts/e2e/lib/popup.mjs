@@ -33,7 +33,10 @@ export async function loginIfNeeded(page, email, password) {
     let found = false;
     for (let i = 0; i < 30; i++) {
       const r = await page.eval(`!!document.querySelector(${JSON.stringify(selector)})`);
-      if (r.val) { found = true; break; }
+      if (r.val) {
+        found = true;
+        break;
+      }
       await sleep(500);
     }
     if (!found) throw new Error(`找不到输入框 ${selector}`);
@@ -63,9 +66,13 @@ export async function loginIfNeeded(page, email, password) {
  */
 export async function ensureSpace(page, name = 'E2E 空间') {
   // 打开空间与设备抽屉（若未展开）
-  const hasPanel = await page.eval(`!![...document.querySelectorAll('button')].find(b => b.textContent.includes('空间与设备'))`);
+  const hasPanel = await page.eval(
+    `!![...document.querySelectorAll('button')].find(b => b.textContent.includes('空间与设备'))`,
+  );
   if (hasPanel) {
-    await page.eval(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('空间与设备'))?.click()`);
+    await page.eval(
+      `[...document.querySelectorAll('button')].find(b => b.textContent.includes('空间与设备'))?.click()`,
+    );
     await sleep(500);
   }
   // 抽屉里若已有空间行，说明存在空间，关闭抽屉后返回
@@ -78,13 +85,21 @@ export async function ensureSpace(page, name = 'E2E 空间') {
   }
 
   // 无空间：点「新建空间」行展开输入，填名创建
-  await page.eval(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('新建空间'))?.click()`);
+  await page.eval(
+    `[...document.querySelectorAll('button')].find(b => b.textContent.includes('新建空间'))?.click()`,
+  );
   await sleep(400);
-  const hasInput = await page.eval(`!![...document.querySelectorAll('input')].find(i => i.placeholder.includes('新空间名称'))`);
+  const hasInput = await page.eval(
+    `!![...document.querySelectorAll('input')].find(i => i.placeholder.includes('新空间名称'))`,
+  );
   if (hasInput) {
-    await page.eval(`([...document.querySelectorAll('input')].find(i => i.placeholder.includes('新空间名称'))).focus()`);
+    await page.eval(
+      `([...document.querySelectorAll('input')].find(i => i.placeholder.includes('新空间名称'))).focus()`,
+    );
     await page.send('Input.insertText', { text: name });
-    await page.eval(`([...document.querySelectorAll('button')].find(b => b.textContent.trim() === '创建'))?.click()`);
+    await page.eval(
+      `([...document.querySelectorAll('button')].find(b => b.textContent.trim() === '创建'))?.click()`,
+    );
     await sleep(2000);
   }
   // 关闭抽屉（主视图 v-if 随抽屉开关卸载，不关闭会挡住后续 #syncNow 点击）
@@ -123,7 +138,10 @@ export async function swBookmarks(swCdp, expr) {
 }
 
 export async function createBookmark(swCdp, { parentId = '2', title, url }) {
-  return swBookmarks(swCdp, `create({ parentId: ${JSON.stringify(parentId)}, title: ${JSON.stringify(title)}, url: ${JSON.stringify(url)} })`);
+  return swBookmarks(
+    swCdp,
+    `create({ parentId: ${JSON.stringify(parentId)}, title: ${JSON.stringify(title)}, url: ${JSON.stringify(url)} })`,
+  );
 }
 
 export async function getTree(swCdp) {
@@ -142,6 +160,8 @@ export function flattenTree(tree) {
 }
 
 export async function readStorageLocal(page, key) {
-  const r = await page.eval(`(async () => (await chrome.storage.local.get(${JSON.stringify(key)}))[${JSON.stringify(key)}] ?? null)()`);
+  const r = await page.eval(
+    `(async () => (await chrome.storage.local.get(${JSON.stringify(key)}))[${JSON.stringify(key)}] ?? null)()`,
+  );
   return r.val;
 }

@@ -60,8 +60,12 @@ export function createReport(title) {
       const lines = [];
       for (const r of rows) {
         if (r.kind === 'section') lines.push(`\n${C.bold}${C.cyan}▌ ${r.name}${C.reset}`);
-        else if (r.kind === 'info') lines.push(`  ${C.dim}· ${r.name}${r.detail ? `: ${r.detail}` : ''}${C.reset}`);
-        else if (r.kind === 'ok') lines.push(`  ${C.green}✓${C.reset} ${r.name}${r.detail ? ` ${C.dim}${r.detail}${C.reset}` : ''}`);
+        else if (r.kind === 'info')
+          lines.push(`  ${C.dim}· ${r.name}${r.detail ? `: ${r.detail}` : ''}${C.reset}`);
+        else if (r.kind === 'ok')
+          lines.push(
+            `  ${C.green}✓${C.reset} ${r.name}${r.detail ? ` ${C.dim}${r.detail}${C.reset}` : ''}`,
+          );
         else lines.push(`  ${C.red}✗ ${r.name}${r.detail ? ` — ${r.detail}` : ''}${C.reset}`);
       }
       const verdict = fails.length
@@ -80,7 +84,11 @@ export function createReport(title) {
         const path = join(dir, `${scenario ?? 'run'}-${stamp}.json`);
         writeFileSync(
           path,
-          JSON.stringify({ scenario, durationSec: Number(dur), failures: fails.length, rows, extra }, null, 2),
+          JSON.stringify(
+            { scenario, durationSec: Number(dur), failures: fails.length, rows, extra },
+            null,
+            2,
+          ),
         );
         console.log(`${C.dim}报告: ${path}${C.reset}`);
       } catch (e) {

@@ -27,10 +27,7 @@ export {
   openBookmarkDb,
 } from './schema.js';
 
-export {
-  OutboxStore,
-  outboxKey,
-} from './outbox.js';
+export { OutboxStore, outboxKey } from './outbox.js';
 export type { OutboxRow } from './outbox.js';
 
 export {
@@ -39,11 +36,7 @@ export {
   serializeState,
   deserializeState,
 } from './persistence.js';
-export type {
-  OpRow,
-  SerializedState,
-  SnapshotRow,
-} from './persistence.js';
+export type { OpRow, SerializedState, SnapshotRow } from './persistence.js';
 
 export {
   UuidMappingStore,

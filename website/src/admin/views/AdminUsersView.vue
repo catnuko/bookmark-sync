@@ -1,13 +1,11 @@
 <script setup>
 // 用户列表：搜索 + plan 过滤 + 分页
-import { onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
-import { adminApi } from "../lib/client.js";
-import DataTable from "../components/DataTable.vue";
-import StatusBadge from "../components/StatusBadge.vue";
-import {
-  formatBytes, formatCount, formatTime, planLabel, planTone,
-} from "../lib/format.js";
+import { onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { adminApi } from '../lib/client.js';
+import DataTable from '../components/DataTable.vue';
+import StatusBadge from '../components/StatusBadge.vue';
+import { formatBytes, formatCount, formatTime, planLabel, planTone } from '../lib/format.js';
 
 const router = useRouter();
 const rows = ref([]);
@@ -15,8 +13,8 @@ const total = ref(0);
 const loading = ref(false);
 const page = ref(1);
 const pageSize = 50;
-const search = ref("");
-const plan = ref("");
+const search = ref('');
+const plan = ref('');
 
 async function load() {
   loading.value = true;
@@ -24,7 +22,7 @@ async function load() {
     const res = await adminApi.listUsers({
       search: search.value || null,
       plan: plan.value || null,
-      sort: "recent",
+      sort: 'recent',
       limit: pageSize,
       offset: (page.value - 1) * pageSize,
     });
@@ -40,8 +38,13 @@ async function load() {
 onMounted(load);
 watch([page], load);
 
-function onSearch() { page.value = 1; load(); }
-function openUser(id) { router.push(`/admin/users/${id}`); }
+function onSearch() {
+  page.value = 1;
+  load();
+}
+function openUser(id) {
+  router.push(`/admin/users/${id}`);
+}
 </script>
 
 <template>
@@ -62,13 +65,23 @@ function openUser(id) { router.push(`/admin/users/${id}`); }
     </div>
 
     <DataTable
-      :loading="loading" :rows="rows" :total="total"
-      :page="page" :page-size="pageSize"
+      :loading="loading"
+      :rows="rows"
+      :total="total"
+      :page="page"
+      :page-size="pageSize"
       @update:page="page = $event"
     >
       <template #head>
-        <th>邮箱</th><th>plan</th><th>用量</th><th>条数</th>
-        <th>设备</th><th>空间</th><th>注册时间</th><th>最后活跃</th><th></th>
+        <th>邮箱</th>
+        <th>plan</th>
+        <th>用量</th>
+        <th>条数</th>
+        <th>设备</th>
+        <th>空间</th>
+        <th>注册时间</th>
+        <th>最后活跃</th>
+        <th></th>
       </template>
       <template #default="{ row }">
         <td>{{ row.email }}</td>
@@ -86,15 +99,42 @@ function openUser(id) { router.push(`/admin/users/${id}`); }
 </template>
 
 <style scoped>
-.page h2 { margin: 0 0 14px; }
-.bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-.filters { display: flex; gap: 8px; }
-.filters input, .filters select {
-  padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px;
+.page h2 {
+  margin: 0 0 14px;
+}
+.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.filters {
+  display: flex;
+  gap: 8px;
+}
+.filters input,
+.filters select {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 13px;
 }
 .btn {
-  padding: 6px 14px; background: var(--color-accent); color: #fff;
-  border: 0; border-radius: 6px; cursor: pointer; font-size: 13px;
+  padding: 6px 14px;
+  background: var(--color-accent);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
 }
-.link { background: none; border: 0; color: var(--color-accent); cursor: pointer; font-size: 13px; }
+.link {
+  background: none;
+  border: 0;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: 13px;
+}
 </style>

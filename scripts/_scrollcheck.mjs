@@ -1,21 +1,21 @@
 // 校验：弹窗固定高度 600、顶栏常驻、内容区自滚动、滚动条样式统一。
-import { chromium } from "playwright";
+import { chromium } from 'playwright';
 
-const BASE = "http://localhost:5199/preview.html";
+const BASE = 'http://localhost:5199/preview.html';
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 520, height: 760 } });
 const out = {};
 
 async function go(view) {
-  await page.goto(`${BASE}?view=${view}`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}?view=${view}`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(300);
 }
 
-await go("popup");
+await go('popup');
 out.popup = await page.evaluate(() => {
-  const root = document.querySelector(".popup-root");
-  const chrome = document.querySelector(".popup-chrome");
-  const body = document.querySelector(".popup-body");
+  const root = document.querySelector('.popup-root');
+  const chrome = document.querySelector('.popup-chrome');
+  const body = document.querySelector('.popup-body');
   const cs = body ? getComputedStyle(body) : null;
   return {
     rootH: root ? Math.round(root.getBoundingClientRect().height) : null,
@@ -26,9 +26,9 @@ out.popup = await page.evaluate(() => {
   };
 });
 
-await go("key");
+await go('key');
 out.key = await page.evaluate(() => {
-  const body = document.querySelector(".drawer-body");
+  const body = document.querySelector('.drawer-body');
   const cs = body ? getComputedStyle(body) : null;
   return {
     bodyOverflowY: cs ? cs.overflowY : null,
@@ -38,10 +38,10 @@ out.key = await page.evaluate(() => {
   };
 });
 
-await go("auth");
+await go('auth');
 out.auth = await page.evaluate(() => {
-  const body = document.querySelector(".auth-body");
-  const root = document.querySelector(".auth-view");
+  const body = document.querySelector('.auth-body');
+  const root = document.querySelector('.auth-view');
   return {
     rootH: root ? Math.round(root.getBoundingClientRect().height) : null,
     bodyScrolls: body ? body.scrollHeight > body.clientHeight + 1 : null,
@@ -53,9 +53,13 @@ out.scrollbarRule = await page.evaluate(() => {
   let found = null;
   for (const sheet of document.styleSheets) {
     let rules;
-    try { rules = sheet.cssRules; } catch { continue; }
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      continue;
+    }
     for (const r of rules || []) {
-      if (r.selectorText === "::-webkit-scrollbar") found = r.style.cssText;
+      if (r.selectorText === '::-webkit-scrollbar') found = r.style.cssText;
     }
   }
   return found;

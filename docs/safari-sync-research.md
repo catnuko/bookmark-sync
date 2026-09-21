@@ -13,29 +13,29 @@
 
 ## 1. 边界事实：Safari 侧能做什么、不能做什么
 
-| 通道 | 结论 | 依据 |
-| --- | --- | --- |
-| Safari Web Extension 的 `bookmarks` API | **不支持**（桌面 Safari 与 iOS 均 `version_added: false`） | MDN browser-compat-data `webextensions/api/bookmarks.json`（2026-09 实查）；floccus issue #23（open）、floccus FAQ "Safari is currently not supported" |
-| AppleScript 自动化 | **无书签类**。`bookmark folder`/`bookmark item` 只存在于 Chrome/Chromium 字典；Safari 只暴露窗口/标签 | MacScripter/Apple 支持社区多轮确认；现有脚本只能走 plist |
-| `Bookmarks.plist` 直读直写 | **唯一程序化通道**。`~/Library/Safari/Bookmarks.plist`，二进制 plist，含书签栏/书签菜单/阅读列表；macOS 10.14+ 受 TCC 保护，读写需**完全磁盘访问（FDA）** | evilmarty/safari-bookmarks-cli、BridgeMark、dubo78 等项目 README 一致 |
-| 写入可行性 | **已验证**：safari-bookmarks-cli（30★）支持 add/move/remove，且 Safari 检测到文件变化会自动重载；社区惯例是"目标浏览器运行时拒写/先退出 + 时间戳备份" | 见 §2.2/§2.3 |
-| iCloud | Safari 书签经 iCloud 同步 → **写入 plist 后 iCloud 自动传播到 iPhone/iPad**，这是触达 iOS 的唯一路径；反向风险：其它浏览器原生云同步会把旧数据"回灌"本地（roanpy 项目记录了 Edge 的实际案例与修复策略） | roanpy/browser-bookmark-sync README、mickpletcher README |
-| iOS/iPhone 扩展 | 无任何程序化通道（`safari_ios` 同样不支持 bookmarks API） | MDN BCD |
-| 分发 | 此类 App 需 FDA → **不能上 Mac App Store**；走 Developer ID 签名 + 公证 + DMG | BridgeMark："Requires Hardened Runtime + Apple notarization" |
+| 通道                                    | 结论                                                                                                                                                                                                    | 依据                                                                                                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Safari Web Extension 的 `bookmarks` API | **不支持**（桌面 Safari 与 iOS 均 `version_added: false`）                                                                                                                                              | MDN browser-compat-data `webextensions/api/bookmarks.json`（2026-09 实查）；floccus issue #23（open）、floccus FAQ "Safari is currently not supported" |
+| AppleScript 自动化                      | **无书签类**。`bookmark folder`/`bookmark item` 只存在于 Chrome/Chromium 字典；Safari 只暴露窗口/标签                                                                                                   | MacScripter/Apple 支持社区多轮确认；现有脚本只能走 plist                                                                                               |
+| `Bookmarks.plist` 直读直写              | **唯一程序化通道**。`~/Library/Safari/Bookmarks.plist`，二进制 plist，含书签栏/书签菜单/阅读列表；macOS 10.14+ 受 TCC 保护，读写需**完全磁盘访问（FDA）**                                               | evilmarty/safari-bookmarks-cli、BridgeMark、dubo78 等项目 README 一致                                                                                  |
+| 写入可行性                              | **已验证**：safari-bookmarks-cli（30★）支持 add/move/remove，且 Safari 检测到文件变化会自动重载；社区惯例是"目标浏览器运行时拒写/先退出 + 时间戳备份"                                                   | 见 §2.2/§2.3                                                                                                                                           |
+| iCloud                                  | Safari 书签经 iCloud 同步 → **写入 plist 后 iCloud 自动传播到 iPhone/iPad**，这是触达 iOS 的唯一路径；反向风险：其它浏览器原生云同步会把旧数据"回灌"本地（roanpy 项目记录了 Edge 的实际案例与修复策略） | roanpy/browser-bookmark-sync README、mickpletcher README                                                                                               |
+| iOS/iPhone 扩展                         | 无任何程序化通道（`safari_ios` 同样不支持 bookmarks API）                                                                                                                                               | MDN BCD                                                                                                                                                |
+| 分发                                    | 此类 App 需 FDA → **不能上 Mac App Store**；走 Developer ID 签名 + 公证 + DMG                                                                                                                           | BridgeMark："Requires Hardened Runtime + Apple notarization"                                                                                           |
 
 ## 2. GitHub 开源方案全景
 
 ### 2.1 纯扩展同步器：无一支持 Safari
 
-| 项目 | Star | 中转介质 | Safari | 备注 |
-| --- | --- | --- | --- | --- |
-| floccusaddon/floccus | 8,468 | WebDAV / Nextcloud / EteSync 等 | ❌ | 最成熟的开源书签同步；FAQ 明确不支持 Safari；issue #23 长期 open；其 iOS App 只能自建列表，无法碰原生书签 |
-| xbrowsersync/app | 1,731 | 自建 REST API | ❌ | 后继项目 MarkSyncOrg/app-next（MV3 重写，5★）同样无 Safari |
-| Cleod9/syncmarx-webext | 116 | 云盘中转 | ❌ | — |
-| dodying/Bookmark-Sync | 63 | GitHub Gist | ❌ | — |
-| Hishengs/bookmark-syncer | 70 | — | ❌ | — |
-| Yueby/bookmark-syncer | 44 | WebDAV 自托管 | ❌ | — |
-| d0dg3r/GitSyncMarks | 40 | Git 仓库（每书签一 JSON + 三方合并） | ❌ | 架构上最有参考价值的合并模型，但仍无 Safari |
+| 项目                     | Star  | 中转介质                             | Safari | 备注                                                                                                      |
+| ------------------------ | ----- | ------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------- |
+| floccusaddon/floccus     | 8,468 | WebDAV / Nextcloud / EteSync 等      | ❌     | 最成熟的开源书签同步；FAQ 明确不支持 Safari；issue #23 长期 open；其 iOS App 只能自建列表，无法碰原生书签 |
+| xbrowsersync/app         | 1,731 | 自建 REST API                        | ❌     | 后继项目 MarkSyncOrg/app-next（MV3 重写，5★）同样无 Safari                                                |
+| Cleod9/syncmarx-webext   | 116   | 云盘中转                             | ❌     | —                                                                                                         |
+| dodying/Bookmark-Sync    | 63    | GitHub Gist                          | ❌     | —                                                                                                         |
+| Hishengs/bookmark-syncer | 70    | —                                    | ❌     | —                                                                                                         |
+| Yueby/bookmark-syncer    | 44    | WebDAV 自托管                        | ❌     | —                                                                                                         |
+| d0dg3r/GitSyncMarks      | 40    | Git 仓库（每书签一 JSON + 三方合并） | ❌     | 架构上最有参考价值的合并模型，但仍无 Safari                                                               |
 
 **共同点**：云端文件/自建服务中转 + `chrome.bookmarks` 读写。Safari 缺 API，这一类天花板到此为止。
 
@@ -46,13 +46,13 @@
 
 ### 2.3 Safari ⇄ 其它浏览器同步先例：全部为个人项目量级
 
-| 项目 | Star | 技术栈 | 方向 | 对本项目的价值 |
-| --- | --- | --- | --- | --- |
-| dubo78/Safari_bookmarks_Sync | 2 | Swift(SwiftUI) + Chrome 扩展 + GitHub Gist | 单向 Safari→Chromium | **与本项目的架构几乎同构**（原生 App + 扩展 + 云中转）；Keychain 存凭据、FDA 引导流程可直接借鉴 |
-| roanpy/browser-bookmark-sync | 3 | Python CLI + 小型 macOS App | 6 浏览器本地镜像（Chrome/Edge/Safari/Brave/Vivaldi/Opera），replace 型 + 备份回滚 | 文档质量最高；**首次系统记录"原生云同步回灌旧数据"问题**及修复策略（逐 target 记录漂移 → 云结算 → 恢复） |
-| TheSawkit/BridgeMark | 3 | Swift 6 (SPM) | 单向 Safari 书签栏→Chromium（Chrome/Edge/Brave/Opera/Vivaldi/Arc） | **安全写入守则范本**：合并/覆盖双模式、时间戳备份保留 5 份、目标浏览器运行时拒写、FDA 引导直达系统面板、Hardened Runtime + 公证分发 |
-| mickpletcher/browser-bookmark-tool | 2 | Python，Win+macOS | Chrome↔Edge 保守 union 同步；Safari **刻意只读**（写入列为未来项 FUT-011） | 反向印证：Safari 写入被多个作者视为高风险而搁置；其"引导用户手动 HTML 导入"即本报告 P0 方案 |
-| jiuliwei/AppleScript_to_automatically_sync_Safari_from_Chrome | 8 | AppleScript + launchd | 单向 Chrome→Safari（UI 自动化模拟"从 Chrome 导入"菜单） | **反面教材**：需明文存放 Mac 密码、合盖失效、只能全量重置 |
+| 项目                                                          | Star | 技术栈                                     | 方向                                                                              | 对本项目的价值                                                                                                                      |
+| ------------------------------------------------------------- | ---- | ------------------------------------------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| dubo78/Safari_bookmarks_Sync                                  | 2    | Swift(SwiftUI) + Chrome 扩展 + GitHub Gist | 单向 Safari→Chromium                                                              | **与本项目的架构几乎同构**（原生 App + 扩展 + 云中转）；Keychain 存凭据、FDA 引导流程可直接借鉴                                     |
+| roanpy/browser-bookmark-sync                                  | 3    | Python CLI + 小型 macOS App                | 6 浏览器本地镜像（Chrome/Edge/Safari/Brave/Vivaldi/Opera），replace 型 + 备份回滚 | 文档质量最高；**首次系统记录"原生云同步回灌旧数据"问题**及修复策略（逐 target 记录漂移 → 云结算 → 恢复）                            |
+| TheSawkit/BridgeMark                                          | 3    | Swift 6 (SPM)                              | 单向 Safari 书签栏→Chromium（Chrome/Edge/Brave/Opera/Vivaldi/Arc）                | **安全写入守则范本**：合并/覆盖双模式、时间戳备份保留 5 份、目标浏览器运行时拒写、FDA 引导直达系统面板、Hardened Runtime + 公证分发 |
+| mickpletcher/browser-bookmark-tool                            | 2    | Python，Win+macOS                          | Chrome↔Edge 保守 union 同步；Safari **刻意只读**（写入列为未来项 FUT-011）        | 反向印证：Safari 写入被多个作者视为高风险而搁置；其"引导用户手动 HTML 导入"即本报告 P0 方案                                         |
+| jiuliwei/AppleScript_to_automatically_sync_Safari_from_Chrome | 8    | AppleScript + launchd                      | 单向 Chrome→Safari（UI 自动化模拟"从 Chrome 导入"菜单）                           | **反面教材**：需明文存放 Mac 密码、合盖失效、只能全量重置                                                                           |
 
 ### 2.4 绕开原生书签的形态（对照，不符合本项目定位）
 
@@ -78,14 +78,14 @@
 
 ## 4. 候选方案对比与选型
 
-| # | 方案 | 可行性 | 开发量 | 协议复用 | 运行条件 | 主要风险 |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | Safari Web Extension | ❌ 一票否决 | — | — | — | bookmarks API 不支持（§1） |
-| 2 | **原生菜单栏 App 直连 Supabase，JSCore 内嵌现有 TS 引擎**（推荐） | ✅ | 中 | **完整复用，零漂移** | 独立常驻，不依赖浏览器在线 | JSC 桥接（fetch/crypto shim）、plist 解析 |
-| 3 | 原生 App，Swift 重写协议 | ✅ | 大 | 双实现（漂移风险） | 独立常驻 | moveCrdt/fractionalIndex/E2EE 复刻正确性 |
-| 4 | Native Messaging 薄桥（扩展当大脑，host 只做 plist⇄stdio） | ✅ | 小 | 完整复用（扩展侧） | **必须有 Chromium 浏览器在线** | Safari 无独立设备身份 → 墓碑/删除归属语义混乱；三家浏览器 NMH 安装；若给 host 独立身份 + 联网能力，实质就变成了方案 2 |
-| 5 | HTML 导入/导出兜底 | ✅ | 极小（1–2 天） | 无需 | 手动 | 无自动性，但零风险 |
-| 6 | 本地镜像工具型（roanpy 式，无服务器） | ✅ | 中 | 另起炉灶 | 本机 | 与本项目云端多设备架构冲突，等于第二套产品 |
+| #   | 方案                                                              | 可行性      | 开发量         | 协议复用             | 运行条件                       | 主要风险                                                                                                              |
+| --- | ----------------------------------------------------------------- | ----------- | -------------- | -------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| 1   | Safari Web Extension                                              | ❌ 一票否决 | —              | —                    | —                              | bookmarks API 不支持（§1）                                                                                            |
+| 2   | **原生菜单栏 App 直连 Supabase，JSCore 内嵌现有 TS 引擎**（推荐） | ✅          | 中             | **完整复用，零漂移** | 独立常驻，不依赖浏览器在线     | JSC 桥接（fetch/crypto shim）、plist 解析                                                                             |
+| 3   | 原生 App，Swift 重写协议                                          | ✅          | 大             | 双实现（漂移风险）   | 独立常驻                       | moveCrdt/fractionalIndex/E2EE 复刻正确性                                                                              |
+| 4   | Native Messaging 薄桥（扩展当大脑，host 只做 plist⇄stdio）        | ✅          | 小             | 完整复用（扩展侧）   | **必须有 Chromium 浏览器在线** | Safari 无独立设备身份 → 墓碑/删除归属语义混乱；三家浏览器 NMH 安装；若给 host 独立身份 + 联网能力，实质就变成了方案 2 |
+| 5   | HTML 导入/导出兜底                                                | ✅          | 极小（1–2 天） | 无需                 | 手动                           | 无自动性，但零风险                                                                                                    |
+| 6   | 本地镜像工具型（roanpy 式，无服务器）                             | ✅          | 中             | 另起炉灶             | 本机                           | 与本项目云端多设备架构冲突，等于第二套产品                                                                            |
 
 **选型结论：方案 2 为主，方案 5 作为 P0 先行。**
 
@@ -99,10 +99,12 @@
 ## 5. 推荐落地路线（分阶段）
 
 **P0（1–2 天，零原生代码，立即可上）**
+
 - 扩展 options 页 + 官网增加「导出/导入 bookmarks.html」；文档写清 Safari `文件 → 导入自 → 书签 HTML 文件` / `文件 → 导出书签` 手动流程。
 - 价值：验证 Safari 用户需求强度，为 P1/P2 投入提供依据；同时是所有方案共同的最后兜底。
 
 **P1（约 2–4 周，核心 MVP：Safari 只读上行）**
+
 - 新增 `macos-app/`（SwiftPM，可参考 BridgeMark 的单包结构）：菜单栏 App。
 - 功能：邮箱 OTP 登录（supabase-swift）→ FDA 引导（检测失败时深链直达系统面板）→ FSEvents 监听 `Bookmarks.plist` → 只读把 Safari 书签推送进 Supabase（作为一台设备，deviceId/密钥入 Keychain）。
 - 协议层：vite 把 `src/sync` + `src/crdt` 打成单文件 bundle，JavaScriptCore 加载；Swift 提供 fetch/crypto 桥接。
@@ -110,10 +112,12 @@
 - 测试：plist fixture 快照测试（多 macOS 版本样本）+ 现有 sync 测试思路迁移。
 
 **P2（约 2–3 周，双向写入）**
+
 - 安全写入流程（对齐 §2.3 范本）：检测 Safari 运行 → 提示退出 → 时间戳备份（保留 N 份）→ 写入 → 可选重启 Safari；iCloud 自动传播到 iPhone。
 - 删除传播对齐 CRDT 收敛语义；借鉴 roanpy 处理"原生云同步回灌"（逐 target 记录漂移、云结算后再恢复）。
 
 **P3（打磨）**
+
 - Sparkle 自动更新；license 激活与设备数限额（0033）接入与提示；官网下载页与文档。
 
 ## 6. 风险清单

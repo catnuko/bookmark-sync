@@ -63,43 +63,53 @@ export function timeAgo(iso, now = Date.now()) {
 
 /** plan → 中文标签 */
 export function planLabel(plan) {
-  return ({
-    free: 'Free',
-    plus: 'Plus',
-    pro: 'Pro',
-    lifetime: 'Lifetime',
-  })[plan] || plan || '—';
+  return (
+    {
+      free: 'Free',
+      plus: 'Plus',
+      pro: 'Pro',
+      lifetime: 'Lifetime',
+    }[plan] ||
+    plan ||
+    '—'
+  );
 }
 
 /** plan → 状态徽章颜色类（与 StatusBadge 配合） */
 export function planTone(plan) {
-  return ({
-    free: 'neutral',
-    plus: 'info',
-    pro: 'success',
-    lifetime: 'warning',
-  })[plan] || 'neutral';
+  return (
+    {
+      free: 'neutral',
+      plus: 'info',
+      pro: 'success',
+      lifetime: 'warning',
+    }[plan] || 'neutral'
+  );
 }
 
 /** 订单状态 → 中文 + 颜色 */
 export function orderStatusMeta(status) {
-  return ({
-    paid: { label: '已支付', tone: 'success' },
-    pending: { label: '待支付', tone: 'warning' },
-    refunded: { label: '已退款', tone: 'neutral' },
-    failed: { label: '失败', tone: 'danger' },
-  })[status] || { label: status || '—', tone: 'neutral' };
+  return (
+    {
+      paid: { label: '已支付', tone: 'success' },
+      pending: { label: '待支付', tone: 'warning' },
+      refunded: { label: '已退款', tone: 'neutral' },
+      failed: { label: '失败', tone: 'danger' },
+    }[status] || { label: status || '—', tone: 'neutral' }
+  );
 }
 
 /** 订阅状态 → 中文 + 颜色 */
 export function subStatusMeta(status) {
-  return ({
-    active: { label: '生效中', tone: 'success' },
-    scheduled_cancel: { label: '到期不续', tone: 'warning' },
-    past_due: { label: '扣款失败', tone: 'danger' },
-    canceled: { label: '已取消', tone: 'neutral' },
-    expired: { label: '已过期', tone: 'neutral' },
-  })[status] || { label: status || '—', tone: 'neutral' };
+  return (
+    {
+      active: { label: '生效中', tone: 'success' },
+      scheduled_cancel: { label: '到期不续', tone: 'warning' },
+      past_due: { label: '扣款失败', tone: 'danger' },
+      canceled: { label: '已取消', tone: 'neutral' },
+      expired: { label: '已过期', tone: 'neutral' },
+    }[status] || { label: status || '—', tone: 'neutral' }
+  );
 }
 
 /** 百分比（0~1 小数）→ 显示字符串 */
@@ -119,13 +129,17 @@ export function maskEmail(email) {
 
 /** 审计操作 → 中文标签 */
 export function actionLabel(action) {
-  return ({
-    set_plan: '改 plan',
-    reset_usage: '重置用量',
-    reset_user_data: '清空数据',
-    set_gc_threshold: '改 GC 阈值',
-    request_gc: '请求 GC',
-  })[action] || action || '—';
+  return (
+    {
+      set_plan: '改 plan',
+      reset_usage: '重置用量',
+      reset_user_data: '清空数据',
+      set_gc_threshold: '改 GC 阈值',
+      request_gc: '请求 GC',
+    }[action] ||
+    action ||
+    '—'
+  );
 }
 
 /** 审计 detail 对象 → 单行摘要（key=value，长值截断） */

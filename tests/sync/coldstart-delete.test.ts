@@ -31,11 +31,7 @@ import {
   type ChromeTreeNode,
   type PushOp,
 } from '../../src/sync/index.js';
-import {
-  generateKey,
-  TRASH_NODE_ID,
-  BOOKMARKS_BAR_UUID,
-} from '../../src/crdt/index.js';
+import { generateKey, TRASH_NODE_ID, BOOKMARKS_BAR_UUID } from '../../src/crdt/index.js';
 
 const SPACE = 'aaaaaaaa-0000-4000-8000-111111111111';
 const DEVICE = 'dev-cold';
@@ -51,10 +47,26 @@ function makeChrome() {
     remove: async () => {},
     removeTree: async () => {},
     getChildren: async () => [],
-    onCreated: { addListener: (cb: (...args: any[]) => void) => { (listeners.created ??= []).push(cb); } },
-    onChanged: { addListener: (cb: (...args: any[]) => void) => { (listeners.changed ??= []).push(cb); } },
-    onMoved: { addListener: (cb: (...args: any[]) => void) => { (listeners.moved ??= []).push(cb); } },
-    onRemoved: { addListener: (cb: (...args: any[]) => void) => { (listeners.removed ??= []).push(cb); } },
+    onCreated: {
+      addListener: (cb: (...args: any[]) => void) => {
+        (listeners.created ??= []).push(cb);
+      },
+    },
+    onChanged: {
+      addListener: (cb: (...args: any[]) => void) => {
+        (listeners.changed ??= []).push(cb);
+      },
+    },
+    onMoved: {
+      addListener: (cb: (...args: any[]) => void) => {
+        (listeners.moved ??= []).push(cb);
+      },
+    },
+    onRemoved: {
+      addListener: (cb: (...args: any[]) => void) => {
+        (listeners.removed ??= []).push(cb);
+      },
+    },
   };
   const emit = (name: string, ...args: any[]) => {
     for (const cb of listeners[name] ?? []) void cb(...args);
@@ -107,7 +119,13 @@ describe('删除事件 × SW 冷启动', () => {
     const uuid = bridgeA.toUuid('f1')!;
 
     // 第二阶段：SW 冷启动，coordinator 未创建（getC() 返回 null）
-    const cold = new SyncCoordinator({ spaceId: SPACE, deviceId: DEVICE, transport, key, afterId: 1 });
+    const cold = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: DEVICE,
+      transport,
+      key,
+      afterId: 1,
+    });
     const bridgeCold = new IdBridge();
     bridgeCold.load(bridgeA.snapshot());
     let ready = false;
@@ -177,7 +195,12 @@ describe('删除事件 × SW 冷启动', () => {
         return super.push(spaceId, deviceId, ops);
       }
     })();
-    const coord = new SyncCoordinator({ spaceId: SPACE, deviceId: DEVICE, transport: failing, key });
+    const coord = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: DEVICE,
+      transport: failing,
+      key,
+    });
     const bridge = new IdBridge();
     captureLocalEvents(chrome.api, coord, bridge);
     chrome.emit('created', 'f1', { id: 'f1', parentId: '1', title: '空文件夹', index: 0 });

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { Replica, ROOT_NODE_ID, TRASH_NODE_ID, cmpTimestamp, type MoveOp } from '../../src/crdt/index.js';
+import {
+  Replica,
+  ROOT_NODE_ID,
+  TRASH_NODE_ID,
+  cmpTimestamp,
+  type MoveOp,
+} from '../../src/crdt/index.js';
 
 /**
  * Convergence tests (§4, p.8): apply_ops_commutes, apply_ops_acyclic,
@@ -191,9 +197,7 @@ describe('convergence', () => {
     const root = ROOT_NODE_ID;
     const ids: string[] = [];
     for (let i = 0; i < 20; i++) {
-      const parent = ids.length
-        ? ids[Math.floor(Math.random() * ids.length)]
-        : root;
+      const parent = ids.length ? ids[Math.floor(Math.random() * ids.length)] : root;
       ids.push(source.createNode(parent, { title: `n${i}` }));
     }
     for (let i = 0; i < 10; i++) {

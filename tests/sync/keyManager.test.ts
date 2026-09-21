@@ -15,9 +15,15 @@ import { exportKey } from '../../src/crdt/index.js';
 function memKV(): KVStore {
   const m = new Map<string, string>();
   return {
-    async get(k) { return m.get(k); },
-    async set(k, v) { m.set(k, v); },
-    async remove(k) { m.delete(k); },
+    async get(k) {
+      return m.get(k);
+    },
+    async set(k, v) {
+      m.set(k, v);
+    },
+    async remove(k) {
+      m.delete(k);
+    },
   };
 }
 

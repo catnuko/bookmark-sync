@@ -88,7 +88,9 @@ async function waitPortFree(port, timeoutMs = 6_000) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
     try {
-      const r = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(600) });
+      const r = await fetch(`http://127.0.0.1:${port}/json/version`, {
+        signal: AbortSignal.timeout(600),
+      });
       if (!r.ok) return true;
     } catch {
       return true; // 连不上 = 已释放
@@ -132,7 +134,10 @@ class Page {
   /** 求值并返回 JS 值；页面内抛异常 → 本方法抛错（带原始描述，便于定位）。 */
   async eval(expression) {
     const r = await this.cdp.eval(expression);
-    if (r.err) throw new Error(`[${this.name}] 求值失败: ${r.desc ?? r.err}\n  表达式: ${expression.slice(0, 160)}`);
+    if (r.err)
+      throw new Error(
+        `[${this.name}] 求值失败: ${r.desc ?? r.err}\n  表达式: ${expression.slice(0, 160)}`,
+      );
     return r.val;
   }
 
@@ -183,7 +188,8 @@ class Page {
          return true;
        })()`,
     );
-    if (!ok) throw new Error(`[${this.name}] 文案含「${text}」的可点击元素不存在（选择器 ${selector}）`);
+    if (!ok)
+      throw new Error(`[${this.name}] 文案含「${text}」的可点击元素不存在（选择器 ${selector}）`);
     await sleep(120);
   }
 
@@ -219,7 +225,10 @@ class Page {
         `(() => { const el = document.querySelector(${JSON.stringify(selector)}); return el ? el.value : null; })()`,
       );
     }
-    if (got !== value) throw new Error(`[${this.name}] 输入未生效：${selector} 期望 ${value.length} 字符、实际 ${got?.length ?? 0}`);
+    if (got !== value)
+      throw new Error(
+        `[${this.name}] 输入未生效：${selector} 期望 ${value.length} 字符、实际 ${got?.length ?? 0}`,
+      );
     return got;
   }
 

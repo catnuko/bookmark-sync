@@ -6,11 +6,24 @@
  */
 import { launchChromium } from './lib/launch.mjs';
 import { waitForExtensionSw, connect, sleep } from './lib/cdp.mjs';
-import { openPopup, loginIfNeeded, ensureSpace, clickSyncAndWait, createBookmark, getTree, flattenTree, readStorageLocal } from './lib/popup.mjs';
+import {
+  openPopup,
+  loginIfNeeded,
+  ensureSpace,
+  clickSyncAndWait,
+  createBookmark,
+  getTree,
+  flattenTree,
+  readStorageLocal,
+} from './lib/popup.mjs';
 import { sql } from './lib/supabase.mjs';
 
-const EMAIL = process.env.EMAIL, PASSWORD = process.env.PASSWORD;
-if (!EMAIL || !PASSWORD) { console.error('need EMAIL/PASSWORD'); process.exit(1); }
+const EMAIL = process.env.EMAIL,
+  PASSWORD = process.env.PASSWORD;
+if (!EMAIL || !PASSWORD) {
+  console.error('need EMAIL/PASSWORD');
+  process.exit(1);
+}
 await sql('TRUNCATE bsync_op_log;');
 
 const A = launchChromium({ port: 9345 });
@@ -30,8 +43,12 @@ console.log('[diag] A 首同完成（播种）');
 const pageB = await openPopup(9346, B_.extId);
 await loginIfNeeded(pageB, EMAIL, PASSWORD);
 await ensureSpace(pageB, 'DIAG 空间');
-const aKey = await pageA.eval(`(async () => (await chrome.storage.local.get(['crdt.e2eeKey','crdt.e2eeSalt'])) )()`);
-await pageB.eval(`(async () => { const a = ${JSON.stringify(aKey.val ?? {})}; await chrome.storage.local.set({'crdt.e2eeKey':a['crdt.e2eeKey'],'crdt.e2eeSalt':a['crdt.e2eeSalt']}); return !!a['crdt.e2eeKey']; })()`);
+const aKey = await pageA.eval(
+  `(async () => (await chrome.storage.local.get(['crdt.e2eeKey','crdt.e2eeSalt'])) )()`,
+);
+await pageB.eval(
+  `(async () => { const a = ${JSON.stringify(aKey.val ?? {})}; await chrome.storage.local.set({'crdt.e2eeKey':a['crdt.e2eeKey'],'crdt.e2eeSalt':a['crdt.e2eeSalt']}); return !!a['crdt.e2eeKey']; })()`,
+);
 console.log('[diag] B 已注入密钥');
 await clickSyncAndWait(pageB);
 console.log('[diag] B 首同完成');
@@ -51,7 +68,11 @@ const wrap = await swB.eval(`(() => {
 console.log('[diag] B SW create 包装:', wrap.val, wrap.err ?? '');
 
 const titleA = `DIAG-A-${Date.now() % 100000}`;
-const a1 = await createBookmark(swA, { parentId: '2', title: titleA, url: 'https://diag.example.com/' + Date.now() });
+const a1 = await createBookmark(swA, {
+  parentId: '2',
+  title: titleA,
+  url: 'https://diag.example.com/' + Date.now(),
+});
 console.log('[diag] A 创建:', a1.id, titleA);
 await sleep(8000);
 
@@ -63,6 +84,15 @@ console.log('[diag] B SW create 入参记录:', calls.val);
 const st2 = await readStorageLocal(pageB, 'lastSyncStatus');
 console.log('[diag] B 同步后 lastSyncStatus:', st2);
 const treeB = flattenTree(await getTree(swB));
-console.log('[diag] B 树:', treeB.filter(n => n.title).map(n => `${n.title}@${n.id}`).join(','));
-console.log('[diag] B 含 A1:', treeB.some(n => n.title === titleA));
+console.log(
+  '[diag] B 树:',
+  treeB
+    .filter((n) => n.title)
+    .map((n) => `${n.title}@${n.id}`)
+    .join(','),
+);
+console.log(
+  '[diag] B 含 A1:',
+  treeB.some((n) => n.title === titleA),
+);
 process.exit(0);

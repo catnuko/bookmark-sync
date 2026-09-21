@@ -1,13 +1,13 @@
 <script setup>
-import { useI18n } from "vue-i18n";
-import PricingCard from "../PricingCard.vue";
+import { useI18n } from 'vue-i18n';
+import PricingCard from '../PricingCard.vue';
 
 const { t } = useI18n();
 
 const plans = [
-  { plan: "free", highlighted: false },
-  { plan: "plus", highlighted: true },
-  { plan: "pro", highlighted: false },
+  { plan: 'free', highlighted: false },
+  { plan: 'plus', highlighted: true },
+  { plan: 'pro', highlighted: false },
 ];
 </script>
 
@@ -15,25 +15,32 @@ const plans = [
   <section id="pricing" class="section section-pricing-preview">
     <div class="container">
       <div class="section-header">
-        <p class="section-eyebrow">{{ t("pricing.eyebrow") }}</p>
-        <h2 class="section-title">{{ t("pricing.title") }}</h2>
-        <p class="section-subtitle">{{ t("pricing.subtitle") }}</p>
+        <p class="section-eyebrow">{{ t('pricing.eyebrow') }}</p>
+        <h2 class="section-title">{{ t('pricing.title') }}</h2>
+        <p class="section-subtitle">{{ t('pricing.subtitle') }}</p>
       </div>
 
       <div class="plans-grid">
-        <PricingCard
-          v-for="p in plans"
-          :key="p.plan"
-          :plan="p.plan"
-          :highlighted="p.highlighted"
-        />
+        <PricingCard v-for="p in plans" :key="p.plan" :plan="p.plan" :highlighted="p.highlighted" />
       </div>
 
       <div class="pricing-more">
         <RouterLink to="/pricing" class="link">
-          {{ t("common.viewAll") }}
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-left: 4px; vertical-align: -2px;">
-            <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          {{ t('common.viewAll') }}
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            style="margin-left: 4px; vertical-align: -2px"
+          >
+            <path
+              d="M5 12h14M13 6l6 6-6 6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
         </RouterLink>
       </div>

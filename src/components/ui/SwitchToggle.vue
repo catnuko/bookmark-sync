@@ -12,7 +12,7 @@
 <script setup>
 defineProps({
   modelValue: { type: Boolean, required: true },
-  ariaLabel: { type: String, default: "" },
+  ariaLabel: { type: String, default: '' },
 });
-defineEmits(["update:modelValue"]);
+defineEmits(['update:modelValue']);
 </script>

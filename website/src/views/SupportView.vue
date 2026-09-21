@@ -1,24 +1,24 @@
 <script setup>
-import { useI18n } from "vue-i18n";
-import { SITE } from "../seo/config.js";
+import { useI18n } from 'vue-i18n';
+import { SITE } from '../seo/config.js';
 
 const { t } = useI18n();
 
 const faqKeys = [
-  "account",
-  "browsers",
-  "free",
-  "restore",
-  "security",
-  "passphrase",
-  "conflict",
-  "gc",
+  'account',
+  'browsers',
+  'free',
+  'restore',
+  'security',
+  'passphrase',
+  'conflict',
+  'gc',
 ];
 
 const resourceLinks = [
-  { key: "docs", to: "/docs" },
-  { key: "privacy", to: "/privacy" },
-  { key: "terms", to: "/terms" },
+  { key: 'docs', to: '/docs' },
+  { key: 'privacy', to: '/privacy' },
+  { key: 'terms', to: '/terms' },
 ];
 </script>
 
@@ -26,29 +26,25 @@ const resourceLinks = [
   <div class="support-page">
     <section class="section support-hero">
       <div class="container container-narrow">
-        <p class="section-eyebrow">{{ t("support.eyebrow") }}</p>
-        <h1 class="section-title">{{ t("support.title") }}</h1>
-        <p class="support-intro">{{ t("support.intro") }}</p>
+        <p class="section-eyebrow">{{ t('support.eyebrow') }}</p>
+        <h1 class="section-title">{{ t('support.title') }}</h1>
+        <p class="support-intro">{{ t('support.intro') }}</p>
 
         <a class="support-email-card" :href="`mailto:${SITE.email}`">
-          <span class="email-label">{{ t("support.contact.title") }}</span>
+          <span class="email-label">{{ t('support.contact.title') }}</span>
           <span class="email-value">{{ SITE.email }}</span>
-          <span class="email-note">{{ t("support.contact.note") }}</span>
+          <span class="email-note">{{ t('support.contact.note') }}</span>
         </a>
       </div>
     </section>
 
     <section class="section support-faq">
       <div class="container container-narrow">
-        <h2 class="support-h2">{{ t("support.faq.title") }}</h2>
-        <p class="support-subtitle">{{ t("support.faq.subtitle") }}</p>
+        <h2 class="support-h2">{{ t('support.faq.title') }}</h2>
+        <p class="support-subtitle">{{ t('support.faq.subtitle') }}</p>
 
         <div class="faq-list">
-          <details
-            v-for="key in faqKeys"
-            :key="key"
-            class="faq-item"
-          >
+          <details v-for="key in faqKeys" :key="key" class="faq-item">
             <summary class="faq-q">{{ t(`support.faq.items.${key}.q`) }}</summary>
             <p class="faq-a">{{ t(`support.faq.items.${key}.a`) }}</p>
           </details>
@@ -58,8 +54,8 @@ const resourceLinks = [
 
     <section class="section support-resources">
       <div class="container container-narrow">
-        <h2 class="support-h2">{{ t("support.resources.title") }}</h2>
-        <p class="support-subtitle">{{ t("support.resources.desc") }}</p>
+        <h2 class="support-h2">{{ t('support.resources.title') }}</h2>
+        <p class="support-subtitle">{{ t('support.resources.desc') }}</p>
         <div class="resource-links">
           <RouterLink
             v-for="link in resourceLinks"
@@ -214,7 +210,9 @@ const resourceLinks = [
   color: var(--color-text);
   font-weight: 600;
   text-decoration: none;
-  transition: border-color var(--transition), color var(--transition);
+  transition:
+    border-color var(--transition),
+    color var(--transition);
 }
 
 .resource-link:hover {

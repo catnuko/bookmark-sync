@@ -19,15 +19,15 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed } from 'vue';
 
 // 分段控件（radiogroup 语义：登录/注册等二选一模式选择，非内容面板导航）
 const props = defineProps({
   options: { type: Array, required: true }, // [{ value, label }]
   modelValue: { type: String, required: true },
-  ariaLabel: { type: String, default: "" },
+  ariaLabel: { type: String, default: '' },
 });
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits(['update:modelValue']);
 
 const idx = computed(() => props.options.findIndex((o) => o.value === props.modelValue));
 

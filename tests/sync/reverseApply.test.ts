@@ -31,15 +31,26 @@ const SPACE = 'bbbbbbbb-0000-4000-8000-111111111111';
  * in-memory tree so reverseApply's reconciliation can be asserted.
  */
 function makeChrome() {
-  interface N extends ChromeTreeNode { parentId?: string; index?: number; url?: string; }
+  interface N extends ChromeTreeNode {
+    parentId?: string;
+    index?: number;
+    url?: string;
+  }
   const tree = new Map<string, N>();
-  const seed = (n: N) => { tree.set(n.id, n); for (const c of n.children ?? []) seed(c); };
+  const seed = (n: N) => {
+    tree.set(n.id, n);
+    for (const c of n.children ?? []) seed(c);
+  };
   const ROOTS: N[] = [
-    { id: '0', title: '', children: [
-      { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
-      { id: '2', title: '其他书签', parentId: '0', index: 1, children: [] },
-      { id: '3', title: '移动设备书签', parentId: '0', index: 2, children: [] },
-    ] },
+    {
+      id: '0',
+      title: '',
+      children: [
+        { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
+        { id: '2', title: '其他书签', parentId: '0', index: 1, children: [] },
+        { id: '3', title: '移动设备书签', parentId: '0', index: 2, children: [] },
+      ],
+    },
   ];
   for (const r of ROOTS) seed(r);
 
@@ -55,7 +66,14 @@ function makeChrome() {
     },
     create: async (props: { parentId: string; title?: string; url?: string; index?: number }) => {
       const id = 'n' + Math.random().toString(36).slice(2, 10);
-      const node: N = { id, parentId: props.parentId, index: props.index ?? tree.get(props.parentId)!.children!.length, title: props.title ?? '', url: props.url, children: [] };
+      const node: N = {
+        id,
+        parentId: props.parentId,
+        index: props.index ?? tree.get(props.parentId)!.children!.length,
+        title: props.title ?? '',
+        url: props.url,
+        children: [],
+      };
       tree.get(props.parentId)!.children!.push(node);
       tree.set(id, node);
       return { ...node };
@@ -132,7 +150,10 @@ async function receiveRemote(deviceId: string, push: (c: SyncCoordinator) => voi
 describe('reverseApply (远端 → 本机 chrome 写回)', () => {
   it('creates remote bookmarks under the mapped parent with title/url', async () => {
     await receiveRemote('zzz-remote', (c) => {
-      c.createNodeWithId('uu-1', BOOKMARKS_BAR_UUID, { title: '远端书签', url: 'https://remote.example' });
+      c.createNodeWithId('uu-1', BOOKMARKS_BAR_UUID, {
+        title: '远端书签',
+        url: 'https://remote.example',
+      });
     });
 
     const bridge = new IdBridge();
@@ -169,7 +190,10 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     const bridge = new IdBridge();
     const chromeNode = await chrome.create({ parentId: '1', title: '旧标题', url: 'https://old' });
     bridge.map(chromeNode.id, 'uu-u');
-    await coordinator.createNodeWithId('uu-u', BOOKMARKS_BAR_UUID, { title: '旧标题', url: 'https://old' });
+    await coordinator.createNodeWithId('uu-u', BOOKMARKS_BAR_UUID, {
+      title: '旧标题',
+      url: 'https://old',
+    });
 
     await receiveRemote('zzz-remote', (c) => {
       c.moveNode('uu-u', BOOKMARKS_BAR_UUID, { title: '新标题', url: 'https://new' });
@@ -185,7 +209,10 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     const bridge = new IdBridge();
     const chromeNode = await chrome.create({ parentId: '1', title: '要被删', url: 'https://x' });
     bridge.map(chromeNode.id, 'uu-d');
-    await coordinator.createNodeWithId('uu-d', BOOKMARKS_BAR_UUID, { title: '要被删', url: 'https://x' });
+    await coordinator.createNodeWithId('uu-d', BOOKMARKS_BAR_UUID, {
+      title: '要被删',
+      url: 'https://x',
+    });
 
     await receiveRemote('zzz-remote', (c) => {
       c.deleteNode('uu-d');
@@ -213,9 +240,16 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     // 本机书签栏下有「书签菜单」容器（映射 MENU_UUID）+ 菜单内书签
     const menuNode = await chrome.create({ parentId: '1', title: '书签菜单' });
     bridge.map(menuNode.id, MENU_UUID);
-    const menuChild = await chrome.create({ parentId: menuNode.id, title: '百度百科', url: 'https://baike.baidu.com' });
+    const menuChild = await chrome.create({
+      parentId: menuNode.id,
+      title: '百度百科',
+      url: 'https://baike.baidu.com',
+    });
     bridge.map(menuChild.id, 'uu-menu-child');
-    await coordinator.createNodeWithId('uu-menu-child', MENU_UUID, { title: '百度百科', url: 'https://baike.baidu.com' });
+    await coordinator.createNodeWithId('uu-menu-child', MENU_UUID, {
+      title: '百度百科',
+      url: 'https://baike.baidu.com',
+    });
 
     // 远端删除了菜单里的书签（tombstone 内容，菜单位置保留）
     await receiveRemote('zzz-remote', (c) => {
@@ -233,7 +267,10 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     const bridge = new IdBridge();
     // bridge 里残留 ghost-id → uu-g，但 Chrome 中该节点已被（级联）删除
     bridge.map('ghost-id', 'uu-g');
-    await coordinator.createNodeWithId('uu-g', BOOKMARKS_BAR_UUID, { title: '复活', url: 'https://revive' });
+    await coordinator.createNodeWithId('uu-g', BOOKMARKS_BAR_UUID, {
+      title: '复活',
+      url: 'https://revive',
+    });
 
     await expect(reverseApply(chrome, coordinator, bridge)).resolves.toBeUndefined();
     const bar = (await chrome.getTree())[0].children!.find((n) => n.id === '1')!;
@@ -246,7 +283,10 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
 describe('双向同步闭环（两设备经共享 transport）', () => {
   it('device A creates, device B syncs: op flows A→server→B→chrome', async () => {
     const devB = new SyncCoordinator({
-      spaceId: SPACE, deviceId: 'dev-B', transport, key: sharedKey,
+      spaceId: SPACE,
+      deviceId: 'dev-B',
+      transport,
+      key: sharedKey,
     });
 
     // A creates & pushes.
@@ -262,7 +302,10 @@ describe('双向同步闭环（两设备经共享 transport）', () => {
 
   it('B locally creates after pulling: both devices converge to same tree', async () => {
     const devB = new SyncCoordinator({
-      spaceId: SPACE, deviceId: 'dev-B', transport, key: sharedKey,
+      spaceId: SPACE,
+      deviceId: 'dev-B',
+      transport,
+      key: sharedKey,
     });
 
     await receiveRemote('zzz-A', (c) => {
@@ -276,8 +319,14 @@ describe('双向同步闭环（两设备经共享 transport）', () => {
     await coordinator.pull();
     await coordinator.flushPush();
 
-    const treeA = coordinator.replica.getVisibleTree().map((e) => e.child).sort();
-    const treeB = devB.replica.getVisibleTree().map((e) => e.child).sort();
+    const treeA = coordinator.replica
+      .getVisibleTree()
+      .map((e) => e.child)
+      .sort();
+    const treeB = devB.replica
+      .getVisibleTree()
+      .map((e) => e.child)
+      .sort();
     expect(treeA).toEqual(treeB);
     expect(treeA).toContain('uu-1');
     expect(treeA).toContain('uu-2');

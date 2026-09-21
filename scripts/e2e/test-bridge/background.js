@@ -3,8 +3,8 @@
 browser.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg?.method) return false;
   browser.runtime
-    .sendMessage("bookmark-sync@bookmarksync.app", {
-      type: "bsync-test",
+    .sendMessage('bookmark-sync@bookmarksync.app', {
+      type: 'bsync-test',
       action: msg.method,
       payload: msg.payload ?? {},
     })

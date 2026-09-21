@@ -12,9 +12,9 @@
 //   用同一盐派生出同一密钥，无需手工传递 44 字符密钥。
 // ------------------------------------------------------------------
 
-import { api } from "./lib/ext.js";
-import { KeyManager } from "./sync/index.js";
-import { supabase } from "./lib/supabase.js";
+import { api } from './lib/ext.js';
+import { KeyManager } from './sync/index.js';
+import { supabase } from './lib/supabase.js';
 
 const keyManager = new KeyManager({
   async get(key) {
@@ -35,7 +35,7 @@ const keyManager = new KeyManager({
 // 未登录时退化为纯本地语义（无盐则生成本地盐），保证离线可用。
 async function fetchRemoteSalt() {
   try {
-    const { data, error } = await supabase.rpc("bsync_get_e2ee_salt");
+    const { data, error } = await supabase.rpc('bsync_get_e2ee_salt');
     if (error) return null;
     return data ?? null;
   } catch {
@@ -45,7 +45,7 @@ async function fetchRemoteSalt() {
 
 async function pushRemoteSalt(saltB64) {
   try {
-    const { error } = await supabase.rpc("bsync_set_e2ee_salt", { p_salt: saltB64 });
+    const { error } = await supabase.rpc('bsync_set_e2ee_salt', { p_salt: saltB64 });
     return !error;
   } catch {
     return false;

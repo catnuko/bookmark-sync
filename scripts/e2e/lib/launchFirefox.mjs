@@ -46,27 +46,37 @@ export async function launchFirefox({
 } = {}) {
   const FF_BIN = binary ?? DEFAULT_FF_BIN;
   const EXT_DIR = extDir ?? process.env.FF_EXT_DIR ?? join(ROOT, 'extension-firefox');
-  const PROFILE_DIR = profileDir ?? process.env.FF_PROFILE_DIR ?? join(ROOT, 'e2e', '.ff-profiles', String(port));
-  if (!existsSync(FF_BIN)) throw new Error(`Firefox 二进制不存在: ${FF_BIN}（先下载并解压，见 e2e/README.md）`);
-  if (!existsSync(EXT_DIR)) throw new Error(`扩展目录不存在: ${EXT_DIR}（先运行 pnpm build:firefox）`);
+  const PROFILE_DIR =
+    profileDir ?? process.env.FF_PROFILE_DIR ?? join(ROOT, 'e2e', '.ff-profiles', String(port));
+  if (!existsSync(FF_BIN))
+    throw new Error(`Firefox 二进制不存在: ${FF_BIN}（先下载并解压，见 e2e/README.md）`);
+  if (!existsSync(EXT_DIR))
+    throw new Error(`扩展目录不存在: ${EXT_DIR}（先运行 pnpm build:firefox）`);
 
   mkdirSync(PROFILE_DIR, { recursive: true });
   // 清空旧 profile 锁（Firefox 退出残留会导致 "profile in use"）
-  for (const f of ['lock', 'parent.lock', '.parentlock']) rmSync(join(PROFILE_DIR, f), { force: true });
+  for (const f of ['lock', 'parent.lock', '.parentlock'])
+    rmSync(join(PROFILE_DIR, f), { force: true });
   // 清理占用同一 geckoPort 的残留 geckodriver（异常退出会留下孤儿进程）
   try {
-    execSync(`ps -eo pid,args | grep "geckodriver.*--port=${geckoPort}" | grep -v grep | awk '{print $1}' | xargs -r kill 2>/dev/null || true`);
+    execSync(
+      `ps -eo pid,args | grep "geckodriver.*--port=${geckoPort}" | grep -v grep | awk '{print $1}' | xargs -r kill 2>/dev/null || true`,
+    );
   } catch {}
   await sleep(500);
 
   // 1) 启动 geckodriver。注意 --websocket-port：BiDi WebSocket 默认绑定 9222，
   //    本环境 9222 被环境浏览器占用，必须显式换端口（否则 BiDi 服务起不来，
   //    webSocketUrl 连不上）。
-  const gd = spawn(GECKODRIVER_BIN, [`--port=${geckoPort}`, `--websocket-port=${bidiPort}`, '--log', 'warn'], {
-    env: { ...process.env, DISPLAY: display },
-    stdio: 'ignore',
-    detached: true,
-  });
+  const gd = spawn(
+    GECKODRIVER_BIN,
+    [`--port=${geckoPort}`, `--websocket-port=${bidiPort}`, '--log', 'warn'],
+    {
+      env: { ...process.env, DISPLAY: display },
+      stdio: 'ignore',
+      detached: true,
+    },
+  );
   gd.unref();
   await waitForHttp(`http://127.0.0.1:${geckoPort}/status`, 20000);
 
@@ -82,7 +92,9 @@ export async function launchFirefox({
           prefs: {
             'extensions.autoDisableScopes': 0,
             'xpinstall.signatures.required': false,
-            'extensions.webextensions.uuids': JSON.stringify({ 'bookmark-sync@bookmarksync.app': FF_EXT_UUID }),
+            'extensions.webextensions.uuids': JSON.stringify({
+              'bookmark-sync@bookmarksync.app': FF_EXT_UUID,
+            }),
             'browser.startup.page': 0,
             'browser.shell.checkDefaultBrowser': false,
             'browser.aboutwelcome.enabled': false,
@@ -103,15 +115,21 @@ export async function launchFirefox({
   }
   const { sessionId, capabilities } = sess.value;
   const wsUrl = capabilities?.webSocketUrl;
-  if (!wsUrl) throw new Error(`无 webSocketUrl（geckodriver 需支持 BiDi）: ${JSON.stringify(sess.value).slice(0, 400)}`);
+  if (!wsUrl)
+    throw new Error(
+      `无 webSocketUrl（geckodriver 需支持 BiDi）: ${JSON.stringify(sess.value).slice(0, 400)}`,
+    );
 
   // 3) 安装临时扩展（WebDriver classic 端点；返回扩展 id）
   const installAddon = async (dir) => {
-    const inst = await fetch(`http://127.0.0.1:${geckoPort}/session/${sessionId}/moz/addon/install`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: dir, temporary: true }),
-    });
+    const inst = await fetch(
+      `http://127.0.0.1:${geckoPort}/session/${sessionId}/moz/addon/install`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: dir, temporary: true }),
+      },
+    );
     const instJson = await inst.json();
     if (!inst.ok) {
       throw new Error(`扩展安装失败 ${dir}: ${JSON.stringify(instJson).slice(0, 500)}`);
@@ -132,7 +150,17 @@ export async function launchFirefox({
   console.log(`[ff-launch] session=${sessionId} bidi=${wsUrl}`);
   await bidi.open();
   console.log(`[ff-launch] geckodriver pid=${gd.pid} port=${geckoPort} profile=${PROFILE_DIR}`);
-  return { sessionId, bidi, wsUrl, gdPid: gd.pid, profileDir: PROFILE_DIR, extDir: EXT_DIR, extUuid: FF_EXT_UUID, addonId, extraIds };
+  return {
+    sessionId,
+    bidi,
+    wsUrl,
+    gdPid: gd.pid,
+    profileDir: PROFILE_DIR,
+    extDir: EXT_DIR,
+    extUuid: FF_EXT_UUID,
+    addonId,
+    extraIds,
+  };
 }
 
 async function waitForHttp(url, timeoutMs = 20000) {
@@ -143,7 +171,9 @@ async function waitForHttp(url, timeoutMs = 20000) {
       const r = await fetch(url);
       if (r.ok) return;
       lastErr = new Error(`status ${r.status}`);
-    } catch (e) { lastErr = e; }
+    } catch (e) {
+      lastErr = e;
+    }
     await sleep(400);
   }
   throw new Error(`HTTP 端口未就绪 ${url}: ${lastErr}`);

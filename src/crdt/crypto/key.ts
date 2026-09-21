@@ -69,10 +69,7 @@ export async function exportKey(key: CryptoKey): Promise<string> {
  */
 export async function importKey(keyBase64url: string): Promise<CryptoKey> {
   const raw = base64urlToBytes(keyBase64url);
-  return globalThis.crypto.subtle.importKey('raw', raw, AES_GCM, true, [
-    'encrypt',
-    'decrypt',
-  ]);
+  return globalThis.crypto.subtle.importKey('raw', raw, AES_GCM, true, ['encrypt', 'decrypt']);
 }
 
 // ── Passphrase derivation (PBKDF2) ────────────────────────────────────────

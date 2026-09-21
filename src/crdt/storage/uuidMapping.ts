@@ -16,12 +16,7 @@
  * "0" maps to ROOT_UUID and sits as a child of `__root__`.
  */
 
-import {
-  INDEX_BY_UUID,
-  INDEX_BY_SPACE,
-  STORE_UUID_MAPPING,
-  mappingKey,
-} from './schema.js';
+import { INDEX_BY_UUID, INDEX_BY_SPACE, STORE_UUID_MAPPING, mappingKey } from './schema.js';
 
 /** A persisted mapping row（按空间隔离）。 */
 export interface UuidMappingRow {
@@ -126,9 +121,7 @@ export class UuidMappingStore {
   async getChromeId(spaceId: string, uuid: string): Promise<string | null> {
     const tx = this.db.transaction(STORE_UUID_MAPPING, 'readonly');
     const index = tx.objectStore(STORE_UUID_MAPPING).index(INDEX_BY_UUID);
-    const row = await txComplete<UuidMappingRow | undefined>(
-      index.get([spaceId, uuid]),
-    );
+    const row = await txComplete<UuidMappingRow | undefined>(index.get([spaceId, uuid]));
     return row ? row.chromeId : null;
   }
 
@@ -156,17 +149,13 @@ export class UuidMappingStore {
     const tx = this.db.transaction(STORE_UUID_MAPPING, 'readonly');
     const store = tx.objectStore(STORE_UUID_MAPPING);
     if (!spaceId) return txComplete<UuidMappingRow[]>(store.getAll());
-    return txComplete<UuidMappingRow[]>(
-      store.index(INDEX_BY_SPACE).getAll(spaceId),
-    );
+    return txComplete<UuidMappingRow[]>(store.index(INDEX_BY_SPACE).getAll(spaceId));
   }
 
   /** Drop the mapping for `chromeId` in `spaceId` (e.g. after a permanent delete). */
   async removeByChromeId(spaceId: string, chromeId: string): Promise<void> {
     const tx = this.db.transaction(STORE_UUID_MAPPING, 'readwrite');
-    await txComplete(
-      tx.objectStore(STORE_UUID_MAPPING).delete(mappingKey(spaceId, chromeId)),
-    );
+    await txComplete(tx.objectStore(STORE_UUID_MAPPING).delete(mappingKey(spaceId, chromeId)));
     await txDone(tx);
   }
 

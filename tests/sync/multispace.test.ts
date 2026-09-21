@@ -104,7 +104,10 @@ function makeChrome() {
       const id = 'n' + Math.random().toString(36).slice(2, 10);
       const parent = tree.get(props.parentId)!;
       parent.children = parent.children ?? [];
-      const idx = Math.max(0, Math.min(props.index ?? parent.children.length, parent.children.length));
+      const idx = Math.max(
+        0,
+        Math.min(props.index ?? parent.children.length, parent.children.length),
+      );
       const node: FakeNode = {
         id,
         parentId: props.parentId,
@@ -220,8 +223,7 @@ describe('映射按空间隔离 / 换绑', () => {
     let active: IdBridge | null = bridge;
     captureLocalEvents(chrome, coord, () => active);
 
-    const visible = (u: string) =>
-      coord.replica.getVisibleTree().some((e) => e.child === u);
+    const visible = (u: string) => coord.replica.getVisibleTree().some((e) => e.child === u);
 
     expect(visible(uuid)).toBe(true);
     chrome.fireRemoved('7', { title: 'A' });

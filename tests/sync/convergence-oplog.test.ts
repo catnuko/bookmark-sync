@@ -10,10 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  MemoryOpLogTransport,
-  SyncCoordinator,
-} from '../../src/sync/index.js';
+import { MemoryOpLogTransport, SyncCoordinator } from '../../src/sync/index.js';
 import {
   generateKey,
   exportKey,
@@ -92,7 +89,12 @@ describe('convergence through encrypted op log', () => {
     const transport = new MemoryOpLogTransport();
     const key = await generateKey();
     const A = new SyncCoordinator({ spaceId: SPACE, deviceId: 'A', transport, key });
-    const B = new SyncCoordinator({ spaceId: SPACE, deviceId: 'B', transport, key: await importKey(await exportKey(key)) });
+    const B = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'B',
+      transport,
+      key: await importKey(await exportKey(key)),
+    });
 
     const folder = A.createNode(ROOT_NODE_ID, { title: 'folder' });
     await A.flushPush();
@@ -116,7 +118,12 @@ describe('convergence through encrypted op log', () => {
     const transport = new MemoryOpLogTransport();
     const key = await generateKey();
     const A = new SyncCoordinator({ spaceId: SPACE, deviceId: 'A', transport, key });
-    const B = new SyncCoordinator({ spaceId: SPACE, deviceId: 'B', transport, key: await importKey(await exportKey(key)) });
+    const B = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'B',
+      transport,
+      key: await importKey(await exportKey(key)),
+    });
 
     // Round-robin small batches: A and B interleave pushes/pulls.
     for (let i = 0; i < 5; i++) {
@@ -137,7 +144,12 @@ describe('convergence through encrypted op log', () => {
     const transport = new MemoryOpLogTransport();
     const key = await generateKey();
     const A = new SyncCoordinator({ spaceId: SPACE, deviceId: 'A', transport, key });
-    const B = new SyncCoordinator({ spaceId: SPACE, deviceId: 'B', transport, key: await importKey(await exportKey(key)) });
+    const B = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'B',
+      transport,
+      key: await importKey(await exportKey(key)),
+    });
 
     A.createNode(ROOT_NODE_ID, { title: 'a1' });
     A.createNode(ROOT_NODE_ID, { title: 'a2' });
@@ -154,7 +166,12 @@ describe('convergence through encrypted op log', () => {
     const transport = new MemoryOpLogTransport();
     const key = await generateKey();
     const A = new SyncCoordinator({ spaceId: SPACE, deviceId: 'A', transport, key });
-    const B = new SyncCoordinator({ spaceId: SPACE, deviceId: 'B', transport, key: await importKey(await exportKey(key)) });
+    const B = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'B',
+      transport,
+      key: await importKey(await exportKey(key)),
+    });
 
     A.createNode(ROOT_NODE_ID, { title: 'x' });
     await A.flushPush();

@@ -41,7 +41,12 @@ export interface ChromeBookmarksAPI {
   getTree(): Promise<ChromeTreeNode[]>;
   get(id: string | string[]): Promise<ChromeTreeNode[]>;
   /** NOTE: 真实 chrome.bookmarks.create 是单对象签名 create(details)。 */
-  create(props: { parentId: string; title?: string; url?: string; index?: number }): Promise<ChromeTreeNode>;
+  create(props: {
+    parentId: string;
+    title?: string;
+    url?: string;
+    index?: number;
+  }): Promise<ChromeTreeNode>;
   move(id: string, moveProps: { parentId: string; index?: number }): Promise<ChromeTreeNode>;
   update(id: string, changes: { title?: string; url?: string }): Promise<ChromeTreeNode>;
   remove(id: string): Promise<void>;
@@ -49,7 +54,9 @@ export interface ChromeBookmarksAPI {
   getChildren(parentId: string): Promise<ChromeTreeNode[]>;
   onCreated: BrowserEvent<[string, ChromeTreeNode]>;
   onChanged: BrowserEvent<[string, { title: string; url?: string }]>;
-  onMoved: BrowserEvent<[string, { parentId: string; oldParentId: string; index: number; oldIndex: number }]>;
+  onMoved: BrowserEvent<
+    [string, { parentId: string; oldParentId: string; index: number; oldIndex: number }]
+  >;
   onRemoved: BrowserEvent<[string, { removedNode: ChromeTreeNode }]>;
 }
 
@@ -75,22 +82,31 @@ export interface ChromeTreeNode {
  */
 function fixedRootUuid(chromeId: string): string | null {
   switch (chromeId) {
-    case CHROME_ROOT_ID: return ROOT_UUID; // Chrome "0"
-    case 'root________': return ROOT_UUID; // Firefox root
-    case '1': return BOOKMARKS_BAR_UUID; // Chrome 书签栏
-    case 'toolbar_____': return BOOKMARKS_BAR_UUID; // Firefox 书签工具栏
-    case '2': return OTHER_BOOKMARKS_UUID; // Chrome 其他书签
-    case 'unfiled_____': return OTHER_BOOKMARKS_UUID; // Firefox 其他书签
-    case '3': return MOBILE_UUID; // Chrome 移动书签
-    case 'mobile______': return MOBILE_UUID; // Firefox 移动书签
-    case 'menu________': return MENU_UUID; // Firefox 书签菜单
-    default: return null;
+    case CHROME_ROOT_ID:
+      return ROOT_UUID; // Chrome "0"
+    case 'root________':
+      return ROOT_UUID; // Firefox root
+    case '1':
+      return BOOKMARKS_BAR_UUID; // Chrome 书签栏
+    case 'toolbar_____':
+      return BOOKMARKS_BAR_UUID; // Firefox 书签工具栏
+    case '2':
+      return OTHER_BOOKMARKS_UUID; // Chrome 其他书签
+    case 'unfiled_____':
+      return OTHER_BOOKMARKS_UUID; // Firefox 其他书签
+    case '3':
+      return MOBILE_UUID; // Chrome 移动书签
+    case 'mobile______':
+      return MOBILE_UUID; // Firefox 移动书签
+    case 'menu________':
+      return MENU_UUID; // Firefox 书签菜单
+    default:
+      return null;
   }
 }
 
 /** 运行环境是否为 Firefox（根 id 体系不同：guid vs 数字）。 */
-export const IS_FIREFOX =
-  typeof navigator !== "undefined" && /Firefox\//.test(navigator.userAgent);
+export const IS_FIREFOX = typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent);
 
 /** 所有固定根 UUID（ROOT 之外 4 个）。 */
 export const LANDING_ROOT_UUIDS: ReadonlySet<string> = new Set([
@@ -137,11 +153,13 @@ const ALL_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['mobile______', MOBILE_UUID],
   ['menu________', MENU_UUID],
 ];
-const CHROME_ROOT_IDS = new Set([
-  CHROME_ROOT_ID, '1', '2', '3',
-]);
+const CHROME_ROOT_IDS = new Set([CHROME_ROOT_ID, '1', '2', '3']);
 const FF_ROOT_IDS = new Set([
-  'root________', 'menu________', 'toolbar_____', 'unfiled_____', 'mobile______',
+  'root________',
+  'menu________',
+  'toolbar_____',
+  'unfiled_____',
+  'mobile______',
 ]);
 /**
  * In-memory chromeId <-> uuid map. Persistence (chrome.storage.local
@@ -272,10 +290,7 @@ export class IdBridge {
 
 /** 兄弟排序（position 字典序，uuid tie-break）——computePosition 与
  *  ensureReachableNodes 共用同一比较器，保证两侧顺序一致。 */
-function cmpSibling(
-  a: { id: string; meta: Metadata },
-  b: { id: string; meta: Metadata },
-): number {
+function cmpSibling(a: { id: string; meta: Metadata }, b: { id: string; meta: Metadata }): number {
   const pa = a.meta.position ?? '';
   const pb = b.meta.position ?? '';
   if (pa !== pb) return pa < pb ? -1 : 1;
@@ -300,9 +315,7 @@ export function computePosition(
   chromeIndex: number,
   selfUuid: string | null,
 ): string | null {
-  const siblings = coordinator.replica
-    .getChildren(parentUuid)
-    .filter((n) => n.id !== selfUuid);
+  const siblings = coordinator.replica.getChildren(parentUuid).filter((n) => n.id !== selfUuid);
   // 导入风暴快路径：追加到末尾（index ≥ 现有 CRDT 兄弟数）是批量导入/
   // Chrome 同步灌入的绝对主流。单遍扫出排序末位即可，免去每次事件的
   // O(N log N) 全排序（单文件夹几千书签时整体从 O(N² log N) 降到 O(N²)）。
@@ -311,9 +324,7 @@ export function computePosition(
     for (const n of siblings) if (cmpSibling(n, last) > 0) last = n;
     return positionBetween(last.meta.position ?? null, null);
   }
-  const positions = siblings
-    .sort(cmpSibling)
-    .map((n) => n.meta.position ?? null);
+  const positions = siblings.sort(cmpSibling).map((n) => n.meta.position ?? null);
   const idx = Math.max(0, Math.min(chromeIndex, positions.length));
   const prev = idx > 0 ? positions[idx - 1] : null;
   const next = idx < positions.length ? positions[idx] : null;
@@ -343,9 +354,7 @@ export function computePosition(
  */
 export function captureLocalEvents(
   chrome: ChromeBookmarksAPI,
-  coordinator:
-    | SyncCoordinator
-    | (() => SyncCoordinator | null | Promise<SyncCoordinator | null>),
+  coordinator: SyncCoordinator | (() => SyncCoordinator | null | Promise<SyncCoordinator | null>),
   bridge: IdBridge | (() => IdBridge | null | Promise<IdBridge | null>),
   onLocalOp?: () => void,
 ): { suppressed: { value: boolean } } {
@@ -355,8 +364,7 @@ export function captureLocalEvents(
   // 统一补处理（tombstone 照常产生并推送）。
   let pendingRemoved: string[] = [];
   const getC = async (): Promise<SyncCoordinator | null> => {
-    const c =
-      typeof coordinator === 'function' ? coordinator() : coordinator;
+    const c = typeof coordinator === 'function' ? coordinator() : coordinator;
     return c instanceof Promise ? await c : c;
   };
   const getB = async (): Promise<IdBridge | null> => {
@@ -397,7 +405,9 @@ export function captureLocalEvents(
   };
 
   const onRemoved = async (id: string, info: { removedNode: ChromeTreeNode }) => {
-    console.log(`[bsync] 事件 onRemoved: id=${id} title="${info?.removedNode?.title ?? ""}" url=${info?.removedNode?.url ?? ""} suppressed=${suppressedValue}`);
+    console.log(
+      `[bsync] 事件 onRemoved: id=${id} title="${info?.removedNode?.title ?? ''}" url=${info?.removedNode?.url ?? ''} suppressed=${suppressedValue}`,
+    );
     if (suppressedValue) {
       pendingRemoved.push(id);
       return;
@@ -406,7 +416,9 @@ export function captureLocalEvents(
   };
 
   const onCreated = async (id: string, node: ChromeTreeNode) => {
-    console.log(`[bsync] 事件 onCreated: id=${id} title="${node.title}" url=${node.url ?? ""} parent=${node.parentId} index=${node.index} suppressed=${suppressed.value}`);
+    console.log(
+      `[bsync] 事件 onCreated: id=${id} title="${node.title}" url=${node.url ?? ''} parent=${node.parentId} index=${node.index} suppressed=${suppressed.value}`,
+    );
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
@@ -433,7 +445,9 @@ export function captureLocalEvents(
   };
 
   const onChanged = async (id: string, change: { title: string; url?: string }) => {
-    console.log(`[bsync] 事件 onChanged: id=${id} title="${change.title}" url=${change.url ?? ""} suppressed=${suppressed.value}`);
+    console.log(
+      `[bsync] 事件 onChanged: id=${id} title="${change.title}" url=${change.url ?? ''} suppressed=${suppressed.value}`,
+    );
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
@@ -452,7 +466,9 @@ export function captureLocalEvents(
     id: string,
     move: { parentId: string; oldParentId: string; index: number; oldIndex: number },
   ) => {
-    console.log(`[bsync] 事件 onMoved: id=${id} parent=${move.parentId} oldParent=${move.oldParentId} index=${move.index} oldIndex=${move.oldIndex} suppressed=${suppressed.value}`);
+    console.log(
+      `[bsync] 事件 onMoved: id=${id} parent=${move.parentId} oldParent=${move.oldParentId} index=${move.index} oldIndex=${move.oldIndex} suppressed=${suppressed.value}`,
+    );
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
@@ -519,8 +535,15 @@ export function captureLocalEvents(
 
 /** chrome ids we must never create/delete/move/update. */
 const PROTECTED_CHROME_IDS = new Set([
-  CHROME_ROOT_ID, '1', '2', '3', // Chrome 根
-  'root________', 'menu________', 'toolbar_____', 'unfiled_____', 'mobile______', // Firefox 根
+  CHROME_ROOT_ID,
+  '1',
+  '2',
+  '3', // Chrome 根
+  'root________',
+  'menu________',
+  'toolbar_____',
+  'unfiled_____',
+  'mobile______', // Firefox 根
 ]);
 /** CRDT uuids we never apply chrome mutations to. */
 const PROTECTED_UUIDS = new Set([
@@ -553,8 +576,7 @@ export async function reverseApply(
 
   // 2. Flatten current Chrome tree for comparison（同一次 getTree 顺带产出
   //    chrome 侧父子索引，供 ensureReachableNodes 查询与维护）。
-  const { nodes: chromeNodes, childrenByParent: chromeChildren } =
-    await flattenChromeTree(chrome);
+  const { nodes: chromeNodes, childrenByParent: chromeChildren } = await flattenChromeTree(chrome);
 
   // 3. Ensure reachable nodes exist (BFS: parents before children).
   await ensureReachableNodes(
@@ -649,8 +671,7 @@ async function ensureReachableNodes(
   const visited = new Set<string>();
   const chromeIds = new Set(chromeNodes.keys());
   /** chrome 侧某父下的全部子节点（活引用：create/move 后就地维护）。 */
-  const siblingsOf = (parentId: string): ChromeTreeNode[] =>
-    chromeChildren.get(parentId) ?? [];
+  const siblingsOf = (parentId: string): ChromeTreeNode[] => chromeChildren.get(parentId) ?? [];
   /**
    * 目标绝对 index：把节点放到父下第 i 位。
    * 参考列表是**排除自身**后的列表（chrome.move 的 index 是移动后的位置）。
@@ -717,7 +738,10 @@ async function ensureReachableNodes(
       const createInChrome = async (): Promise<void> => {
         // index 必须在 0..当前子节点数 之间，否则 chrome 报 "Index out of bounds"。
         const siblings = siblingsOf(parentChromeId);
-        const createIndex = Math.max(0, Math.min(absoluteIndexFor(parentChromeId, i), siblings.length));
+        const createIndex = Math.max(
+          0,
+          Math.min(absoluteIndexFor(parentChromeId, i), siblings.length),
+        );
         let created: ChromeTreeNode;
         try {
           created = await chrome.create({
@@ -766,8 +790,7 @@ async function ensureReachableNodes(
         const at = siblingsOf(parentChromeId).findIndex((n) => n.id === existingChromeId);
         if (!current || current.parentId !== parentChromeId || at !== i) {
           // 从旧父的索引数组中摘除（若在），再插入新父的目标位置。
-          const oldParentId =
-            current?.parentId ?? chromeNodes.get(existingChromeId)?.parentId;
+          const oldParentId = current?.parentId ?? chromeNodes.get(existingChromeId)?.parentId;
           if (oldParentId && oldParentId !== parentChromeId) {
             const oldSiblings = siblingsOf(oldParentId);
             const atOld = oldSiblings.findIndex((n) => n.id === existingChromeId);
@@ -788,8 +811,7 @@ async function ensureReachableNodes(
           const info = chromeNodes.get(existingChromeId);
           if (info) {
             info.parentId = parentChromeId;
-            info.depth =
-              (chromeNodes.get(parentChromeId)?.depth ?? 0) + 1;
+            info.depth = (chromeNodes.get(parentChromeId)?.depth ?? 0) + 1;
           }
         }
         const after = siblingsOf(parentChromeId).find((n) => n.id === existingChromeId);
@@ -864,10 +886,7 @@ export async function captureLocalTree(
 }
 
 /** 在 chrome 树里按 id 找节点（含子树）。 */
-function findChromeNode(
-  nodes: ChromeTreeNode[],
-  id: string,
-): ChromeTreeNode | null {
+function findChromeNode(nodes: ChromeTreeNode[], id: string): ChromeTreeNode | null {
   for (const n of nodes) {
     if (n.id === id) return n;
     const hit = findChromeNode(n.children ?? [], id);

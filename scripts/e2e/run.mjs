@@ -109,9 +109,13 @@ async function main() {
     const after = cloud.profile(prof.user_id);
     const st = cloud.opStats();
     const ok = !after?.e2ee_salt && st.ops === 0 && cloud.spaces().length === 0;
-    console.log(ok ? '\x1b[32m✓ 已回到干净起点\x1b[0m' : '\x1b[31m✗ 复位后云端仍有残留，请检查\x1b[0m');
+    console.log(
+      ok ? '\x1b[32m✓ 已回到干净起点\x1b[0m' : '\x1b[31m✗ 复位后云端仍有残留，请检查\x1b[0m',
+    );
     if (!dropped.ok) {
-      console.log(`\x1b[33m⚠ 本机 profile 没能删除（${dropped.reason}）—— 不影响云端复位，下次跑会另开新目录\x1b[0m`);
+      console.log(
+        `\x1b[33m⚠ 本机 profile 没能删除（${dropped.reason}）—— 不影响云端复位，下次跑会另开新目录\x1b[0m`,
+      );
     }
     return ok ? 0 : 1;
   }
@@ -164,20 +168,26 @@ async function main() {
 
   const scenario = scenarios.find((s) => s.meta.name === (scenarioArg ?? scenarios[0].meta.name));
   if (!scenario) {
-    console.error(`未知场景：${scenarioArg}\n可用：${scenarios.map((s) => s.meta.name).join(', ')}`);
+    console.error(
+      `未知场景：${scenarioArg}\n可用：${scenarios.map((s) => s.meta.name).join(', ')}`,
+    );
     return 1;
   }
 
   requireCredentials(cfg);
 
   const report = createReport(scenario.meta.describe);
-  console.log(`\n\x1b[1mE2E: ${scenario.meta.name}\x1b[0m  \x1b[2m${scenario.meta.describe}\x1b[0m`);
+  console.log(
+    `\n\x1b[1mE2E: ${scenario.meta.name}\x1b[0m  \x1b[2m${scenario.meta.describe}\x1b[0m`,
+  );
   console.log(
     `\x1b[2m配置: 账号=${cfg.email} · 扩展=${cfg.extDir.replace(ROOT + '/', '')} · ${cfg.headless ? '无头' : '有头'}` +
       ` · profile=${cfg.profileRoot.replace(ROOT + '/', '')}${cfg.fresh ? ' · --fresh' : ''}\x1b[0m`,
   );
   if (!existsSync(ENV_PATH)) {
-    console.log(`\x1b[2m（提示：凭据来自环境变量；把 EMAIL/PASSWORD 写进 .workbuddy/e2e.env 可免每次导出）\x1b[0m`);
+    console.log(
+      `\x1b[2m（提示：凭据来自环境变量；把 EMAIL/PASSWORD 写进 .workbuddy/e2e.env 可免每次导出）\x1b[0m`,
+    );
   }
 
   let extra = {};

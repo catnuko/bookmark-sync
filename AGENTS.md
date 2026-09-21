@@ -3,36 +3,43 @@
 本地代码驱动，远端只通过 Supabase CLI / CI 部署。**MCP 只读，CLI 写远端；迁移文件和函数源码是唯一真实来源。**
 
 ## Supabase 目录（已内联）
+
 - `supabase/` 是本仓库的普通目录，承载 Supabase 项目的迁移、边缘函数与配置，**直接改、直接提交**（2026-09-19 起由中央仓库 + submodule 内联而来，旧仓库 catnuko/supabase-snaply-multi 已归档，历史随 subtree 合并保留在本仓库）。
 - **仓库规范见 `supabase/TENANTS.md`**（含命名占用、迁移编号推导规则、10 条规范，其中 RLS 变更必须配 role-play 测试）。
 - 部署命令在 `supabase/` 目录下执行：`supabase db push` / `supabase functions deploy <name>`。
 
 ## 唯一写路径
+
 - 数据库：`supabase/migrations/*.sql`
 - 边缘函数：`supabase/functions/<name>/index.ts`
 - 部署命令：`supabase db push` / `supabase functions deploy <name>`
 
 ## 禁止
+
 - 禁止用 MCP / Dashboard SQL 编辑器直接修改远端结构。
 - 禁止跳过迁移文件直接执行 DDL。
 - 禁止修改已提交的历史迁移（只新增迁移，不回头改 0001~0007）。
 
 ## 变更流程
+
 - 数据库：`supabase migration new <name>` → 编辑 SQL → `supabase db push`（直连远端，无需本地数据库/Docker）。
 - 边缘函数：编辑 `supabase/functions/<name>/index.ts` → `supabase functions deploy <name>`。
 - secrets 不写入代码，用 `supabase secrets set` 或 CI secrets 管理。
 - 每次变更后更新本地文件并提交 Git。需要远端写操作时，先给出迁移文件、函数代码或命令，等用户审查后再执行。
 
 ## 本地环境（无 Docker / 无本地 PostgreSQL）
+
 - 沙箱环境无法运行 Docker（无 iptables / 无 KVM），且不安装本地 PostgreSQL。
 - 读远端 schema：用 `introspect.js`（Node pg 直连，走 socat 隧道），不要把远端结构写入本地数据库。
 - 本地验证迁移：可选方案为 Node 嵌入式 Postgres（如 `embedded-postgres` 包，轻量、随项目临时起停）；默认不安装。
 
 ## MCP 边界
+
 - 允许：只读查询（SELECT）、列 schema、看日志（list_tables / get_logs 等）。
 - 禁止：`apply_migration`、`create_table`、`deploy_edge_function`、任何写 SQL。
 
 ## 基线
+
 - 远端现状已通过 `functions download` + introspect 脚本（Node pg 直连，沙箱无 Docker 故未用 `db pull`）同步到本地（见 baseline 提交）。
 - 基线化补齐了远端绕过迁移直接创建的对象：0008（License/Token 计费系统 7 表 + 8 函数）、0009（废弃 bsync_bookmarks）。
 - 后续远端漂移必须先同步为迁移文件，再继续开发。
@@ -55,6 +62,7 @@
 **开发流程：所有改动走 `dev` 分支，用 Conventional Commits 提交；合并到 `main` 即全自动发版，全程无人操作（release PR 自动合并，不做人工合并）。**
 
 ### 全自动闭环（`.github/workflows/release.yml`）
+
 1. push / 合并到 main → release-please 按约定式提交计算下一版本
 2. release-please 自动更新 `package.json` + `CHANGELOG.md` + manifest 版本（extra-files），并开 release PR
 3. workflow 的 **Auto-merge** 步骤自动合并该 PR（`gh pr merge --merge`）
@@ -62,11 +70,13 @@
 5. build job 构建并上传 `bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip`
 
 ### 版本管理文件（勿手动改版本号发版）
+
 - `release-please-config.json`：extra-files 让 release PR 同步 `public/manifest.json`、`public/manifest.firefox.json` 的 `version` 字段
 - `.release-please-manifest.json`：版本基线（当前 2.1.0）
 - **禁止**手动改 package.json 版本号或手动打 tag / 建 Release——会绕过 release-please 导致版本错乱（v2.0.0 就是这么出的岔子：release PR 悬挂、manifest 版本滞后）
 
 ### 要点（踩过的坑，勿回退）
+
 - `permissions` 必须 `contents: write` + **`pull-requests: write`**，否则 release-please 建 PR 报 "Resource not accessible by integration"。
 - 仓库设置需开启 **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**。
 - `pnpm/action-setup@v4` 必须给 `version: 10`，否则报 "No pnpm version is specified"。

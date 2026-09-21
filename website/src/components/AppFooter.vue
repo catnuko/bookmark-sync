@@ -1,23 +1,23 @@
 <script setup>
-import { useI18n } from "vue-i18n";
+import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
 const productLinks = [
-  { label: "nav.features", to: "/#features" },
-  { label: "nav.pricing", to: "/pricing" },
-  { label: "nav.download", to: "/download" },
+  { label: 'nav.features', to: '/#features' },
+  { label: 'nav.pricing', to: '/pricing' },
+  { label: 'nav.download', to: '/download' },
 ];
 
 const resourceLinks = [
-  { label: "nav.docs", to: "/docs" },
-  { label: "nav.support", to: "/support" },
+  { label: 'nav.docs', to: '/docs' },
+  { label: 'nav.support', to: '/support' },
 ];
 
 // 法律链接弱化处理：只在底部版权行以小字号呈现
 const legalLinks = [
-  { label: "nav.privacy", to: "/privacy" },
-  { label: "nav.terms", to: "/terms" },
+  { label: 'nav.privacy', to: '/privacy' },
+  { label: 'nav.terms', to: '/terms' },
 ];
 </script>
 
@@ -27,14 +27,14 @@ const legalLinks = [
       <div class="footer-brand">
         <RouterLink to="/" class="brand">
           <img src="/favicon.svg" alt="BookmarkSync" width="28" height="28" />
-          <span class="brand-name">{{ t("brand.name") }}</span>
+          <span class="brand-name">{{ t('brand.name') }}</span>
         </RouterLink>
-        <p class="footer-tagline">{{ t("footer.tagline") }}</p>
+        <p class="footer-tagline">{{ t('footer.tagline') }}</p>
       </div>
 
       <div class="footer-cols">
         <div class="footer-col">
-          <h4 class="footer-title">{{ t("footer.product") }}</h4>
+          <h4 class="footer-title">{{ t('footer.product') }}</h4>
           <RouterLink
             v-for="link in productLinks"
             :key="link.label"
@@ -46,7 +46,7 @@ const legalLinks = [
         </div>
 
         <div class="footer-col">
-          <h4 class="footer-title">{{ t("footer.resources") }}</h4>
+          <h4 class="footer-title">{{ t('footer.resources') }}</h4>
           <RouterLink
             v-for="link in resourceLinks"
             :key="link.label"
@@ -61,27 +61,33 @@ const legalLinks = [
 
     <div class="container footer-bottom">
       <div class="footer-bottom-left">
-        <p class="copyright">{{ t("footer.copyright") }}</p>
+        <p class="copyright">{{ t('footer.copyright') }}</p>
         <nav class="legal-links" aria-label="Legal">
-          <RouterLink
-            v-for="link in legalLinks"
-            :key="link.label"
-            :to="link.to"
-            class="legal-link"
-          >
+          <RouterLink v-for="link in legalLinks" :key="link.label" :to="link.to" class="legal-link">
             {{ t(link.label) }}
           </RouterLink>
         </nav>
       </div>
-      <a
-        :href="`mailto:${t('contact.supportEmail')}`"
-        class="footer-support"
-      >
+      <a :href="`mailto:${t('contact.supportEmail')}`" class="footer-support">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8" />
-          <path d="M3 7l9 6 9-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <rect
+            x="3"
+            y="5"
+            width="18"
+            height="14"
+            rx="2"
+            stroke="currentColor"
+            stroke-width="1.8"
+          />
+          <path
+            d="M3 7l9 6 9-6"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
-        <span>{{ t("contact.supportEmail") }}</span>
+        <span>{{ t('contact.supportEmail') }}</span>
       </a>
     </div>
   </footer>

@@ -14,10 +14,10 @@ const cache = new Map();
  * @returns {string}
  */
 export function t(key, ...subs) {
-  const cacheKey = subs.length ? `${key}\u0001${subs.join("\u0001")}` : key;
+  const cacheKey = subs.length ? `${key}\u0001${subs.join('\u0001')}` : key;
   const hit = cache.get(cacheKey);
   if (hit !== undefined) return hit;
-  let msg = globalThis.chrome?.i18n?.getMessage(key, subs.map(String)) ?? "";
+  let msg = globalThis.chrome?.i18n?.getMessage(key, subs.map(String)) ?? '';
   if (!msg) msg = key; // 缺键时显式暴露键名，便于发现漏配
   cache.set(cacheKey, msg);
   return msg;
@@ -25,5 +25,5 @@ export function t(key, ...subs) {
 
 /** 浏览器 UI 语言（如 "zh-CN" / "en-US"），用于设置 document.documentElement.lang */
 export function uiLanguage() {
-  return globalThis.chrome?.i18n?.getUILanguage?.() ?? "en";
+  return globalThis.chrome?.i18n?.getUILanguage?.() ?? 'en';
 }

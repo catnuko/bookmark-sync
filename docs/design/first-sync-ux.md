@@ -4,6 +4,7 @@
 > 新会话直接读本文件即可继续实施。实施前先看本文「0. 仓库当前状态」。
 
 > **【2026-09-13 实施状态更新】§4 实施清单 1~3 已全部完成，构建通过（vite + firefox），未提交。**
+>
 > - `src/sync.js`：旧账号级 mergeAck / `merge_confirm_needed` 已删除并整体替换为四象限首同步判定（`first_sync_confirm_needed`，附 localCount / remoteCount / localOnlyCount / remoteEncrypted / hasTombstones + spaceId）；ack 键为 `firstSyncAck:<uid>:<spaceId>`；新增 `pullOverwriteLocal()`（pull → applyNodes → 基线重置为远端 → push 一次登记设备）；新增 `countLocalOnlyBookmarks()`（覆盖警告的精确删除条数，身份规则与 applyNodes 保留规则一致）。
 > - `src/App.vue`：旧 merge modal 替换为首同步决策 modal（条数对比、合并/覆盖/暂不同步三选项、覆盖 armed 两步确认、E2EE 先导密钥——导入成功后自动重新 runSync 检测回到四象限）。
 > - `src/background.js`：pending 文案区分「等待确认(首同步)」与「等待同步密钥」。
@@ -15,18 +16,19 @@
 
 本轮（UI 重构 + 额度按条展示）改动**已完成但未提交**，新会话开始时先确认 `git status` 与下表一致：
 
-| 位置 | 状态 | 内容 |
-|------|------|------|
-| `src/App.vue` | 已修改未提交 | 黑白主题 UI 重写；移除历史记录功能；移除手动设备命名；配额改按条展示（Free 500 / Plus 10,000 / Pro·Lifetime 不限数量）；`window.prompt/confirm` 替换为行内改名 + 两步删除确认 |
-| `src/sync.js` | 已修改未提交 | 设备名自动检测（`getDeviceName` 解析 UA → "浏览器 · 系统"）；删除 `listSnapshots`/`restoreSnapshot`/`getActiveSpaceId`/`setDeviceName`；新增 `countServerBookmarks()`（本地基线条数回退）；合并确认结果带 `device_id` |
-| `supabase/`（submodule） | 未提交 | 新增 `migrations/0016_profile_used_count.sql`（`bsync_get_profile` 返回 `used_count`）；`TENANTS.md` 水位 0012→0016。**0016 尚未 `db push`，等所有者审查** |
-| 产物 | 已重建 | `extension/`、`extension-firefox/`（gitignore，勿提交） |
+| 位置                     | 状态         | 内容                                                                                                                                                                                                                  |
+| ------------------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/App.vue`            | 已修改未提交 | 黑白主题 UI 重写；移除历史记录功能；移除手动设备命名；配额改按条展示（Free 500 / Plus 10,000 / Pro·Lifetime 不限数量）；`window.prompt/confirm` 替换为行内改名 + 两步删除确认                                         |
+| `src/sync.js`            | 已修改未提交 | 设备名自动检测（`getDeviceName` 解析 UA → "浏览器 · 系统"）；删除 `listSnapshots`/`restoreSnapshot`/`getActiveSpaceId`/`setDeviceName`；新增 `countServerBookmarks()`（本地基线条数回退）；合并确认结果带 `device_id` |
+| `supabase/`（submodule） | 未提交       | 新增 `migrations/0016_profile_used_count.sql`（`bsync_get_profile` 返回 `used_count`）；`TENANTS.md` 水位 0012→0016。**0016 尚未 `db push`，等所有者审查**                                                            |
+| 产物                     | 已重建       | `extension/`、`extension-firefox/`（gitignore，勿提交）                                                                                                                                                               |
 
 关键事实：**HEAD（3b5d05d）里仍有旧版 `restoreSnapshot` / `applyNodes(restore:true)` 完整实现**，本方案「远程覆盖本地」路径可直接从 git 历史找回（`git show HEAD:src/sync.js`）。
 
 ## 1. 需求原始表述（所有者原话归纳）
 
 自动检测到新设备时：
+
 1. 若账号下已有同步过的远程数据 → 发出同步确认，让用户确认是否从远程同步到本地，**警告将覆盖本地书签**；
 2. 若无远程数据 → 自动把本浏览器书签同步到远程，尽量无感。
 
@@ -45,12 +47,12 @@
 
 ### 2.2 四象限行为矩阵（首次同步该空间时）
 
-| 本地书签 | 远程书签 | 行为 |
-|---------|---------|------|
-| 空（全新安装） | 有数据 | **自动拉取**（无感，最高频场景，不打扰） |
-| 有数据 | 空 | **自动推送**（无感） |
-| 空 | 空 | 只登记设备（push 即登记），无事发生 |
-| 有数据 | 有数据 | **弹确认**（唯一打断点），三选一：合并（推荐，= 现三态合并）/ 远程覆盖本地 / 暂不同步 |
+| 本地书签       | 远程书签 | 行为                                                                                  |
+| -------------- | -------- | ------------------------------------------------------------------------------------- |
+| 空（全新安装） | 有数据   | **自动拉取**（无感，最高频场景，不打扰）                                              |
+| 有数据         | 空       | **自动推送**（无感）                                                                  |
+| 空             | 空       | 只登记设备（push 即登记），无事发生                                                   |
+| 有数据         | 有数据   | **弹确认**（唯一打断点），三选一：合并（推荐，= 现三态合并）/ 远程覆盖本地 / 暂不同步 |
 
 - 「本地空/有数据」判定：`readLocalTree()` 结果中 `type==='bookmark'` 节点数为 0 / >0（文件夹不计）。
 - 「远程有数据」判定：`bsync_snapshot_pull` 返回的 `bookmarks` 数组非空（runSync 首步本来就会 pull，无额外开销）。
@@ -68,6 +70,7 @@ pullOverwriteLocal():
 ```
 
 注意：
+
 - 参考实现 = HEAD 里的 `restoreSnapshot`（apply + 重置基线 + push），可整体搬运改造成无 UI 入口的内部函数；
 - 覆盖后本地多出的书签被删除且**不产生墓碑**（基线里没有它们）——即覆盖是本机行为，不传播删除，这符合语义；
 - 警告文案要精确：「云端的 X 条书签会同步下来；本机有、云端没有的书签（N 条）将被删除」，而不是笼统的「清空本地」。

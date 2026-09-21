@@ -11,12 +11,12 @@
 
 bookmark-sync v2 的后端已经具备完整的业务实体，但全部面向"用户看自己的数据"：
 
-| 已有实体 | 面向用户的能力 | 运营/作者的盲区 |
-|---|---|---|
-| `auth.users` + `bsync_profiles` | 自己的 plan / 用量 | 不知道总用户量、付费转化率、谁超额 |
-| `bsync_subscriptions` / `bsync_orders` | 自己的订阅状态 | 不知道今天收了多少钱、谁在退订 |
-| `bsync_spaces` / `bsync_devices` | 自己的空间和设备 | 不知道哪台设备最近活跃、哪里有异常 |
-| `bsync_op_log` / `bsync_snapshots` | 自己的同步流 | 不知道日志增长速度、GC 是否在跑 |
+| 已有实体                               | 面向用户的能力     | 运营/作者的盲区                    |
+| -------------------------------------- | ------------------ | ---------------------------------- |
+| `auth.users` + `bsync_profiles`        | 自己的 plan / 用量 | 不知道总用户量、付费转化率、谁超额 |
+| `bsync_subscriptions` / `bsync_orders` | 自己的订阅状态     | 不知道今天收了多少钱、谁在退订     |
+| `bsync_spaces` / `bsync_devices`       | 自己的空间和设备   | 不知道哪台设备最近活跃、哪里有异常 |
+| `bsync_op_log` / `bsync_snapshots`     | 自己的同步流       | 不知道日志增长速度、GC 是否在跑    |
 
 现在这些问题只能登录 Supabase Dashboard 裸查 SQL，每次都是临时手写查询，既不安全也不可复用。后台管理系统就是把这些高频查询固化成页面。
 
@@ -41,11 +41,11 @@ bookmark-sync v2 的后端已经具备完整的业务实体，但全部面向"�
 
 ## 3. 角色与权限
 
-| 角色 | 判定方式 | 能做什么 |
-|---|---|---|
-| 匿名 | 未登录 | 仅能访问 `/admin/login`，其它一律跳登录 |
-| 普通登录用户 | 在 `auth.users` 但不在 `bsync_admins` | 看到 403 页，提示"无权访问" |
-| 管理员 | 在 `bsync_admins` 中 | 全部页面；只读为主，仅"改 plan / 重置用量 / 清空数据 / GC 维护"等少量写操作 |
+| 角色         | 判定方式                              | 能做什么                                                                    |
+| ------------ | ------------------------------------- | --------------------------------------------------------------------------- |
+| 匿名         | 未登录                                | 仅能访问 `/admin/login`，其它一律跳登录                                     |
+| 普通登录用户 | 在 `auth.users` 但不在 `bsync_admins` | 看到 403 页，提示"无权访问"                                                 |
+| 管理员       | 在 `bsync_admins` 中                  | 全部页面；只读为主，仅"改 plan / 重置用量 / 清空数据 / GC 维护"等少量写操作 |
 
 管理员名单维护：作者本人在 Supabase Dashboard 或 SQL 往 `bsync_admins` 插一行 `(<author_uid>)` 即可，无需后台界面（人少、低频，加界面是过度设计）。所有后台写操作写入 `bsync_admin_audit_log`，前台 `/admin/audit` 可查。
 
@@ -135,26 +135,27 @@ Supabase Postgres  ◄────────────────┘
 
 ### 5.1 后端 RPC 清单（迁移 0020~0029）
 
-| 函数 | 迁移 | 入参 | 说明 |
-|---|---|---|---|
-| `bsync_admin_project_id()` | 0020 | 无 | bsync 租户 project_id 常量，硬编码防伪造 |
-| `assert_bsync_admin()` | 0020 | 无 | 管理员断言：非成员抛 forbidden，所有 admin_* 第一行调用 |
-| `admin_whoami()` | 0020 | 无 | 路由守卫用：`{is_admin, email}`，非管理员不抛错 |
-| `admin_overview()` | 0020 | 无 | 首页聚合：用户/付费/设备/订单/op_log + 30 天趋势 |
-| `admin_list_users(p_search, p_plan, p_sort, p_limit, p_offset)` | 0020 | 分页+筛选 | 用户列表（含设备/空间数/最后活跃聚合） |
-| `admin_get_user(p_user)` | 0020 | 用户 id | 详情：profile + 订阅 + 空间 + 设备 + 最近 20 条订单 |
-| `admin_set_user_plan(p_user, p_plan)` | 0020 | id + plan | 改 plan 并对齐配额；写审计 |
-| `admin_reset_usage(p_user)` | 0020 | 用户 id | 清零 used_bytes/used_count；写审计 |
-| `admin_list_orders(p_status, p_plan, p_limit, p_offset)` | 0020 | 筛选分页 | 订单流水（join 邮箱） |
-| `admin_list_subscriptions(p_status)` | 0020 | 状态 | 订阅列表，active 排前 |
-| `admin_system_stats()` | 0020+0024 | 无 | 监控：op_log 量 + GC 健康 + Top 用户（0024 扩展待 GC/超阈值） |
-| `admin_reset_user_data(p_user)` | 0023 | 用户 id | 一键清空同步数据 + 重置盐/用量；写审计 |
-| `admin_get_gc_stats(p_user)` | 0024 | 用户 id | 单用户 GC 监控（阈值/最近 GC/各空间 op 与快照元数据） |
-| `admin_set_gc_threshold(p_user, p_threshold)` | 0024 | id + 阈值 | 设动态 GC 阈值（0=默认）；写审计 |
-| `admin_request_gc(p_user)` | 0024 | 用户 id | 置 gc_requested，设备下次同步自动压缩；写审计 |
-| `admin_list_audit_log(p_action, p_target, p_limit, p_offset)` | 0026 | 筛选分页 | 审计日志查询（join 管理员/目标邮箱） |
+| 函数                                                            | 迁移      | 入参      | 说明                                                          |
+| --------------------------------------------------------------- | --------- | --------- | ------------------------------------------------------------- |
+| `bsync_admin_project_id()`                                      | 0020      | 无        | bsync 租户 project_id 常量，硬编码防伪造                      |
+| `assert_bsync_admin()`                                          | 0020      | 无        | 管理员断言：非成员抛 forbidden，所有 admin_* 第一行调用       |
+| `admin_whoami()`                                                | 0020      | 无        | 路由守卫用：`{is_admin, email}`，非管理员不抛错               |
+| `admin_overview()`                                              | 0020      | 无        | 首页聚合：用户/付费/设备/订单/op_log + 30 天趋势              |
+| `admin_list_users(p_search, p_plan, p_sort, p_limit, p_offset)` | 0020      | 分页+筛选 | 用户列表（含设备/空间数/最后活跃聚合）                        |
+| `admin_get_user(p_user)`                                        | 0020      | 用户 id   | 详情：profile + 订阅 + 空间 + 设备 + 最近 20 条订单           |
+| `admin_set_user_plan(p_user, p_plan)`                           | 0020      | id + plan | 改 plan 并对齐配额；写审计                                    |
+| `admin_reset_usage(p_user)`                                     | 0020      | 用户 id   | 清零 used_bytes/used_count；写审计                            |
+| `admin_list_orders(p_status, p_plan, p_limit, p_offset)`        | 0020      | 筛选分页  | 订单流水（join 邮箱）                                         |
+| `admin_list_subscriptions(p_status)`                            | 0020      | 状态      | 订阅列表，active 排前                                         |
+| `admin_system_stats()`                                          | 0020+0024 | 无        | 监控：op_log 量 + GC 健康 + Top 用户（0024 扩展待 GC/超阈值） |
+| `admin_reset_user_data(p_user)`                                 | 0023      | 用户 id   | 一键清空同步数据 + 重置盐/用量；写审计                        |
+| `admin_get_gc_stats(p_user)`                                    | 0024      | 用户 id   | 单用户 GC 监控（阈值/最近 GC/各空间 op 与快照元数据）         |
+| `admin_set_gc_threshold(p_user, p_threshold)`                   | 0024      | id + 阈值 | 设动态 GC 阈值（0=默认）；写审计                              |
+| `admin_request_gc(p_user)`                                      | 0024      | 用户 id   | 置 gc_requested，设备下次同步自动压缩；写审计                 |
+| `admin_list_audit_log(p_action, p_target, p_limit, p_offset)`   | 0026      | 筛选分页  | 审计日志查询（join 管理员/目标邮箱）                          |
 
 所有函数：
+
 - `SECURITY DEFINER` + `SET search_path = public`
 - 开头：`perform public.assert_bsync_admin();`
 - 匿名角色 `revoke all`，仅 `authenticated` 可调用（函数内再做管理员断言）
@@ -204,12 +205,14 @@ website/src/admin/
 ## 8. 落地与自测
 
 ### 8.1 交付物
+
 1. `docs/admin/PROPOSAL.md`（本文件，同步至 0029）
 2. `supabase/migrations/0020~0029`（本仓库 `supabase/` 目录，已内联；历史沿革见归档仓库 `catnuko/supabase-snaply-multi`）
 3. `website/src/admin/**`（前端全部代码）
 4. `tests/admin/**`（vitest 单测）
 
 ### 8.2 自测口径
+
 - `pnpm --dir website build`：Vite 构建通过，`/admin/*` 路由 chunk 产出（含 AdminAuditView）
 - `pnpm vitest run`：admin 纯函数与 API 层 mock 全绿（当前 21 个 admin 用例）
 - 本地 `pnpm --dir website dev`：
@@ -218,6 +221,7 @@ website/src/admin/
   - （作者在 `bsync_admins` 中）各页面可加载、表格有数据、审计页可查
 
 ### 8.3 部署步骤（作者操作）
+
 1. 迁移已随中央仓库入库：`0020 admin_rpc` / `0021 space_create_auth` / `0022 fix_space_quota` / `0023 admin_reset_user_data` / `0024 admin_gc_managed` / `0025 waitlist` / `0026 admin_audit_view` / `0027 tighten_project_members_insert` / `0028 bsync_admins` / `0029 drop_license_and_shared_registry`
 2. 在 `supabase/` 目录跑 `supabase db push`（0028/0029 已于 9/19 随单租户化一并部署）
 3. 在 `bsync_admins` 给作者账号插一行 `(<author_uid>)`
@@ -236,11 +240,11 @@ website/src/admin/
 
 ## 10. 变更记录
 
-| 日期 | 变更 |
-|---|---|
-| 2026-09-14 | 初版（分支 `feat/admin-console`，含 license 模块设想） |
-| 2026-09-15 | 0020 部署生产；分支迁移至 `dev` 并删除 feat 分支；卡密 RPC 移除 |
-| 2026-09-17 | 0023 一键清空、0024 GC 托管入库 |
-| 2026-09-18 | 0026 审计查看页（`/admin/audit`）；本文件同步：删 license 模块、补 GC/清空/审计，RPC 清单更新为 16 个 |
-| 2026-09-19 | 0027 收紧 `project_members` 写入权限（修「自插管理员项目 → 自封管理员」提权洞 + revoke authenticated 的 TRUNCATE 等）；已部署并通过 RLS 模拟测试 |
+| 日期       | 变更                                                                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-14 | 初版（分支 `feat/admin-console`，含 license 模块设想）                                                                                                           |
+| 2026-09-15 | 0020 部署生产；分支迁移至 `dev` 并删除 feat 分支；卡密 RPC 移除                                                                                                  |
+| 2026-09-17 | 0023 一键清空、0024 GC 托管入库                                                                                                                                  |
+| 2026-09-18 | 0026 审计查看页（`/admin/audit`）；本文件同步：删 license 模块、补 GC/清空/审计，RPC 清单更新为 16 个                                                            |
+| 2026-09-19 | 0027 收紧 `project_members` 写入权限（修「自插管理员项目 → 自封管理员」提权洞 + revoke authenticated 的 TRUNCATE 等）；已部署并通过 RLS 模拟测试                 |
 | 2026-09-19 | 单租户化：0028 管理员判定改查自有 `bsync_admins`；0029 拆除 license 子系统与共享注册表（数据确认为测试数据后清空），license 逻辑保留 git 历史；本文件同步至 0029 |

@@ -88,8 +88,9 @@ describe('operation-level E2EE', () => {
   it('6. wrong space (AAD) cannot decrypt', async () => {
     const key = await generateKey();
     const env = await encryptMoveOp(makeOp(1, 'a', 'n'), key, SPACE);
-    await expect(decryptMoveOp(env, key, '99999999-0000-4000-8000-000000000000'))
-      .rejects.toBeInstanceOf(DecryptionError);
+    await expect(
+      decryptMoveOp(env, key, '99999999-0000-4000-8000-000000000000'),
+    ).rejects.toBeInstanceOf(DecryptionError);
   });
 
   it('7. exportKey -> importKey roundtrip', async () => {
@@ -137,8 +138,9 @@ describe('operation-level E2EE', () => {
   it('13. malformed envelope rejected', async () => {
     const key = await generateKey();
     // @ts-expect-error intentionally malformed input
-    await expect(decryptMoveOp({ iv: 123, ciphertext: 'x' }, key, SPACE))
-      .rejects.toBeInstanceOf(DecryptionError);
+    await expect(decryptMoveOp({ iv: 123, ciphertext: 'x' }, key, SPACE)).rejects.toBeInstanceOf(
+      DecryptionError,
+    );
   });
 
   it('14. empty-metadata op roundtrips', async () => {
@@ -152,16 +154,19 @@ describe('operation-level E2EE', () => {
     const real = await generateKey(); // 256-bit
     const env = await encryptMoveOp(makeOp(1, 'a', 'n'), real, SPACE);
     // 16 raw bytes -> WebCrypto derives AES-128, which must fail GCM auth.
-    const shortKey = await importKey(
-      Buffer.from(new Uint8Array(16)).toString('base64'),
-    );
+    const shortKey = await importKey(Buffer.from(new Uint8Array(16)).toString('base64'));
     await expect(decryptMoveOp(env, shortKey, SPACE)).rejects.toBeInstanceOf(DecryptionError);
   });
 
   it('16. ciphertext is opaque (no plaintext leak)', async () => {
     const key = await generateKey();
     const secret = 'super-secret-title-xyzzy';
-    const op: MoveOp = { t: { counter: 1, replicaId: 'r' }, p: ROOT_NODE_ID, m: { title: secret }, c: 'c' };
+    const op: MoveOp = {
+      t: { counter: 1, replicaId: 'r' },
+      p: ROOT_NODE_ID,
+      m: { title: secret },
+      c: 'c',
+    };
     const env = await encryptMoveOp(op, key, SPACE);
     expect(env.ciphertext).not.toContain(secret);
     expect(env.iv).not.toContain(secret);

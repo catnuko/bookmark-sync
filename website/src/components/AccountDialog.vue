@@ -1,33 +1,33 @@
 <script setup>
 // 登录 / 注册弹窗 —— 官网订阅前需要先有 Supabase 登录态（与扩展同账号）
-import { ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { signIn, signUp } from "../lib/account.js";
+import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { signIn, signUp } from '../lib/account.js';
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(['close']);
 
 const { t } = useI18n();
-const mode = ref("login"); // login / register
-const email = ref("");
-const password = ref("");
+const mode = ref('login'); // login / register
+const email = ref('');
+const password = ref('');
 const busy = ref(false);
-const error = ref("");
-const info = ref("");
+const error = ref('');
+const info = ref('');
 
 async function submit() {
   if (busy.value) return;
   busy.value = true;
-  error.value = "";
-  info.value = "";
+  error.value = '';
+  info.value = '';
   try {
-    const fn = mode.value === "login" ? signIn : signUp;
+    const fn = mode.value === 'login' ? signIn : signUp;
     const { error: err, needsEmailConfirm } = await fn(email.value.trim(), password.value);
     if (err) {
       error.value = err.message;
     } else if (needsEmailConfirm) {
-      info.value = t("account.emailConfirmSent");
+      info.value = t('account.emailConfirmSent');
     } else {
-      emit("close");
+      emit('close');
     }
   } catch (e) {
     error.value = e?.message || String(e);
@@ -40,31 +40,56 @@ async function submit() {
 <template>
   <div class="dialog-mask" @click.self="emit('close')">
     <div class="dialog" role="dialog" aria-modal="true">
-      <h3 class="dialog-title">{{ mode === "login" ? t("account.loginTitle") : t("account.registerTitle") }}</h3>
-      <p class="dialog-sub">{{ t("account.loginSub") }}</p>
+      <h3 class="dialog-title">
+        {{ mode === 'login' ? t('account.loginTitle') : t('account.registerTitle') }}
+      </h3>
+      <p class="dialog-sub">{{ t('account.loginSub') }}</p>
 
       <form @submit.prevent="submit">
         <label class="field">
-          <span>{{ t("account.email") }}</span>
+          <span>{{ t('account.email') }}</span>
           <input v-model="email" type="email" required autocomplete="email" />
         </label>
         <label class="field">
-          <span>{{ t("account.password") }}</span>
-          <input v-model="password" type="password" required minlength="6" autocomplete="current-password" />
+          <span>{{ t('account.password') }}</span>
+          <input
+            v-model="password"
+            type="password"
+            required
+            minlength="6"
+            autocomplete="current-password"
+          />
         </label>
 
         <p v-if="error" class="dialog-error">{{ error }}</p>
         <p v-if="info" class="dialog-info">{{ info }}</p>
 
         <button class="btn btn-primary dialog-submit" type="submit" :disabled="busy">
-          {{ busy ? t("account.processing") : mode === "login" ? t("account.login") : t("account.register") }}
+          {{
+            busy
+              ? t('account.processing')
+              : mode === 'login'
+                ? t('account.login')
+                : t('account.register')
+          }}
         </button>
       </form>
 
-      <button class="dialog-switch" type="button" @click="mode = mode === 'login' ? 'register' : 'login'">
-        {{ mode === "login" ? t("account.toRegister") : t("account.toLogin") }}
+      <button
+        class="dialog-switch"
+        type="button"
+        @click="mode = mode === 'login' ? 'register' : 'login'"
+      >
+        {{ mode === 'login' ? t('account.toRegister') : t('account.toLogin') }}
       </button>
-      <button class="dialog-close" type="button" :aria-label="t('account.close')" @click="emit('close')">✕</button>
+      <button
+        class="dialog-close"
+        type="button"
+        :aria-label="t('account.close')"
+        @click="emit('close')"
+      >
+        ✕
+      </button>
     </div>
   </div>
 </template>

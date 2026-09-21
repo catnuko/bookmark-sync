@@ -4,21 +4,24 @@
 // 克隆的普通对象，无 Xray 问题）→ 转发 bookmark-sync 扩展测试通道 →
 // 结果 postMessage 回传。
 (() => {
-  window.addEventListener("message", (e) => {
+  window.addEventListener('message', (e) => {
     const data = e.data;
     if (!data || data.__bsyncBridge !== true || data.__resp === true) return;
-    browser.runtime
-      .sendMessage({ method: data.method, payload: data.payload ?? {} })
-      .then(
-        (result) => {
-          window.postMessage({ __bsyncBridge: true, __resp: true, id: data.id, result }, "*");
-        },
-        (err) => {
-          window.postMessage(
-            { __bsyncBridge: true, __resp: true, id: data.id, result: { ok: false, error: String(err) } },
-            "*",
-          );
-        },
-      );
+    browser.runtime.sendMessage({ method: data.method, payload: data.payload ?? {} }).then(
+      (result) => {
+        window.postMessage({ __bsyncBridge: true, __resp: true, id: data.id, result }, '*');
+      },
+      (err) => {
+        window.postMessage(
+          {
+            __bsyncBridge: true,
+            __resp: true,
+            id: data.id,
+            result: { ok: false, error: String(err) },
+          },
+          '*',
+        );
+      },
+    );
   });
 })();

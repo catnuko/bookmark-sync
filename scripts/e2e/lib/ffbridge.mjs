@@ -26,7 +26,13 @@ export async function startBridgeServer(port = 9455) {
 }
 
 export function stopBridgeServer() {
-  if (server) { try { server.close(); } catch {} server = null; serverUrl = null; }
+  if (server) {
+    try {
+      server.close();
+    } catch {}
+    server = null;
+    serverUrl = null;
+  }
 }
 
 /** 打开桥页面（content script 已注入），返回 browsing context id。 */
@@ -76,5 +82,7 @@ export async function waitFor(bidi, ctx, fn, timeoutMs = 90000, intervalMs = 200
     if (last) return last;
     await sleep(intervalMs);
   }
-  throw new Error(`waitFor 超时（${timeoutMs}ms），最后一次结果: ${JSON.stringify(last)?.slice(0, 300)}`);
+  throw new Error(
+    `waitFor 超时（${timeoutMs}ms），最后一次结果: ${JSON.stringify(last)?.slice(0, 300)}`,
+  );
 }

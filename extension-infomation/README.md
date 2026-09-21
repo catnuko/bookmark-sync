@@ -6,7 +6,6 @@
 支持邮件：support@bookmark-sync.top
 网站：https://www.bookmark-sync.top
 
-
 ## 2. 软件包中的摘要（≤132 字符）
 
 **推荐（有卖点）**
@@ -115,9 +114,9 @@ A: All bookmark operations are encrypted on your device before upload. The serve
 
 ## 4. 类别 / 语言（表单下拉）
 
-| 字段 | 值 |
-|---|---|
-| 类别 | 工具 |
+| 字段 | 值           |
+| ---- | ------------ |
+| 类别 | 工具         |
 | 语言 | 中文（中国） |
 
 ## 5. 商店图标
@@ -127,12 +126,12 @@ A: All bookmark operations are encrypted on your device before upload. The serve
 
 ## 6. 其他商店字段（供填写时参考）
 
-| 字段 | 值 |
-|---|---|
-| 主页（Homepage URL） | https://www.bookmark-sync.top |
+| 字段                                 | 值                                        |
+| ------------------------------------ | ----------------------------------------- |
+| 主页（Homepage URL）                 | https://www.bookmark-sync.top             |
 | 支持信息页面网址（Support page URL） | **https://www.bookmark-sync.top/support** |
-| 隐私政策（Privacy Policy URL） | https://www.bookmark-sync.top/privacy |
-| 支持邮箱 | support@bookmark-sync.top |
+| 隐私政策（Privacy Policy URL）       | https://www.bookmark-sync.top/privacy     |
+| 支持邮箱                             | support@bookmark-sync.top                 |
 
 > 支持页已新建（/support，含联系邮箱 + FAQ + 资源链接），部署后即可访问；若官网尚未部署该版本，可先用支持邮箱 `support@bookmark-sync.top` 兜底。
 

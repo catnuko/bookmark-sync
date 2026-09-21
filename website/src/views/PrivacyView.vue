@@ -1,20 +1,17 @@
 <script setup>
-import { computed } from "vue";
-import { useI18n } from "vue-i18n";
-import { SITE_UPDATED } from "../lib/site-meta.js";
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { SITE_UPDATED } from '../lib/site-meta.js';
 
 const { t } = useI18n();
 
-const sections = ["collect", "store", "use", "share", "delete", "contact"];
+const sections = ['collect', 'store', 'use', 'share', 'delete', 'contact'];
 
 // contact 小节把邮箱包裹成可点击 mailto 链接
 const contactBody = computed(() => {
-  const email = t("contact.supportEmail");
-  const body = t("privacy.sections.contact.body");
-  return body.replace(
-    email,
-    `<a href="mailto:${email}" class="privacy-email">${email}</a>`
-  );
+  const email = t('contact.supportEmail');
+  const body = t('privacy.sections.contact.body');
+  return body.replace(email, `<a href="mailto:${email}" class="privacy-email">${email}</a>`);
 });
 </script>
 
@@ -22,21 +19,17 @@ const contactBody = computed(() => {
   <div class="privacy-page">
     <section class="section privacy-hero">
       <div class="container container-narrow">
-        <p class="section-eyebrow">{{ t("privacy.eyebrow") }}</p>
-        <h1 class="section-title">{{ t("privacy.title") }}</h1>
-        <p class="privacy-updated">{{ t("privacy.updatedAtPrefix") }} {{ SITE_UPDATED }}</p>
-        <p class="privacy-intro">{{ t("privacy.intro") }}</p>
+        <p class="section-eyebrow">{{ t('privacy.eyebrow') }}</p>
+        <h1 class="section-title">{{ t('privacy.title') }}</h1>
+        <p class="privacy-updated">{{ t('privacy.updatedAtPrefix') }} {{ SITE_UPDATED }}</p>
+        <p class="privacy-intro">{{ t('privacy.intro') }}</p>
       </div>
     </section>
 
     <section class="section privacy-body">
       <div class="container container-narrow">
         <div class="privacy-sections">
-          <div
-            v-for="key in sections"
-            :key="key"
-            class="privacy-section"
-          >
+          <div v-for="key in sections" :key="key" class="privacy-section">
             <h2 class="privacy-h2">{{ t(`privacy.sections.${key}.title`) }}</h2>
             <p v-if="key === 'contact'" class="privacy-p" v-html="contactBody"></p>
             <p v-else class="privacy-p">{{ t(`privacy.sections.${key}.body`) }}</p>

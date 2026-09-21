@@ -64,8 +64,16 @@ describe('ReplicaStateStore persistence', () => {
     expect(loaded.counter).toBe(r.counter);
     expect(loaded.state.log.length).toBe(r.state.log.length);
     expect(loaded.getOps()).toEqual(r.getOps());
-    expect(loaded.getChildren(ROOT_NODE_ID).map((c) => c.id).sort()).toEqual(
-      r.getChildren(ROOT_NODE_ID).map((c) => c.id).sort(),
+    expect(
+      loaded
+        .getChildren(ROOT_NODE_ID)
+        .map((c) => c.id)
+        .sort(),
+    ).toEqual(
+      r
+        .getChildren(ROOT_NODE_ID)
+        .map((c) => c.id)
+        .sort(),
     );
     expect(loaded.getParent(b)).toBe(a);
   });

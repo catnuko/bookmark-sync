@@ -228,9 +228,7 @@ export class Replica {
    * project each LogMove back into a MoveOp.
    */
   getOps(): MoveOp[] {
-    return [...this.state.log]
-      .sort((a, b) => cmpTimestamp(a.t, b.t))
-      .map(logMoveToOp);
+    return [...this.state.log].sort((a, b) => cmpTimestamp(a.t, b.t)).map(logMoveToOp);
   }
 
   /** Current parent of `childId`, or null if the node is unknown. */

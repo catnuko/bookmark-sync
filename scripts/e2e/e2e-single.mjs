@@ -13,7 +13,16 @@
  */
 import { launchChromium } from './lib/launch.mjs';
 import { waitForExtensionSw, connect, sleep } from './lib/cdp.mjs';
-import { openPopup, loginIfNeeded, ensureSpace, clickSyncAndWait, createBookmark, getTree, flattenTree, bodyText } from './lib/popup.mjs';
+import {
+  openPopup,
+  loginIfNeeded,
+  ensureSpace,
+  clickSyncAndWait,
+  createBookmark,
+  getTree,
+  flattenTree,
+  bodyText,
+} from './lib/popup.mjs';
 import { sql, opCount, opRows } from './lib/supabase.mjs';
 
 const EMAIL = process.env.EMAIL;
@@ -40,7 +49,11 @@ await clickSyncAndWait(page);
 console.log('[single] 首次同步完成');
 
 const before = await opCount();
-const bm = await createBookmark(swCdp, { parentId: '2', title: `E2E-单设备-${Date.now() % 100000}`, url: `https://e2e-single.example.com/${Date.now()}` });
+const bm = await createBookmark(swCdp, {
+  parentId: '2',
+  title: `E2E-单设备-${Date.now() % 100000}`,
+  url: `https://e2e-single.example.com/${Date.now()}`,
+});
 console.log('[single] 创建书签:', bm.id, bm.title);
 await sleep(8000); // flushSoon 2s + 网络往返
 
@@ -59,12 +72,20 @@ if (!allEncrypted) process.exit(1);
 // 再次同步 → reverseApply 幂等写回
 await clickSyncAndWait(page);
 const tree = flattenTree(await getTree(swCdp));
-console.log('[single] chrome 树节点数:', tree.length, ' 含新建书签:', tree.some((n) => n.title === bm.title));
+console.log(
+  '[single] chrome 树节点数:',
+  tree.length,
+  ' 含新建书签:',
+  tree.some((n) => n.title === bm.title),
+);
 if (!tree.some((n) => n.title === bm.title)) {
   console.error('FAIL: 本机树缺少刚创建的书签');
   process.exit(1);
 }
 
 console.log('\n✅ e2e-single 全部通过');
-console.log('最后 popup 状态:', (await bodyText(page)).split('\n').filter(Boolean).slice(-6).join(' | '));
+console.log(
+  '最后 popup 状态:',
+  (await bodyText(page)).split('\n').filter(Boolean).slice(-6).join(' | '),
+);
 process.exit(0);

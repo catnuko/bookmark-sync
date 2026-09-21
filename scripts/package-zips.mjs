@@ -2,15 +2,15 @@
 //   dist/bookmark-sync-chromium-<ver>.zip   ← extension/ 内容
 //   dist/bookmark-sync-firefox-<ver>.zip    ← extension-firefox/ 内容
 // manifest.json 必须位于 zip 根目录（与 .github/workflows/release.yml 的 CI 打包口径一致）。
-import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from "node:fs";
-import { join, relative } from "node:path";
-import { deflateRawSync } from "node:zlib";
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { deflateRawSync } from 'node:zlib';
 
-const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const ver = pkg.version;
 const targets = [
-  { dir: "extension", out: `dist/bookmark-sync-chromium-${ver}.zip` },
-  { dir: "extension-firefox", out: `dist/bookmark-sync-firefox-${ver}.zip` },
+  { dir: 'extension', out: `dist/bookmark-sync-chromium-${ver}.zip` },
+  { dir: 'extension-firefox', out: `dist/bookmark-sync-firefox-${ver}.zip` },
 ];
 
 // ---- CRC32（zip 规范要求）----
@@ -46,8 +46,10 @@ function walkFiles(root) {
 // 打包单个目录 → zip Buffer。deflate 压缩，比原文大时回退 stored。
 function makeZip(dir) {
   const now = new Date();
-  const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
-  const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+  const dosTime =
+    ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+  const dosDate =
+    (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
 
   const files = walkFiles(dir);
   const locals = [];
@@ -55,8 +57,8 @@ function makeZip(dir) {
   let offset = 0;
 
   for (const abs of files) {
-    const name = relative(dir, abs).replaceAll("\\", "/");
-    const nameBuf = Buffer.from(name, "utf8");
+    const name = relative(dir, abs).replaceAll('\\', '/');
+    const nameBuf = Buffer.from(name, 'utf8');
     const data = readFileSync(abs);
     const crc = crc32(data);
     let method = 8;
@@ -117,16 +119,16 @@ function makeZip(dir) {
   return Buffer.concat([...locals, centralBuf, eocd]);
 }
 
-mkdirSync("dist", { recursive: true });
+mkdirSync('dist', { recursive: true });
 for (const { dir, out } of targets) {
-  const names = walkFiles(dir).map((f) => relative(dir, f).replaceAll("\\", "/"));
-  if (!names.includes("manifest.json")) {
+  const names = walkFiles(dir).map((f) => relative(dir, f).replaceAll('\\', '/'));
+  if (!names.includes('manifest.json')) {
     console.error(`[package-zips] ${dir}/ 里没有 manifest.json —— 先构建（pnpm build:all）再打包`);
     process.exit(1);
   }
   const zip = makeZip(dir);
   writeFileSync(out, zip);
   console.log(
-    `[package-zips] ${out} (${(zip.length / 1024).toFixed(1)} KB, ${names.length} 个文件, manifest 在根目录)`
+    `[package-zips] ${out} (${(zip.length / 1024).toFixed(1)} KB, ${names.length} 个文件, manifest 在根目录)`,
   );
 }

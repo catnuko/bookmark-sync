@@ -2,8 +2,8 @@
   <template v-if="!state.session">
     <!-- 设置页未登录：居中登录视图 -->
     <div class="opt">
-      <div class="opt-content" style="display:flex;justify-content:center">
-        <div style="width:360px;padding-top:48px">
+      <div class="opt-content" style="display: flex; justify-content: center">
+        <div style="width: 360px; padding-top: 48px">
           <AuthView />
         </div>
       </div>
@@ -38,23 +38,23 @@
 </template>
 
 <script setup>
-import { state } from "../store.js";
-import { t } from "../lib/i18n.js";
-import AuthView from "./AuthView.vue";
-import PaneAccount from "./PaneAccount.vue";
-import PaneSync from "./PaneSync.vue";
-import PaneSpaces from "./PaneSpaces.vue";
-import PaneCrypto from "./PaneCrypto.vue";
-import PaneAdvanced from "./PaneAdvanced.vue";
-import PaneHelp from "./PaneHelp.vue";
-import Icon from "./ui/Icon.vue";
+import { state } from '../store.js';
+import { t } from '../lib/i18n.js';
+import AuthView from './AuthView.vue';
+import PaneAccount from './PaneAccount.vue';
+import PaneSync from './PaneSync.vue';
+import PaneSpaces from './PaneSpaces.vue';
+import PaneCrypto from './PaneCrypto.vue';
+import PaneAdvanced from './PaneAdvanced.vue';
+import PaneHelp from './PaneHelp.vue';
+import Icon from './ui/Icon.vue';
 
 const panes = [
-  { id: "account", label: () => t("account_title"), icon: "user" },
-  { id: "sync", label: () => t("sync_title"), icon: "sync" },
-  { id: "spaces", label: () => t("spaces_title"), icon: "monitor" },
-  { id: "crypto", label: () => t("crypto_title"), icon: "shield" },
-  { id: "advanced", label: () => t("adv_title"), icon: "gear" },
-  { id: "help", label: () => t("common_help"), icon: "help" },
+  { id: 'account', label: () => t('account_title'), icon: 'user' },
+  { id: 'sync', label: () => t('sync_title'), icon: 'sync' },
+  { id: 'spaces', label: () => t('spaces_title'), icon: 'monitor' },
+  { id: 'crypto', label: () => t('crypto_title'), icon: 'shield' },
+  { id: 'advanced', label: () => t('adv_title'), icon: 'gear' },
+  { id: 'help', label: () => t('common_help'), icon: 'help' },
 ];
 </script>

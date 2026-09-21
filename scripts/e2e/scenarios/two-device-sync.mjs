@@ -60,17 +60,28 @@ export async function run({ cfg, report }) {
 
     const otherA = await devA.otherBookmarksId();
     const folder = await devA.bookmarksCreate({ parentId: otherA, title: FOLDER });
-    await devA.bookmarksCreate({ parentId: folder.id, title: BOOK_A, url: `https://${MARKER}.test/a` });
-    await devA.bookmarksCreate({ parentId: folder.id, title: BOOK_B, url: `https://${MARKER}.test/b` });
+    await devA.bookmarksCreate({
+      parentId: folder.id,
+      title: BOOK_A,
+      url: `https://${MARKER}.test/a`,
+    });
+    await devA.bookmarksCreate({
+      parentId: folder.id,
+      title: BOOK_B,
+      url: `https://${MARKER}.test/b`,
+    });
     report.info('本机已建', `1 文件夹 + 2 书签（folder id=${folder.id}）`);
 
     const pushA = await devA.triggerSync(cfg.timeouts.sync);
     report.assert('设备 A 同步成功', pushA?.ok === true, JSON.stringify(pushA).slice(0, 200));
 
-    const st = await cloud.waitCloud(() => {
-      const s = cloud.opStats(MARKER);
-      return s.ops > 0 ? s : null;
-    }, { timeoutMs: 40_000, intervalMs: 800 });
+    const st = await cloud.waitCloud(
+      () => {
+        const s = cloud.opStats(MARKER);
+        return s.ops > 0 ? s : null;
+      },
+      { timeoutMs: 40_000, intervalMs: 800 },
+    );
     report.assert('云端已收到 A 的操作', !!st && st.ops > 0, `op=${st?.ops ?? 0}`);
     if (st) {
       report.equals('云端 op 全为密文信封（iv + ciphertext）', st.not_enveloped, 0);
@@ -96,8 +107,16 @@ export async function run({ cfg, report }) {
     const folderB = flatB.find((n) => n.title === FOLDER);
     const bookAB = flatB.find((n) => n.title === BOOK_A);
     const bookBB = flatB.find((n) => n.title === BOOK_B);
-    report.assert('设备 B 出现了文件夹', !!folderB && folderB.folder, folderB ? `id=${folderB.id}` : '(无)');
-    report.assert('设备 B 出现了书签 a', !!bookAB && !bookAB.folder, bookAB ? `url=${bookAB.url}` : '(无)');
+    report.assert(
+      '设备 B 出现了文件夹',
+      !!folderB && folderB.folder,
+      folderB ? `id=${folderB.id}` : '(无)',
+    );
+    report.assert(
+      '设备 B 出现了书签 a',
+      !!bookAB && !bookAB.folder,
+      bookAB ? `url=${bookAB.url}` : '(无)',
+    );
     report.assert('设备 B 出现了书签 b', !!bookBB, bookBB ? `url=${bookBB.url}` : '(无)');
     report.assert(
       '书签 a 的父节点就是那个文件夹（父子关系也被同步）',
@@ -115,22 +134,38 @@ export async function run({ cfg, report }) {
     );
     // 注意：书签 id 是**每台设备各自的**（设备 B 上的是另一串 id），必须用 B 自己那份。
     if (!bookAB?.id) {
-      throw new Error('设备 B 上没有书签 a 的 id，无法执行删除（前面的「结构重现」断言已失败，先修那里）');
+      throw new Error(
+        '设备 B 上没有书签 a 的 id，无法执行删除（前面的「结构重现」断言已失败，先修那里）',
+      );
     }
-    await devB.swEval(`(async () => await chrome.bookmarks.remove(${JSON.stringify(bookAB.id)}))()`);
-    const goneB = await waitTree(devB, (f) => !f.some((n) => n.title === BOOK_A) && f.some((n) => n.title === BOOK_B), {
-      timeoutMs: 20_000,
-      intervalMs: 800,
-      label: '等设备 B 本机删除生效',
-    });
+    await devB.swEval(
+      `(async () => await chrome.bookmarks.remove(${JSON.stringify(bookAB.id)}))()`,
+    );
+    const goneB = await waitTree(
+      devB,
+      (f) => !f.some((n) => n.title === BOOK_A) && f.some((n) => n.title === BOOK_B),
+      {
+        timeoutMs: 20_000,
+        intervalMs: 800,
+        label: '等设备 B 本机删除生效',
+      },
+    );
     report.assert('设备 B 本机已删除书签 a', !goneB.some((n) => n.title === BOOK_A), '');
-    report.assert('删除是精准的：兄弟书签 b 还在设备 B 上', goneB.some((n) => n.title === BOOK_B), '');
+    report.assert(
+      '删除是精准的：兄弟书签 b 还在设备 B 上',
+      goneB.some((n) => n.title === BOOK_B),
+      '',
+    );
 
     const delB = await devB.triggerSync(cfg.timeouts.sync);
     report.assert('设备 B 删除后同步成功', delB?.ok === true, JSON.stringify(delB).slice(0, 200));
 
     const pushA2 = await devA.triggerSync(cfg.timeouts.sync);
-    report.assert('设备 A 同步成功（拉取删除）', pushA2?.ok === true, JSON.stringify(pushA2).slice(0, 200));
+    report.assert(
+      '设备 A 同步成功（拉取删除）',
+      pushA2?.ok === true,
+      JSON.stringify(pushA2).slice(0, 200),
+    );
 
     const flatA = await waitTree(devA, (f) => !f.some((n) => n.title === BOOK_A), {
       timeoutMs: 75_000,
@@ -140,10 +175,21 @@ export async function run({ cfg, report }) {
     report.assert(
       '设备 A 上的书签 a 已消失（墓碑生效；不做这步就测不出「删了又回来」）',
       !flatA.some((n) => n.title === BOOK_A),
-      flatA.filter((n) => n.title.includes(MARKER)).map((n) => n.title).join(','),
+      flatA
+        .filter((n) => n.title.includes(MARKER))
+        .map((n) => n.title)
+        .join(','),
     );
-    report.assert('设备 A 上的文件夹还在（没被连带删掉）', flatA.some((n) => n.title === FOLDER), '');
-    report.assert('设备 A 上的书签 b 还在（没被连带删掉）', flatA.some((n) => n.title === BOOK_B), '');
+    report.assert(
+      '设备 A 上的文件夹还在（没被连带删掉）',
+      flatA.some((n) => n.title === FOLDER),
+      '',
+    );
+    report.assert(
+      '设备 A 上的书签 b 还在（没被连带删掉）',
+      flatA.some((n) => n.title === BOOK_B),
+      '',
+    );
 
     // ------------------------------------------------------------ 收尾断言
     const st2 = cloud.opStats(MARKER);
@@ -156,7 +202,9 @@ export async function run({ cfg, report }) {
     return extra;
   } finally {
     for (const d of devices) {
-      await d.close({ keepProfile: cfg.keepProfiles }).catch((e) => report.info('关闭设备失败', e.message));
+      await d
+        .close({ keepProfile: cfg.keepProfiles })
+        .catch((e) => report.info('关闭设备失败', e.message));
     }
   }
 }

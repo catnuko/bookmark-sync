@@ -22,9 +22,22 @@
  */
 import { launchChromium } from './lib/launch.mjs';
 import { waitForExtensionSw, connect, sleep } from './lib/cdp.mjs';
-import { openPopup, loginIfNeeded, ensureSpace, clickSyncAndWait, createBookmark, getTree, flattenTree } from './lib/popup.mjs';
+import {
+  openPopup,
+  loginIfNeeded,
+  ensureSpace,
+  clickSyncAndWait,
+  createBookmark,
+  getTree,
+  flattenTree,
+} from './lib/popup.mjs';
 import { launchFirefox } from './lib/launchFirefox.mjs';
-import { startBridgeServer, openBridgePage, bridgeCall, stopBridgeServer } from './lib/ffbridge.mjs';
+import {
+  startBridgeServer,
+  openBridgePage,
+  bridgeCall,
+  stopBridgeServer,
+} from './lib/ffbridge.mjs';
 import { opCount, sql } from './lib/supabase.mjs';
 import { execSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
@@ -42,12 +55,20 @@ if (!EMAIL || !PASSWORD) {
 // ── 清理：杀残留测试浏览器 + 删 profile ─────────────────────────────
 // 注意：grep 只能匹配 profile 路径特征（不能匹配脚本名，会误杀自身）。
 try {
-  execSync(`ps -eo pid,args | grep -E "e2e/.profiles|e2e/.ff-profiles" | grep -v grep | awk '{print $1}' | xargs -r kill -9 2>/dev/null || true`);
+  execSync(
+    `ps -eo pid,args | grep -E "e2e/.profiles|e2e/.ff-profiles" | grep -v grep | awk '{print $1}' | xargs -r kill -9 2>/dev/null || true`,
+  );
 } catch {}
 for (let i = 0; i < 20; i++) {
   await sleep(1000);
   let alive = 0;
-  try { alive = Number(execSync(`ps -eo args | grep -E "e2e/.profiles|e2e/.ff-profiles" | grep -v grep | wc -l`).toString().trim()); } catch {}
+  try {
+    alive = Number(
+      execSync(`ps -eo args | grep -E "e2e/.profiles|e2e/.ff-profiles" | grep -v grep | wc -l`)
+        .toString()
+        .trim(),
+    );
+  } catch {}
   if (alive === 0) break;
 }
 rmSync(join(ROOT, 'e2e', '.profiles'), { recursive: true, force: true });
@@ -75,16 +96,25 @@ await clickSyncAndWait(pageA);
 console.log('[ffsync] A(Chromium) 已就绪并首次同步');
 
 const titleA = `A-Cr-${Date.now() % 100000}`;
-await createBookmark(swA, { parentId: '2', title: titleA, url: 'https://e2e-a.example.com/' + Date.now() });
+await createBookmark(swA, {
+  parentId: '2',
+  title: titleA,
+  url: 'https://e2e-a.example.com/' + Date.now(),
+});
 console.log('[ffsync] A 创建 A1:', titleA);
 await sleep(8000); // 等事件桥 flush
 await clickSyncAndWait(pageA);
 console.log('[ffsync] A 已推送 A1');
 
 // A 的 E2EE 密钥 → B
-const aKey = await pageA.eval(`(async () => (await chrome.storage.local.get(['crdt.e2eeKey','crdt.e2eeSalt'])) )()`);
+const aKey = await pageA.eval(
+  `(async () => (await chrome.storage.local.get(['crdt.e2eeKey','crdt.e2eeSalt'])) )()`,
+);
 const bInject = await bridgeCall(bidi, ctx, 'storage.set', {
-  values: { 'crdt.e2eeKey': aKey.val?.['crdt.e2eeKey'], 'crdt.e2eeSalt': aKey.val?.['crdt.e2eeSalt'] },
+  values: {
+    'crdt.e2eeKey': aKey.val?.['crdt.e2eeKey'],
+    'crdt.e2eeSalt': aKey.val?.['crdt.e2eeSalt'],
+  },
 });
 console.log('[ffsync] B 注入 A 的 E2EE 密钥:', bInject.ok ? 'ok' : JSON.stringify(bInject));
 if (!aKey.val?.['crdt.e2eeKey']) {
@@ -103,10 +133,15 @@ if (!syncB1.ok) process.exit(1);
 
 const treeB = await bridgeCall(bidi, ctx, 'bookmarks.getTree', {});
 const flatB = [];
-const walkB = (nodes, out) => { for (const n of nodes) { if (n.title) out.push({ title: n.title, id: n.id, parentId: n.parentId }); if (n.children) walkB(n.children, out); } };
+const walkB = (nodes, out) => {
+  for (const n of nodes) {
+    if (n.title) out.push({ title: n.title, id: n.id, parentId: n.parentId });
+    if (n.children) walkB(n.children, out);
+  }
+};
 walkB(treeB.tree ?? [], flatB);
 const bHasA1 = flatB.some((n) => n.title === titleA);
-console.log('[ffsync] B 树含 A1:', bHasA1, ' B 树:', flatB.map(n => n.title).join(','));
+console.log('[ffsync] B 树含 A1:', bHasA1, ' B 树:', flatB.map((n) => n.title).join(','));
 if (!bHasA1) {
   console.error('FAIL: Firefox 未拉到 Chromium 的书签 A1（reverseApply 未生效）');
   process.exit(1);
@@ -115,7 +150,9 @@ if (!bHasA1) {
 // ── B 建 B1 → 推送 → A 拉到 ────────────────────────────────────────
 const titleB = `B-FF-${Date.now() % 100000}`;
 const createdB = await bridgeCall(bidi, ctx, 'bookmarks.create', {
-  parentId: 'toolbar_____', title: titleB, url: 'https://e2e-b.example.com/' + Date.now(),
+  parentId: 'toolbar_____',
+  title: titleB,
+  url: 'https://e2e-b.example.com/' + Date.now(),
 });
 console.log('[ffsync] B 创建 B1:', createdB.ok ? createdB.node?.id : JSON.stringify(createdB));
 if (!createdB.ok) process.exit(1);
@@ -125,11 +162,23 @@ await bridgeCall(bidi, ctx, 'sync', {});
 await clickSyncAndWait(pageA);
 const treeA = flattenTree(await getTree(swA));
 const aHasB1 = treeA.some((n) => n.title === titleB);
-console.log('[ffsync] A 树含 B1:', aHasB1, ' A 树:', treeA.filter(n => n.title).map(n => n.title).join(','));
+console.log(
+  '[ffsync] A 树含 B1:',
+  aHasB1,
+  ' A 树:',
+  treeA
+    .filter((n) => n.title)
+    .map((n) => n.title)
+    .join(','),
+);
 // 诊断：A 的同步水位与错误、云端 op 明细
-const aDiag = await pageA.eval(`(async () => (await chrome.storage.local.get(['crdt.afterId','lastSyncError','lastRaError'])) )()`);
+const aDiag = await pageA.eval(
+  `(async () => (await chrome.storage.local.get(['crdt.afterId','lastSyncError','lastRaError'])) )()`,
+);
 console.log('[ffsync][诊断] A storage:', JSON.stringify(aDiag.val));
-const rows = await sql('SELECT id, device_id, seq, space_id, left(op::text, 80) AS op FROM bsync_op_log ORDER BY id;');
+const rows = await sql(
+  'SELECT id, device_id, seq, space_id, left(op::text, 80) AS op FROM bsync_op_log ORDER BY id;',
+);
 console.log('[ffsync][诊断] op_log:', JSON.stringify(rows));
 if (!aHasB1) {
   console.error('FAIL: Chromium 未拉到 Firefox 的书签 B1');
@@ -148,13 +197,25 @@ walkB(treeB2.tree ?? [], flatB2);
 const treeA2 = flattenTree(await getTree(swA));
 
 const count = (list, t) => list.filter((n) => n.title === t).length;
-const a1InA = count(treeA2, titleA), b1InA = count(treeA2, titleB);
-const a1InB = count(flatB2, titleA), b1InB = count(flatB2, titleB);
+const a1InA = count(treeA2, titleA),
+  b1InA = count(treeA2, titleB);
+const a1InB = count(flatB2, titleA),
+  b1InB = count(flatB2, titleB);
 const converged = a1InA === 1 && b1InA === 1 && a1InB === 1 && b1InB === 1;
 const ops = await opCount();
-console.log('[ffsync] 双向收敛（两端各恰 1 个 A1/B1）:', converged, `A侧=[A1×${a1InA},B1×${b1InA}] B侧=[A1×${a1InB},B1×${b1InB}]`);
-console.log('[ffsync] A 树:', treeA2.filter(n => n.title).map(n => n.title).join(','));
-console.log('[ffsync] B 树:', flatB2.map(n => n.title).join(','));
+console.log(
+  '[ffsync] 双向收敛（两端各恰 1 个 A1/B1）:',
+  converged,
+  `A侧=[A1×${a1InA},B1×${b1InA}] B侧=[A1×${a1InB},B1×${b1InB}]`,
+);
+console.log(
+  '[ffsync] A 树:',
+  treeA2
+    .filter((n) => n.title)
+    .map((n) => n.title)
+    .join(','),
+);
+console.log('[ffsync] B 树:', flatB2.map((n) => n.title).join(','));
 console.log('[ffsync] op_log 总数:', ops, ops === 2 ? '（仅 A1+B1 create）' : '（预期 2）');
 if (!converged || ops !== 2) {
   console.error('FAIL: 双端未收敛 / 有重复 / op_log 数异常');
@@ -165,7 +226,9 @@ if (!converged || ops !== 2) {
 // 场景 M1：Firefox 在 menu________ 建书签 → Chromium 的「书签菜单」文件夹出现
 const titleM1 = `M-FF-${Date.now() % 100000}`;
 const m1 = await bridgeCall(bidi, ctx, 'bookmarks.create', {
-  parentId: 'menu________', title: titleM1, url: 'https://e2e-menu-ff.example.com/' + Date.now(),
+  parentId: 'menu________',
+  title: titleM1,
+  url: 'https://e2e-menu-ff.example.com/' + Date.now(),
 });
 console.log('[ffsync] B 在 menu________ 建书签:', m1.ok ? m1.node?.id : JSON.stringify(m1));
 if (!m1.ok) process.exit(1);
@@ -175,7 +238,10 @@ await bridgeCall(bidi, ctx, 'sync', {});
 await clickSyncAndWait(pageA);
 const treeAM = flattenTree(await getTree(swA));
 const menuFolder = treeAM.find((n) => n.title === '书签菜单');
-console.log('[ffsync] A 的「书签菜单」文件夹:', menuFolder ? `${menuFolder.id}（parent=${menuFolder.parentId}）` : '缺失!');
+console.log(
+  '[ffsync] A 的「书签菜单」文件夹:',
+  menuFolder ? `${menuFolder.id}（parent=${menuFolder.parentId}）` : '缺失!',
+);
 if (!menuFolder) {
   console.error('FAIL: Chromium 端没有自动创建「书签菜单」文件夹');
   process.exit(1);
@@ -189,7 +255,11 @@ if (!aHasM1) {
 
 // 场景 M2：Chromium 在「书签菜单」文件夹建书签 → Firefox menu________ 出现
 const titleM2 = `M-Cr-${Date.now() % 100000}`;
-await createBookmark(swA, { parentId: menuFolder.id, title: titleM2, url: 'https://e2e-menu-cr.example.com/' + Date.now() });
+await createBookmark(swA, {
+  parentId: menuFolder.id,
+  title: titleM2,
+  url: 'https://e2e-menu-cr.example.com/' + Date.now(),
+});
 console.log('[ffsync] A 在「书签菜单」建书签:', titleM2);
 await sleep(8000);
 await clickSyncAndWait(pageA);
@@ -211,11 +281,16 @@ const treeB4 = await bridgeCall(bidi, ctx, 'bookmarks.getTree', {});
 const flatB4 = [];
 walkB(treeB4.tree ?? [], flatB4);
 const menuConverged =
-  count(treeA3, titleM1) === 1 && count(treeA3, titleM2) === 1 &&
-  count(flatB4, titleM1) === 1 && count(flatB4, titleM2) === 1;
-console.log('[ffsync] 菜单双向收敛（M1/M2 两端各恰 1）:', menuConverged,
+  count(treeA3, titleM1) === 1 &&
+  count(treeA3, titleM2) === 1 &&
+  count(flatB4, titleM1) === 1 &&
+  count(flatB4, titleM2) === 1;
+console.log(
+  '[ffsync] 菜单双向收敛（M1/M2 两端各恰 1）:',
+  menuConverged,
   `A侧=[M1×${count(treeA3, titleM1)},M2×${count(treeA3, titleM2)}] ` +
-  `B侧=[M1×${count(flatB4, titleM1)},M2×${count(flatB4, titleM2)}]`);
+    `B侧=[M1×${count(flatB4, titleM1)},M2×${count(flatB4, titleM2)}]`,
+);
 if (!menuConverged) {
   console.error('FAIL: 菜单书签双向未收敛');
   process.exit(1);
@@ -223,7 +298,11 @@ if (!menuConverged) {
 
 stopBridgeServer();
 try {
-  execSync(`ps -eo pid,args | grep "e2e/.ff-profiles" | grep -v grep | awk '{print $1}' | xargs -r kill 2>/dev/null || true`);
+  execSync(
+    `ps -eo pid,args | grep "e2e/.ff-profiles" | grep -v grep | awk '{print $1}' | xargs -r kill 2>/dev/null || true`,
+  );
 } catch {}
-console.log('\n✅ e2e-ff-sync 通过：Chromium × Firefox 跨浏览器双向同步收敛正常（含书签菜单 menu________ ↔ 书签菜单文件夹）');
+console.log(
+  '\n✅ e2e-ff-sync 通过：Chromium × Firefox 跨浏览器双向同步收敛正常（含书签菜单 menu________ ↔ 书签菜单文件夹）',
+);
 process.exit(0);

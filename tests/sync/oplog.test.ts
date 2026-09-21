@@ -6,10 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  MemoryOpLogTransport,
-  SyncCoordinator,
-} from '../../src/sync/index.js';
+import { MemoryOpLogTransport, SyncCoordinator } from '../../src/sync/index.js';
 import {
   generateKey,
   exportKey,
@@ -89,7 +86,12 @@ describe('oplog transport (mock Supabase)', () => {
     const wrong = await generateKey();
 
     const sender = new SyncCoordinator({ spaceId: SPACE, deviceId: 'A', transport: t, key: right });
-    const snooper = new SyncCoordinator({ spaceId: SPACE, deviceId: 'B', transport: t, key: wrong });
+    const snooper = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'B',
+      transport: t,
+      key: wrong,
+    });
 
     sender.createNode(ROOT_NODE_ID, { title: 'secret' });
     await sender.flushPush();

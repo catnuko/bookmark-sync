@@ -40,7 +40,10 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: 'Method not allowed' }, 405);
   }
   if (!CREEM_API_KEY) {
-    return json({ ok: false, error: 'not_configured', message: '支付渠道未配置（缺少 CREEM_API_KEY）' }, 500);
+    return json(
+      { ok: false, error: 'not_configured', message: '支付渠道未配置（缺少 CREEM_API_KEY）' },
+      500,
+    );
   }
 
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -80,7 +83,10 @@ Deno.serve(async (req: Request) => {
     const link = data?.customer_portal_link;
     if (!res.ok || !link) {
       console.error('creem portal failed:', res.status, JSON.stringify(data));
-      return json({ ok: false, error: 'portal_failed', message: '生成管理链接失败，请稍后重试' }, 502);
+      return json(
+        { ok: false, error: 'portal_failed', message: '生成管理链接失败，请稍后重试' },
+        502,
+      );
     }
     return json({ ok: true, portal_url: link, subscription_status: sub.status });
   } catch (e) {

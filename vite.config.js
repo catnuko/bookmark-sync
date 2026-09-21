@@ -1,32 +1,32 @@
-import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
-import { resolve } from "node:path";
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import { resolve } from 'node:path';
 
 // 多入口构建：options（选项页，Vue 3）+ background（MV3 service worker）
 // 产物输出到 extension/，manifest.json 由 public/ 一并拷贝。
 export default defineConfig({
-  base: "./",
+  base: './',
   plugins: [vue()],
   define: {
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
-  server:{
-    sourcemap:true,
+  server: {
+    sourcemap: true,
   },
   build: {
-    outDir: "extension",
+    outDir: 'extension',
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        options: resolve(import.meta.dirname, "options.html"),
-        popup: resolve(import.meta.dirname, "popup.html"),
-        background: resolve(import.meta.dirname, "src/background.js"),
+        options: resolve(import.meta.dirname, 'options.html'),
+        popup: resolve(import.meta.dirname, 'popup.html'),
+        background: resolve(import.meta.dirname, 'src/background.js'),
       },
       output: {
         entryFileNames: (chunk) =>
-          chunk.name === "background" ? "background.js" : "assets/[name]-[hash].js",
-        chunkFileNames: "assets/[name]-[hash].js",
-        assetFileNames: "assets/[name]-[hash][extname]",
+          chunk.name === 'background' ? 'background.js' : 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
       },
     },
   },

@@ -14,10 +14,7 @@ type Tree = CrdtState['tree'];
  * get_parent(tree, child) (Fig.4 lines 15-20).
  * Returns Some (parent, meta) if child is in the tree, else None.
  */
-export function get_parent(
-  tree: Tree,
-  child: string,
-): { p: string; m: Metadata } | null {
+export function get_parent(tree: Tree, child: string): { p: string; m: Metadata } | null {
   const entry = tree.get(child);
   if (!entry) return null;
   return { p: entry.parent, m: entry.meta };

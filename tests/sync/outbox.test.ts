@@ -41,12 +41,22 @@ describe('OutboxStore', () => {
   it('put/load/delete roundtrip with space isolation', async () => {
     const store = await makeStore();
     const key = await generateKey();
-    const c = new SyncCoordinator({ spaceId: SPACE_A, deviceId: 'd1', transport: new MemoryOpLogTransport(), key });
+    const c = new SyncCoordinator({
+      spaceId: SPACE_A,
+      deviceId: 'd1',
+      transport: new MemoryOpLogTransport(),
+      key,
+    });
     c.createNode(ROOT_NODE_ID, { title: 'x' });
     c.createNode(ROOT_NODE_ID, { title: 'y' });
     await store.putOps(SPACE_A, c.peekPendingJournal());
 
-    const c2 = new SyncCoordinator({ spaceId: SPACE_B, deviceId: 'd1', transport: new MemoryOpLogTransport(), key });
+    const c2 = new SyncCoordinator({
+      spaceId: SPACE_B,
+      deviceId: 'd1',
+      transport: new MemoryOpLogTransport(),
+      key,
+    });
     c2.createNode(ROOT_NODE_ID, { title: 'z' });
     await store.putOps(SPACE_B, c2.peekPendingJournal());
 
@@ -105,7 +115,10 @@ describe('crash recovery via outbox', () => {
 });
 
 describe('chunked push', () => {
-  function spyTransport(inner: MemoryOpLogTransport, onPush?: (ops: PushOp[]) => void): OpLogTransport {
+  function spyTransport(
+    inner: MemoryOpLogTransport,
+    onPush?: (ops: PushOp[]) => void,
+  ): OpLogTransport {
     return {
       push: async (spaceId, deviceId, ops) => {
         onPush?.(ops);
@@ -122,7 +135,13 @@ describe('chunked push', () => {
     const sizes: number[] = [];
     const transport = spyTransport(inner, (ops) => sizes.push(ops.length));
     const key = await generateKey();
-    const c = new SyncCoordinator({ spaceId: SPACE_A, deviceId: 'd1', transport, key, pushChunkSize: 2 });
+    const c = new SyncCoordinator({
+      spaceId: SPACE_A,
+      deviceId: 'd1',
+      transport,
+      key,
+      pushChunkSize: 2,
+    });
     for (let i = 0; i < 5; i++) c.createNode(ROOT_NODE_ID, { title: `n${i}` });
     const inserted = await c.flushPush();
     expect(sizes).toEqual([2, 2, 1]);
@@ -176,16 +195,31 @@ describe('chunked push', () => {
 
 describe('captureLocalTree (rescan)', () => {
   /** 最小 chrome.bookmarks 桩：直接操作树（无事件），getChildren 供断言。 */
-  function makeChrome(): { api: ChromeBookmarksAPI; addNode(parentId: string, title: string, url?: string): ChromeTreeNode; children(parentId: string): ChromeTreeNode[] } {
-    interface N extends ChromeTreeNode { parentId?: string; index?: number; url?: string; }
+  function makeChrome(): {
+    api: ChromeBookmarksAPI;
+    addNode(parentId: string, title: string, url?: string): ChromeTreeNode;
+    children(parentId: string): ChromeTreeNode[];
+  } {
+    interface N extends ChromeTreeNode {
+      parentId?: string;
+      index?: number;
+      url?: string;
+    }
     const tree = new Map<string, N>();
-    const seed = (n: N) => { tree.set(n.id, n); for (const c of n.children ?? []) seed(c); };
+    const seed = (n: N) => {
+      tree.set(n.id, n);
+      for (const c of n.children ?? []) seed(c);
+    };
     const ROOTS: N[] = [
-      { id: '0', title: '', children: [
-        { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
-        { id: '2', title: '其他书签', parentId: '0', index: 1, children: [] },
-        { id: '3', title: '移动设备书签', parentId: '0', index: 2, children: [] },
-      ] },
+      {
+        id: '0',
+        title: '',
+        children: [
+          { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
+          { id: '2', title: '其他书签', parentId: '0', index: 1, children: [] },
+          { id: '3', title: '移动设备书签', parentId: '0', index: 2, children: [] },
+        ],
+      },
     ];
     for (const r of ROOTS) seed(r);
     const api: ChromeBookmarksAPI = {
@@ -194,10 +228,17 @@ describe('captureLocalTree (rescan)', () => {
         return ROOTS.map(clone);
       },
       get: async () => [],
-      getChildren: async (parentId: string) => (tree.get(parentId)?.children ?? []).map((c) => ({ ...c })),
-      create: async () => { throw new Error('not used in rescan tests'); },
-      move: async () => { throw new Error('not used'); },
-      update: async () => { throw new Error('not used'); },
+      getChildren: async (parentId: string) =>
+        (tree.get(parentId)?.children ?? []).map((c) => ({ ...c })),
+      create: async () => {
+        throw new Error('not used in rescan tests');
+      },
+      move: async () => {
+        throw new Error('not used');
+      },
+      update: async () => {
+        throw new Error('not used');
+      },
       remove: async () => {},
       removeTree: async () => {},
       onCreated: { addListener: () => {} },
@@ -209,19 +250,33 @@ describe('captureLocalTree (rescan)', () => {
       api,
       addNode(parentId: string, title: string, url?: string): N {
         const parent = tree.get(parentId)!;
-        const node: N = { id: 'n' + Math.random().toString(36).slice(2, 8), parentId, title, url, index: parent.children!.length, children: [] };
+        const node: N = {
+          id: 'n' + Math.random().toString(36).slice(2, 8),
+          parentId,
+          title,
+          url,
+          index: parent.children!.length,
+          children: [],
+        };
         parent.children!.push(node);
         tree.set(node.id, node);
         return node;
       },
-      children(parentId: string) { return tree.get(parentId)?.children ?? []; },
+      children(parentId: string) {
+        return tree.get(parentId)?.children ?? [];
+      },
     };
   }
 
   it('is idempotent: second rescan creates zero ops', async () => {
     const chrome = makeChrome();
     chrome.addNode('1', 'Doc', 'https://a.example.com');
-    const c = new SyncCoordinator({ spaceId: SPACE_A, deviceId: 'd1', transport: new MemoryOpLogTransport(), key: await generateKey() });
+    const c = new SyncCoordinator({
+      spaceId: SPACE_A,
+      deviceId: 'd1',
+      transport: new MemoryOpLogTransport(),
+      key: await generateKey(),
+    });
     const bridge = new IdBridge();
 
     expect(await captureLocalTree(chrome.api, c, bridge)).toBe(1);
@@ -281,7 +336,11 @@ describe('captureLocalTree (rescan)', () => {
     await a.pull();
     const ROOT_TITLES = new Set(['__root__', '书签栏', '其他书签', '移动设备书签', '书签菜单', '']);
     const titles = (r: typeof a) =>
-      r.replica.getVisibleTree().map((e) => e.meta?.title ?? '').filter((t) => !ROOT_TITLES.has(t)).sort();
+      r.replica
+        .getVisibleTree()
+        .map((e) => e.meta?.title ?? '')
+        .filter((t) => !ROOT_TITLES.has(t))
+        .sort();
     expect(titles(a)).toEqual(['from-A', 'local-only']);
     expect(titles(b)).toEqual(['from-A', 'local-only']);
     // 第二轮重扫描不再产生新 op（幂等收敛）

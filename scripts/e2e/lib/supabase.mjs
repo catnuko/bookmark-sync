@@ -15,7 +15,9 @@ const TOKEN =
     : null);
 
 if (!TOKEN) {
-  throw new Error('缺少 Supabase access token（设 SUPABASE_ACCESS_TOKEN 或写 ~/.supabase_access_token）');
+  throw new Error(
+    '缺少 Supabase access token（设 SUPABASE_ACCESS_TOKEN 或写 ~/.supabase_access_token）',
+  );
 }
 
 export async function sql(query) {

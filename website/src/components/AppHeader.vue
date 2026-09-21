@@ -1,18 +1,18 @@
 <script setup>
-import { ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { toggleLocale } from "../i18n";
-import ThemeToggle from "./ThemeToggle.vue";
-import LanguageToggle from "./LanguageToggle.vue";
+import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { toggleLocale } from '../i18n';
+import ThemeToggle from './ThemeToggle.vue';
+import LanguageToggle from './LanguageToggle.vue';
 
 const { t } = useI18n();
 
 // 隐私/条款入口在页脚，页首导航只放主功能页
 const navItems = [
-  { key: "nav.home", to: "/" },
-  { key: "nav.pricing", to: "/pricing" },
-  { key: "nav.download", to: "/download" },
-  { key: "nav.docs", to: "/docs" },
+  { key: 'nav.home', to: '/' },
+  { key: 'nav.pricing', to: '/pricing' },
+  { key: 'nav.download', to: '/download' },
+  { key: 'nav.docs', to: '/docs' },
 ];
 
 const mobileOpen = ref(false);
@@ -23,7 +23,7 @@ const mobileOpen = ref(false);
     <div class="container header-inner">
       <RouterLink to="/" class="brand">
         <img src="/favicon.svg" alt="BookmarkSync" width="28" height="28" />
-        <span class="brand-name">{{ t("brand.name") }}</span>
+        <span class="brand-name">{{ t('brand.name') }}</span>
       </RouterLink>
 
       <nav class="nav-desktop">
@@ -42,7 +42,7 @@ const mobileOpen = ref(false);
         <ThemeToggle />
         <LanguageToggle />
         <RouterLink to="/download" class="btn btn-primary header-cta">
-          {{ t("hero.ctaPrimary") }}
+          {{ t('hero.ctaPrimary') }}
         </RouterLink>
         <button
           class="menu-toggle"

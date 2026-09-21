@@ -8,7 +8,13 @@
  *   EMAIL=xxx PASSWORD=yyy E2E_RESET=1 node e2e/ff-smoke.mjs
  */
 import { launchFirefox } from './lib/launchFirefox.mjs';
-import { startBridgeServer, openBridgePage, bridgeCall, waitFor, stopBridgeServer } from './lib/ffbridge.mjs';
+import {
+  startBridgeServer,
+  openBridgePage,
+  bridgeCall,
+  waitFor,
+  stopBridgeServer,
+} from './lib/ffbridge.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { opCount, sql } from './lib/supabase.mjs';
@@ -26,12 +32,18 @@ if (!EMAIL || !PASSWORD) {
 // 自清理：杀残留测试 Firefox + 删 profile（复用旧 profile 会导致临时扩展
 // content script 未重新注入，桥 ping 卡死；每次从干净起点验证）
 try {
-  execSync(`ps -eo pid,args | grep "e2e/.ff-profiles" | grep -v grep | awk '{print $1}' | xargs -r kill -9 2>/dev/null || true`);
+  execSync(
+    `ps -eo pid,args | grep "e2e/.ff-profiles" | grep -v grep | awk '{print $1}' | xargs -r kill -9 2>/dev/null || true`,
+  );
 } catch {}
 for (let i = 0; i < 15; i++) {
   await new Promise((r) => setTimeout(r, 1000));
   let alive = 0;
-  try { alive = Number(execSync(`ps -eo args | grep "e2e/.ff-profiles" | grep -v grep | wc -l`).toString().trim()); } catch {}
+  try {
+    alive = Number(
+      execSync(`ps -eo args | grep "e2e/.ff-profiles" | grep -v grep | wc -l`).toString().trim(),
+    );
+  } catch {}
   if (alive === 0) break;
 }
 rmSync(join(ROOT, 'e2e', '.ff-profiles'), { recursive: true, force: true });
@@ -62,7 +74,9 @@ console.log('[ff] sync1:', JSON.stringify(sync1));
 // 3) 建书签（Firefox toolbar 根 guid）
 const title = `FF-设备-${Date.now() % 100000}`;
 const created = await bridgeCall(bidi, ctx, 'bookmarks.create', {
-  parentId: 'toolbar_____', title, url: 'https://e2e-ff.example.com/' + Date.now(),
+  parentId: 'toolbar_____',
+  title,
+  url: 'https://e2e-ff.example.com/' + Date.now(),
 });
 console.log('[ff] create:', created.ok ? created.node?.id : JSON.stringify(created));
 if (!created.ok) process.exit(1);
@@ -73,7 +87,12 @@ await bridgeCall(bidi, ctx, 'sync', {});
 // 5) 读树断言
 const tree = await bridgeCall(bidi, ctx, 'bookmarks.getTree', {});
 const flat = [];
-const walk = (nodes) => { for (const n of nodes) { if (n.title) flat.push(n.title); if (n.children) walk(n.children); } };
+const walk = (nodes) => {
+  for (const n of nodes) {
+    if (n.title) flat.push(n.title);
+    if (n.children) walk(n.children);
+  }
+};
 walk(tree.tree ?? []);
 const has = flat.includes(title);
 console.log('[ff] 树含新建书签:', has, ' 树:', flat.join(','));

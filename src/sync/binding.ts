@@ -143,4 +143,3 @@ export function parseBinding(stored: unknown, _ownerId: string): BindingResoluti
   }
   return NO_BINDING;
 }
-

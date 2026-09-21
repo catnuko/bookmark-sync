@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { useI18n } from "vue-i18n";
-import { supabase } from "../lib/supabase.js";
+import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { supabase } from '../lib/supabase.js';
 
 const { t, tm } = useI18n();
 
@@ -11,8 +11,8 @@ const { t, tm } = useI18n();
 // 安装包托管在 Supabase Storage public bucket `downloads`（release.yml 发版时
 // 上传 + 写 latest.json），这里运行时读取最新版本号生成下载链接——发新版官网
 // 无需重新部署。latest.json 拉取失败时回落到 FALLBACK_VERSION。
-const FALLBACK_VERSION = "2.2.0";
-const STORAGE_BASE = "https://cwtqnsbpcetvqopdkcou.supabase.co/storage/v1/object/public/downloads";
+const FALLBACK_VERSION = '2.2.0';
+const STORAGE_BASE = 'https://cwtqnsbpcetvqopdkcou.supabase.co/storage/v1/object/public/downloads';
 
 const version = ref(FALLBACK_VERSION);
 const chromiumZip = computed(() => `${STORAGE_BASE}/bookmark-sync-chromium-${version.value}.zip`);
@@ -20,47 +20,49 @@ const firefoxZip = computed(() => `${STORAGE_BASE}/bookmark-sync-firefox-${versi
 
 onMounted(async () => {
   try {
-    const r = await fetch(`${STORAGE_BASE}/latest.json`, { cache: "no-store" });
+    const r = await fetch(`${STORAGE_BASE}/latest.json`, { cache: 'no-store' });
     if (!r.ok) return;
     const j = await r.json();
-    if (typeof j?.version === "string" && /^\d+(\.\d+)*$/.test(j.version)) {
+    if (typeof j?.version === 'string' && /^\d+(\.\d+)*$/.test(j.version)) {
       version.value = j.version;
     }
-  } catch { /* 网络异常时用内置版本号 */ }
+  } catch {
+    /* 网络异常时用内置版本号 */
+  }
 });
 
 const browsers = [
-  { key: "chrome", color: "#4285F4" },
-  { key: "edge", color: "#0078D7" },
-  { key: "firefox", color: "#FF7139" },
+  { key: 'chrome', color: '#4285F4' },
+  { key: 'edge', color: '#0078D7' },
+  { key: 'firefox', color: '#FF7139' },
 ];
 
 const iconPaths = {
-  chrome: "M12 2a10 10 0 11-5 18.66L9 13l3-1V2z",
-  edge: "M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-  firefox: "M12 2C8 2 5 5 5 9c0 4 3 7 7 7s7-3 7-7",
+  chrome: 'M12 2a10 10 0 11-5 18.66L9 13l3-1V2z',
+  edge: 'M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  firefox: 'M12 2C8 2 5 5 5 9c0 4 3 7 7 7s7-3 7-7',
 };
 
-const email = ref("");
+const email = ref('');
 const submitted = ref(false);
 const busy = ref(false);
-const error = ref("");
+const error = ref('');
 
 // 订阅上架通知：写入 Supabase bsync_waitlist（需先在远端执行 0025_waitlist.sql 迁移）
 async function subscribe() {
   if (busy.value) return;
-  if (!email.value || !email.value.includes("@")) return;
-  error.value = "";
+  if (!email.value || !email.value.includes('@')) return;
+  error.value = '';
   busy.value = true;
   try {
     const { error: err } = await supabase
-      .from("bsync_waitlist")
-      .insert({ email: email.value, source: "download" });
+      .from('bsync_waitlist')
+      .insert({ email: email.value, source: 'download' });
     if (err) throw err;
     submitted.value = true;
-    email.value = "";
+    email.value = '';
   } catch (e) {
-    error.value = t("download.subscribe.error");
+    error.value = t('download.subscribe.error');
   } finally {
     busy.value = false;
   }
@@ -72,20 +74,25 @@ async function subscribe() {
     <section class="section download-hero">
       <div class="container">
         <div class="section-header">
-          <p class="section-eyebrow">{{ t("download.eyebrow") }}</p>
-          <h1 class="section-title">{{ t("download.title") }}</h1>
-          <p class="section-subtitle">{{ t("download.subtitle") }}</p>
-          <p class="download-note">{{ t("download.storePendingNote") }}</p>
+          <p class="section-eyebrow">{{ t('download.eyebrow') }}</p>
+          <h1 class="section-title">{{ t('download.title') }}</h1>
+          <p class="section-subtitle">{{ t('download.subtitle') }}</p>
+          <p class="download-note">{{ t('download.storePendingNote') }}</p>
         </div>
 
         <div class="browser-grid">
-          <div
-            v-for="b in browsers"
-            :key="b.key"
-            class="browser-card browser-card-soon"
-          >
+          <div v-for="b in browsers" :key="b.key" class="browser-card browser-card-soon">
             <div class="browser-icon" :style="{ background: b.color }">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#fff"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path :d="iconPaths[b.key]" />
               </svg>
             </div>
@@ -93,7 +100,7 @@ async function subscribe() {
               <h3 class="browser-name">{{ t(`browsers.${b.key}.name`) }}</h3>
               <p class="browser-store">{{ t(`browsers.${b.key}.desc`) }}</p>
             </div>
-            <span class="browser-soon">{{ t("common.comingSoon") }}</span>
+            <span class="browser-soon">{{ t('common.comingSoon') }}</span>
           </div>
         </div>
       </div>
@@ -103,15 +110,15 @@ async function subscribe() {
     <section id="manual" class="section manual-section">
       <div class="container container-narrow">
         <div class="manual-card">
-          <h2 class="manual-title">{{ t("download.manual.title", { version }) }}</h2>
-          <p class="manual-sub">{{ t("download.manual.subtitle") }}</p>
+          <h2 class="manual-title">{{ t('download.manual.title', { version }) }}</h2>
+          <p class="manual-sub">{{ t('download.manual.subtitle') }}</p>
 
           <div class="manual-ctas">
             <a :href="chromiumZip" download class="btn btn-primary btn-lg manual-cta">
-              {{ t("download.manual.chromiumCta") }}
+              {{ t('download.manual.chromiumCta') }}
             </a>
             <a :href="firefoxZip" download class="btn btn-outline btn-lg manual-cta">
-              {{ t("download.manual.firefoxCta") }}
+              {{ t('download.manual.firefoxCta') }}
             </a>
           </div>
 
@@ -127,8 +134,8 @@ async function subscribe() {
       <div class="container">
         <div class="subscribe-card">
           <div class="subscribe-header">
-            <h2 class="subscribe-title">{{ t("download.subscribe.title") }}</h2>
-            <p class="subscribe-subtitle">{{ t("download.subscribe.subtitle") }}</p>
+            <h2 class="subscribe-title">{{ t('download.subscribe.title') }}</h2>
+            <p class="subscribe-subtitle">{{ t('download.subscribe.subtitle') }}</p>
           </div>
 
           <form v-if="!submitted" class="subscribe-form" @submit.prevent="subscribe">
@@ -140,15 +147,21 @@ async function subscribe() {
               required
             />
             <button type="submit" class="btn btn-primary btn-lg" :disabled="busy">
-              {{ busy ? t("download.subscribe.submitting") : t("download.subscribe.submit") }}
+              {{ busy ? t('download.subscribe.submitting') : t('download.subscribe.submit') }}
             </button>
           </form>
 
           <p v-else class="subscribe-success">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+              <path
+                d="M5 13l4 4L19 7"
+                stroke="currentColor"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
-            {{ t("download.subscribe.success") }}
+            {{ t('download.subscribe.success') }}
           </p>
 
           <p v-if="error" class="subscribe-error">{{ error }}</p>

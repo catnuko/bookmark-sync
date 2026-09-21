@@ -21,12 +21,7 @@
 import type { CrdtState, LogMove, MoveOp } from '../types.js';
 import { Replica } from '../replica.js';
 import { cmpTimestamp } from '../timestamp.js';
-import {
-  SNAPSHOT_KEY,
-  STORE_OPS,
-  STORE_SNAPSHOT,
-  opKey,
-} from './schema.js';
+import { SNAPSHOT_KEY, STORE_OPS, STORE_SNAPSHOT, opKey } from './schema.js';
 import { txDone } from './uuidMapping.js';
 
 /** A row in the `ops` store. */
@@ -185,9 +180,7 @@ export class ReplicaStateStore {
   async getAllOps(): Promise<MoveOp[]> {
     const tx = this.db.transaction(STORE_OPS, 'readonly');
     const rows = await reqPromise<OpRow[]>(tx.objectStore(STORE_OPS).getAll());
-    return rows
-      .map(({ opKey: _opKey, ...op }) => op)
-      .sort((a, b) => cmpTimestamp(a.t, b.t));
+    return rows.map(({ opKey: _opKey, ...op }) => op).sort((a, b) => cmpTimestamp(a.t, b.t));
   }
 
   /** Ops whose t.counter > `minCounter`, sorted by timestamp ascending. */
@@ -197,8 +190,6 @@ export class ReplicaStateStore {
     // IDBKeyRange.lowerBound(exclusive=true) -> strictly greater.
     const range = IDBKeyRange.lowerBound(minCounter, true);
     const rows = await reqPromise<OpRow[]>(index.getAll(range));
-    return rows
-      .map(({ opKey: _opKey, ...op }) => op)
-      .sort((a, b) => cmpTimestamp(a.t, b.t));
+    return rows.map(({ opKey: _opKey, ...op }) => op).sort((a, b) => cmpTimestamp(a.t, b.t));
   }
 }

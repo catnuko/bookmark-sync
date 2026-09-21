@@ -14,38 +14,38 @@
  *
  * Run standalone with:  node scripts/post-build-safari.mjs
  */
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SYNC = resolve(ROOT, "bookmark-sync/sync-extension.sh");
-const PROJ = resolve(ROOT, "bookmark-sync/bookmark-sync.xcodeproj");
-const TARGET = "bookmark-sync (macOS)";
-const CONFIG = "Debug";
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const SYNC = resolve(ROOT, 'bookmark-sync/sync-extension.sh');
+const PROJ = resolve(ROOT, 'bookmark-sync/bookmark-sync.xcodeproj');
+const TARGET = 'bookmark-sync (macOS)';
+const CONFIG = 'Debug';
 
 const paint = (code, tag) => `\x1b[${code}m${tag}\x1b[0m`;
-const log = (m) => console.log(`${paint(36, "[safari]")} ${m}`);
-const ok = (m) => console.log(`${paint(32, "[safari]")} ${m}`);
-const err = (m) => console.error(`${paint(31, "[safari]")} ${m}`);
+const log = (m) => console.log(`${paint(36, '[safari]')} ${m}`);
+const ok = (m) => console.log(`${paint(32, '[safari]')} ${m}`);
+const err = (m) => console.error(`${paint(31, '[safari]')} ${m}`);
 
 // ── 1. sync extension/ -> Xcode project ──────────────────────────────────
 if (!existsSync(SYNC)) {
   err(`sync script not found: ${SYNC}`);
   process.exit(1);
 }
-log("syncing extension/ into the Xcode Safari project ...");
+log('syncing extension/ into the Xcode Safari project ...');
 try {
-  execFileSync("bash", [SYNC], { stdio: "inherit" });
-  ok("synced: extension/ -> Shared (Extension)/Resources/");
+  execFileSync('bash', [SYNC], { stdio: 'inherit' });
+  ok('synced: extension/ -> Shared (Extension)/Resources/');
 } catch {
-  err("sync failed; aborting Xcode build.");
+  err('sync failed; aborting Xcode build.');
   process.exit(1);
 }
 
 // ── 2. platform gate ─────────────────────────────────────────────────────
-if (process.platform !== "darwin") {
+if (process.platform !== 'darwin') {
   log(`platform is '${process.platform}', not macOS -> skip Xcode build.`);
   process.exit(0);
 }
@@ -53,16 +53,16 @@ if (process.platform !== "darwin") {
 // ── 3. Xcode availability ────────────────────────────────────────────────
 let hasXcode = false;
 try {
-  const v = execFileSync("xcodebuild", ["-version"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
+  const v = execFileSync('xcodebuild', ['-version'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
   });
   hasXcode = /\bXcode\b/.test(v);
 } catch {
   hasXcode = false;
 }
 if (!hasXcode) {
-  log("Xcode not installed (xcodebuild unavailable) -> skip Xcode build.");
+  log('Xcode not installed (xcodebuild unavailable) -> skip Xcode build.');
   process.exit(0);
 }
 
@@ -70,15 +70,18 @@ if (!hasXcode) {
 log(`building Xcode target "${TARGET}" (${CONFIG}) ...`);
 try {
   execFileSync(
-    "xcodebuild",
+    'xcodebuild',
     [
-      "-project", PROJ,
-      "-target", TARGET,
-      "-configuration", CONFIG,
-      "CODE_SIGNING_ALLOWED=NO",
-      "build",
+      '-project',
+      PROJ,
+      '-target',
+      TARGET,
+      '-configuration',
+      CONFIG,
+      'CODE_SIGNING_ALLOWED=NO',
+      'build',
     ],
-    { stdio: "inherit" }
+    { stdio: 'inherit' },
   );
   ok(`Xcode build succeeded: "${TARGET}" (${CONFIG})`);
 } catch {

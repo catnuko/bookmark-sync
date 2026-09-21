@@ -12,6 +12,7 @@
 - **理论基座**：研究仓库 `bookmark-crdt-sync`（Kleppmann Move-CRDT 论文移植，5 Phase、103 单测、8 个真实 Chromium E2E 场景）。本重构**核心算法/E2EE/持久化逐字节移植**（diff 0 差异），**同步层 Merkle-DAG（CID/DAG-Syncer/Broadcaster/WS 中继）有意替换**为 Supabase 中心化操作日志（收敛与"服务端只见密文"语义等价保留）。
 
 ### 用户拍板的长期决策（贯穿全程）
+
 - Move-CRDT 操作日志模型；**不拆仓**（沿用现有 repo）
 - 构建产物移出 git；渐进式 TS + vitest
 - **操作级 E2EE**（服务端只见密文）；Supabase 只删 `bsync_*` 前缀
@@ -21,37 +22,42 @@
 
 ## 2. 阶段与成果（按提交链）
 
-| 阶段 | 提交 | 核心内容 |
-|---|---|---|
-| P0 SW 冷启动 | `66f62fb` | 场景3：优雅关闭浏览器同 profile 重启 → 书签保留（`e2e-two-device.mjs`） |
-| P1 跨浏览器 | `b17ff1e` | Chromium × Firefox 双向同步收敛（`e2e-ff-sync.mjs`） |
-| P2 收敛收尾 | （并入 P0/P1） | index clamp、冷启动全量重放保护、e2e 自清理 |
-| P3 产品化 | `47c37d2` | 快照+GC、密钥导入 UI、共存策略、迁移 0018 |
-| 菜单同步 | `4ed8180` | Firefox `menu________` ↔ Chromium/Edge「书签菜单」文件夹 |
-| Edge 三端 | `86f83f8` | Chromium × Firefox × Edge 三方收敛 + 菜单双向 + Edge 冷重启（`e2e-triple-sync.mjs`） |
-| 发布 | `c72a691` + tag `v2.0.0` | BREAKING CHANGE（schema 0017 重建）；GitHub Release 附双 zip |
+| 阶段         | 提交                     | 核心内容                                                                             |
+| ------------ | ------------------------ | ------------------------------------------------------------------------------------ |
+| P0 SW 冷启动 | `66f62fb`                | 场景3：优雅关闭浏览器同 profile 重启 → 书签保留（`e2e-two-device.mjs`）              |
+| P1 跨浏览器  | `b17ff1e`                | Chromium × Firefox 双向同步收敛（`e2e-ff-sync.mjs`）                                 |
+| P2 收敛收尾  | （并入 P0/P1）           | index clamp、冷启动全量重放保护、e2e 自清理                                          |
+| P3 产品化    | `47c37d2`                | 快照+GC、密钥导入 UI、共存策略、迁移 0018                                            |
+| 菜单同步     | `4ed8180`                | Firefox `menu________` ↔ Chromium/Edge「书签菜单」文件夹                             |
+| Edge 三端    | `86f83f8`                | Chromium × Firefox × Edge 三方收敛 + 菜单双向 + Edge 冷重启（`e2e-triple-sync.mjs`） |
+| 发布         | `c72a691` + tag `v2.0.0` | BREAKING CHANGE（schema 0017 重建）；GitHub Release 附双 zip                         |
 
 ### P0 — 冷启动恢复（含关键 bug 修复）
+
 - **reverseApply 事件守卫回环 bug**（本项目最痛的坑）：`guard.value = true` 实际设置的是 `{suppressed:{value}}` **外层**新属性，事件闭包读的 `suppressed.value` 从未置位 → reverseApply 每次建书签触发 onCreated 回环成新 op → 每次同步复制一批书签（A 树曾出现 A1×3）。修复为 `guard.suppressed.value = true/false`。
 - 冷启动 `idMap` 恢复等待（`ensureBridgeReady`）：防 reverseApply 在映射加载完成前把已有书签当缺失重建。
 
 ### P1 — 跨浏览器根 id 适配
+
 - Chrome 根是数字 `"0"/"1"/"2"/"3"`，Firefox 是 guid `root________/toolbar_____/unfiled_____/mobile______`（另 `menu________` 书签菜单）。
 - `chromeBridge.ts` `fixedRootUuid`/`ALL_ROOT_PAIRS` 收录全部；**backward（uuid→chromeId）只 seed 本环境根**——两环境根都 seed 会让同一 uuid 的 backward 被后写覆盖（OTHER ← 'unfiled_____' 覆盖 '2'），Chromium 下 `toChromeId(OTHER)` 返回 Firefox guid → `"Bookmark id is invalid."` → 每次 reverseApply 失败。
 - `IS_FIREFOX` 按 UA 判定（Firefox 系 → guid 体系；Chromium/Edge 系 → 数字 id）。Edge UA 含 `Edg/` → 走 Chromium 路径。
 - Firefox 端用 **postMessage 测试桥**（`e2e/test-bridge/`，id `bsync-test-bridge@test.local`）经 BiDi 驱动真实 Firefox。
 
 ### P3 — 快照 + op_log GC
+
 - `replica.exportSnapshot/applySnapshot`：快照 = 加密后的最终树投影；`gcWatermark` 跳过旧 op；`applySnapshot` 后本地 counter 抬到 watermark 之上。
 - `bsync_snapshots` 表 + RPC（`bsync_snapshot_pull`/`bsync_op_maybe_gc`/`bsync_profile_set_used`），迁移 0018（supabase 子模块 `1179b5d`）。
 - 共存策略：不接管原生同步、两套云端并存建议二选一（"共存与存储"UI 面板）。
 
 ### 菜单同步 — MENU_UUID 第 5 固定根
+
 - CRDT 新增固定根 `MENU_UUID`（'…0004'）：`ensureRoots` 构建 5 根（counter 1..5）、`isBare` 保护集、**`applySnapshot` 后补 `ensureRoots()`**（旧快照无 MENU_UUID，补根防 createNodeWithId(parent=MENU_UUID) 悬空）。
 - Chromium 端 `ensureMenuFolder`：reverseApply 前在书签栏下自动创建「书签菜单」文件夹绑定 MENU_UUID（守卫内创建防回环、用户删除自动重建、id 持久化 `crdt.menuFolderId`）；Firefox 端直接映射原生 `menu________`。
 - 事件层把「已映射到固定根的动态 id」当固定根拦截（create/change/move/remove 不产生 CRDT op），容器内普通节点正常同步。
 
 ### Edge 三端联合
+
 - Edge 二进制：`/opt` 只读（无 root、sudo 被 no-new-privileges 拦）→ 微软仓库（代理 `http://127.0.0.1:8118`）下载 `microsoft-edge-stable_153.0.4234.32` deb（192MB），`dpkg-deb -x` 解包到 `/home/user/tools/msedge/opt/microsoft/msedge/msedge`。
 - 复用 `launchChromium`（`CHROME_BIN` 指向 msedge）：Edge 是 Chromium 系，根 id 数字体系 + UA `Edg/` → `IS_FIREFOX=false`；扩展 id 与 Chromium 相同（同路径 hash）。
 - **修复 `waitForExtensionSw`**：Edge 内置扩展（`background.rollup.js`）抢占首个 service_worker target → 抓错 id → popup `ERR_FILE_NOT_FOUND`；改为匹配 `/background.js`（本扩展 SW）。

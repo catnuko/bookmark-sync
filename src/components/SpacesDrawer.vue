@@ -6,10 +6,14 @@
 </template>
 
 <script setup>
-import SpacesList from "./SpacesList.vue";
-import DevicesList from "./DevicesList.vue";
+import SpacesList from './SpacesList.vue';
+import DevicesList from './DevicesList.vue';
 </script>
 
 <style scoped>
-.drawer-spaces { display: flex; flex-direction: column; gap: var(--popup-block-gap); }
+.drawer-spaces {
+  display: flex;
+  flex-direction: column;
+  gap: var(--popup-block-gap);
+}
 </style>

@@ -1,26 +1,26 @@
 <script setup>
 // 后台布局：左侧导航 + 顶栏 + 内容区。独立于官网 AppHeader/AppFooter。
-import { computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { adminAuth, adminSignOut } from "../lib/auth.js";
+import { computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { adminAuth, adminSignOut } from '../lib/auth.js';
 
 const route = useRoute();
 const router = useRouter();
 
 const nav = [
-  { to: "/admin/", label: "概览", icon: "📊" },
-  { to: "/admin/users", label: "用户", icon: "👥" },
-  { to: "/admin/orders", label: "订单", icon: "🧾" },
-  { to: "/admin/subscriptions", label: "订阅", icon: "💳" },
-  { to: "/admin/audit", label: "审计", icon: "📋" },
-  { to: "/admin/system", label: "系统", icon: "🖥️" },
+  { to: '/admin/', label: '概览', icon: '📊' },
+  { to: '/admin/users', label: '用户', icon: '👥' },
+  { to: '/admin/orders', label: '订单', icon: '🧾' },
+  { to: '/admin/subscriptions', label: '订阅', icon: '💳' },
+  { to: '/admin/audit', label: '审计', icon: '📋' },
+  { to: '/admin/system', label: '系统', icon: '🖥️' },
 ];
 
 const current = computed(() => route.path);
 
 async function logout() {
   await adminSignOut();
-  router.push("/admin/login");
+  router.push('/admin/login');
 }
 </script>
 
@@ -92,14 +92,37 @@ async function logout() {
   font-size: 14px;
   margin-bottom: 2px;
 }
-.nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
-.nav-item.active { background: var(--color-accent); color: #fff; }
-.icon { width: 20px; text-align: center; }
-.side-foot { margin-top: auto; padding: 12px; }
-.back-site { color: #888; font-size: 13px; text-decoration: none; }
-.back-site:hover { color: #fff; }
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.nav-item.active {
+  background: var(--color-accent);
+  color: #fff;
+}
+.icon {
+  width: 20px;
+  text-align: center;
+}
+.side-foot {
+  margin-top: auto;
+  padding: 12px;
+}
+.back-site {
+  color: #888;
+  font-size: 13px;
+  text-decoration: none;
+}
+.back-site:hover {
+  color: #fff;
+}
 
-.admin-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 .admin-top {
   height: 52px;
   background: #fff;
@@ -109,7 +132,13 @@ async function logout() {
   justify-content: flex-end;
   padding: 0 20px;
 }
-.who { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--color-text-soft); }
+.who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--color-text-soft);
+}
 .btn-ghost {
   border: 1px solid var(--color-border);
   background: #fff;
@@ -118,6 +147,10 @@ async function logout() {
   cursor: pointer;
   font-size: 13px;
 }
-.btn-ghost:hover { background: var(--color-bg-muted); }
-.admin-content { padding: 24px; }
+.btn-ghost:hover {
+  background: var(--color-bg-muted);
+}
+.admin-content {
+  padding: 24px;
+}
 </style>

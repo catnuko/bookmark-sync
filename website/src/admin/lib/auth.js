@@ -1,9 +1,9 @@
 // 后台管理 — 登录态与路由守卫
 // 复用官网 Supabase 客户端（与扩展同账号体系）；管理员判定走 admin_whoami() RPC。
 // 真正的权限在后端 RPC 里二次校验（assert_bsync_admin），这里只是 UX 层的早跳转。
-import { reactive } from "vue";
-import { supabase } from "../../lib/supabase.js";
-import { adminApi } from "./client.js";
+import { reactive } from 'vue';
+import { supabase } from '../../lib/supabase.js';
+import { adminApi } from './client.js';
 
 export const adminAuth = reactive({
   ready: false, // 初始 session + whoami 是否完成
@@ -45,7 +45,7 @@ export async function adminSignIn(email, password) {
   adminAuth.user = data.user;
   await refresh();
   if (!adminAuth.isAdmin) {
-    return { error: new Error("该账号不是管理员") };
+    return { error: new Error('该账号不是管理员') };
   }
   return { error: null };
 }
@@ -63,10 +63,13 @@ export async function adminSignOut() {
 export function requireAdmin(to) {
   if (!adminAuth.ready) return true; // 等待首次 refresh（main.js 里 await）
   if (!adminAuth.user) {
-    return { path: "/admin/login", query: to.fullPath !== "/admin" ? { redirect: to.fullPath } : {} };
+    return {
+      path: '/admin/login',
+      query: to.fullPath !== '/admin' ? { redirect: to.fullPath } : {},
+    };
   }
   if (!adminAuth.isAdmin) {
-    return { path: "/admin/forbidden" };
+    return { path: '/admin/forbidden' };
   }
   return true;
 }

@@ -1,8 +1,8 @@
 <template>
   <section class="pane active">
     <template v-if="!bare">
-      <h2>{{ t("common_help") }}</h2>
-      <p class="pane-sub">{{ t("help_sub") }}</p>
+      <h2>{{ t('common_help') }}</h2>
+      <p class="pane-sub">{{ t('help_sub') }}</p>
     </template>
 
     <div class="grp">
@@ -22,9 +22,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
-import { t } from "../lib/i18n.js";
-import Icon from "./ui/Icon.vue";
+import { ref, computed } from 'vue';
+import { t } from '../lib/i18n.js';
+import Icon from './ui/Icon.vue';
 
 defineProps({ bare: { type: Boolean, default: false } });
 
@@ -40,9 +40,25 @@ const items = computed(() =>
 </script>
 
 <style>
-.acc-inner table.help-tbl { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: var(--fs-secondary); }
+.acc-inner table.help-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: var(--fs-secondary);
+}
 .acc-inner table.help-tbl th,
-.acc-inner table.help-tbl td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border-strong, rgba(128,128,128,.2)); vertical-align: top; }
-.acc-inner table.help-tbl th { color: var(--text-primary); font-weight: var(--fw-semibold, 600); }
-.acc-inner table.help-tbl td:first-child { white-space: nowrap; color: var(--text-primary); }
+.acc-inner table.help-tbl td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-strong, rgba(128, 128, 128, 0.2));
+  vertical-align: top;
+}
+.acc-inner table.help-tbl th {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold, 600);
+}
+.acc-inner table.help-tbl td:first-child {
+  white-space: nowrap;
+  color: var(--text-primary);
+}
 </style>

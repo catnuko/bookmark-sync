@@ -65,14 +65,20 @@ export async function run({ cfg, report }) {
 
     gate = await login(p1, cfg);
     report.equals('登录后进入口令门禁', gate.kind, 'phrase', `mode=${gate.title}`);
-    report.equals('门禁模式 = 设置口令（首台设备）', gate.title, await dev1.i18n('gate_titleSetup'));
+    report.equals(
+      '门禁模式 = 设置口令（首台设备）',
+      gate.title,
+      await dev1.i18n('gate_titleSetup'),
+    );
 
     await submitPhrase(p1, cfg.passphrase);
     gate = await waitGate(p1, (g) => g.kind !== 'phrase', cfg.timeouts.gate);
     report.assert(
       '提交新口令后离开口令门禁',
       gate.kind !== 'phrase',
-      gate.kind === 'phrase' ? `仍停在门禁页 / 错误文案: ${gate.err || '(无)'}` : `落到 ${gate.kind}`,
+      gate.kind === 'phrase'
+        ? `仍停在门禁页 / 错误文案: ${gate.err || '(无)'}`
+        : `落到 ${gate.kind}`,
     );
 
     const s1 = await dev1.storage();
@@ -80,7 +86,11 @@ export async function run({ cfg, report }) {
     const salt1 = s1['crdt.e2eeSalt'];
     report.assert('设备 1 已派生密钥（crdt.e2eeKey）', !!key1, fp(key1));
     report.assert('设备 1 已生成本机盐（crdt.e2eeSalt）', !!salt1, fp(salt1));
-    report.equals('口令明文备份写入本机（crdt.passphrase，便于加密面板查看）', s1['crdt.passphrase'], cfg.passphrase);
+    report.equals(
+      '口令明文备份写入本机（crdt.passphrase，便于加密面板查看）',
+      s1['crdt.passphrase'],
+      cfg.passphrase,
+    );
     extra.saltFingerprint = fp(salt1);
     extra.keyFingerprint = fp(key1);
 
@@ -91,14 +101,24 @@ export async function run({ cfg, report }) {
     report.assert(
       '设备 1 的盐已上传云端（新设备才有盐可拉、才会走「验证口令」）',
       pushedSalt === salt1,
-      pushedSalt ? '云端盐与设备 1 一致' : `云端盐=${fp(cloud.profile(uid)?.e2ee_salt)}，设备 1 盐=${fp(salt1)}`,
+      pushedSalt
+        ? '云端盐与设备 1 一致'
+        : `云端盐=${fp(cloud.profile(uid)?.e2ee_salt)}，设备 1 盐=${fp(salt1)}`,
     );
 
     // 播种：1 个文件夹 + 2 个书签（标题/域名带 marker，用于明文泄漏探测）
     const other = await dev1.otherBookmarksId();
     const folder = await dev1.bookmarksCreate({ parentId: other, title: `${MARKER}-folder` });
-    await dev1.bookmarksCreate({ parentId: folder.id, title: `${MARKER}-a`, url: `https://${MARKER}.test/1` });
-    await dev1.bookmarksCreate({ parentId: folder.id, title: `${MARKER}-b`, url: `https://${MARKER}.test/2` });
+    await dev1.bookmarksCreate({
+      parentId: folder.id,
+      title: `${MARKER}-a`,
+      url: `https://${MARKER}.test/1`,
+    });
+    await dev1.bookmarksCreate({
+      parentId: folder.id,
+      title: `${MARKER}-b`,
+      url: `https://${MARKER}.test/2`,
+    });
     report.info('已在本机建 1 文件夹 + 2 书签', `folder id=${folder.id}`);
 
     const r1 = await dev1.triggerSync(cfg.timeouts.sync);
@@ -135,7 +155,11 @@ export async function run({ cfg, report }) {
     report.equals('新设备初始落在登录页', gate.kind, 'auth');
     gate = await login(p2, cfg);
     report.equals('新设备登录后进入口令门禁', gate.kind, 'phrase');
-    report.equals('门禁模式 = 验证口令（云端已有盐）', gate.title, await dev2.i18n('gate_titleVerify'));
+    report.equals(
+      '门禁模式 = 验证口令（云端已有盐）',
+      gate.title,
+      await dev2.i18n('gate_titleVerify'),
+    );
 
     if (!canTestWrongPhrase) {
       report.fail('错口令被拒（未执行）', '前置未满足：云端没有可验证的密文，此断言会退化成假绿');
@@ -151,7 +175,12 @@ export async function run({ cfg, report }) {
         },
         { timeoutMs: 40_000, intervalMs: 400 },
       );
-      report.equals('错口令：显示「口令不正确」', shown, errWrong, shown === errCheck ? '（拿到的是「无法校验」文案 = 被当成网络错误）' : '');
+      report.equals(
+        '错口令：显示「口令不正确」',
+        shown,
+        errWrong,
+        shown === errCheck ? '（拿到的是「无法校验」文案 = 被当成网络错误）' : '',
+      );
 
       const afterWrong = await readGate(p2);
       report.assert(
@@ -160,8 +189,16 @@ export async function run({ cfg, report }) {
         `实际 ${afterWrong.kind}`,
       );
       const s2bad = await dev2.storage();
-      report.assert('错口令：本机密钥已回滚（crdt.e2eeKey 不存在）', !s2bad['crdt.e2eeKey'], fp(s2bad['crdt.e2eeKey']));
-      report.assert('错口令：本机盐已回滚（crdt.e2eeSalt 不存在）', !s2bad['crdt.e2eeSalt'], fp(s2bad['crdt.e2eeSalt']));
+      report.assert(
+        '错口令：本机密钥已回滚（crdt.e2eeKey 不存在）',
+        !s2bad['crdt.e2eeKey'],
+        fp(s2bad['crdt.e2eeKey']),
+      );
+      report.assert(
+        '错口令：本机盐已回滚（crdt.e2eeSalt 不存在）',
+        !s2bad['crdt.e2eeSalt'],
+        fp(s2bad['crdt.e2eeSalt']),
+      );
       report.assert(
         '错口令：没有把口令明文写进本机（crdt.passphrase 不存在）',
         !s2bad['crdt.passphrase'],
@@ -175,7 +212,9 @@ export async function run({ cfg, report }) {
     report.assert(
       '同口令：门禁关闭',
       gate.kind !== 'phrase',
-      gate.kind === 'phrase' ? `仍停在门禁页 / 错误文案: ${gate.err || '(无)'}` : `落到 ${gate.kind}`,
+      gate.kind === 'phrase'
+        ? `仍停在门禁页 / 错误文案: ${gate.err || '(无)'}`
+        : `落到 ${gate.kind}`,
     );
     report.assert('同口令：没有残留错误文案', !gate.err, gate.err);
 
@@ -192,12 +231,17 @@ export async function run({ cfg, report }) {
     extra.keyMatched = key2 === key1;
 
     // 通过后的去向（不是本场景的契约，只记录，方便人眼看下一步）
-    report.info('通过后落到', `${gate.kind}（本账号 plan=${prof.plan}、云端 ${cloud.spaces().length} 个空间）`);
+    report.info(
+      '通过后落到',
+      `${gate.kind}（本账号 plan=${prof.plan}、云端 ${cloud.spaces().length} 个空间）`,
+    );
 
     return extra;
   } finally {
     for (const d of devices) {
-      await d.close({ keepProfile: cfg.keepProfiles }).catch((e) => report.info('关闭设备失败', e.message));
+      await d
+        .close({ keepProfile: cfg.keepProfiles })
+        .catch((e) => report.info('关闭设备失败', e.message));
     }
   }
 }

@@ -24,22 +24,22 @@ npm run e2e -- <场景>                                # 同一个入口
 
 ## 场景
 
-| 场景 | 锁死的回归点 |
-|---|---|
-| `phrase-gate` | 首设备**设**口令、新设备**验**口令；错口令报 `gate_errWrong` 且回滚密钥/盐；同口令两台设备**派生出的密钥逐字节相同** |
-| `bind-gate` | 新设备挡出**不可关闭的整页门禁**；用户选非默认空间时真的绑那一个；**同账号重登不再问一遍**；跨空间隔离 |
-| `two-device-sync` | A 建「文件夹 + 2 书签」→ B 逐条重现（含父子关系）→ B 删 → **A 上也消失**（墓碑生效）；云端 op 全密文 + 无明文泄漏 |
+| 场景              | 锁死的回归点                                                                                                         |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `phrase-gate`     | 首设备**设**口令、新设备**验**口令；错口令报 `gate_errWrong` 且回滚密钥/盐；同口令两台设备**派生出的密钥逐字节相同** |
+| `bind-gate`       | 新设备挡出**不可关闭的整页门禁**；用户选非默认空间时真的绑那一个；**同账号重登不再问一遍**；跨空间隔离               |
+| `two-device-sync` | A 建「文件夹 + 2 书签」→ B 逐条重现（含父子关系）→ B 删 → **A 上也消失**（墓碑生效）；云端 op 全密文 + 无明文泄漏    |
 
 ## 参数
 
-| 参数 | 作用 |
-|---|---|
-| `--fresh` | 跑前复位该测试账号的云端同步数据（op / 快照 / 设备 / 空间 / 盐） |
+| 参数              | 作用                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| `--fresh`         | 跑前复位该测试账号的云端同步数据（op / 快照 / 设备 / 空间 / 盐）                     |
 | `--allow-destroy` | **第二把钥匙**：云端还有 op 时，`--fresh` 必须再加它才肯删（防顺手清掉手工测试数据） |
-| `--cleanup` | 跑完自动复位云端 + 本机 profile（场景中途抛错也生效），方便连跑 |
-| `--headed` | 有头模式，看着它自己点（排障用） |
-| `--keep-profiles` | 保留 profile，便于复现现场 |
-| `--ext=<dir>` | 指定扩展产物目录（默认 `<repo>/extension`） |
+| `--cleanup`       | 跑完自动复位云端 + 本机 profile（场景中途抛错也生效），方便连跑                      |
+| `--headed`        | 有头模式，看着它自己点（排障用）                                                     |
+| `--keep-profiles` | 保留 profile，便于复现现场                                                           |
+| `--ext=<dir>`     | 指定扩展产物目录（默认 `<repo>/extension`）                                          |
 
 未给 `--fresh` 而云端不干净时，场景**显式失败并告诉你该加什么参数**——不给空洞的绿。
 
@@ -119,15 +119,15 @@ Xvfb :99 -screen 0 1440x900x24 &
 
 ## 脚本
 
-| 脚本 | 验证内容 |
-|---|---|
-| `e2e-single.mjs` | 单设备闭环：登录 → 同步 → 建书签 → op_log 增长 → **op 全为 AES-GCM 密文信封** |
-| `e2e-two-device.mjs` | **双 Chromium 双向同步**：A 建书签 → B 拉到并 reverseApply 写回本机 chrome → B 建书签 → A 拉到 → 双端收敛 + **场景 3（SW 冷重启保留）** |
-| `ff-smoke.mjs` | **Firefox 单端**：桥通道 login → sync → create → getTree（根 guid 适配验证） |
-| `e2e-ff-sync.mjs` | **Chromium × Firefox 跨浏览器双向同步（P1+P3 验收）**：A1/B1 各恰 1 个、op_log 恰 2 条；**书签菜单同步**（Firefox `menu________` ↔ Chromium「书签菜单」文件夹，M1/M2 各恰 1） |
-| `e2e-triple-sync.mjs` | **三浏览器联合验证（P3 验收）**：Chromium × Firefox × Edge 三方收敛（A1/B1/C1 各端各恰 1）+ 菜单双向（Firefox menu ↔ Chromium/Edge 菜单文件夹）+ Edge 场景3 冷重启保留。Edge 二进制 `EDGE_BIN`（默认 `/home/user/tools/msedge/opt/microsoft/msedge/msedge`，Chromium 系复用 launchChromium） |
-| `e2e-gc.mjs` | **快照 + op-log GC（P3 验收，Chromium×3）**：A 建书签同步触发 GC（注入 `crdt.gcThreshold=1`）→ op_log 截断 + 快照落库 → C 新设备从快照重建收敛 → GC 后增量仍通 → 终态计数===1 |
-| `supabase-check.mjs [--detail]` | 只读：查空间/设备/op_log 数量与密文结构 |
+| 脚本                            | 验证内容                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `e2e-single.mjs`                | 单设备闭环：登录 → 同步 → 建书签 → op_log 增长 → **op 全为 AES-GCM 密文信封**                                                                                                                                                                                                                |
+| `e2e-two-device.mjs`            | **双 Chromium 双向同步**：A 建书签 → B 拉到并 reverseApply 写回本机 chrome → B 建书签 → A 拉到 → 双端收敛 + **场景 3（SW 冷重启保留）**                                                                                                                                                      |
+| `ff-smoke.mjs`                  | **Firefox 单端**：桥通道 login → sync → create → getTree（根 guid 适配验证）                                                                                                                                                                                                                 |
+| `e2e-ff-sync.mjs`               | **Chromium × Firefox 跨浏览器双向同步（P1+P3 验收）**：A1/B1 各恰 1 个、op_log 恰 2 条；**书签菜单同步**（Firefox `menu________` ↔ Chromium「书签菜单」文件夹，M1/M2 各恰 1）                                                                                                                |
+| `e2e-triple-sync.mjs`           | **三浏览器联合验证（P3 验收）**：Chromium × Firefox × Edge 三方收敛（A1/B1/C1 各端各恰 1）+ 菜单双向（Firefox menu ↔ Chromium/Edge 菜单文件夹）+ Edge 场景3 冷重启保留。Edge 二进制 `EDGE_BIN`（默认 `/home/user/tools/msedge/opt/microsoft/msedge/msedge`，Chromium 系复用 launchChromium） |
+| `e2e-gc.mjs`                    | **快照 + op-log GC（P3 验收，Chromium×3）**：A 建书签同步触发 GC（注入 `crdt.gcThreshold=1`）→ op_log 截断 + 快照落库 → C 新设备从快照重建收敛 → GC 后增量仍通 → 终态计数===1                                                                                                                |
+| `supabase-check.mjs [--detail]` | 只读：查空间/设备/op_log 数量与密文结构                                                                                                                                                                                                                                                      |
 
 ## 运行
 
@@ -144,18 +144,18 @@ EMAIL=你的测试账号邮箱 PASSWORD='你的密码' node e2e/e2e-gc.mjs   # �
 
 ## 环境变量
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `EMAIL` / `PASSWORD` | 必填 | Supabase 登录账号 |
-| `E2E_RESET` | — | `1` 时先 `TRUNCATE bsync_op_log`（测试账号专用） |
-| `CHROME_BIN` | `/usr/local/bin/chromium` | 浏览器二进制（真实环境实际是 `/opt/browser/chrome`） |
-| `EXT_DIR` | `<repo>/extension` | 要加载的扩展目录 |
-| `CDP_PORT` | `9345` | 单设备脚本端口（双设备用 9345/9346） |
-| `PROFILE_DIR` | `<repo>/e2e/.profiles/<port>` | Chromium profile |
-| `FF_BIN` | `/home/user/tools/ff/firefox/firefox` | Firefox 二进制 |
-| `GECKODRIVER_BIN` | `/home/user/tools/geckodriver` | geckodriver 路径 |
-| `SUPABASE_PROJECT` | `cwtqnsbpcetvqopdkcou` | 项目 ref |
-| `DISPLAY` | `:99` | Xvfb 显示号 |
+| 变量                 | 默认                                  | 说明                                                 |
+| -------------------- | ------------------------------------- | ---------------------------------------------------- |
+| `EMAIL` / `PASSWORD` | 必填                                  | Supabase 登录账号                                    |
+| `E2E_RESET`          | —                                     | `1` 时先 `TRUNCATE bsync_op_log`（测试账号专用）     |
+| `CHROME_BIN`         | `/usr/local/bin/chromium`             | 浏览器二进制（真实环境实际是 `/opt/browser/chrome`） |
+| `EXT_DIR`            | `<repo>/extension`                    | 要加载的扩展目录                                     |
+| `CDP_PORT`           | `9345`                                | 单设备脚本端口（双设备用 9345/9346）                 |
+| `PROFILE_DIR`        | `<repo>/e2e/.profiles/<port>`         | Chromium profile                                     |
+| `FF_BIN`             | `/home/user/tools/ff/firefox/firefox` | Firefox 二进制                                       |
+| `GECKODRIVER_BIN`    | `/home/user/tools/geckodriver`        | geckodriver 路径                                     |
+| `SUPABASE_PROJECT`   | `cwtqnsbpcetvqopdkcou`                | 项目 ref                                             |
+| `DISPLAY`            | `:99`                                 | Xvfb 显示号                                          |
 
 ## 已知坑（真实环境验证过）
 
@@ -188,7 +188,7 @@ EMAIL=你的测试账号邮箱 PASSWORD='你的密码' node e2e/e2e-gc.mjs   # �
 - **WebDriver 不能导航到 `moz-extension://`**（about:blank 与 http 页 location.href
   跳转均被 Firefox 安全策略拒绝）→ **测试桥**：
   - `src/testChannel.js`：产品侧 `runtime.onMessageExternal` 白名单通道（仅 sender
-    `bsync-test-bridge@test.local`，命令 ping/sync/login/logout/storage.*/bookmarks.*）。
+    `bsync-test-bridge@test.local`，命令 ping/sync/login/logout/storage._/bookmarks._）。
   - `e2e/test-bridge/`：桥扩展 content script 用 **`window.postMessage`** 桥（内容脚本↔
     页面标准通道，结构化克隆无 Xray 问题）把页面消息转发到 bookmark-sync。
   - **死路（勿重试）**：wrappedJSObject 赋值函数 / `Cu.exportFunction` / DOM CustomEvent

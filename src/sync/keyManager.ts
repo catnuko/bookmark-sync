@@ -56,7 +56,7 @@ export class KeyManager {
   async exportKey(): Promise<string> {
     const existing = await this.store.get(KEY_KEY);
     if (existing) return existing;
-    return "";
+    return '';
   }
 
   /** Import a base64url key from another device. Returns true on success. */

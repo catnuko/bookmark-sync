@@ -281,7 +281,9 @@ export class SyncCoordinator {
           applied++;
         } catch (e) {
           // Wrong key / tamper: skip the row, never stall the pipeline.
-          console.log(`[bsync]   拉取行 #${row.id} 解密失败: seq=${row.seq} device=${row.device_id} err=${(e as Error)?.message ?? e}`);
+          console.log(
+            `[bsync]   拉取行 #${row.id} 解密失败: seq=${row.seq} device=${row.device_id} err=${(e as Error)?.message ?? e}`,
+          );
           skipped++;
           if (decryptErrors.length < 5) {
             decryptErrors.push({
@@ -330,10 +332,7 @@ export class SyncCoordinator {
    */
   async pullWithSnapshot(force = false): Promise<PullOutcome> {
     const snap = await this.transport.snapshotPull(this.spaceId);
-    const usable =
-      snap?.data != null &&
-      snap.after_op_id != null &&
-      snap.after_op_id > 0;
+    const usable = snap?.data != null && snap.after_op_id != null && snap.after_op_id > 0;
     if (usable && (force || snap.after_op_id! > this.afterId || this.afterId === 0)) {
       try {
         const data = await decryptJson<SnapshotData>(snap.data!, this.key, this.spaceId);

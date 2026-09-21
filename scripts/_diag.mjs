@@ -1,11 +1,15 @@
-import { chromium } from "playwright";
+import { chromium } from 'playwright';
 let b;
-try { b = await chromium.launch({ channel: "chrome" }); } catch { b = await chromium.launch(); }
+try {
+  b = await chromium.launch({ channel: 'chrome' });
+} catch {
+  b = await chromium.launch();
+}
 const p = await b.newPage({ viewport: { width: 900, height: 900 } });
-await p.goto("http://localhost:5199/preview.html?view=popup", { waitUntil: "networkidle" });
+await p.goto('http://localhost:5199/preview.html?view=popup', { waitUntil: 'networkidle' });
 await p.waitForTimeout(300);
 const out = await p.evaluate(() => {
-  const rows = [...document.querySelectorAll(".inset-row")];
+  const rows = [...document.querySelectorAll('.inset-row')];
   return rows.map((r) => {
     const cs = getComputedStyle(r);
     return {
@@ -17,7 +21,7 @@ const out = await p.evaluate(() => {
         const kcs = getComputedStyle(k);
         return {
           tag: k.tagName,
-          cls: k.getAttribute("class"),
+          cls: k.getAttribute('class'),
           display: kcs.display,
           flex: kcs.flex,
           flexGrow: kcs.flexGrow,

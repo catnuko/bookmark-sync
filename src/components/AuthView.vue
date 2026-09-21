@@ -9,18 +9,21 @@
     <div class="auth-body">
       <div class="auth-brand">
         <div class="brandmark">B</div>
-        <h1>{{ t("auth_h1") }}</h1>
-        <p class="sub">{{ t("auth_sub") }}</p>
+        <h1>{{ t('auth_h1') }}</h1>
+        <p class="sub">{{ t('auth_sub') }}</p>
       </div>
 
       <SegTabs
         v-model="state.mode"
-        :options="[{ value: 'login', label: t('auth_login') }, { value: 'register', label: t('auth_register') }]"
+        :options="[
+          { value: 'login', label: t('auth_login') },
+          { value: 'register', label: t('auth_register') },
+        ]"
         :aria-label="t('auth_tabsAria')"
       />
 
       <div class="field">
-        <label for="email">{{ t("auth_email") }}</label>
+        <label for="email">{{ t('auth_email') }}</label>
         <input
           id="email"
           v-model="state.email"
@@ -32,7 +35,7 @@
         />
       </div>
       <div class="field">
-        <label for="password">{{ t("auth_password") }}</label>
+        <label for="password">{{ t('auth_password') }}</label>
         <input
           id="password"
           v-model="state.password"
@@ -47,7 +50,7 @@
 
       <button id="authSubmit" class="btn btn-primary btn-lg" :disabled="state.busy" @click="submit">
         <span v-if="state.busy" class="spinner" />
-        {{ state.mode === "login" ? t("auth_login") : t("auth_create") }}
+        {{ state.mode === 'login' ? t('auth_login') : t('auth_create') }}
       </button>
 
       <div v-if="state.authSuccess" class="banner banner-success">
@@ -60,21 +63,21 @@
       </div>
 
       <div class="auth-hint">
-        {{ t("auth_hint") }}
+        {{ t('auth_hint') }}
       </div>
 
       <div class="popup-foot">
-        <button type="button" class="link-btn" @click="openHelp">{{ t("auth_forgot") }}</button>
+        <button type="button" class="link-btn" @click="openHelp">{{ t('auth_forgot') }}</button>
         <i class="fw-sep"></i>
-        <button type="button" class="link-btn" @click="openHelp">{{ t("common_help") }}</button>
+        <button type="button" class="link-btn" @click="openHelp">{{ t('common_help') }}</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { state, submit, openHelp } from "../store.js";
-import { t } from "../lib/i18n.js";
-import SegTabs from "./ui/SegTabs.vue";
-import Icon from "./ui/Icon.vue";
+import { state, submit, openHelp } from '../store.js';
+import { t } from '../lib/i18n.js';
+import SegTabs from './ui/SegTabs.vue';
+import Icon from './ui/Icon.vue';
 </script>

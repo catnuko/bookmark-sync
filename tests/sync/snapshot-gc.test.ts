@@ -15,16 +15,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  MemoryOpLogTransport,
-  SyncCoordinator,
-} from '../../src/sync/index.js';
-import {
-  generateKey,
-  exportKey,
-  importKey,
-  ROOT_NODE_ID,
-} from '../../src/crdt/index.js';
+import { MemoryOpLogTransport, SyncCoordinator } from '../../src/sync/index.js';
+import { generateKey, exportKey, importKey, ROOT_NODE_ID } from '../../src/crdt/index.js';
 
 const SPACE = 'aaaaaaaa-0000-4000-8000-222222222222';
 
@@ -32,7 +24,12 @@ async function makePair(threshold = 100) {
   const t = new MemoryOpLogTransport(threshold);
   const key = await generateKey();
   const A = new SyncCoordinator({ spaceId: SPACE, deviceId: 'A', transport: t, key });
-  const B = new SyncCoordinator({ spaceId: SPACE, deviceId: 'B', transport: t, key: await importKey(await exportKey(key)) });
+  const B = new SyncCoordinator({
+    spaceId: SPACE,
+    deviceId: 'B',
+    transport: t,
+    key: await importKey(await exportKey(key)),
+  });
   return { t, key, A, B };
 }
 
@@ -89,7 +86,12 @@ describe('SyncCoordinator.pullWithSnapshot', () => {
     expect(t.size).toBe(0);
 
     // C：全新设备（afterId=0）→ 快照重建 + 增量，完整收敛
-    const C = new SyncCoordinator({ spaceId: SPACE, deviceId: 'C', transport: t, key: await importKey(await exportKey(key)) });
+    const C = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'C',
+      transport: t,
+      key: await importKey(await exportKey(key)),
+    });
     const out = await C.pullWithSnapshot(false);
     expect(out.applied).toBe(0); // 快照重建不走 pull 计数
     for (const id of ids) expect(C.replica.getParent(id)).toBe(ROOT_NODE_ID);
@@ -178,7 +180,12 @@ describe('SyncCoordinator.maybeGc', () => {
     expect(snap!.data!.ciphertext).not.toContain('https://x');
 
     // 新设备 C 从快照重建
-    const C = new SyncCoordinator({ spaceId: SPACE, deviceId: 'C', transport: t, key: await importKey(await exportKey(key)) });
+    const C = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'C',
+      transport: t,
+      key: await importKey(await exportKey(key)),
+    });
     await C.pullWithSnapshot(false);
     expect(C.replica.getParent(folder)).toBe(ROOT_NODE_ID);
     expect(C.replica.getParent(child)).toBe(folder);
@@ -214,7 +221,12 @@ describe('SyncCoordinator.maybeGc', () => {
     expect(t.size).toBe(0);
 
     // C 冷启动（afterId=0, bare）→ 快照重建 → 完整性复位（≤ 水位基线完整）
-    const C = new SyncCoordinator({ spaceId: SPACE, deviceId: 'C', transport: t, key: await importKey(await exportKey(key)) });
+    const C = new SyncCoordinator({
+      spaceId: SPACE,
+      deviceId: 'C',
+      transport: t,
+      key: await importKey(await exportKey(key)),
+    });
     await C.pullWithSnapshot(false);
 
     // 快照之后新增 3 条 → C 增量补齐（零跳过）→ 可正常 GC

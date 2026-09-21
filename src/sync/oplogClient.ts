@@ -132,11 +132,7 @@ export class MemoryOpLogTransport implements OpLogTransport {
    */
   constructor(private readonly gcThreshold: number = MEMORY_GC_THRESHOLD) {}
 
-  async push(
-    spaceId: string,
-    deviceId: string,
-    ops: PushOp[],
-  ): Promise<PushResult> {
+  async push(spaceId: string, deviceId: string, ops: PushOp[]): Promise<PushResult> {
     let inserted = 0;
     for (const o of ops) {
       const dup = this.rows.some(
@@ -157,11 +153,7 @@ export class MemoryOpLogTransport implements OpLogTransport {
     return { inserted, gc_needed: this.gcNeededFor(spaceId) };
   }
 
-  async pull(
-    spaceId: string,
-    afterId: number,
-    limit = 1000,
-  ): Promise<PullResult> {
+  async pull(spaceId: string, afterId: number, limit = 1000): Promise<PullResult> {
     const all = this.rows
       .filter((r) => r.space_id === spaceId && r.id > afterId)
       .sort((a, b) => a.id - b.id);
@@ -181,9 +173,7 @@ export class MemoryOpLogTransport implements OpLogTransport {
   }
 
   async snapshotPull(spaceId: string): Promise<SnapshotRow | null> {
-    const snaps = this.snapshots
-      .filter((s) => s.space_id === spaceId)
-      .sort((a, b) => a.id - b.id);
+    const snaps = this.snapshots.filter((s) => s.space_id === spaceId).sort((a, b) => a.id - b.id);
     const last = snaps[snaps.length - 1];
     if (!last) return null;
     return {
@@ -194,16 +184,10 @@ export class MemoryOpLogTransport implements OpLogTransport {
     };
   }
 
-  async maybeGc(
-    spaceId: string,
-    projection: EncryptedOpEnvelope,
-  ): Promise<GcResult> {
+  async maybeGc(spaceId: string, projection: EncryptedOpEnvelope): Promise<GcResult> {
     const count = this.rows.filter((r) => r.space_id === spaceId).length;
     if (count <= this.gcThreshold) return { gced: false, deleted: 0, snapshot_id: null };
-    const maxId = Math.max(
-      ...this.rows.filter((r) => r.space_id === spaceId).map((r) => r.id),
-      0,
-    );
+    const maxId = Math.max(...this.rows.filter((r) => r.space_id === spaceId).map((r) => r.id), 0);
     this.snapshots = this.snapshots.filter((s) => s.space_id !== spaceId);
     this.snapshots.push({
       id: this.snapId++,
@@ -229,10 +213,7 @@ export class MemoryOpLogTransport implements OpLogTransport {
 
 /** Minimal shape of the Supabase client (injected to keep this testable). */
 export interface SupabaseRpcClient {
-  rpc: (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: unknown }>;
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 }
 
 /**
@@ -241,11 +222,7 @@ export interface SupabaseRpcClient {
 export class SupabaseOpLogTransport implements OpLogTransport {
   constructor(private readonly client: SupabaseRpcClient) {}
 
-  async push(
-    spaceId: string,
-    deviceId: string,
-    ops: PushOp[],
-  ): Promise<PushResult> {
+  async push(spaceId: string, deviceId: string, ops: PushOp[]): Promise<PushResult> {
     if (ops.length === 0) return { inserted: 0, gc_needed: false };
     const { data, error } = await this.client.rpc('bsync_op_push', {
       p_space: spaceId,
@@ -257,11 +234,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
     return { inserted: r.inserted ?? 0, gc_needed: r.gc_needed ?? false };
   }
 
-  async pull(
-    spaceId: string,
-    afterId: number,
-    limit = 1000,
-  ): Promise<PullResult> {
+  async pull(spaceId: string, afterId: number, limit = 1000): Promise<PullResult> {
     const { data, error } = await this.client.rpc('bsync_op_pull', {
       p_space: spaceId,
       p_after_id: afterId,
@@ -318,10 +291,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
     };
   }
 
-  async maybeGc(
-    spaceId: string,
-    projection: EncryptedOpEnvelope,
-  ): Promise<GcResult> {
+  async maybeGc(spaceId: string, projection: EncryptedOpEnvelope): Promise<GcResult> {
     // 是否执行 GC 由服务端判定（用户动态阈值或后台请求），客户端只提供加密投影
     const { data, error } = await this.client.rpc('bsync_op_maybe_gc', {
       p_space: spaceId,

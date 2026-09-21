@@ -55,12 +55,14 @@ export class Bidi {
   // ── browsing context ──────────────────────────────────────────────
   async createContext(type = 'tab') {
     const r = await this.send('browsingContext.create', { type });
-    if (r.error) throw new Error(`browsingContext.create: ${r.error.message ?? JSON.stringify(r.error)}`);
+    if (r.error)
+      throw new Error(`browsingContext.create: ${r.error.message ?? JSON.stringify(r.error)}`);
     return r.result.context;
   }
   async navigate(context, url, wait = 'complete') {
     const r = await this.send('browsingContext.navigate', { context, url, wait });
-    if (r.error) throw new Error(`browsingContext.navigate: ${r.error.message ?? JSON.stringify(r.error)}`);
+    if (r.error)
+      throw new Error(`browsingContext.navigate: ${r.error.message ?? JSON.stringify(r.error)}`);
     return r.result;
   }
   async getContexts() {
@@ -99,7 +101,9 @@ export class Bidi {
   }
 
   async close() {
-    try { this.ws.close(); } catch {}
+    try {
+      this.ws.close();
+    } catch {}
   }
 }
 
@@ -118,9 +122,7 @@ function remoteValue(v) {
       return (v.value ?? []).map(remoteValue);
     case 'object':
     case 'map':
-      return Object.fromEntries(
-        (v.value ?? []).map(([k, val]) => [k, remoteValue(val)]),
-      );
+      return Object.fromEntries((v.value ?? []).map(([k, val]) => [k, remoteValue(val)]));
     default:
       return v.value ?? null;
   }
