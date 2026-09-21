@@ -80,18 +80,20 @@ export async function waitForTargets(port, timeoutMs = 30000) {
 }
 
 /** 轮询等待扩展 SW target 出现（首次加载扩展可能慢于 newtab）。 */
-export async function waitForExtensionSw(port, timeoutMs = 45000) {
+export async function waitForExtensionSw(port, timeoutMs = 45000, expectExtId = null) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
       const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
       // 匹配本扩展的 SW：background.js。Edge 内置扩展用 background.rollup.js，
       // 直接取第一个 service_worker 会抓错 id → popup.html ERR_FILE_NOT_FOUND。
+      // 传了 expectExtId 时再按 id 收窄（profile 里可能还有别的组件扩展 SW）。
       const sw = targets.find(
         (t) =>
           t.type === 'service_worker' &&
           t.url.startsWith('chrome-extension://') &&
-          t.url.includes('/background.js'),
+          t.url.includes('/background.js') &&
+          (!expectExtId || new URL(t.url).host === expectExtId),
       );
       if (sw) return { extId: new URL(sw.url).host, sw };
     } catch {}

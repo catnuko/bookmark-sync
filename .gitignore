@@ -32,6 +32,9 @@ memory/memory/
 e2e/.profiles/
 e2e/.ff-profiles/
 .e2e*
+# E2E 本地通道产物（profile + 运行报告）
+scripts/e2e/.profiles/
+scripts/e2e/.reports/
 # WorkBuddy agent workspace
 .workbuddy/
 
