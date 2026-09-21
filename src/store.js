@@ -8,9 +8,9 @@ import {
   getProfile, countServerBookmarks,
   getBoundSpace, createSpace, deleteSpace, renameSpace,
   listDevices, removeDevice, renameDevice, getDeviceId,
-  resetCoordinator, BOUND_SPACE_KEY,
+  resetCoordinator,
 } from "./sync.js";
-import { decryptMoveOp } from "./sync/index.js";
+import { decryptMoveOp, bindGateNeeded, isPaidPlan } from "./sync/index.js";
 import { exportKey, importKey, hasKey, setKeyFromPassphrase, isFirstDevice, clearLocalKey, ensureLocalKey } from "./crypto.js";
 import { t } from "./lib/i18n.js";
 
@@ -69,6 +69,8 @@ export const state = reactive({
   spaces: [],
   // 本机**绑定**的空间（一台设备一个空间；本机书签树 ≡ 该空间）。
   activeSpace: null,
+  // 绑定过、但该空间已被删（与「从未绑定」区分：前者走显式换绑，后者才是首绑门禁）。
+  boundStale: false,
   // 换绑确认：待换绑到的空间 id（''= 无）。换绑会清空本机书签，必须显式确认。
   rebindTarget: "",
   devices: [],
@@ -85,16 +87,19 @@ export const state = reactive({
   armed: "",
   armedLeft: 3,
 
-  // 首绑引导（本机从未绑定过 + 云端有多个空间 → 同步前弹一次，让用户选这台
-  // 电脑加入哪个空间）。绑定是一次显式动作，错过这次就只能去空间列表里改。
-  showBindModal: false,
+  // 首绑门禁（本机从未绑定过 + 有真选择 → 登录取数后就挡住主界面，让用户决定
+  // 这台电脑加入哪个空间）。绑定是一次显式动作，错过这次就只能去空间列表里换绑。
+  // 是**门禁**不是弹窗：选择是必须的，能关掉的弹窗等于让人卡在没有同步的半残状态。
+  // 「有真选择」= 云端 ≥2 个空间，或账号还能新建空间（见 sync/binding.ts）。
+  bindGateVisible: false,
+  canCreateSpace: false, // 账号还能不能新建空间（付费档）——门禁页据此决定要不要给「新建」入口
   bindSpaces: [], // [{ id, name, is_default }]
   bindTarget: "", // 选中的空间 id（'' = 还没选）
   bindMode: "merge", // 'merge' 本机书签并入该空间 | 'overwrite' 用该空间覆盖本机
   bindNewName: "", // 「新建一个空间并加入」的输入
   bindCreating: false, // 新建空间输入行展开态
   bindBusy: false,
-  bindLocalCount: 0, // 本机现有书签条数（弹窗说明用）
+  bindLocalCount: 0, // 本机现有书签条数（门禁说明用）
 
   // 弹窗二级面板（抽屉）
   drawer: "", // '' | 'spaces' | 'key' | 'advanced' | 'help'
@@ -231,8 +236,53 @@ export async function doSetKeyByPhrase() {
 }
 
 // ---- 口令门禁：登录后必须先过这关才能进主界面 ----
-// 第一台设备（云端无盐）：设置新口令；其它设备（云端有盐）：输入旧口令，
-// 用它拉云端一条 op 解密，失败即口令错。口令一旦设过就不可再改。
+// 第一台设备（云端无盐）：设置新口令；其它设备（云端有盐）：输入旧口令，用它解开
+// 云端一条真实 op 才算过（见 verifyPassphrase）。口令一旦设过就不可再改。
+/**
+ * 用刚派生的密钥验一次口令：能解开云端最新的一条 op 就算对。
+ *
+ * 取哪条 op：**账号下所有空间里最新的一条**，而不是「本机绑定空间」那条。第二台
+ * 设备过门禁时**还没有绑定**，按绑定空间找会拿到 `active == null` 直接放行 —— 等于
+ * 没验，口令错要拖到同步时才炸，那时用户已经站在主界面里了。
+ *
+ * （历史坑：6e091c8 把 `getActiveSpace` 改名成 `getBoundSpace`，唯独漏了这处调用。
+ * `ReferenceError` 被下面的 catch 吞成「口令不正确」，于是**任何**第二台设备都永远
+ * 过不了门禁。见 eslint 配置里 no-undef 未生效的注释。）
+ *
+ * @returns 'ok' 通过（含「没有可验的数据」）/ 'wrong' 解密失败 = 口令错 /
+ *          'unchecked' 没验成（网络 / 权限 / RPC 失败）——**不能**当成口令错。
+ */
+async function verifyPassphrase() {
+  let ids = [];
+  try {
+    const { spaces: sp } = await getBoundSpace();
+    ids = sp.map((s) => s.id);
+  } catch {
+    return "unchecked"; // 连空间都取不到 = 网络/权限问题，与口令无关
+  }
+  if (!ids.length) return "ok"; // 账号下还没有空间：没有可验的加密数据
+  try {
+    const { data, error } = await supabase
+      .from("bsync_op_log")
+      .select("op, space_id")
+      .in("space_id", ids)
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return "unchecked";
+    if (!data?.op) return "ok"; // 云端还没有 op（刚设过口令还没播种）：无数据可验
+    const key = await ensureLocalKey();
+    if (!key) return "unchecked";
+    // AAD 用这把 op 自己那行的 space_id（不是我们挑空间时的 id）：口令对但空间
+    // 对不上也会解不开，别把「拿错空间」误报成「口令错」。
+    await decryptMoveOp(data.op, key, data.space_id);
+    return "ok";
+  } catch {
+    // 查询失败走上面的 error 分支，能到这里基本只有解密本身失败 = 口令不对
+    return "wrong";
+  }
+}
+
 export async function initPhraseGate() {
   const has = await hasKey();
   if (has) {
@@ -262,35 +312,12 @@ export async function submitPhraseGate() {
     }
     // verify 模式：云端已有数据，必须能解密一条真实 op 才算口令正确。
     if (state.phraseGateMode === "verify") {
-      let verified = false;
-      try {
-        const { active } = await getActiveSpace();
-        if (active) {
-          const { data } = await supabase
-            .from("bsync_op_log")
-            .select("op")
-            .eq("space_id", active.id)
-            .order("id", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (data?.op) {
-            // 用刚存的密钥解一条 op；解密抛错即口令错
-            const kmKey = await ensureLocalKey();
-            await decryptMoveOp(data.op, kmKey, active.id);
-            verified = true;
-          } else {
-            // 云端还没有 op（刚设过口令还没播种）：无数据可验，先放行
-            verified = true;
-          }
-        } else {
-          verified = true; // 还没空间，放行让流程自己建
-        }
-      } catch {
-        verified = false;
-      }
-      if (!verified) {
+      const check = await verifyPassphrase();
+      if (check !== "ok") {
+        // 两种失败都要清掉刚派生的密钥：门禁不能把「未经验证的密钥」留在本机——
+        // hasKey() 为真会让下次 initPhraseGate 直接放行，用户带着错口令进主界面。
         await clearLocalKey();
-        state.phraseGateMsg = t("gate_errWrong");
+        state.phraseGateMsg = t(check === "wrong" ? "gate_errWrong" : "gate_errCheck");
         return;
       }
     }
@@ -316,11 +343,13 @@ export async function submitPhraseGate() {
 // ---- 空间 / 设备 ----
 export async function refreshSpacesDevices() {
   try {
-    const { spaces: sp, bound } = await getBoundSpace();
+    const { spaces: sp, bound, stale } = await getBoundSpace();
     state.spaces = sp;
     state.activeSpace = bound;
+    state.boundStale = !!stale;
     state.devices = await listDevices();
     state.myDeviceId = await getDeviceId();
+    syncBindGate();
   } catch (e) {
     console.warn("[store] refreshSpacesDevices failed:", e?.message ?? e);
   }
@@ -521,6 +550,11 @@ export async function refreshProfile() {
   if (!(state.profile && typeof state.profile.used_count === "number")) {
     state.serverCount = await countServerBookmarks();
   }
+  // 门禁判据含档位（付费才谈得上「新建一个空间」），所以要在这里也重判一次：
+  // 登录时 refreshProfile 与 refreshSpacesDevices 是并发跑的，谁先到不确定，
+  // 只在 refreshSpacesDevices 末尾判会读到 profile=null（=当免费处理）而漏挡。
+  // syncBindGate 幂等，两边都调是安全的。
+  syncBindGate();
 }
 
 export async function startCheckout(plan) {
@@ -573,11 +607,7 @@ export function openUpgrade() {
   state.showUpgradeModal = true;
 }
 
-// ---- 首绑引导 ----
-/** 首绑窗冷却：自动同步每 30 分钟一次，不冷却会变成每半小时骚扰一次。 */
-const BIND_PROMPT_KEY = "crdt.bindPromptAt";
-const BIND_PROMPT_COOLDOWN = 24 * 60 * 60 * 1000;
-
+// ---- 首绑门禁 ----
 /** 本机书签条数（不含浏览器的固定根容器）。 */
 async function countLocalBookmarks() {
   const FIXED = new Set([
@@ -601,31 +631,66 @@ async function countLocalBookmarks() {
 }
 
 /**
- * 弹首绑窗（`syncNow` 收到 `bind_needed` 时调用）。
+ * 打开首绑门禁（`syncNow` 收到 `bind_needed` 时调用）。
  *
  * 这是**唯一**一次「这台电脑加入哪个空间」的选择时机：绑定一旦写下就不再是
  * 「从未绑定」，之后只能走换绑（清空 + 重建）。所以这里宁可多问一次。
+ *
+ * 不做冷却：门禁不可关，用户没选完就一直挡着，不存在「每半小时骚扰一次」的问题
+ * ——冷却那套是给「能点稍后」的弹窗准备的。
  */
-async function openBindModal(spaces) {
+async function openBindGate(spaces) {
   if (!spaces?.length) return;
-  const { [BIND_PROMPT_KEY]: last } = await api.storage.local.get(BIND_PROMPT_KEY);
-  if (last && Date.now() - last < BIND_PROMPT_COOLDOWN) return;
-  await api.storage.local.set({ [BIND_PROMPT_KEY]: Date.now() });
-
-  const local = await countLocalBookmarks();
-  state.bindSpaces = spaces;
-  state.bindTarget = spaces.find((s) => s.is_default)?.id ?? spaces[0]?.id ?? "";
-  // 本机没有书签时「并入 / 覆盖」没有区别，直接按并入走（弹窗隐藏该选择）。
-  state.bindMode = "merge";
-  state.bindLocalCount = local;
-  state.bindNewName = "";
-  state.bindCreating = false;
-  state.showBindModal = true;
+  armBindGate(spaces);
+  state.bindLocalCount = await countLocalBookmarks();
+  state.bindGateVisible = true;
 }
 
-export function dismissBindModal() {
-  state.showBindModal = false;
-  showToast("info", t("bind_laterTitle"), t("bind_laterSub"));
+/**
+ * 同步地把门禁的可选项装好（不发请求、不翻可见性）。
+ *
+ * 单独抽出来是因为**门禁不能在没装数据时就可见**：判据（`syncBindGate`）只决定
+ * 「该不该挡」，不含可选项，让两者分开跑会渲染出一个没有空间可选、CTA 永远禁用的
+ * 空门禁页——那比弹窗更糟，用户连关闭都做不到。
+ */
+function armBindGate(spaces) {
+  state.bindSpaces = spaces;
+  state.bindTarget = spaces.find((s) => s.is_default)?.id ?? spaces[0]?.id ?? "";
+  // 本机没有书签时「并入 / 覆盖」没有区别，直接按并入走（门禁隐藏该选择）。
+  state.bindMode = "merge";
+  state.bindNewName = "";
+  state.bindCreating = false;
+}
+
+/**
+ * 按当前状态重判门禁是否该挡着。
+ *
+ * 判据与 `firstBindAction` 的 `ask_user` 分支一致：**本机从未绑定 + 有真选择**
+ * （云端 ≥2 个空间，或账号还能新建空间）。挂在 `refreshSpacesDevices()` /
+ * `refreshProfile()` 末尾，登录 / 同步完成 / 空间增删都会重判，门禁因此能自己
+ * 开合（绑成功后 `activeSpace` 有值 → 自动让开）。
+ *
+ * `boundStale`（绑定的空间被删）**不算**「从未绑定」：那条路径本机书签树是旧空间
+ * 的投影，重选要走 `space_unbound` 的显式换绑（有清空/覆盖的明确提示），不该被
+ * 悄悄引流进门禁、当成新设备处理。
+ */
+function syncBindGate() {
+  const canCreate = isPaidPlan(state.profile?.plan);
+  state.canCreateSpace = canCreate;
+  // 新建入口没了就不能停在「正在新建」态：那个输入框会被 v-if 收走，CTA 却还
+  // 认着 bindCreating 显示「新建并加入」，点下去必然撞 plan_locked。
+  if (!canCreate) state.bindCreating = false;
+  if (!bindGateNeeded(state.spaces.length, !!state.activeSpace, state.boundStale, canCreate)) {
+    state.bindGateVisible = false;
+    return;
+  }
+  // 首次挡出（或选项还没装载）时把可选项装上；已经装过就不重装，免得把用户
+  // 正在做的选择（选了哪个空间 / 新建输入框里已经敲的名字）冲掉。
+  if (!state.bindGateVisible || !state.bindSpaces.length) {
+    armBindGate(state.spaces);
+    countLocalBookmarks().then((n) => { state.bindLocalCount = n; });
+  }
+  state.bindGateVisible = true;
 }
 
 /**
@@ -671,8 +736,7 @@ export async function doBindSpace() {
       );
       return;
     }
-    state.showBindModal = false;
-    await refreshSpacesDevices();
+    await refreshSpacesDevices(); // 顺带让门禁自判（绑定已写下 → activeSpace 有值 → 让开）
     await refreshStatus();
     const name = state.spaces.find((s) => s.id === spaceId)?.name ?? "";
     showToast("info", t("bind_doneTitle", name), t("bind_doneSub"));
@@ -773,13 +837,13 @@ export async function syncNow(opts = {}) {
     );
     const r = await Promise.race([msgResult, timeout]);
     if (!r.ok && r.reason === "bind_needed") {
-      // 口令门禁优先：还没设置/验证口令时不弹首绑窗——runSync 里绑定判定排在
-      // 口令检查之前，不拦的话弹窗会盖在门禁页上（用户连云端数据都读不到，
+      // 口令门禁优先：还没设置/验证口令时不打开首绑门禁——runSync 里绑定判定排在
+      // 口令检查之前，不拦的话门禁页会盖在口令页上（用户连云端数据都读不到，
       // 就先被问「加入哪个空间」）。设完口令后那次同步自然会走到这里。
       if (state.phraseGateVisible) return;
-      // 本机从未绑定过，且云端有多个空间 → 这是唯一的「这台电脑加入哪个空间」
-      // 选择时机（绑定写下去之后就只能走换绑了）。冷却判断在 openBindModal 里。
-      await openBindModal(r.spaces ?? []);
+      // 兜底路径：常态下门禁由 refreshSpacesDevices() 里的 syncBindGate() 判定，
+      // 这里覆盖「同步过程中云端空间数从 1 变成 ≥2」之类没走取数的窗口。
+      await openBindGate(r.spaces ?? []);
       return;
     }
     if (!r.ok && r.reason === "no_key") {
@@ -917,19 +981,19 @@ export async function submit() {
 
 export async function logout() {
   await supabase.auth.signOut();
-  // 绑定与首绑冷却都是**账号相关**的本机状态，必须随登出清掉：
-  //   - 残留 boundSpaceId → 换个账号登录后读到的是上一个账号的空间 id，查不到
-  //     就误报「绑定空间已被删除」（`space_unbound`），用户被迫手动重绑；
-  //   - 残留冷却时间戳 → 新账号的首绑引导被上一个账号的冷却挡住，弹不出来。
-  await api.storage.local.remove([BOUND_SPACE_KEY, BIND_PROMPT_KEY]).catch(() => {});
+  // **不要**清 `boundSpaceId`：绑定是「账号 × 设备」的事实，同账号重登必须还是
+  // 原来的绑定（清掉的话每次重登都会被当成新设备、重新问一遍「加入哪个空间」）。
+  // 换账号由记录里的归属账号兜住——`parseBinding` 判到不符即按从未绑定处理。
   state.session = null;
   state.profile = null;
   state.serverCount = null;
   state.spaces = [];
   state.devices = [];
   state.activeSpace = null;
+  state.boundStale = false;
   state.rebindTarget = "";
-  state.showBindModal = false;
+  state.bindGateVisible = false;
+  state.canCreateSpace = false;
   state.bindSpaces = [];
   state.drawer = "";
   state.armed = "";
@@ -992,6 +1056,9 @@ export async function init(popup) {
       state.spaces = [];
       state.devices = [];
       state.activeSpace = null;
+      state.boundStale = false;
+      state.bindGateVisible = false;
+      state.canCreateSpace = false;
       state.rebindTarget = "";
       state.drawer = "";
     }

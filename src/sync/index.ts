@@ -44,6 +44,6 @@ export type {
   IdBridgeOptions,
 } from './chromeBridge.js';
 
-// 设备 ↔ 空间的绑定决策（首绑必须让用户选，见 binding.ts 的文件注释）。
-export { firstBindAction, normalizeBindMode } from './binding.js';
-export type { FirstBindAction, BindMode } from './binding.js';
+// 设备 ↔ 空间的绑定决策（首绑该不该问用户，见 binding.ts 的文件注释）。
+export { firstBindAction, isPaidPlan, normalizeBindMode, parseBinding, bindGateNeeded } from './binding.js';
+export type { FirstBindAction, BindMode, StoredBinding, BindingResolution } from './binding.js';

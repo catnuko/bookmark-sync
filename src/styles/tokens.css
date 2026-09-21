@@ -87,7 +87,10 @@ button { font-family: inherit; font-size: inherit; color: inherit; background: n
 input { font-family: inherit; font-size: inherit; }
 h1, h2, h3, h4, p { margin: 0; }
 ul { margin: 0; padding: 0; list-style: none; }
-svg { display: block; flex: none; }
+/* 默认尺寸是**兜底**，不是设定：<svg> 是替换元素，没给尺寸时按 300×150 渲染，
+   放进 flex 行会把 `flex: 1` 的文本列挤成 0（中文一字一行、行高暴涨）。
+   任何更具体的规则（.btn svg / .lede svg / .m-ico svg …）优先级更高，照常覆盖。 */
+svg { display: block; flex: none; width: 20px; height: 20px; }
 :focus { outline: none; }
 :focus-visible { box-shadow: var(--focus-ring); }
 .mono { font-family: var(--font-mono); }

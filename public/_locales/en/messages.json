@@ -394,6 +394,9 @@
   "gate_errWrong": {
     "message": "Wrong passphrase — it can't decrypt the cloud bookmarks. Try again."
   },
+  "gate_errCheck": {
+    "message": "Couldn't verify the passphrase (network or server issue). Your passphrase is fine — try again."
+  },
   "gate_okSetupTitle": {
     "message": "Passphrase set"
   },
@@ -445,20 +448,26 @@
   "bind_cta": {
     "message": "Join this space"
   },
+  "bind_ctaNew": {
+    "message": "Create & join"
+  },
+  "spaces_defaultName": {
+    "message": "Default space"
+  },
   "bind_ctaOverwrite": {
     "message": "Replace & join"
   },
   "bind_ctaOverwriteConfirm": {
     "message": "Click again to confirm"
   },
-  "bind_later": {
-    "message": "Later"
+  "bind_modeLabel": {
+    "message": "What happens to this computer's bookmarks"
   },
-  "bind_laterTitle": {
-    "message": "No sync space chosen yet"
+  "bind_busy": {
+    "message": "Joining…"
   },
-  "bind_laterSub": {
-    "message": "Sync is paused. Pick a space for this computer under \"Spaces & devices\"."
+  "bind_required": {
+    "message": "Sync starts only after you choose a space. This decides which space this computer's bookmark tree belongs to, and can only be changed by rebinding later."
   },
   "bind_doneTitle": {
     "message": "Joined space \"$NAME$\"",

@@ -7,7 +7,7 @@ import AuthView from "./components/AuthView.vue";
 import PopupView from "./components/PopupView.vue";
 import OptionsView from "./components/OptionsView.vue";
 import PhraseGate from "./components/PhraseGate.vue";
-import ModalBindSpace from "./components/ModalBindSpace.vue";
+import BindSpaceGate from "./components/BindSpaceGate.vue";
 import ModalUpgrade from "./components/ModalUpgrade.vue";
 import ToastHost from "./components/ui/ToastHost.vue";
 
@@ -24,10 +24,12 @@ onMounted(() => init(props.popup));
   </div>
   <!-- 口令门禁是硬门槛：未设置/未验证口令前不渲染任何主界面 -->
   <PhraseGate v-else-if="state.phraseGateVisible" />
+  <!-- 首绑门禁同样是硬门槛（整页、不可关闭）：本机从未绑定空间且云端有多个空间时，
+       先选定这台电脑加入哪个，否则同步无处可落。 -->
+  <BindSpaceGate v-else-if="state.bindGateVisible" />
   <PopupView v-else-if="props.popup" />
   <OptionsView v-else />
 
-  <ModalBindSpace v-if="state.showBindModal" />
   <ModalUpgrade v-if="state.showUpgradeModal" />
   <ToastHost />
 </template>

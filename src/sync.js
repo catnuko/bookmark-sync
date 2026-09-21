@@ -25,7 +25,9 @@ import {
   nativeRootPairs,
   reverseApply,
   firstBindAction,
+  isPaidPlan,
   normalizeBindMode,
+  parseBinding,
 } from "./sync/index.js";
 import { KeyManager } from "./sync/index.js";
 import {
@@ -53,6 +55,9 @@ const LEGACY_KEYS = ["crdt.afterId", "crdt.counter", "crdt.idmap"];
  * 操作（清空本机书签 + 重建目标空间），不做热切换——同一浏览器资料内同时装
  * 两套书签既没有 Chrome API 支持（地址栏星标只认原生书签栏），也会让「我收藏
  * 的书签进了哪个空间」变成谜题。
+ *
+ * 存盘值 = `{ u: 账号 id, s: 空间 id }`：绑定是「账号 × 设备」的事实，换个账号
+ * 登录不能继承上一个账号的绑定（见 binding.ts parseBinding 的注释）。
  */
 export const BOUND_SPACE_KEY = "boundSpaceId";
 /** 旧「活动空间」键（B2 热切换遗留）：一次性迁移清理用。 */
@@ -105,15 +110,53 @@ export async function getProfile() {
 }
 
 /**
- * 本机绑定的空间（一设备一空间，`crdt.boundSpaceId`）。
+ * 当前登录账号 id（无会话 = 空串）。
  *
- * **纯读，不落盘**。绑定只能由一次显式动作写下（`bindSpace` / `rebindSpace`）；
- * 这里读不到 `boundSpaceId` 就如实回报「从未绑定过」，由调用方（`runSync` 的
- * 首绑分支 + UI 引导）决定怎么绑。
+ * 用 getSession（本地已缓存的会话）而不是 getUser：绑定解析在每次登录取数、
+ * 每次同步前都要跑，不该为此多发一次网络往返。
+ */
+async function currentUserId() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.user?.id ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * 当前账号还能不能新建空间（首绑门禁判据之一，见 sync/binding.ts）。
+ *
+ * 只按计划档位判（`isPaidPlan`），**不**在客户端复刻 plan→空间上限的映射——那份
+ * 映射唯一的家在服务端 `bsync_space_create`，复制一份迟早漂移。已达到上限的付费
+ * 用户由服务端的 `plan_locked` + 升级引导兜住（store 的 doBindSpace 已处理）。
+ *
+ * 取不到 profile（离线 / RPC 失败）时按 false 处理 = 保持静默绑定：宁可少问一次，
+ * 也不要把免费用户误推进整页门禁；付费用户这一步的选择权在空间列表的换绑里还在。
+ */
+async function planCanCreateSpace() {
+  try {
+    const p = await getProfile();
+    return isPaidPlan(p?.plan);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 本机绑定的空间（一设备一空间，`boundSpaceId` = `{ u: 账号, s: 空间 }`）。
+ *
+ * **纯读，唯一例外**：把旧格式（裸字符串）记录就地升级成带账号的格式——升级不
+ * 改变绑定事实，「从未绑定」绝不会被写成「已绑定」。除此之外不落盘。
  *
  * 为什么必须纯读：早期版本在这个函数里悄悄把 `boundSpaceId` 写成默认空间，
  * 「本机是否绑定过」这个事实当场被抹掉——首绑引导再也判不出来，用户也就永远
  * 没有机会选择这台电脑加入哪个空间。
+ *
+ * 为什么要校验归属账号：绑定是「账号 × 设备」的事实。同账号重登必须还是原来
+ * 的绑定（登出不能把它抹掉，否则每次重登都被当成新设备重新问一遍）；换账号则
+ * 必须按从未绑定处理（继承别人的空间 id 会误报「空间已删」，甚至把本机书签写进
+ * 不相干的空间）。
  *
  * 三种情形：
  *   - `bound != null`：已绑定，空间还在；
@@ -129,9 +172,14 @@ export async function getBoundSpace() {
     .order("created_at", { ascending: true });
   if (error) throw error;
   const spaces = data ?? [];
-  const { [BOUND_SPACE_KEY]: boundId } = await api.storage.local.get(BOUND_SPACE_KEY);
-  const bound = spaces.find((s) => s.id === boundId) ?? null;
-  return { spaces, bound, stale: !bound && !!boundId };
+  const owner = await currentUserId();
+  const { [BOUND_SPACE_KEY]: stored } = await api.storage.local.get(BOUND_SPACE_KEY);
+  const rec = parseBinding(stored, owner);
+  const bound = rec.mine ? spaces.find((s) => s.id === rec.spaceId) ?? null : null;
+  if (rec.legacy && rec.mine) {
+    await api.storage.local.set({ [BOUND_SPACE_KEY]: { u: owner, s: rec.spaceId } });
+  }
+  return { spaces, bound, stale: rec.mine && !bound };
 }
 
 /**
@@ -206,9 +254,15 @@ export async function deleteSpace(id) {
   return { ok: true };
 }
 
-/** 写下绑定，并丢弃与新目标无关的内存状态（coordinator / 映射桥 / 世代）。 */
+/**
+ * 写下绑定，并丢弃与新目标无关的内存状态（coordinator / 映射桥 / 世代）。
+ *
+ * 连账号 id 一起写：绑定是「账号 × 设备」的事实，换账号登录时才能判出「这条
+ * 记录不属于当前账号」而按从未绑定处理（见 getBoundSpace）。
+ */
 async function commitBinding(id) {
-  await api.storage.local.set({ [BOUND_SPACE_KEY]: id });
+  const owner = await currentUserId();
+  await api.storage.local.set({ [BOUND_SPACE_KEY]: { u: owner, s: id } });
   // 下次同步按新空间重建：水位/计数器/映射都按空间分区，各自续拉，不互相污染。
   _coordinator = null;
   _bootPromise = null;
@@ -428,11 +482,16 @@ export async function runSync(_opts = {}) {
     }
     if (!bound) {
       // 本机从未绑定过 → 首绑（决策逻辑见 sync/binding.ts，有单测）。
-      switch (firstBindAction(spaces.length, false)) {
+      // 判据含「账号还能不能新建空间」：付费用户在新设备上应该拿到「加入旧的 /
+      // 为本机新建」的选择；免费用户只有一个空间可加入，没得选就别打扰他。
+      const canCreate = await planCanCreateSpace();
+      switch (firstBindAction(spaces.length, false, canCreate)) {
         case "create_default": {
           // 全新账号：没有空间可选，自动建「默认空间」并绑定（后端
           // bsync_space_create 首个空间自动 is_default=true）。
-          const r = await createSpace("默认空间");
+          // 空间名跟着界面语言走：它出现在空间列表与 quota 卡里，硬编码中文会让
+          // 英文界面下冒出一个中文空间名。
+          const r = await createSpace(t("spaces_defaultName"));
           if (!r.ok) return { ok: false, reason: "no_space", error: r.error ?? t("err_noSpace") };
           ({ spaces } = await getBoundSpace());
           if (!spaces.length) return { ok: false, reason: "no_space" };
@@ -441,14 +500,14 @@ export async function runSync(_opts = {}) {
           break;
         }
         case "auto_bind":
-          // 只有一个空间：没得选，静默绑定（单空间用户不该被弹窗打扰）。
+          // 唯一空间且建不了新的：没得选，静默绑定（不拿必选页面打扰）。
           await bindSpace(spaces[0].id);
           bound = spaces[0];
           break;
         default:
-          // 多个空间：这台电脑加入哪个是**用户的选择**，交回 UI 弹引导。
-          // 此处不绑定也不同步——绑定一旦写下，「本机从未绑定过」的事实就没了，
-          // 用户再也没机会选（这正是本方案最容易踩的坑）。
+          // 有真选择（≥2 个空间，或还能新建）：这台电脑加入哪个是**用户的决定**，
+          // 交回 UI 挡出整页门禁。此处不绑定也不同步——绑定一旦写下，「本机从未
+          // 绑定过」的事实就没了，用户再也没机会选（这正是本方案最容易踩的坑）。
           return {
             ok: false,
             reason: "bind_needed",
@@ -704,7 +763,10 @@ function bootCoordinatorForEvent() {
         if (gen !== _coordinatorGen) return null; // 密钥已变更，放弃本次 boot
         // 先确立该空间的落地区与映射桥：事件处理器随后经 getActiveBridge() 取用，
         // 否则冷启动窗口内的事件会拿不到映射而漏掉（典型：删除事件丢墓碑）。
-        await ensureActiveBridge(active, spaces);
+        // 只传空间本身——B2 时代这里多传了个 `spaces` 列表，D 方案把那批变量删掉后
+        // 参数没跟着删，`spaces is not defined` 被下面的 catch 吞成 return null，
+        // 于是**每次 SW 冷启动后的本地事件全部丢弃**（正是本函数要防的那个 bug）。
+        await ensureActiveBridge(active);
         return await getCoordinator(active.id, deviceId, key);
       } catch {
         return null; // 网络/权限失败：本事件放弃，下轮 runSync 兜底

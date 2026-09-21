@@ -394,6 +394,9 @@
   "gate_errWrong": {
     "message": "口令不正确，无法解密云端书签，请重新输入。"
   },
+  "gate_errCheck": {
+    "message": "暂时无法校验口令（网络或服务异常），口令本身没问题，请重试。"
+  },
   "gate_okSetupTitle": {
     "message": "口令已设置"
   },
@@ -445,20 +448,26 @@
   "bind_cta": {
     "message": "加入该空间"
   },
+  "bind_ctaNew": {
+    "message": "新建并加入"
+  },
+  "spaces_defaultName": {
+    "message": "默认空间"
+  },
   "bind_ctaOverwrite": {
     "message": "覆盖本机并加入"
   },
   "bind_ctaOverwriteConfirm": {
     "message": "再次点击确认覆盖"
   },
-  "bind_later": {
-    "message": "稍后"
+  "bind_modeLabel": {
+    "message": "本机书签怎么处理"
   },
-  "bind_laterTitle": {
-    "message": "尚未选择同步空间"
+  "bind_busy": {
+    "message": "正在加入…"
   },
-  "bind_laterSub": {
-    "message": "同步暂不进行。可在「空间与设备」里选择这台电脑加入的空间。"
+  "bind_required": {
+    "message": "必须选择一个空间，同步才会开始。这是本机书签树的归属，之后只能换绑。"
   },
   "bind_doneTitle": {
     "message": "已加入空间「$NAME$」",
