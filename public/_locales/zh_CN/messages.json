@@ -561,6 +561,28 @@
   "spaces_switchedSub": {
     "message": "下次同步将与该空间的数据按并集合并（本设备书签会并入该空间）。"
   },
+  "spaces_containerTitle": {
+    "message": "书签空间 · $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_switchedSubContainer": {
+    "message": "该空间的书签在本机落在书签栏的「$CONTAINER$」文件夹里，其它空间的书签不受影响。",
+    "placeholders": {
+      "container": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_switchFailTitle": {
+    "message": "切换空间失败"
+  },
+  "spaces_switchPushFailed": {
+    "message": "当前空间还有改动没同步成功（网络或额度问题），本次未切换。请稍后重试。"
+  },
   "spaces_limitTitle": {
     "message": "空间数量已达上限"
   },

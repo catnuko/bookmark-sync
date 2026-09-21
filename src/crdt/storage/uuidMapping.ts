@@ -18,11 +18,17 @@
 
 import {
   INDEX_BY_UUID,
+  INDEX_BY_SPACE,
   STORE_UUID_MAPPING,
+  mappingKey,
 } from './schema.js';
 
-/** A persisted mapping row. */
+/** A persisted mapping row（按空间隔离）。 */
 export interface UuidMappingRow {
+  /** `${spaceId}:${chromeId}`（主键）。 */
+  key: string;
+  /** 该映射所属的同步空间。 */
+  spaceId: string;
   chromeId: string;
   uuid: string;
   /** 'bookmarks-bar' | 'other' | 'mobile' | 'managed' for special folders. */
@@ -64,8 +70,20 @@ export const CHROME_BOOKMARKS_BAR_ID = '1';
 export const CHROME_OTHER_ID = '2';
 export const CHROME_MOBILE_ID = '3';
 
-/** The canonical special-root mapping table, seeded on first run. */
-export const SPECIAL_ROOT_ROWS: UuidMappingRow[] = [
+/**
+ * 固定根的（chromeId, uuid, folderType）种子表。
+ *
+ * 不含 spaceId：同一张表对每个空间各自播种一次（默认空间 = 原生根；容器空间
+ * 由 spaceRoots 解析出容器内落地根后传入 IdBridge）。
+ */
+export interface SpecialRootRow {
+  chromeId: string;
+  uuid: string;
+  folderType?: string;
+}
+
+/** The canonical special-root mapping table, seeded once per space. */
+export const SPECIAL_ROOT_ROWS: SpecialRootRow[] = [
   { chromeId: CHROME_ROOT_ID, uuid: ROOT_UUID },
   { chromeId: CHROME_BOOKMARKS_BAR_ID, uuid: BOOKMARKS_BAR_UUID, folderType: 'bookmarks-bar' },
   { chromeId: CHROME_OTHER_ID, uuid: OTHER_BOOKMARKS_UUID, folderType: 'other' },
@@ -80,9 +98,13 @@ function txComplete<T>(req: IDBRequest<T>): Promise<T> {
 }
 
 /**
- * Persistent chromeId <-> UUID mapping. Thin promise wrapper over the
- * `uuidMapping` object store. No caching here — runtime caching lives in
- * IdMapper (src/extension/idMapping.ts).
+ * Persistent chromeId <-> UUID mapping，**按空间隔离**（v3）。
+ *
+ * 多空间下同一 chromeId 在不同空间是不同节点，因此所有读写都必须带 spaceId；
+ * 行主键为 `${spaceId}:${chromeId}`，与 outbox 的按空间键保持一致。
+ *
+ * No caching here — runtime caching lives in IdBridge (src/sync/chromeBridge.ts),
+ * 其持久化真身是 chrome.storage.local 的 `crdt.idmap.<spaceId>`。
  */
 export class UuidMappingStore {
   private readonly db: IDBDatabase;
@@ -91,50 +113,75 @@ export class UuidMappingStore {
     this.db = db;
   }
 
-  /** chromeId -> UUID, or null if unmapped. */
-  async getUuid(chromeId: string): Promise<string | null> {
+  /** chromeId -> UUID within `spaceId`, or null if unmapped. */
+  async getUuid(spaceId: string, chromeId: string): Promise<string | null> {
     const tx = this.db.transaction(STORE_UUID_MAPPING, 'readonly');
     const row = await txComplete<UuidMappingRow | undefined>(
-      tx.objectStore(STORE_UUID_MAPPING).get(chromeId),
+      tx.objectStore(STORE_UUID_MAPPING).get(mappingKey(spaceId, chromeId)),
     );
     return row ? row.uuid : null;
   }
 
-  /** UUID -> chromeId, or null if unmapped (uses the by_uuid index). */
-  async getChromeId(uuid: string): Promise<string | null> {
+  /** UUID -> chromeId within `spaceId`, or null if unmapped (uses the by_uuid index). */
+  async getChromeId(spaceId: string, uuid: string): Promise<string | null> {
     const tx = this.db.transaction(STORE_UUID_MAPPING, 'readonly');
     const index = tx.objectStore(STORE_UUID_MAPPING).index(INDEX_BY_UUID);
-    const row = await txComplete<UuidMappingRow | undefined>(index.get(uuid));
+    const row = await txComplete<UuidMappingRow | undefined>(
+      index.get([spaceId, uuid]),
+    );
     return row ? row.chromeId : null;
   }
 
   /** Insert or overwrite a mapping. Idempotent on repeated calls. */
   async setMapping(
+    spaceId: string,
     chromeId: string,
     uuid: string,
     folderType?: string,
   ): Promise<void> {
     const tx = this.db.transaction(STORE_UUID_MAPPING, 'readwrite');
-    const row: UuidMappingRow = folderType
-      ? { chromeId, uuid, folderType }
-      : { chromeId, uuid };
+    const row: UuidMappingRow = {
+      key: mappingKey(spaceId, chromeId),
+      spaceId,
+      chromeId,
+      uuid,
+      ...(folderType ? { folderType } : {}),
+    };
     await txComplete(tx.objectStore(STORE_UUID_MAPPING).put(row));
     await txDone(tx);
   }
 
-  /** Every mapping row (used to warm the in-memory cache). */
-  async getAll(): Promise<UuidMappingRow[]> {
+  /** Every mapping row (all spaces), or only `spaceId`'s rows when given. */
+  async getAll(spaceId?: string): Promise<UuidMappingRow[]> {
     const tx = this.db.transaction(STORE_UUID_MAPPING, 'readonly');
+    const store = tx.objectStore(STORE_UUID_MAPPING);
+    if (!spaceId) return txComplete<UuidMappingRow[]>(store.getAll());
     return txComplete<UuidMappingRow[]>(
-      tx.objectStore(STORE_UUID_MAPPING).getAll(),
+      store.index(INDEX_BY_SPACE).getAll(spaceId),
     );
   }
 
-  /** Drop the mapping for `chromeId` (e.g. after a permanent delete). */
-  async removeByChromeId(chromeId: string): Promise<void> {
+  /** Drop the mapping for `chromeId` in `spaceId` (e.g. after a permanent delete). */
+  async removeByChromeId(spaceId: string, chromeId: string): Promise<void> {
     const tx = this.db.transaction(STORE_UUID_MAPPING, 'readwrite');
-    await txComplete(tx.objectStore(STORE_UUID_MAPPING).delete(chromeId));
+    await txComplete(
+      tx.objectStore(STORE_UUID_MAPPING).delete(mappingKey(spaceId, chromeId)),
+    );
     await txDone(tx);
+  }
+
+  /** Drop the mapping for `uuid` in `spaceId` (reverse direction). */
+  async removeByUuid(spaceId: string, uuid: string): Promise<void> {
+    // IDBIndex 没有 delete()：先经索引取出主键，再删记录。
+    // 分两个事务，避免「await 后跨事务边界继续用同一 tx」的自动提交风险。
+    const readTx = this.db.transaction(STORE_UUID_MAPPING, 'readonly');
+    const pk = await txComplete<IDBValidKey | undefined>(
+      readTx.objectStore(STORE_UUID_MAPPING).index(INDEX_BY_UUID).getKey([spaceId, uuid]),
+    );
+    if (pk === undefined) return;
+    const writeTx = this.db.transaction(STORE_UUID_MAPPING, 'readwrite');
+    await txComplete(writeTx.objectStore(STORE_UUID_MAPPING).delete(pk));
+    await txDone(writeTx);
   }
 }
 

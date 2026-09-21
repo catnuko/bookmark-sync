@@ -35,5 +35,29 @@ export {
   IdBridge,
   IS_FIREFOX,
   computePosition,
+  nativeRootPairs,
+  barRootId,
+  LANDING_ROOT_UUIDS,
 } from './chromeBridge.js';
-export type { ChromeBookmarksAPI, ChromeTreeNode } from './chromeBridge.js';
+export type {
+  ChromeBookmarksAPI,
+  ChromeTreeNode,
+  IdBridgeOptions,
+} from './chromeBridge.js';
+
+// 多空间落地（B2 多容器并存）：空间 → chrome 落地区解析 + 容器注册表。
+export {
+  SPACE_ROOTS_KEY,
+  FIXED_ROOT_UUIDS,
+  loadSpaceRoots,
+  saveSpaceRoots,
+  persistSpaceLanding,
+  resolveSpaceLanding,
+} from './spaceLanding.js';
+export type {
+  LandingStorage,
+  SpaceLanding,
+  SpaceLandingRow,
+  SpaceRootsRegistry,
+  SpaceLike,
+} from './spaceLanding.js';

@@ -6,7 +6,7 @@ import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
 import {
   getProfile, countServerBookmarks,
-  getActiveSpace, switchSpace, createSpace, deleteSpace, renameSpace,
+  getActiveSpace, createSpace, deleteSpace, renameSpace,
   listDevices, removeDevice, renameDevice, getDeviceId,
   acknowledgeFirstSync, pullOverwriteLocal,
   resetCoordinator,
@@ -324,10 +324,33 @@ export async function refreshSpacesDevices() {
 }
 
 export async function doSwitchSpace(sp) {
-  if (sp.id === state.activeSpace?.id) return;
-  await switchSpace(sp.id);
-  await refreshSpacesDevices();
-  showToast("info", t("spaces_switchedTitle", sp.name), t("spaces_switchedSub"));
+  if (sp.id === state.activeSpace?.id || state.spaceBusy) return;
+  state.spaceBusy = true;
+  try {
+    // 切换由 SW 执行：只有 SW 持有与事件桥同 realm 的 coordinator，「切走前
+    // 先把旧空间的未推送 op 推完」才真的等得到；成功后 SW 会立即同步一次，
+    // 让新空间的落地区在本机出现。
+    const r = await api.runtime.sendMessage({ type: "bsync-space-switch", spaceId: sp.id });
+    if (!r?.ok) {
+      showToast(
+        "danger",
+        t("spaces_switchFailTitle"),
+        r?.reason === "push_failed"
+          ? t("spaces_switchPushFailed")
+          : t("common_failPrefix", r?.error ?? r?.reason ?? ""),
+      );
+      return;
+    }
+    await refreshSpacesDevices();
+    // 默认空间的落地就是原生书签栏；其它空间落在书签栏下的容器文件夹里，
+    // 文案要告诉用户去哪儿找（否则会以为本机书签被切没了）。
+    const sub = sp.is_default
+      ? t("spaces_switchedSub")
+      : t("spaces_switchedSubContainer", t("spaces_containerTitle", sp.name));
+    showToast("info", t("spaces_switchedTitle", sp.name), sub);
+  } finally {
+    state.spaceBusy = false;
+  }
 }
 
 export async function doCreateSpace() {

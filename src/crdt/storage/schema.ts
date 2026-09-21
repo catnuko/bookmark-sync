@@ -9,8 +9,14 @@
  *                    Index `by_timestamp` on `t.counter`.
  *   2. snapshot    — keyPath `id`. Exactly one row `{id:'current', ...}`:
  *                    a serialized CrdtState + counter + replicaId + opCount.
- *   3. uuidMapping — keyPath `chromeId`. {chromeId, uuid, folderType?}.
- *                    Index `by_uuid` on `uuid` (reverse lookup).
+ *   3. uuidMapping — keyPath `key` = `${spaceId}:${chromeId}` (v3)。行
+ *                    {key, spaceId, chromeId, uuid, folderType?}。
+ *                    Index `by_uuid` on ['spaceId','uuid'] (unique) 反向查找；
+ *                    Index `by_space` on `spaceId` 按空间枚举。
+ *                    v3 前为 keyPath `chromeId`（无空间维度）——多空间下同一
+ *                     chromeId 在不同空间是不同节点，必须复合键隔离。
+ *                    （运行时映射真身在 chrome.storage.local `crdt.idmap.<spaceId>`，
+ *                     本 store 属持久化备份层；v2→v3 重建不丢用户数据。）
  *   4. meta        — keyPath `key`. Scalar bookkeeping (e.g. replicaId).
  *   5. outbox      — keyPath `key` = `${spaceId}:${seq}` (v2). 未确认推送
  *                    成功的本地 op（含 spaceId）；SW 冷启动经 restoreOutbox
@@ -23,7 +29,7 @@
  */
 
 export const DB_NAME = 'bookmark-crdt-sync';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export const STORE_OPS = 'ops';
 export const STORE_SNAPSHOT = 'snapshot';
@@ -34,7 +40,6 @@ export const STORE_OUTBOX = 'outbox';
 export const INDEX_BY_TIMESTAMP = 'by_timestamp';
 export const INDEX_BY_UUID = 'by_uuid';
 export const INDEX_BY_SPACE = 'by_space';
-
 /** Key for the single snapshot row. */
 export const SNAPSHOT_KEY = 'current';
 
@@ -52,6 +57,17 @@ export function opKey(counter: number, replicaId: string): string {
 }
 
 /**
+ * uuidMapping 的主键：`{spaceId}:{chromeId}`。
+ *
+ * 多空间下同一 chromeId 在不同空间是完全不同的 CRDT 节点（如 Chrome
+ * 书签栏 "1" 在默认空间是 BOOKMARKS_BAR_UUID 的落地，在容器空间则是另一棵
+ * 树的落地容器），故必须带空间前缀，与 outbox 的 `${spaceId}:${seq}` 一致。
+ */
+export function mappingKey(spaceId: string, chromeId: string): string {
+  return `${spaceId}:${chromeId}`;
+}
+
+/**
  * Open (creating/upgrading as needed) the IndexedDB database.
  *
  * Accepts a global `IDBFactory` (the browser provides `indexedDB`; tests
@@ -64,8 +80,17 @@ export function openBookmarkDb(
 ): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = factory.open(dbName, version);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (ev) => {
       const db = req.result;
+      const oldVersion = (ev as IDBVersionChangeEvent)?.oldVersion ?? 0;
+
+      // v3：uuidMapping 从 keyPath `chromeId` 改为复合键 `${spaceId}:${chromeId}`
+      // （多空间隔离）。keyPath 变更无法原地改，必须重建 store；运行时映射
+      // 真身存放在 chrome.storage.local `crdt.idmap.<spaceId>`，本 store 只是
+      // 持久化备份层且当前无运行时读取方，重建不丢用户数据。
+      if (oldVersion > 0 && oldVersion < 3 && db.objectStoreNames.contains(STORE_UUID_MAPPING)) {
+        db.deleteObjectStore(STORE_UUID_MAPPING);
+      }
 
       // 1. ops: MoveOp rows, keyed by opKey.
       if (!db.objectStoreNames.contains(STORE_OPS)) {
@@ -79,12 +104,14 @@ export function openBookmarkDb(
         db.createObjectStore(STORE_SNAPSHOT, { keyPath: 'id' });
       }
 
-      // 3. uuidMapping: chromeId -> {chromeId, uuid, folderType?}.
+      // 3. uuidMapping: `${spaceId}:${chromeId}` -> {spaceId, chromeId, uuid, folderType?}.
       if (!db.objectStoreNames.contains(STORE_UUID_MAPPING)) {
         const map = db.createObjectStore(STORE_UUID_MAPPING, {
-          keyPath: 'chromeId',
+          keyPath: 'key',
         });
-        map.createIndex(INDEX_BY_UUID, 'uuid', { unique: true });
+        // 反向查找（uuid → chromeId）按空间唯一；跨空间同 uuid 不复用但允许各自存在。
+        map.createIndex(INDEX_BY_UUID, ['spaceId', 'uuid'], { unique: true });
+        map.createIndex(INDEX_BY_SPACE, 'spaceId', { unique: false });
       }
 
       // 4. meta: scalar key/value rows.

@@ -122,11 +122,13 @@ describe('ReplicaStateStore persistence', () => {
   });
 });
 
-describe('UuidMappingStore', () => {
+describe('UuidMappingStore（按空间隔离）', () => {
   let db: IDBDatabase;
   let store: UuidMappingStore;
   let dbName: string;
   let counter = 0;
+  const SPACE_A = 'space-a';
+  const SPACE_B = 'space-b';
 
   beforeEach(async () => {
     dbName = `test-map-${counter++}`;
@@ -139,28 +141,53 @@ describe('UuidMappingStore', () => {
   });
 
   it('sets, gets, and reverse-looks-up a mapping', async () => {
-    await store.setMapping('chrome-42', 'uuid-42', 'bookmarks-bar');
-    expect(await store.getUuid('chrome-42')).toBe('uuid-42');
-    expect(await store.getChromeId('uuid-42')).toBe('chrome-42');
+    await store.setMapping(SPACE_A, 'chrome-42', 'uuid-42', 'bookmarks-bar');
+    expect(await store.getUuid(SPACE_A, 'chrome-42')).toBe('uuid-42');
+    expect(await store.getChromeId(SPACE_A, 'uuid-42')).toBe('chrome-42');
   });
 
   it('returns null for unmapped ids', async () => {
-    expect(await store.getUuid('nope')).toBeNull();
-    expect(await store.getChromeId('nope-uuid')).toBeNull();
+    expect(await store.getUuid(SPACE_A, 'nope')).toBeNull();
+    expect(await store.getChromeId(SPACE_A, 'nope-uuid')).toBeNull();
   });
 
-  it('removeByChromeId clears both directions', async () => {
-    await store.setMapping('c1', 'u1');
-    await store.removeByChromeId('c1');
-    expect(await store.getUuid('c1')).toBeNull();
-    expect(await store.getChromeId('u1')).toBeNull();
+  it('隔离空间：同一 chromeId 在两个空间是两条互不可见的映射', async () => {
+    // 这是多空间的地基不变式：chrome 书签栏 "1" 在空间 A 是 A 树的落地，
+    // 在空间 B 是 B 树的落地，绝不能互相看见。
+    await store.setMapping(SPACE_A, '1', 'uuid-a');
+    await store.setMapping(SPACE_B, '1', 'uuid-b');
+
+    expect(await store.getUuid(SPACE_A, '1')).toBe('uuid-a');
+    expect(await store.getUuid(SPACE_B, '1')).toBe('uuid-b');
+    expect(await store.getChromeId(SPACE_A, 'uuid-a')).toBe('1');
+    expect(await store.getChromeId(SPACE_A, 'uuid-b')).toBeNull(); // B 的 uuid 在 A 不可见
   });
 
-  it('getAll returns every row', async () => {
-    await store.setMapping('c1', 'u1');
-    await store.setMapping('c2', 'u2', 'other');
+  it('removeByChromeId clears both directions (within a space)', async () => {
+    await store.setMapping(SPACE_A, 'c1', 'u1');
+    await store.removeByChromeId(SPACE_A, 'c1');
+    expect(await store.getUuid(SPACE_A, 'c1')).toBeNull();
+    expect(await store.getChromeId(SPACE_A, 'u1')).toBeNull();
+  });
+
+  it('removeByUuid 只影响本空间', async () => {
+    await store.setMapping(SPACE_A, 'c1', 'u1');
+    await store.setMapping(SPACE_B, 'c1', 'u1'); // 同 chromeId+uuid，不同空间
+    await store.removeByUuid(SPACE_A, 'u1');
+    expect(await store.getUuid(SPACE_A, 'c1')).toBeNull();
+    expect(await store.getUuid(SPACE_B, 'c1')).toBe('u1'); // B 不受影响
+  });
+
+  it('getAll returns every row, or only one space when asked', async () => {
+    await store.setMapping(SPACE_A, 'c1', 'u1');
+    await store.setMapping(SPACE_A, 'c2', 'u2', 'other');
+    await store.setMapping(SPACE_B, 'c1', 'u3');
     const all = await store.getAll();
-    expect(all.map((r) => r.chromeId).sort()).toEqual(['c1', 'c2']);
+    expect(all.map((r) => `${r.spaceId}:${r.chromeId}`).sort()).toEqual(
+      [`${SPACE_A}:c1`, `${SPACE_A}:c2`, `${SPACE_B}:c1`].sort(),
+    );
+    const onlyA = await store.getAll(SPACE_A);
+    expect(onlyA.map((r) => r.chromeId).sort()).toEqual(['c1', 'c2']);
   });
 });
 
@@ -177,13 +204,13 @@ describe('Special-root fixed UUIDs', () => {
     const db = await freshDb(`test-roots-${Date.now()}`);
     const store = new UuidMappingStore(db);
     // Seed manually (IdMapper.init does this; here we verify the table).
-    await store.setMapping(CHROME_ROOT_ID, ROOT_UUID);
-    await store.setMapping(CHROME_BOOKMARKS_BAR_ID, BOOKMARKS_BAR_UUID, 'bookmarks-bar');
-    await store.setMapping(CHROME_OTHER_ID, OTHER_BOOKMARKS_UUID, 'other');
-    await store.setMapping(CHROME_MOBILE_ID, MOBILE_UUID, 'mobile');
+    await store.setMapping('space-x', CHROME_ROOT_ID, ROOT_UUID);
+    await store.setMapping('space-x', CHROME_BOOKMARKS_BAR_ID, BOOKMARKS_BAR_UUID, 'bookmarks-bar');
+    await store.setMapping('space-x', CHROME_OTHER_ID, OTHER_BOOKMARKS_UUID, 'other');
+    await store.setMapping('space-x', CHROME_MOBILE_ID, MOBILE_UUID, 'mobile');
 
-    expect(await store.getUuid(CHROME_BOOKMARKS_BAR_ID)).toBe(BOOKMARKS_BAR_UUID);
-    expect(await store.getChromeId(OTHER_BOOKMARKS_UUID)).toBe(CHROME_OTHER_ID);
+    expect(await store.getUuid('space-x', CHROME_BOOKMARKS_BAR_ID)).toBe(BOOKMARKS_BAR_UUID);
+    expect(await store.getChromeId('space-x', OTHER_BOOKMARKS_UUID)).toBe(CHROME_OTHER_ID);
     db.close();
   });
 });

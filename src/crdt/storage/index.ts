@@ -23,6 +23,7 @@ export {
   META_REPLICA_ID,
   META_COUNTER,
   opKey,
+  mappingKey,
   openBookmarkDb,
 } from './schema.js';
 
@@ -57,4 +58,4 @@ export {
   CHROME_MOBILE_ID,
   SPECIAL_ROOT_ROWS,
 } from './uuidMapping.js';
-export type { UuidMappingRow } from './uuidMapping.js';
+export type { UuidMappingRow, SpecialRootRow } from './uuidMapping.js';

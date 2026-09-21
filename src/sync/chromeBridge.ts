@@ -92,6 +92,43 @@ function fixedRootUuid(chromeId: string): string | null {
 export const IS_FIREFOX =
   typeof navigator !== "undefined" && /Firefox\//.test(navigator.userAgent);
 
+/** 所有固定根 UUID（ROOT 之外 4 个）。 */
+export const LANDING_ROOT_UUIDS: ReadonlySet<string> = new Set([
+  ROOT_UUID,
+  BOOKMARKS_BAR_UUID,
+  OTHER_BOOKMARKS_UUID,
+  MOBILE_UUID,
+  MENU_UUID,
+]);
+
+/**
+ * 本环境原生根（[chromeId, uuid]，首项是根 id）。
+ *
+ * 默认空间的落地 = 这一组；容器空间的落地由 spaceLanding 解析后经
+ * IdBridgeOptions.roots 注入，不使用本表。
+ */
+export function nativeRootPairs(isFirefox: boolean): Array<[string, string]> {
+  return isFirefox
+    ? [
+        ['root________', ROOT_UUID],
+        ['menu________', MENU_UUID],
+        ['toolbar_____', BOOKMARKS_BAR_UUID],
+        ['unfiled_____', OTHER_BOOKMARKS_UUID],
+        ['mobile______', MOBILE_UUID],
+      ]
+    : [
+        [CHROME_ROOT_ID, ROOT_UUID],
+        ['1', BOOKMARKS_BAR_UUID],
+        ['2', OTHER_BOOKMARKS_UUID],
+        ['3', MOBILE_UUID],
+      ];
+}
+
+/** 本环境书签栏（书签工具栏）根 id——容器文件夹挂在它下面。 */
+export function barRootId(isFirefox: boolean): string {
+  return isFirefox ? 'toolbar_____' : '1';
+}
+
 /** 已知固定根 chromeId -> uuid（跨环境全集，forward 用）。 */
 const ALL_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   [CHROME_ROOT_ID, ROOT_UUID],
@@ -104,40 +141,83 @@ const ALL_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['mobile______', MOBILE_UUID],
   ['menu________', MENU_UUID],
 ];
-/** Chrome 环境的根（backward 用）。 */
-const CHROME_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
-  [CHROME_ROOT_ID, ROOT_UUID],
-  ['1', BOOKMARKS_BAR_UUID],
-  ['2', OTHER_BOOKMARKS_UUID],
-  ['3', MOBILE_UUID],
-];
-/** Firefox 环境的根（backward 用；menu________ 映射 MENU_UUID）。 */
-const FF_ROOT_PAIRS: ReadonlyArray<readonly [string, string]> = [
-  ['root________', ROOT_UUID],
-  ['menu________', MENU_UUID],
-  ['toolbar_____', BOOKMARKS_BAR_UUID],
-  ['unfiled_____', OTHER_BOOKMARKS_UUID],
-  ['mobile______', MOBILE_UUID],
-];
-const CHROME_ROOT_IDS = new Set(CHROME_ROOT_PAIRS.map(([cid]) => cid));
-const FF_ROOT_IDS = new Set(FF_ROOT_PAIRS.map(([cid]) => cid));
+const CHROME_ROOT_IDS = new Set([
+  CHROME_ROOT_ID, '1', '2', '3',
+]);
+const FF_ROOT_IDS = new Set([
+  'root________', 'menu________', 'toolbar_____', 'unfiled_____', 'mobile______',
+]);
+/** 跨环境原生根 id 全集：用于拒绝「把原生根当成外来容器」。 */
+const NATIVE_ROOT_IDS = new Set<string>([
+  ...CHROME_ROOT_IDS,
+  ...FF_ROOT_IDS,
+]);
 
 /**
- * In-memory chromeId <-> uuid map. Persistence (UuidMappingStore) owns the
- * durable layer; this cache is warmed at start and written-through.
+ * In-memory chromeId <-> uuid map. Persistence (chrome.storage.local
+ * `crdt.idmap.<spaceId>`，见 sync.js) owns the durable layer; this cache is
+ * warmed at start and written-through.
  *
  * backward 只 seed 本环境的根 id：若 Chrome/Firefox 根都 seed，同一 uuid 的
  * backward 会被后写覆盖（OTHER ← 'unfiled_____' 覆盖 '2'），Chromium 下
  * toChromeId(OTHER) 会返回 Firefox guid → chrome "Bookmark id is invalid."。
+ *
+ * 多空间（B2）：一个 IdBridge 实例 = 一个空间的映射表。
+ *   - `nativeRoots: true`（默认空间）：落地 = 本环境原生根，"1"/"2"/"3" 不可
+ *     创建/移动/删除，书签菜单容器由 sync.js 按需管理。
+ *   - `nativeRoots: false`（容器空间）：落地 = `roots` 注入（容器根 → ROOT_UUID，
+ *     容器内子文件夹 → BAR/OTHER/MOBILE/MENU），固定根子文件夹**按需创建**。
+ *   - 其它空间的容器经 `foreignRoots` 登记：capture / reverseApply / 事件处理
+ *     整棵跳过——绝不碰别人落地区的书签。
  */
+export interface IdBridgeOptions {
+  /** 本空间在本机的落地根（chromeId ↔ 固定根 UUID）；省略 = 本环境原生根。 */
+  roots?: ReadonlyArray<readonly [string, string]>;
+  /** 该映射表所属的空间（诊断用）。 */
+  spaceId?: string;
+  /** 其它空间的落地容器根 chromeId：本空间一律不碰。 */
+  foreignRoots?: Iterable<string>;
+  /** 落地形态：true = 原生根（默认空间），false = 容器（固定根按需创建）。 */
+  nativeRoots?: boolean;
+}
+
 export class IdBridge {
   private forward = new Map<string, string>(); // chromeId -> uuid
   private backward = new Map<string, string>(); // uuid -> chromeId
+  /** 其它空间的落地容器（含子树）：不捕获、不投影、不删除。 */
+  private foreign = new Set<string>();
+  /** 本空间落地根（含注入的容器根）：固定不可被 map() 改写。 */
+  private protectedIds = new Set<string>();
+  /** 该映射表所属的空间（未指定时视为单空间模式）。 */
+  readonly spaceId?: string;
+  /** 落地形态（容器空间：固定根子文件夹按需创建）。 */
+  readonly nativeRoots: boolean;
 
-  constructor(private readonly onChange?: () => void) {
-    for (const [cid, uuid] of ALL_ROOT_PAIRS) this.forward.set(cid, uuid);
-    for (const [cid, uuid] of (IS_FIREFOX ? FF_ROOT_PAIRS : CHROME_ROOT_PAIRS)) {
-      this.backward.set(uuid, cid);
+  constructor(
+    private readonly onChange?: () => void,
+    opts: IdBridgeOptions = {},
+  ) {
+    this.spaceId = opts.spaceId;
+    this.nativeRoots = opts.nativeRoots ?? !opts.roots;
+    if (opts.roots) {
+      for (const [cid, uuid] of opts.roots) {
+        this.forward.set(cid, uuid);
+        this.backward.set(uuid, cid);
+      }
+    } else {
+      for (const [cid, uuid] of ALL_ROOT_PAIRS) this.forward.set(cid, uuid);
+      for (const [cid, uuid] of nativeRootPairs(IS_FIREFOX)) {
+        this.backward.set(uuid, cid);
+      }
+    }
+    this.protectedIds = new Set(this.forward.keys());
+    for (const cid of opts.foreignRoots ?? []) {
+      // 原生根**绝不可**登记为外来容器：容器空间自己的落地容器就挂在原生根
+      // （Chromium '0' / Firefox 'root________'）之下，把祖先判成外来会让容器内
+      // 每个节点都落进「外来子树」，removeTrashedNodes 从此整棵跳过 → 删除
+      // （墓碑）在容器空间彻底失效。这里做结构性兜底，任何调用方都绕不过。
+      if (NATIVE_ROOT_IDS.has(cid)) continue;
+      this.foreign.add(cid);
     }
   }
 
@@ -149,9 +229,69 @@ export class IdBridge {
     return this.backward.get(uuid) ?? null;
   }
 
+  /** 该 chromeId 是否属于其它空间（其落地容器根）——本空间必须整棵跳过。 */
+  isForeign(chromeId: string): boolean {
+    return this.foreign.has(chromeId);
+  }
+
+  /** 该 uuid 是否是固定根（ROOT / 书签栏 / 其他书签 / 移动设备 / 书签菜单）。 */
+  isLandingRoot(uuid: string): boolean {
+    return LANDING_ROOT_UUIDS.has(uuid);
+  }
+
+  /** 登记一个外来容器根（切换/新建空间后同步 spaceRoots 用）。原生根一律拒绝。 */
+  addForeignRoot(chromeId: string): void {
+    if (!chromeId || NATIVE_ROOT_IDS.has(chromeId)) return;
+    this.foreign.add(chromeId);
+  }
+
+  /**
+   * 登记一条映射。
+   *
+   * 拒绝三种情况：
+   *   1. 外来容器（别的空间的落地区）；
+   *   2. 本空间落地根 chromeId（原生书签栏/容器根被改成普通节点后，会被当用户
+   *      节点参与捕获与投影，书签栏本身变成一个可被 tombstone 的节点）；
+   *   3. 固定根 uuid 已被另一 chromeId 占用（同一空间只能有一块落地）。
+   *
+   * 顺带裁掉「同一 uuid 的旧 chromeId」——旧实现只覆盖 backward，forward 里
+   * 指向已失效 chromeId 的条目会长期残留，一旦 chromeId 被复用（恢复浏览器
+   * 配置 / 导入书签备份）就会把新书签误认成旧 uuid（串号）。
+   */
   map(chromeId: string, uuid: string): void {
+    if (this.foreign.has(chromeId)) return;
+    if (this.protectedIds.has(chromeId)) return;
+    const prevCid = this.backward.get(uuid);
+    if (prevCid && prevCid !== chromeId) {
+      if (!this.protectedIds.has(prevCid)) this.forward.delete(prevCid);
+      else return; // 该 uuid 已由落地根占用，不能再被普通节点映射
+    }
     this.forward.set(chromeId, uuid);
     this.backward.set(uuid, chromeId);
+    this.onChange?.();
+  }
+
+  /**
+   * 拆除一条映射（两向都删）。
+   *
+   * 用于：空容器清理、节点被永久删除后的映射回收。旧实现里 sync.js 调用
+   * 本方法但 IdBridge 上没有它（只有 UuidMappingStore 有）→ TypeError 被
+   * catch 吞掉，映射与 `crdt.menuFolderId` 永不清理，且 forward 里指向已
+   * 消失 chromeId 的陈旧条目会长期残留，一旦 chromeId 被复用（恢复配置/
+   * 导入书签备份）就会把新书签误认成旧 uuid（串号）。
+   */
+  removeByChromeId(chromeId: string): void {
+    const uuid = this.forward.get(chromeId);
+    this.forward.delete(chromeId);
+    if (uuid && this.backward.get(uuid) === chromeId) this.backward.delete(uuid);
+    this.onChange?.();
+  }
+
+  /** 按 uuid 拆映射（反向）。 */
+  removeByUuid(uuid: string): void {
+    const cid = this.backward.get(uuid);
+    this.backward.delete(uuid);
+    if (cid && this.forward.get(cid) === uuid) this.forward.delete(cid);
     this.onChange?.();
   }
 
@@ -165,6 +305,10 @@ export class IdBridge {
     for (const [cid, uuid] of Object.entries(map)) {
       // 跳过非本环境的固定根（避免 backward 覆盖本环境根映射）
       if (IS_FIREFOX ? CHROME_ROOT_IDS.has(cid) : FF_ROOT_IDS.has(cid)) continue;
+      // 外来容器不纳入本空间映射
+      if (this.foreign.has(cid)) continue;
+      // 落地根本身由构造期 seed 决定，不接受持久化覆盖
+      if (this.protectedIds.has(cid)) continue;
       this.forward.set(cid, uuid);
       this.backward.set(uuid, cid);
     }
@@ -237,13 +381,17 @@ export function computePosition(
  * boots it (active space + device + key + restored cursor/counter) instead of
  * silently dropping the event. Dropping a deletion there meant the tombstone
  * never reached the server and the next full replay resurrected the node.
+ *
+ * `bridge` 同样支持 getter：多空间下映射表按空间各一份，事件处理器必须取
+ * 「当前活动空间」的那一份（否则会把 A 空间书签的 uuid 用到 B 空间，产生幽灵
+ * 节点或漏掉删除墓碑）。
  */
 export function captureLocalEvents(
   chrome: ChromeBookmarksAPI,
   coordinator:
     | SyncCoordinator
     | (() => SyncCoordinator | null | Promise<SyncCoordinator | null>),
-  bridge: IdBridge,
+  bridge: IdBridge | (() => IdBridge | null | Promise<IdBridge | null>),
   onLocalOp?: () => void,
 ): { suppressed: { value: boolean } } {
   let suppressedValue = false;
@@ -256,24 +404,33 @@ export function captureLocalEvents(
       typeof coordinator === 'function' ? coordinator() : coordinator;
     return c instanceof Promise ? await c : c;
   };
+  const getB = async (): Promise<IdBridge | null> => {
+    const b = typeof bridge === 'function' ? bridge() : bridge;
+    return b instanceof Promise ? await b : b;
+  };
 
   const handleRemoved = async (id: string, info?: { removedNode: ChromeTreeNode }) => {
     const c = await getC();
     if (!c) return;
-    const uuid = bridge.toUuid(id);
+    const b = await getB();
+    if (!b) return;
+    const uuid = b.toUuid(id);
     if (!uuid) return;
-    if (uuid === MENU_UUID) {
-      // 用户删除了「书签菜单」容器（Chromium 端动态容器）：
-      // 菜单位置保留（Firefox 原生 menu________ 根删不掉，且该位置被动使用
-      // 率极高——地址栏星标默认存这里），只 tombstone 容器内的书签，实现
-      // 「清空菜单内容」的跨设备一致删除。内容清空后，reverseApplyIntoChrome
-      // 的 cleanupEmptyMenuContainer 会移除空容器（菜单为空 → Chrome 不显示；
-      // Firefox 菜单重新有书签 → 容器按需重建）。
-      // 若 tombstone MENU_UUID 本身，Firefox 菜单会随同步报废：旧内容被清、
-      // 之后手动放入的新书签也会被当作不可达节点静默删除。
+    // 固定根容器被用户删除：逐个子节点 tombstone（=「清空内容」），容器本体
+    // 不产生墓碑——它由 reverseApply 按需重建/恢复。
+    //   - MENU_UUID：Chromium 端动态「书签菜单」容器。菜单位置保留（Firefox
+    //     原生 menu________ 根删不掉，且被动使用率极高——地址栏星标默认存
+    //     这里），只清内容，实现「清空菜单内容」的跨设备一致删除。
+    //   - 容器空间（B2）的 书签栏/其他书签/移动设备书签：删掉子文件夹 = 清空
+    //     该根的内容，不留空文件夹（按需落地）。
+    // 若 tombstone 容器本身，Firefox 菜单会随同步报废：旧内容被清、之后手动
+    // 放入的新书签也会被当作不可达节点静默删除。
+    const isContainerLandingRoot =
+      b.isLandingRoot(uuid) && !b.nativeRoots && uuid !== ROOT_UUID;
+    if (uuid === MENU_UUID || isContainerLandingRoot) {
       const tombstoneSubtree = (node: ChromeTreeNode) => {
         for (const child of node.children ?? []) {
-          const childUuid = bridge.toUuid(child.id);
+          const childUuid = b.toUuid(child.id);
           if (childUuid) {
             c.deleteNode(childUuid);
             onLocalOp?.();
@@ -284,7 +441,7 @@ export function captureLocalEvents(
       tombstoneSubtree(info?.removedNode ?? { id, title: '' });
       return;
     }
-    if (PROTECTED_UUIDS.has(uuid)) return; // 原生根（bar/other/mobile）删不掉
+    if (PROTECTED_UUIDS.has(uuid)) return; // 原生根与落地区根删不掉
     c.deleteNode(uuid);
     onLocalOp?.();
   };
@@ -303,17 +460,21 @@ export function captureLocalEvents(
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
+    const b = await getB();
+    if (!b) return;
     if (fixedRootUuid(id)) return; // never track chrome's own roots
+    // 其它空间的落地容器（含子树）：不属于本空间，绝不捕获。
+    if (b.isForeign(id)) return;
     // 已映射 = 重复事件，或与本轮 runSync 的重扫描（captureLocalTree）竞态：
     // captureLocalTree 的树遍历相对事件处理器是原子的（遍历期间无 await，
     // 事件回调排在其后的宏任务里），谁先映射成功另一方都会在这里看到映射
     // 并让路——绝不重映射，否则同一书签会产生两个 CRDT 节点。
-    const mapped = bridge.toUuid(id);
+    const mapped = b.toUuid(id);
     if (mapped) return;
-    const parentUuid = node.parentId ? bridge.toUuid(node.parentId) : null;
+    const parentUuid = node.parentId ? b.toUuid(node.parentId) : null;
     if (!parentUuid) return; // parent not yet mapped; skip（重扫描兜底补建）
     const uuid = globalThis.crypto.randomUUID();
-    bridge.map(id, uuid);
+    b.map(id, uuid);
     const meta: Metadata = { title: node.title, ...(node.url ? { url: node.url } : {}) };
     // 按 Chrome 实际 index 生成 fractional position（顺序层接线：同一父下
     // 兄弟按 position 字典序收敛，修复「同步后按 uuid 重排」问题）
@@ -328,7 +489,9 @@ export function captureLocalEvents(
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
-    const uuid = bridge.toUuid(id);
+    const b = await getB();
+    if (!b) return;
+    const uuid = b.toUuid(id);
     if (!uuid || PROTECTED_UUIDS.has(uuid)) return;
     const parent = c.replica.getParent(uuid);
     if (!parent) return;
@@ -345,8 +508,10 @@ export function captureLocalEvents(
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
-    const uuid = bridge.toUuid(id);
-    const newParent = move.parentId ? bridge.toUuid(move.parentId) : null;
+    const b = await getB();
+    if (!b) return;
+    const uuid = b.toUuid(id);
+    const newParent = move.parentId ? b.toUuid(move.parentId) : null;
     if (!uuid || PROTECTED_UUIDS.has(uuid) || !newParent) return;
     const current = c.replica.getNodeMeta(uuid) ?? {};
     // 拖拽/移动：按 Chrome 新 index 重算 position（旧父中剩余兄弟相对顺序
@@ -509,12 +674,20 @@ async function flattenChromeTree(chrome: ChromeBookmarksAPI): Promise<{
 }
 
 /**
- * Walk reachable nodes in BFS order. For each user node (not a protected
- * root), create it in Chrome if missing, otherwise align parent/index and
- * title/url. Siblings are ordered by fractional position (lexicographic).
+ * Walk reachable nodes in BFS order. For each user node (not a landing root),
+ * create it in Chrome if missing, otherwise align parent/index and title/url.
+ * Siblings are ordered by fractional position (lexicographic).
  *
  * chrome 侧树形状查询全部走 chromeChildren 索引（flattenChromeTree 产出），
  * create/move 后立即维护索引，保证同一轮 pass 内后续兄弟看到一致的树。
+ *
+ * 多空间的两处关键差异：
+ *   1. **落地根不可动**：固定根 uuid（ROOT/BAR/OTHER/MOBILE/MENU）指向的
+ *      chrome 节点（原生根或容器 + 容器内子文件夹）只做「按需创建」，不参与
+ *      move/update——原生根不是用户的节点，容器也不是。
+ *   2. **外来兄弟感知排序**：默认空间的书签栏里还挂着别的空间的容器文件夹，
+ *      它们不属于本空间的兄弟序。index 计算只在「本空间自有兄弟」里数位，
+ *      外来节点一律被推向后方，避免每轮同步把容器来回挪动（churn）。
  */
 async function ensureReachableNodes(
   chrome: ChromeBookmarksAPI,
@@ -527,8 +700,49 @@ async function ensureReachableNodes(
   const queue: string[] = [ROOT_UUID];
   const visited = new Set<string>();
   const chromeIds = new Set(chromeNodes.keys());
+  /** chrome 侧某父下的全部子节点（活引用：create/move 后就地维护）。 */
   const siblingsOf = (parentId: string): ChromeTreeNode[] =>
     chromeChildren.get(parentId) ?? [];
+  /** 只看本空间自有的兄弟（排除其它空间的落地容器）。 */
+  const ownSiblings = (parentId: string): ChromeTreeNode[] =>
+    siblingsOf(parentId).filter((n) => !bridge.isForeign(n.id));
+  /** 该 uuid 在 CRDT 里是否有「可见」子节点（决定容器空间是否落地这个固定根）。 */
+  const hasVisibleKids = (uuid: string): boolean =>
+    (childrenByParent.get(uuid) ?? []).some((k) => reachable.has(k.child));
+  /**
+   * 目标绝对 index：把节点放到「本空间自有兄弟块」的第 i 位。
+   * 参考列表是**排除自身**后的列表（chrome.move 的 index 是移动后的位置）。
+   */
+  const absoluteIndexFor = (parentId: string, i: number, selfId?: string): number => {
+    const all = siblingsOf(parentId).filter((n) => n.id !== selfId);
+    const own = all.filter((n) => !bridge.isForeign(n.id));
+    const anchor = own[i];
+    if (anchor) return all.findIndex((n) => n.id === anchor.id);
+    const last = own[own.length - 1];
+    if (!last) return Math.min(i, all.length);
+    return all.findIndex((n) => n.id === last.id) + 1;
+  };
+
+  /**
+   * 该 chromeId 是否落在本空间的落地区内（落地根自身或其后代）。
+   *
+   * 用于剪断「跨空间拖拽」造成的拉锯：用户把原生书签栏里的书签拖进别的空间
+   * 的容器后，本空间的映射仍指向它——若不撤销，两个空间会在每轮同步里把它
+   * 来回搬（A 搬回书签栏、B 搬回容器）。撤销映射后按「未创建」重建，语义上
+   * 等价于「拖拽 = 复制一份到那个空间」。
+   */
+  const landingChromeId = bridge.toChromeId(ROOT_UUID);
+  const underLanding = (chromeId: string): boolean => {
+    if (!landingChromeId) return true;
+    const seen = new Set<string>();
+    let cur: string | null = chromeId;
+    while (cur && !seen.has(cur)) {
+      if (cur === landingChromeId) return true;
+      seen.add(cur);
+      cur = chromeNodes.get(cur)?.parentId ?? null;
+    }
+    return false;
+  };
 
   while (queue.length > 0) {
     const parentUuid = queue.shift()!;
@@ -547,7 +761,14 @@ async function ensureReachableNodes(
       const { child: childUuid, meta } = kids[i];
       if (!reachable.has(childUuid)) continue;
       queue.push(childUuid);
-      if (PROTECTED_UUIDS.has(childUuid)) continue;
+
+      if (bridge.isLandingRoot(childUuid)) {
+        // 固定根本身不是用户节点，永不 create/move/update。
+        if (bridge.toChromeId(childUuid)) continue; // 已落地（原生根 / 既有子文件夹）
+        if (bridge.nativeRoots) continue; // 原生模式：书签菜单容器由 sync.js 按需管理
+        // 容器空间：按需落地——CRDT 里确实有内容时才建这个子文件夹。
+        if (!hasVisibleKids(childUuid)) continue;
+      }
 
       const parentChromeId = bridge.toChromeId(parentUuid);
       if (!parentChromeId) continue; // parent not yet mapped; skip
@@ -559,7 +780,7 @@ async function ensureReachableNodes(
       const createInChrome = async (): Promise<void> => {
         // index 必须在 0..当前子节点数 之间，否则 chrome 报 "Index out of bounds"。
         const siblings = siblingsOf(parentChromeId);
-        const createIndex = Math.max(0, Math.min(i, siblings.length));
+        const createIndex = Math.max(0, Math.min(absoluteIndexFor(parentChromeId, i), siblings.length));
         let created: ChromeTreeNode;
         try {
           created = await chrome.create({
@@ -594,30 +815,38 @@ async function ensureReachableNodes(
         await createInChrome();
       } else {
         // Chrome 中节点已不存在（外部删除 / 级联删除，如删除整个父文件夹），
-        // 但映射仍在：按“未创建”重新创建，而不是 move 一个不存在的 id
-        // （chrome.bookmarks.move 会抛原生错误 "Can't find bookmark for id"）。
-        if (!chromeIds.has(existingChromeId)) {
+        // 或已被搬到本空间落地区之外（跨空间拖拽），但映射仍在：按“未创建”
+        // 重新创建，而不是 move 一个不属于本空间的 id。
+        if (!chromeIds.has(existingChromeId) || !underLanding(existingChromeId)) {
+          bridge.removeByChromeId(existingChromeId);
           await createInChrome();
           continue;
         }
         // Align parent/index and metadata. The node may exist in Chrome but
         // under a different parent (remote move) — move it to the target.
+        // index 比较用「自有兄弟中的位次」：外来容器插在中间时不触发无谓 move。
         const current = siblingsOf(parentChromeId).find((n) => n.id === existingChromeId);
-        if (!current || current.parentId !== parentChromeId || current.index !== i) {
+        const at = ownSiblings(parentChromeId).findIndex((n) => n.id === existingChromeId);
+        if (!current || current.parentId !== parentChromeId || at !== i) {
           // 从旧父的索引数组中摘除（若在），再插入新父的目标位置。
           const oldParentId =
             current?.parentId ?? chromeNodes.get(existingChromeId)?.parentId;
           if (oldParentId && oldParentId !== parentChromeId) {
             const oldSiblings = siblingsOf(oldParentId);
-            const at = oldSiblings.findIndex((n) => n.id === existingChromeId);
-            if (at >= 0) oldSiblings.splice(at, 1);
+            const atOld = oldSiblings.findIndex((n) => n.id === existingChromeId);
+            if (atOld >= 0) oldSiblings.splice(atOld, 1);
           }
           const siblings = siblingsOf(parentChromeId);
-          const moveIndex = Math.max(0, Math.min(i, Math.max(0, siblings.length - 1)));
+          const moveIndex = Math.max(
+            0,
+            Math.min(absoluteIndexFor(parentChromeId, i, existingChromeId), siblings.length),
+          );
           const moved = await chrome.move(existingChromeId, {
             parentId: parentChromeId,
             index: moveIndex,
           });
+          const atNow = siblings.findIndex((n) => n.id === existingChromeId);
+          if (atNow >= 0) siblings.splice(atNow, 1);
           siblings.splice(Math.min(moveIndex, siblings.length), 0, moved);
           const info = chromeNodes.get(existingChromeId);
           if (info) {
@@ -639,13 +868,19 @@ async function ensureReachableNodes(
 }
 
 /**
- * 重扫描本地 chrome 书签树：为所有未映射节点补建 MoveOp（幂等，返回补建数）。
+ * 重扫描本机 chrome 书签树：为所有未映射节点补建 MoveOp（幂等，返回补建数）。
  *
  * 由 sync.js 在每轮 runSync 的 pull 之后调用（替代旧「仅云端为空时播种」）。
  * 每轮执行让以下场景的孤儿书签都能被捕获（旧实现下它们永不同步）：
  *   - 批量导入 / Chrome 同步灌入过程中浏览器被关闭（事件与映射都没落盘）
  *   - 事件被静默丢弃（父节点未映射、未登录/未设口令窗口、SW 冷启动竞态）
  *   - 第二台设备本地已有书签而云端非空（「并集合并」语义的真正落实）
+ *
+ * `rootChromeId`（多空间）：只从本空间的落地根起走。
+ *   - 默认空间 = 原生根 "0" / `root________`；
+ *   - 容器空间 = 容器文件夹。容器外的任何书签都不属于本空间，一律不捕获
+ *     ——否则切空间会把原生书签栏里的内容当「未映射」吸进容器空间。
+ * 省略时退回旧行为（遍历整棵树），仅供单空间调用方/测试使用。
  *
  * 已映射节点跳过（继续走子树），未映射节点生成 uuid 并 createNodeWithId。
  * 遍历相对 chrome 事件处理器是原子的：getTree 之后整个 walk 无外部 await，
@@ -656,10 +891,27 @@ export async function captureLocalTree(
   chrome: ChromeBookmarksAPI,
   coordinator: SyncCoordinator,
   bridge: IdBridge,
+  rootChromeId?: string,
 ): Promise<number> {
-  const tree = await chrome.getTree();
+  const tree = (await chrome.getTree()) ?? [];
+  const roots: ChromeTreeNode[] = [];
+  if (rootChromeId) {
+    const node = findChromeNode(tree, rootChromeId);
+    if (!node) {
+      // 落地区还没出现（容器创建失败 / 用户刚删掉容器）：本轮不捕获任何东西，
+      // 下次同步重建容器后再收敛。绝不能退回「遍历整棵树」——那会把别的
+      // 空间的书签整棵吸进本空间。
+      return 0;
+    }
+    roots.push(node);
+  } else {
+    roots.push(...tree);
+  }
   let captured = 0;
   const walk = async (node: ChromeTreeNode, parentUuid: string): Promise<void> => {
+    // 其它空间的落地容器：整棵跳过。绝不能把别的空间的书签捕获进本空间的
+    // CRDT（否则切空间时内容会在空间之间互相吸走）。
+    if (bridge.isForeign(node.id)) return;
     const existing = bridge.toUuid(node.id);
     if (existing) {
       // 固定根（Chrome "0".."3" / Firefox 根）与已映射用户节点直接续走
@@ -678,8 +930,21 @@ export async function captureLocalTree(
     captured++;
     for (const child of node.children ?? []) await walk(child, uuid);
   };
-  for (const root of tree ?? []) await walk(root, ROOT_UUID);
+  for (const root of roots) await walk(root, ROOT_UUID);
   return captured;
+}
+
+/** 在 chrome 树里按 id 找节点（含子树）。 */
+function findChromeNode(
+  nodes: ChromeTreeNode[],
+  id: string,
+): ChromeTreeNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const hit = findChromeNode(n.children ?? [], id);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 /**
@@ -687,6 +952,12 @@ export async function captureLocalTree(
  * Only touches nodes that have a uuid mapping; unmapped Chrome nodes (e.g.
  * bookmarks created outside this extension) are left alone to avoid data
  * loss. Deletion is deepest-first so removeTree handles subtrees.
+ *
+ * 多空间护栏（两层，缺一不可）：
+ *   1. 映射按空间隔离（bridge per space）→ 其它空间的节点在本空间「无映射」，
+ *      自然落进 `uuid === null → leave alone`；
+ *   2. 显式跳过外来容器（bridge.isForeign），作为防御纵深：即使映射串味，也
+ *      不会把别的空间的落地树删掉。
  */
 async function removeTrashedNodes(
   chrome: ChromeBookmarksAPI,
@@ -694,9 +965,29 @@ async function removeTrashedNodes(
   reachable: Set<string>,
   chromeNodes: Map<string, ChromeNodeInfo>,
 ): Promise<void> {
+  /**
+   * 该节点的祖先链上是否有外来容器根。
+   *
+   * 只按 isForeign 判自身不够：容器**内部**的节点也可能被误映射（例如容器内
+   * 子文件夹恰好是某空间的落地根），祖先链判断保证「外来容器整棵不碰」。
+   * 深度受书签树层数限制，且每轮同步最多走一遍，成本可忽略。
+   */
+  const underForeignRoot = (chromeId: string): boolean => {
+    const seen = new Set<string>();
+    let cur = chromeNodes.get(chromeId)?.parentId ?? null;
+    while (cur && !seen.has(cur)) {
+      if (bridge.isForeign(cur)) return true;
+      seen.add(cur);
+      cur = chromeNodes.get(cur)?.parentId ?? null;
+    }
+    return false;
+  };
+
   const toDelete: ChromeNodeInfo[] = [];
   for (const info of chromeNodes.values()) {
     if (PROTECTED_CHROME_IDS.has(info.chromeId)) continue;
+    if (bridge.isForeign(info.chromeId)) continue; // 其它空间的落地容器
+    if (underForeignRoot(info.chromeId)) continue; // 容器子树同样整棵不碰
     const uuid = bridge.toUuid(info.chromeId);
     if (uuid === null) continue; // unmapped: leave alone
     if (!reachable.has(uuid)) toDelete.push(info);

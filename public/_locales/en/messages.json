@@ -561,6 +561,28 @@
   "spaces_switchedSub": {
     "message": "Your next sync merges this space's data as a union (this device's bookmarks join the space)."
   },
+  "spaces_containerTitle": {
+    "message": "Bookmark space · $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_switchedSubContainer": {
+    "message": "This space's bookmarks live in the \"$CONTAINER$\" folder on your bookmarks bar; other spaces are unaffected.",
+    "placeholders": {
+      "container": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaces_switchFailTitle": {
+    "message": "Failed to switch space"
+  },
+  "spaces_switchPushFailed": {
+    "message": "The current space still has changes that haven't synced (network or quota). Nothing was switched — please retry later."
+  },
   "spaces_limitTitle": {
     "message": "Space limit reached"
   },

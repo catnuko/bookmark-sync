@@ -20,23 +20,67 @@ import {
   captureLocalEvents,
   captureLocalTree as captureUnmappedTree,
   IdBridge,
+  IS_FIREFOX,
+  resolveSpaceLanding,
+  persistSpaceLanding,
+  loadSpaceRoots,
+  SPACE_ROOTS_KEY,
   reverseApply,
 } from "./sync/index.js";
 import { KeyManager } from "./sync/index.js";
-import { MENU_UUID, openBookmarkDb, OutboxStore } from "./crdt/index.js";
-import { IS_FIREFOX } from "./sync/index.js";
+import {
+  BOOKMARKS_BAR_UUID,
+  MENU_UUID,
+  MOBILE_UUID,
+  OTHER_BOOKMARKS_UUID,
+  ROOT_UUID,
+  openBookmarkDb,
+  OutboxStore,
+} from "./crdt/index.js";
 
 const DEVICE_ID_KEY = "crdt.deviceId";
-const AFTER_ID_KEY = "crdt.afterId";
-/** 本设备 Lamport 计数器（与 afterId 一起持久化，冷启动恢复防 seq 冲突）。 */
-const COUNTER_KEY = "crdt.counter";
-const IDMAP_KEY = "crdt.idmap";
+/**
+ * 按空间分区的持久化键（B2 多空间：每个空间各自一套水位/计数器/映射）。
+ * 项目未上架、无历史部署，故不做「历史全局键继承」——旧的 `crdt.afterId` /
+ * `crdt.counter` / `crdt.idmap` 单键只在 resetSyncState 里当垃圾清理。
+ */
+const AFTER_ID_PREFIX = "crdt.afterId.";
+const COUNTER_PREFIX = "crdt.counter.";
+const IDMAP_PREFIX = "crdt.idmap.";
+/** 历史（全局）键：仅 resetSyncState 清理用。 */
+const LEGACY_KEYS = ["crdt.afterId", "crdt.counter", "crdt.idmap"];
+/** 当前活动空间（多空间切换写入此键；getActiveSpace 读它）。 */
+const ACTIVE_SPACE_KEY = "activeSpaceId";
 /** op-log GC 阈值（storage 键可覆盖；E2E 注入小阈值验证 GC 链路）。 */
 const GC_THRESHOLD_KEY = "crdt.gcThreshold"; // 历史遗留 key，仅 resetSyncState 清理用
 
 /** Chromium 端 MENU_UUID（书签菜单）动态容器的持久化 chromeId。 */
 const MENU_FOLDER_KEY = "crdt.menuFolderId";
 const MENU_FOLDER_TITLE = "书签菜单";
+
+/** 按空间分区的键名（多空间下每个空间各自一套水位/计数器/映射）。 */
+const afterIdKey = (spaceId) => AFTER_ID_PREFIX + spaceId;
+const counterKey = (spaceId) => COUNTER_PREFIX + spaceId;
+const idmapKey = (spaceId) => IDMAP_PREFIX + spaceId;
+
+/** chrome.storage.local 适配器（空间落地区/注册表用）。 */
+const landingStorage = {
+  async get(key) {
+    return api.storage.local.get(key);
+  },
+  async set(obj) {
+    return api.storage.local.set(obj);
+  },
+};
+
+/** 删除所有以 prefix 开头的按空间键（换密钥 / 一键重置用）。 */
+async function removeAllScoped(prefix) {
+  try {
+    const all = await api.storage.local.get();
+    const keys = Object.keys(all ?? {}).filter((k) => k.startsWith(prefix));
+    if (keys.length) await api.storage.local.remove(keys);
+  } catch { /* storage 不可用时忽略 */ }
+}
 
 const keyManager = new KeyManager({
   async get(key) { return (await api.storage.local.get(key))[key]; },
@@ -68,7 +112,19 @@ export async function getActiveSpace() {
     .order("created_at", { ascending: true });
   if (error) throw error;
   const spaces = data ?? [];
-  const active = spaces.find((s) => s.is_default) ?? spaces[0] ?? null;
+  const { [ACTIVE_SPACE_KEY]: savedId } = await api.storage.local.get(ACTIVE_SPACE_KEY);
+  let active = spaces.find((s) => s.id === savedId) ?? null;
+  let fellBack = false;
+  if (!active) {
+    // 未切换过 / 该空间已被删除 / 未登录过：回落到默认空间（首个空间）。
+    active = spaces.find((s) => s.is_default) ?? spaces[0] ?? null;
+    fellBack = true;
+  }
+  // 选定结果落盘：让「当前空间」成为本机的持久状态（UI 徽标 + 同步目标一致），
+  // 也避免每次都走回退分支。
+  if (active && (fellBack || savedId !== active.id)) {
+    await api.storage.local.set({ [ACTIVE_SPACE_KEY]: active.id });
+  }
   return { spaces, active };
 }
 
@@ -109,13 +165,68 @@ export async function deleteSpace(id) {
   return { ok: true };
 }
 
+/**
+ * 切换活动空间（B2 多容器并存）。
+ *
+ * 语义：切换只改「同步目标 + 本机投影落地区」，本地书签不销毁不重建——旧空间
+ * 的落地树原样留在本机（其容器），新空间的容器按需建立。这与文案「切换空间即
+ * 切换同步上下文」一致，同时避免 B1 式「切换时整棵替换本机书签」带来的误删风险。
+ *
+ * 前置条件（用户要求）：旧空间的本地变更必须**推送成功**后才允许切换。推不动
+ * （离线 / 额度超限 / 服务端拒绝）就不切，把失败原因交回 UI——否则本地改动会
+ * 停在「已入队未推送」的中间态，用户以为已经切走了。
+ *
+ * 由 SW（background）执行：只有 SW 持有与事件桥同 realm 的 coordinator 单例。
+ */
 export async function switchSpace(id) {
-  // 切换空间 = 切换本地 afterId 水位（不同 space 各自水位）。切换前先把
-  // 当前空间的未推送 op 落进 outbox（旧 coordinator 单例将被丢弃，其
-  // outbox 行在该空间下次激活时经 restoreOutbox 恢复推送）。
+  const cur = getCoordinatorCached();
+  if (cur && cur.spaceId !== id) {
+    await flushPersist(); // 未推送 op 先落 outbox（IndexedDB），推送失败也不丢
+    if (!(await drainPush(cur))) {
+      return { ok: false, reason: "push_failed" };
+    }
+  }
   await flushPersist();
-  await api.storage.local.set({ activeSpaceId: id, [AFTER_ID_KEY]: 0 });
+  await api.storage.local.set({ [ACTIVE_SPACE_KEY]: id });
+  // 丢弃缓存的 coordinator 与映射桥：下次同步按新空间重建（水位/计数器/映射
+  // 都按空间分区，各自续拉，不互相污染）。
+  _coordinator = null;
+  _bootPromise = null;
+  _coordinatorGen++;
+  dropBridgeCache();
+  console.log(`[bsync] 已切换活动空间 → ${id}`);
   return { ok: true };
+}
+
+/**
+ * 把某空间的未推送 op 推完（含等待并发中的 flushPush），超时/失败返回 false。
+ *
+ * `flushPush` 在「已有推送在途」时直接返回 0（防重入），所以必须轮询到
+ * pendingPush 真的空——否则会在有在途推送时误判「已推完」而放行切换。
+ */
+async function drainPush(coordinator, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (pendingCount(coordinator) === 0) return true;
+    try {
+      await coordinator.flushPush();
+      await api.storage.local.set({ [counterKey(coordinator.spaceId)]: coordinator.replica.counter });
+      await api.storage.local.set({ [afterIdKey(coordinator.spaceId)]: coordinator.afterId });
+    } catch (e) {
+      console.warn(`[bsync] 切换空间前推送失败: ${e?.message ?? e}`);
+      return false;
+    }
+    if (pendingCount(coordinator) === 0) return true;
+    if (Date.now() >= deadline) {
+      console.warn(`[bsync] 切换空间前推送超时（剩 ${pendingCount(coordinator)} 条未推送）`);
+      return false;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+}
+
+function pendingCount(coordinator) {
+  return coordinator?.pendingPush?.length ?? 0;
 }
 
 export async function listDevices(spaceId) {
@@ -209,14 +320,14 @@ export async function runSync(_opts = {}) {
       return { ok: false, reason: "not_authenticated" };
     }
 
-    let { active } = await getActiveSpace();
+    let { spaces, active } = await getActiveSpace();
     if (!active) {
       // 新用户无需手动建空间：首次同步自动创建「默认空间」（后端
       // bsync_space_create 首个空间自动 is_default=true）。后续推送/拉取
-      // 以此为落点，老客户端行为不变。
+      // 以此为落点。
       const r = await createSpace("默认空间");
       if (!r.ok) return { ok: false, reason: "no_space", error: r.error ?? t("err_noSpace") };
-      ({ active } = await getActiveSpace());
+      ({ spaces, active } = await getActiveSpace());
       if (!active) return { ok: false, reason: "no_space" };
     }
 
@@ -237,6 +348,11 @@ export async function runSync(_opts = {}) {
     if (touchError && String(touchError.message ?? "").includes("device_limit_reached")) {
       return { ok: false, reason: "device_limit_reached", error: touchError.message };
     }
+
+    // 活动空间的映射桥 / 落地区 / 水位都按空间分区（多空间前提）：先确立活动
+    // 桥（默认空间 = 原生根；其它空间 = 书签栏下的容器，必要时创建），事件
+    // 处理器与 capture/reverseApply 后续都取它。
+    await ensureActiveBridge(active, spaces);
 
     const coordinator = await getCoordinator(active.id, deviceId, key);
     console.log(`[bsync] === 同步开始 === space=${active.id} device=${deviceId} afterId=${coordinator.afterId} bare=${coordinator.replica.isBare()}`);
@@ -259,7 +375,7 @@ export async function runSync(_opts = {}) {
 
     if (coordinator.afterId > 0 && coordinator.needsColdReplay) {
       const replay = await coordinator.pullWithSnapshot(true);
-      if (replay.applied > 0) await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
+      if (replay.applied > 0) await api.storage.local.set({ [afterIdKey(active.id)]: coordinator.afterId });
       if (replay.decryptErrors?.length) allDecryptErrors.push(...replay.decryptErrors);
       console.log(`[bsync] 冷启动重放: applied=${replay.applied} decryptErrors=${replay.decryptErrors?.length ?? 0} afterId=${coordinator.afterId}`);
     }
@@ -296,13 +412,22 @@ export async function runSync(_opts = {}) {
       } catch { /* 探测失败不阻塞 */ }
     }
 
+    // 空间已在本次同步途中被切换（用户在同步进行中点了切换 / 换了密钥）：
+    // 立刻停手。继续跑下去，后面的 ensureActiveBridge 会把「活动映射桥」重新
+    // 指回旧空间——随后到达的本地事件就会把新空间容器里的书签捕获进旧空间
+    // （跨空间串味）。旧空间的 op 已由 switchSpace 落盘 + 推完，不会丢。
+    if (runGen !== _coordinatorGen) {
+      console.log("[bsync] 同步途中空间已切换，放弃本轮投影");
+      return { ok: true, pushed: 0, pulled: pull.applied, superseded: true };
+    }
+
     // 2) 重扫描本地树（每轮执行，幂等）：为未映射节点补建 MoveOp。
     //    替代旧「仅云端为空时播种」——批量导入中途关浏览器、事件被静默丢弃
     //    （父未映射/未设口令窗口/SW 冷启动竞态）、第二台设备本地书签（云端
     //    非空时旧实现不播种），这些孤儿在旧实现下永不同步。重扫描让「任一
     //    设备有而服务端没有的都保留」（并集合并）真正成立。
     //    didSeedThisRun 仅用于 UI 一次性提示（首台设备云端为空时的首次上传）。
-    const captured = await captureLocalTree(coordinator);
+    const captured = await captureLocalTree(coordinator, active, spaces);
     const didSeedThisRun = captured > 0 && hadNoWatermark && pull.applied === 0;
     if (captured > 0) {
       console.log(`[bsync] 本地重扫描: 补建 ${captured} 条 op, pending ops=${coordinator.pendingPush?.length ?? 0}`);
@@ -312,15 +437,14 @@ export async function runSync(_opts = {}) {
     //    pendingPush 丢失的窗口；推送成功后再落盘计数器，防冷启动 seq 冲突）
     const pushed = await coordinator.flushPush();
     console.log(`[bsync] 推送: inserted=${pushed} counter=${coordinator.replica.counter}`);
-    await api.storage.local.set({ [COUNTER_KEY]: coordinator.replica.counter });
+    await api.storage.local.set({ [counterKey(active.id)]: coordinator.replica.counter });
 
     // 4) 反向应用：把合并后的 CRDT 可见树写回本机 chrome.bookmarks
     //    （远端新书签/移动/删除在本机生效；事件守卫防回环）
     const visTree = coordinator.replica.getVisibleTree();
     console.log(`[bsync] CRDT 可见树 (${visTree.length} 个节点)`);
     console.log(`[bsync] 开始反向应用 (decryptErrors=${allDecryptErrors.length})...`);
-    await ensureBridgeReady();
-    await reverseApplyIntoChrome(coordinator);
+    await reverseApplyIntoChrome(coordinator, active, spaces);
     console.log("[bsync] 反向应用完成");
 
     // 5) op-log GC：服务端托管——push/pull 响应带 gc_needed（行数超过用户
@@ -379,7 +503,7 @@ export async function runSync(_opts = {}) {
     // 密钥变更（resetCoordinator 递增 gen）后，旧同步的 afterId 不能写回——
     // 否则会覆盖刚清空的水位，导致新密钥下仍拉取 0 条。
     if (runGen === _coordinatorGen) {
-      await api.storage.local.set({ [AFTER_ID_KEY]: coordinator.afterId });
+      await api.storage.local.set({ [afterIdKey(active.id)]: coordinator.afterId });
     }
     // restored：本机原本无云端水位（新设备/换设备），本次从云端拉到了历史书签。
     // 这不是「其他设备新增变更」，而是把云端已有书签恢复到本机——文案要单独说。
@@ -410,20 +534,21 @@ export async function runSync(_opts = {}) {
 let bridgeRegistered = false;
 let _coordinator = null; // 惰性单例（按 spaceId 缓存）
 let _coordinatorGen = 0; // 递增世代：resetCoordinator 后旧 boot 不再覆盖单例
-let _bridge = null;
 let _eventGuard = { suppressed: { value: false } }; // captureLocalEvents 返回的 suppressed 标志
 
 export function registerLocalEventBridge() {
   if (bridgeRegistered) return;
   bridgeRegistered = true;
-  const bridge = getOrCreateBridge();
+  // 映射桥按空间多变，事件处理器经 getter 取「当前活动空间」的映射表
+  // （bootCoordinatorForEvent 解析出空间时会一并确立 _activeBridge）。
+  const bridgeGetter = () => getActiveBridge();
   // 冷启动防丢事件：coordinator 未就绪（SW 刚被事件唤醒、runSync 尚未跑）时
   // 懒启动一个 coordinator，而不是静默丢弃本地事件。否则 SW 冷窗口内的删除
   // 不产生墓碑，「立即同步」的全量重放会把已删除节点拉回来。
   _eventGuard = captureLocalEvents(
     globalThis.chrome?.bookmarks,
     () => getCoordinatorCached() ?? bootCoordinatorForEvent(),
-    bridge,
+    bridgeGetter,
     flushSoon,
   );
 }
@@ -444,12 +569,15 @@ function bootCoordinatorForEvent() {
         if (!sess) {
           return null; // 未登录：无可同步对象，事件跳过是正确行为
         }
-        const { active } = await getActiveSpace();
+        const { spaces, active } = await getActiveSpace();
         if (!active) return null; // 未登录/无空间：无可同步对象，事件跳过是正确行为
         const deviceId = await getDeviceId();
         const key = await keyManager.ensureKey();
         if (!key) return null; // 未设置口令：事件跳过，等用户设置后同步兜底
         if (gen !== _coordinatorGen) return null; // 密钥已变更，放弃本次 boot
+        // 先确立该空间的落地区与映射桥：事件处理器随后经 getActiveBridge() 取用，
+        // 否则冷启动窗口内的事件会拿不到映射而漏掉（典型：删除事件丢墓碑）。
+        await ensureActiveBridge(active, spaces);
         return await getCoordinator(active.id, deviceId, key);
       } catch {
         return null; // 网络/权限失败：本事件放弃，下轮 runSync 兜底
@@ -461,21 +589,28 @@ function bootCoordinatorForEvent() {
   return _bootPromise;
 }
 
-/** 反向应用：把合并后的 CRDT 可见树写回 chrome.bookmarks（远端→本机）。 */
-async function reverseApplyIntoChrome(coordinator) {
+/**
+ * 反向应用：把合并后的 CRDT 可见树写回 chrome.bookmarks（远端→本机）。
+ *
+ * 只能写进本空间的落地区：默认空间 = 原生根，容器空间 = 容器文件夹。跨空间共用
+ * 一张映射表会让 B 空间把 A 空间「已映射但不可达」的节点判为待删（本机书签被
+ * 清空），所以这里取活动空间自己的桥，并且在落地根之外一律不写。
+ */
+async function reverseApplyIntoChrome(coordinator, space, spaces) {
   const chrome = globalThis.chrome?.bookmarks;
   if (!chrome) return;
-  const bridge = getOrCreateBridge();
+  const bridge = await ensureActiveBridge(space, spaces);
+  const landing = _activeLanding;
   const guard = _eventGuard ?? { suppressed: { value: false } };
   // 注意：事件闭包读的是 guard.suppressed.value（captureLocalEvents 返回
   // { suppressed: {value} }），直接设 guard.value 会静默失效——这正是
   // reverseApply 回环（每次同步复制一批书签）的根因。
   guard.suppressed.value = true; // 抑制事件回环（create/move/update 会触发 onCreated 等）
   try {
-    if (!IS_FIREFOX) {
-      // Chromium 端 MENU_UUID 容器按需存在：仅当 CRDT 中「书签菜单」有实际
-      // 子节点（Firefox 菜单有书签并同步过来）时才创建容器；菜单为空或从未
-      // 用过 Firefox 时，Chrome 端不显示「书签菜单」文件夹。
+    if (landing?.mode === "native" && !IS_FIREFOX) {
+      // 默认空间 + Chromium：MENU_UUID 容器按需存在（原生根里没有「书签菜单」
+      // 这个位置，只能挂在书签栏下）。仅当 CRDT 中「书签菜单」有实际子节点
+      // （Firefox 菜单有书签并同步过来）时才创建。
       const menuHasChildren = coordinator.replica
         .getVisibleTree()
         .some((e) => e.parent === MENU_UUID);
@@ -484,15 +619,60 @@ async function reverseApplyIntoChrome(coordinator) {
       }
     }
     await reverseApply(chrome, coordinator, bridge);
-    if (!IS_FIREFOX) {
-      // 同步收敛后：若「书签菜单」容器已空（CRDT 中 MENU_UUID 无内容），
-      // 移除空容器，让 Chrome 端只在 Firefox 菜单有书签时显示它。
-      await cleanupEmptyMenuContainer(bridge);
+    if (landing?.mode === "native") {
+      if (!IS_FIREFOX) {
+        // 同步收敛后：若「书签菜单」容器已空，移除容器，让 Chrome 端只在
+        // Firefox 菜单有书签时显示它。
+        await cleanupEmptyMenuContainer(bridge);
+      }
+    } else {
+      // 容器空间：固定根子文件夹（书签栏/其他书签/移动设备书签/书签菜单）
+      // 按需存在——空了就删，不留空文件夹。
+      await cleanupEmptyLandingFolders(bridge);
     }
-    await api.storage.local.set({ [IDMAP_KEY]: bridge.snapshot() });
+    await api.storage.local.set({ [idmapKey(space.id)]: bridge.snapshot() });
+    await persistLandingRow(space, bridge);
   } finally {
     guard.suppressed.value = false;
   }
+}
+
+/**
+ * 容器空间：把「固定根子文件夹空了」的落地区删掉（按需落地语义）。
+ * 容器本身（ROOT 落地）永不在此删除——它是空间的根，删了整棵落地树就没了。
+ */
+async function cleanupEmptyLandingFolders(bridge) {
+  const chrome = globalThis.chrome?.bookmarks;
+  if (!chrome) return;
+  for (const uuid of [BOOKMARKS_BAR_UUID, OTHER_BOOKMARKS_UUID, MOBILE_UUID, MENU_UUID]) {
+    const cid = bridge.toChromeId(uuid);
+    if (!cid) continue;
+    try {
+      const kids = await chrome.getChildren(cid);
+      if (kids && kids.length > 0) continue; // 仍有内容，保留
+      await chrome.removeTree(cid);
+      bridge.removeByChromeId(cid);
+    } catch {
+      /* 容器状态异常时忽略，下轮同步再处理 */
+    }
+  }
+}
+
+/** 把本空间当前落地映射写回容器注册表（子文件夹是按需创建的，必须落盘）。 */
+async function persistLandingRow(space, bridge) {
+  if (space?.is_default) return; // 默认空间落地 = 原生根，无需登记
+  try {
+    const registry = _bridges.get(space.id)?.registry ?? (await loadSpaceRoots(landingStorage));
+    const sub = {};
+    for (const uuid of [BOOKMARKS_BAR_UUID, OTHER_BOOKMARKS_UUID, MOBILE_UUID, MENU_UUID]) {
+      const cid = bridge.toChromeId(uuid);
+      if (cid) sub[uuid] = cid;
+    }
+    await persistSpaceLanding(landingStorage, space, registry, {
+      rootId: bridge.toChromeId(ROOT_UUID) ?? null,
+      sub,
+    });
+  } catch { /* 注册表写失败不阻塞同步（下次解析会重建） */ }
 }
 
 /**
@@ -559,12 +739,13 @@ function getCoordinatorCached() {
 /** 获取（必要时创建）跨事件/同步共用的 coordinator 单例。 */
 export async function getCoordinator(spaceId, deviceId, key) {
   if (_coordinator && _coordinator.spaceId === spaceId) return _coordinator;
-  const stored = await api.storage.local.get([AFTER_ID_KEY, COUNTER_KEY]);
-  const afterId = Number(stored[AFTER_ID_KEY] ?? 0);
+  // 水位 / 计数器按空间分区（各空间各自续拉，互不覆盖）。
+  const stored = await api.storage.local.get([afterIdKey(spaceId), counterKey(spaceId)]);
+  const afterId = Number(stored[afterIdKey(spaceId)] ?? 0);
   // 冷启动恢复本设备已推送过的最大 seq：新 replica 的计数器从固定根（5）
   // 重新开始，若不恢复，首个本地 op（如删除墓碑）会与旧 SW 实例已推送的
   // (device, seq) 冲突，服务端 ON CONFLICT DO NOTHING 静默丢弃 → 删除失效。
-  const initialCounter = Number(stored[COUNTER_KEY] ?? 0);
+  const initialCounter = Number(stored[counterKey(spaceId)] ?? 0);
   const transport = new SupabaseOpLogTransport(supabase);
   _coordinator = new SyncCoordinator({
     spaceId,
@@ -633,47 +814,125 @@ async function flushPersist() {
         c.clearPendingJournal(journal);
       } catch { /* IndexedDB 不可用：退回内存队列行为，重扫描兜底 */ }
     }
+    // IDMAP / counter 按空间分区落盘（与 outbox 的 spaceId 维度一致）。
+    const entry = _bridges.get(c.spaceId);
     await api.storage.local.set({
-      [IDMAP_KEY]: _bridge ? _bridge.snapshot() : {},
-      [COUNTER_KEY]: c.replica.counter,
+      [idmapKey(c.spaceId)]: entry ? entry.bridge.snapshot() : {},
+      [counterKey(c.spaceId)]: c.replica.counter,
     });
   } catch { /* 持久化失败不阻塞同步 */ } finally {
     persistRunning = false;
   }
 }
 
-/** chromeId↔uuid 映射桥：内存 + chrome.storage.local 持久化（重启不丢）。 */
-let _idMapReady = null; // Promise：idMap / 持久化从 storage 恢复完成
+/**
+ * chromeId↔uuid 映射桥：**按空间一个实例**（多空间隔离），内存 + 
+ * chrome.storage.local `crdt.idmap.<spaceId>` 持久化（重启不丢）。
+ *
+ * 为什么必须按空间：同一 chromeId 在不同空间是不同节点。共用一个映射表时，
+ * 切到空间 B 后本地节点全部「已映射」→ 不为 B 建任何 op（与「本设备书签并入
+ * 该空间」的文案相反）→ B 的 CRDT 只有固定根 → reverseApply 把「已映射但不
+ * 可达」的节点全部 removeTree（本机书签被清空）。
+ *
+ * 落地区（B2 多容器并存）：默认空间 = 原生根；其它空间 = 书签栏下的容器
+ * 「书签空间 · <空间名>」（见 sync/spaceLanding.ts）。落地形态变了就重建桥，
+ * 桥里已有的映射先落盘再重建，避免丢映射导致重复捕获。
+ */
+const _bridges = new Map(); // spaceId -> { bridge, sig, landing, registry }
+/** 事件桥使用的「当前活动空间」映射表（runSync / 懒启动时确立）。 */
+let _activeBridge = null;
+/** 活动空间的落地区（用于区分原生模式/容器模式的按需行为）。 */
+let _activeLanding = null;
 
-function getOrCreateBridge() {
-  if (_bridge) return _bridge;
-  _bridge = new IdBridge(() => schedulePersist());
+/**
+ * 建立（或复用）活动空间的映射桥，并解析其落地区。
+ *
+ * 每次同步都重新解析落地：用户可能删掉/重建过容器。落地根签名不变时复用内存
+ * 中的桥（保留映射），变了就重建并重新载入持久化映射。
+ */
+async function ensureActiveBridge(space, spaces = []) {
+  const all = spaces.length ? spaces : [space];
+  const { landing, registry } = await resolveSpaceLanding({
+    chrome: globalThis.chrome?.bookmarks,
+    storage: landingStorage,
+    space,
+    spaces: all,
+    containerTitle: t("spaces_containerTitle", space.name ?? ""),
+    isFirefox: IS_FIREFOX,
+  });
+  const sig = JSON.stringify([space.is_default ? 1 : 0, landing.roots, landing.foreignRoots]);
+  // 竞态护栏：解析落地时可能刚 chrome.create 出本空间的容器，onCreated 事件会在
+  // 「_activeBridge 还没换过来」的窗口里落到**上一个**活动空间的桥上。把它先登记
+  // 成上一个空间的外来根，避免上一个空间把新容器当成自己的书签文件夹捕获进 CRDT。
+  if (_activeBridge && _activeBridge.spaceId !== space.id && landing.rootId) {
+    _activeBridge.addForeignRoot(landing.rootId);
+  }
+  const cached = _bridges.get(space.id);
+  if (cached && cached.sig === sig) {
+    cached.registry = registry;
+    _activeBridge = cached.bridge;
+    _activeLanding = landing;
+    return cached.bridge;
+  }
+  // 重建前先把旧桥的映射落盘，避免重建丢映射（下次 capture 会重复建节点）。
+  if (cached) {
+    try {
+      await api.storage.local.set({ [idmapKey(space.id)]: cached.bridge.snapshot() });
+    } catch { /* 落盘失败：重建后由 capture 兜底（最坏是重复节点，不会丢数据） */ }
+  }
+  const bridge = new IdBridge(() => schedulePersist(), {
+    spaceId: space.id,
+    roots: landing.roots,
+    foreignRoots: landing.foreignRoots,
+    nativeRoots: landing.mode === "native",
+  });
   // 冷启动竞态修复：idMap 恢复是异步的，必须等 load 完成后再 reverseApply /
-  // capture，否则映射缺失会让 reverseApply 把「已存在的书签」当
-  // 「缺失」重复创建（SW 每次冷启动/回收后同步都复制一批书签）。
-  _idMapReady = (async () => {
-    const idmap = await api.storage.local.get(IDMAP_KEY);
-    if (idmap[IDMAP_KEY]) _bridge.load(idmap[IDMAP_KEY]);
-  })().catch(() => {});
-  return _bridge;
+  // capture，否则映射缺失会让 reverseApply 把「已存在的书签」当「缺失」重复
+  // 创建（SW 每次冷启动/回收后同步都复制一批书签）。
+  try {
+    const res = await api.storage.local.get(idmapKey(space.id));
+    const map = res[idmapKey(space.id)];
+    if (map) bridge.load(map);
+  } catch { /* storage 不可用：本轮按空映射处理 */ }
+  _bridges.set(space.id, { bridge, sig, landing, registry });
+  _activeBridge = bridge;
+  _activeLanding = landing;
+  return bridge;
 }
 
-/** 等待 idMap / seeded 标志恢复完成（reverseApply / 播种前必须 await）。 */
-async function ensureBridgeReady() {
-  if (_idMapReady) await _idMapReady;
+function getActiveBridge() {
+  return _activeBridge;
+}
+
+/** 切换空间 / 重置后丢弃缓存的映射表（下次按新空间重建并重新载入）。 */
+function dropBridgeCache(spaceId) {
+  if (spaceId) _bridges.delete(spaceId);
+  else _bridges.clear();
+  _activeBridge = null;
+  _activeLanding = null;
 }
 
 /**
  * 重扫描本机 chrome 书签树：为未映射节点补建 op（每轮同步执行，幂等）。
- * 遍历核心在 chromeBridge.captureLocalTree（可独立测试）；此处负责 idMap
- * 恢复等待，以及捕获结果的立即落盘——outbox 先、IDMAP 后（成对语义见
+ * 遍历核心在 chromeBridge.captureLocalTree（可独立测试）；此处负责落地区解析、
+ * 映射载入，以及捕获结果的立即落盘——outbox 先、IDMAP 后（成对语义见
  * flushPersist 注释），不等 300ms tick，避免大批量捕获的持久化空窗。
+ *
+ * 只走本空间的落地根：容器外的书签不属于本空间，绝不捕获（否则切空间会把
+ * 原生书签栏里的内容吸进容器空间）。
  */
-export async function captureLocalTree(coordinator) {
-  const bridge = getOrCreateBridge();
-  await ensureBridgeReady(); // 已映射判断依赖 idMap 恢复完成
+export async function captureLocalTree(coordinator, space, spaces = []) {
+  // 不知道是哪个空间就不知道落地区在哪——宁可不捕获，也绝不退回「遍历整棵树」
+  // （那会把别的空间的书签吸进本空间）。调用方都是 runSync，一定带 space。
+  if (!space?.id) return 0;
+  const bridge = await ensureActiveBridge(space, spaces);
   if (!globalThis.chrome?.bookmarks) return 0;
-  const captured = await captureUnmappedTree(globalThis.chrome.bookmarks, coordinator, bridge);
+  const captured = await captureUnmappedTree(
+    globalThis.chrome.bookmarks,
+    coordinator,
+    bridge,
+    _activeLanding?.rootId,
+  );
   if (captured > 0) await flushPersist();
   return captured;
 }
@@ -694,9 +953,9 @@ export function flushSoon() {
       if (auto === false) return;
       // 推送前先落盘计数器：即使推送后 SW 立刻被回收，下次冷启动恢复的
       // 计数器也覆盖了这批 op 的 seq（防与历史 seq 冲突被服务端静默丢弃）。
-      await api.storage.local.set({ [COUNTER_KEY]: c.replica.counter });
+      await api.storage.local.set({ [counterKey(c.spaceId)]: c.replica.counter });
       const pushed = await c.flushPush();
-      await api.storage.local.set({ [AFTER_ID_KEY]: c.afterId });
+      await api.storage.local.set({ [afterIdKey(c.spaceId)]: c.afterId });
       if (pushed > 0) {
         // 自动推送只记录时间和条数，不覆盖 lastSyncStatus——
         // 否则手动同步的「推送 0 条」会覆盖自动推送的「推送 N 条」，
@@ -734,26 +993,39 @@ export function resetCoordinator() {
   _coordinatorGen++;
   _coordinator = null;
   _bootPromise = null;
+  _activeBridge = null;
   // 密钥变更后清空水位：之前密钥错误时被跳过的 op（afterId 已推进）必须重拉，
   // 否则新设备导入密钥后拉取 0 条、CRDT 为空、误报 used=0 覆盖云端额度。
-  api.storage.local.remove(AFTER_ID_KEY).catch(() => {});
+  // 水位按空间分区，故清掉全部空间的。
+  removeAllScoped(AFTER_ID_PREFIX).catch(() => {});
 }
 
 // ── 测试工具：一键重置同步状态（保留登录态）──────────────────────────────
-// 清除本机所有同步相关缓存（CRDT 计数器/水位/UUID映射/密钥/播种标记等），
-// 并重置内存中的 coordinator 单例。不会删除 chrome.bookmarks 里的书签，
+// 清除本机所有同步相关缓存（CRDT 计数器/水位/UUID映射/落地区/密钥/播种标记
+// 等），并重置内存中的 coordinator 单例。不会删除 chrome.bookmarks 里的书签，
 // 也不会登出 Supabase 账号。配合「清空云端测试数据」使用，可从零重测。
+//
+// 注意：重置后本机空间容器不再被登记，下次同步会按需重建容器并把云端书签
+// 重新投影进去（容器内原有的本地书签会被重新捕获成新节点，故重置前后请勿
+// 期待「原样保留」——重置的本质就是从零重测）。
 export async function resetSyncState() {
   _coordinator = null;
+  _coordinatorGen++;
+  dropBridgeCache();
   const keys = [
-    DEVICE_ID_KEY, AFTER_ID_KEY, COUNTER_KEY, IDMAP_KEY, "crdt.seeded",
-    MENU_FOLDER_KEY, GC_THRESHOLD_KEY,
+    DEVICE_ID_KEY, SPACE_ROOTS_KEY, "crdt.seeded",
+    MENU_FOLDER_KEY, GC_THRESHOLD_KEY, ACTIVE_SPACE_KEY,
     "crdt.e2eeKey", "crdt.e2eeSalt", "crdt.onboardSkipped",
     "lastSyncStatus", "lastSyncAt", "lastSyncError", "lastDecryptErrors",
     "lastUsedReport", "lastUsedReportError", "lastGcAt", "lastGcSkipped",
     "activeSpace",
+    ...LEGACY_KEYS,
   ];
   await api.storage.local.remove(keys);
+  // 按空间分区的键（水位/计数器/映射）：逐前缀清理
+  await removeAllScoped(AFTER_ID_PREFIX);
+  await removeAllScoped(COUNTER_PREFIX);
+  await removeAllScoped(IDMAP_PREFIX);
   // 清除 IndexedDB 中的 CRDT 持久化状态（ops/snapshot/uuidMapping/meta）
   try {
     await new Promise((resolve, reject) => {
