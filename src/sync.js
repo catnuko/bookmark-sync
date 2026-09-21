@@ -12,6 +12,7 @@
 // ------------------------------------------------------------------
 
 import { api } from './lib/ext.js';
+import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
 import { t } from './lib/i18n.js';
 import {
@@ -782,10 +783,11 @@ export async function runSync(_opts = {}) {
       }
     }
     // 诊断：持久化完整错误与堆栈（readStorageLocal 可读）
+    const detail = describeError(e);
     try {
-      await api.storage.local.set({ lastSyncError: `${e?.message ?? e} | ${e?.stack ?? ''}` });
+      await api.storage.local.set({ lastSyncError: `${detail} | ${e?.stack ?? ''}` });
     } catch {}
-    return { ok: false, reason: 'error', error: e?.message ?? String(e) };
+    return { ok: false, reason: 'error', error: detail };
   }
 }
 

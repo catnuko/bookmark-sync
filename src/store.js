@@ -3,6 +3,7 @@
 // 内共享；不跨页面通信（页面间依赖 chrome.storage / Supabase 作为权威）。
 import { reactive, computed } from 'vue';
 import { api } from './lib/ext.js';
+import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
 import {
   getProfile,
@@ -895,7 +896,7 @@ export async function syncNow(opts = {}) {
           resolve(resp ?? { ok: false, reason: 'no_response' });
         });
       } catch (e) {
-        resolve({ ok: false, reason: 'error', error: String(e) });
+        resolve({ ok: false, reason: 'error', error: describeError(e) });
       }
     });
     const timeout = new Promise((resolve) =>

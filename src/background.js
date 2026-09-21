@@ -3,6 +3,7 @@
 //   - chrome.alarms：每 30 分钟增量 pull（afterId 水位）
 //   - 本地书签变更由 chrome.bookmarks 事件驱动，入队后随下一次 flush 推送
 import { api } from './lib/ext.js';
+import { describeError } from './lib/errors.js';
 import {
   runSync,
   registerLocalEventBridge,
@@ -69,11 +70,12 @@ async function sync() {
     notifyUiRefreshed();
     return r;
   } catch (e) {
-    const r = { ok: false, reason: 'error', error: e?.message ?? String(e) };
+    const detail = describeError(e);
+    const r = { ok: false, reason: 'error', error: detail };
     await api.storage.local.set({
       lastSyncAt: Date.now(),
       lastSyncStatus: 'error',
-      lastSyncStatusDetail: `error (${e?.message ?? e})`,
+      lastSyncStatusDetail: `error (${detail})`,
       lastSyncSummary: '',
     });
     notifyUiRefreshed();
@@ -115,7 +117,7 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         if (r?.ok) await sync();
         sendResponse(r ?? { ok: false, reason: 'unknown' });
       })
-      .catch((e) => sendResponse({ ok: false, reason: 'error', error: e?.message ?? String(e) }));
+      .catch((e) => sendResponse({ ok: false, reason: 'error', error: describeError(e) }));
     return true; // 异步 sendResponse
   }
   if (msg?.type === 'bsync-space-rebind') {
@@ -127,7 +129,7 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         if (r?.ok) await sync();
         sendResponse(r ?? { ok: false, reason: 'unknown' });
       })
-      .catch((e) => sendResponse({ ok: false, reason: 'error', error: e?.message ?? String(e) }));
+      .catch((e) => sendResponse({ ok: false, reason: 'error', error: describeError(e) }));
     return true; // 异步 sendResponse
   }
   return false;
