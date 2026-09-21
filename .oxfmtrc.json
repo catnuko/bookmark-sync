@@ -1,0 +1,36 @@
+{
+  // oxfmt 配置（2026-09-21 引入；此前仓库没有任何 formatter，
+  // 代码风格靠手写约定，本文件是第一次把它固化成可执行规则）。
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+
+  // 仓库通篇单引号 —— oxfmt 默认是**双引号**，必须显式对齐。
+  // 不对齐的代价很直观：仅 binding.ts 一个文件就会因引号翻转产生 68 行 diff。
+  "singleQuote": true,
+
+  // 默认是 true，会让 oxfmt 重排 package.json 的字段顺序。
+  // 关掉：本仓库 package.json 里的 scripts 是**有意排序**的（test / test:watch /
+  // e2e / e2e:reset 相邻，typecheck 紧跟其后），按字母重排会把这种语义分组打散，
+  // 而且每次有人写文档都会顺手重排，属于纯 churn。
+  "sortPackageJson": false,
+
+  // printWidth 保持默认 100（Prettier 是 80）：本仓库现有代码行宽本就贴近 100，
+  // 实测改成 80 反而会多出若干个文件需要折行。
+
+  "ignorePatterns": [
+    // Safari 版 Xcode 工程（App 外壳 + 扩展资源）。这里必须排除，原因有三：
+    //   1) Resources/ 下的文件由 scripts/post-build-safari.mjs 从 extension/ **覆盖**
+    //      ——格式化完下次构建就被冲掉，是纯 churn；
+    //   2) Assets.xcassets/*.json、Script.js、Style.css、Main.html 由 Xcode 模板产出，
+    //      格式由 Xcode 说了算，不归我们的 formatter 管；
+    //   3) 这份工程当前自身就构建不起来（MACOSX_DEPLOYMENT_TARGET 过时），
+    //      任何改动都无法通过构建验证，只能不碰。
+    "bookmark-sync/",
+
+    // release-please 自动生成并维护。格式化它会与下一个 release 的重新生成打架，
+    // 而且第三方工具产出的格式不该由我们的 formatter 说了算。
+    "CHANGELOG.md",
+    // CI 定义（含 release.yml 的发版流程）。格式化 YAML 没有收益，
+    // 但动到发版流程需要重新走一遍验证，不值得。
+    ".github/workflows/**"
+  ]
+}

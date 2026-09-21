@@ -15,19 +15,22 @@
     "e2e": "node scripts/e2e/run.mjs",
     "e2e:reset": "node scripts/e2e/run.mjs reset",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ scripts/e2e/",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "lint": "oxlint src/ scripts/e2e/ tests/ website/src/",
+    "lint:fix": "oxlint --fix src/ scripts/e2e/ tests/ website/src/",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "check": "npm run typecheck && npm run lint && npm run fmt:check && npm run test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
     "vue": "^3.5.42"
   },
   "devDependencies": {
-    "@eslint/js": "^9.13.0",
     "@types/node": "^22.0.0",
     "@vitejs/plugin-vue": "^6.0.8",
-    "eslint": "^9.13.0",
     "fake-indexeddb": "^6.2.5",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
     "playwright": "^1.63.0",
     "typescript": "^5.6.0",
     "vite": "^8.2.2",

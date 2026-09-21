@@ -1,0 +1,84 @@
+{
+  // oxlint 配置（2026-09-21 由 eslint.config.js 迁移而来）。
+  // 只写「与默认不同」的部分 —— oxlint 开箱即带 correctness 规则集，
+  // 不必像 ESLint 那样先 spread 一份 recommended。
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  // 浏览器 + Node 双环境：扩展源码跑在扩展上下文，scripts/ 与 tests/ 跑在 Node。
+  // 这一行顶掉 eslint.config.js 里手写的一长串内置全局
+  // （console / setTimeout / window / document / indexedDB / URLSearchParams …）。
+  "env": { "browser": true, "node": true, "es2022": true },
+
+  // correctness = 明确错误或无用的代码。设为 error 以阻断 CI。
+  // 实测本仓库在此类别下 0 违规，可以放心开。
+  "categories": { "correctness": "error" },
+
+  "rules": {
+    // ⚠ 必须显式打开：oxlint 的 no-undef 属 **nursery**（培育中）类别，默认是关的。
+    // 它是 src/**/*.js 与 scripts/**/*.mjs 的唯一防线 —— 这两类文件不受 tsc 管辖，
+    // 而「引用了已改名/不存在的标识符」正是本仓库栽过的坑：提交 6e091c8 把
+    // getActiveSpace 改名成 getBoundSpace，唯独漏了一处调用点，运行期
+    // ReferenceError 被 catch 吞成「口令不正确」，导致任何第二台设备都过不了
+    // 口令门禁，直到有人手测才发现（修复见 ec56b46）。
+    "no-undef": "error",
+
+    // 与 eslint 时代口径一致：未使用变量只提醒不阻断，且以下划线开头视为「有意保留」。
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+
+    // 这套代码里 console 是调试与 E2E 观察的主要手段，不视为问题。
+    "no-console": "off",
+
+    // 允许 `catch {}` 空块：本项目有多处「吞掉预期异常后走降级分支」的写法。
+    "no-empty": ["error", { "allowEmptyCatch": true }]
+  },
+
+  "globals": {
+    // 扩展 API：不属标准浏览器全局，env.browser 不覆盖，必须手写。
+    "chrome": "readonly",
+    "browser": "readonly",
+    // Vite 构建期注入（vite.config.js 的 define），不是运行期变量。
+    "__BUILD_TIME__": "readonly",
+    // Vue SFC 编译期宏：oxlint 只 lint .vue 的 <script> 块，宏要自己声明。
+    "defineProps": "readonly",
+    "defineEmits": "readonly",
+    "defineExpose": "readonly",
+    "defineOptions": "readonly",
+    "defineSlots": "readonly",
+    "defineModel": "readonly",
+    "withDefaults": "readonly"
+  },
+
+  "ignorePatterns": [
+    // 构建产物与第三方工程（.gitignore 已忽略，这里显式写上避免依赖其解析）
+    "extension/**",
+    "extension-firefox/**",
+    "dist/**",
+    "website/dist/**",
+    "bookmark-sync/**",
+    ".workbuddy/**",
+
+    // 旧 Linux E2E 通道（Xvfb + WebDriver BiDi）：保留但不纳入门禁，
+    // 避免历史噪声淹没真问题（本 harness 见 scripts/e2e/run.mjs）。
+    "scripts/e2e/e2e-*.mjs",
+    "scripts/e2e/ff-smoke.mjs",
+    "scripts/e2e/supabase-check.mjs",
+    "scripts/e2e/debug-create.mjs",
+    "scripts/e2e/diag-ops.mjs",
+    "scripts/e2e/lib/bidi.mjs",
+    "scripts/e2e/lib/ffbridge.mjs",
+    "scripts/e2e/lib/launch.mjs",
+    "scripts/e2e/lib/launchFirefox.mjs",
+    "scripts/e2e/lib/popup.mjs",
+    "scripts/e2e/lib/supabase.mjs"
+  ],
+
+  "overrides": [
+    {
+      // TypeScript 关掉 no-undef：tsc 已经强制这一检查，而 oxlint 不看类型，
+      // 对 TS 里的类型位置（interface / 泛型 / declare）会误报。
+      // 这也正是官方文档对该规则的建议（"can be disabled for TypeScript code"）。
+      "files": ["**/*.ts"],
+      "rules": { "no-undef": "off" }
+    }
+  ]
+}
