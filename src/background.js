@@ -3,7 +3,7 @@
 //   - chrome.alarms：每 30 分钟增量 pull（afterId 水位）
 //   - 本地书签变更由 chrome.bookmarks 事件驱动，入队后随下一次 flush 推送
 import { api } from "./lib/ext.js";
-import { runSync, registerLocalEventBridge, resetCoordinator, switchSpace } from "./sync.js";
+import { runSync, registerLocalEventBridge, resetCoordinator, rebindSpace, bindSpace } from "./sync.js";
 import { registerTestChannel } from "./testChannel.js";
 import { installLogBridge } from "./logBridge.js";
 
@@ -98,11 +98,24 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     sendResponse({ ok: true });
     return false;
   }
-  if (msg?.type === "bsync-space-switch") {
-    // 空间切换必须由 SW 执行：只有 SW 持有与事件桥同 realm 的 coordinator 单例，
-    // 「切走前把旧空间的未推送 op 推完」才等得到真实队列。切换成功后立刻同步
-    // 一次，让新空间的容器/书签在本机落地。
-    switchSpace(msg.spaceId)
+  if (msg?.type === "bsync-space-bind") {
+    // 首绑（新设备第一次同步前的显式选择）同样由 SW 执行：绑定后立刻同步一次，
+    // 让本机书签并入目标空间（merge）或由目标空间重建本机书签（overwrite）。
+    bindSpace(msg.spaceId, { mode: msg.mode === "overwrite" ? "overwrite" : "merge" })
+      .then(async (r) => {
+        if (r?.ok) await sync();
+        sendResponse(r ?? { ok: false, reason: "unknown" });
+      })
+      .catch((e) =>
+        sendResponse({ ok: false, reason: "error", error: e?.message ?? String(e) }),
+      );
+    return true; // 异步 sendResponse
+  }
+  if (msg?.type === "bsync-space-rebind") {
+    // 换绑空间必须由 SW 执行：只有 SW 持有与事件桥同 realm 的 coordinator 单例，
+    // 「清空本机前把原空间的未推送 op 推完」才等得到真实队列。换绑成功后立刻
+    // 同步一次，把目标空间的书签重新投影到本机。
+    rebindSpace(msg.spaceId)
       .then(async (r) => {
         if (r?.ok) await sync();
         sendResponse(r ?? { ok: false, reason: "unknown" });

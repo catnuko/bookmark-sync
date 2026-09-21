@@ -6,10 +6,9 @@ import { api } from "./lib/ext.js";
 import { supabase } from "./lib/supabase.js";
 import {
   getProfile, countServerBookmarks,
-  getActiveSpace, createSpace, deleteSpace, renameSpace,
+  getBoundSpace, createSpace, deleteSpace, renameSpace,
   listDevices, removeDevice, renameDevice, getDeviceId,
-  acknowledgeFirstSync, pullOverwriteLocal,
-  resetCoordinator,
+  resetCoordinator, BOUND_SPACE_KEY,
 } from "./sync.js";
 import { decryptMoveOp } from "./sync/index.js";
 import { exportKey, importKey, hasKey, setKeyFromPassphrase, isFirstDevice, clearLocalKey, ensureLocalKey } from "./crypto.js";
@@ -68,7 +67,10 @@ export const state = reactive({
 
   // 空间 / 设备
   spaces: [],
+  // 本机**绑定**的空间（一台设备一个空间；本机书签树 ≡ 该空间）。
   activeSpace: null,
+  // 换绑确认：待换绑到的空间 id（''= 无）。换绑会清空本机书签，必须显式确认。
+  rebindTarget: "",
   devices: [],
   myDeviceId: "",
   newSpaceName: "",
@@ -83,14 +85,16 @@ export const state = reactive({
   armed: "",
   armedLeft: 3,
 
-  // 首同步决策
-  showFirstSyncModal: false,
-  firstSyncInfo: null, // { localCount, remoteCount, localOnlyCount, remoteEncrypted, hasTombstones, spaceId }
-  overwriteArmed: false,
-  overwriteLeft: 3,
-  firstSyncKeyInput: "",
-  firstSyncPhraseInput: "",
-  firstSyncKeyMsg: "",
+  // 首绑引导（本机从未绑定过 + 云端有多个空间 → 同步前弹一次，让用户选这台
+  // 电脑加入哪个空间）。绑定是一次显式动作，错过这次就只能去空间列表里改。
+  showBindModal: false,
+  bindSpaces: [], // [{ id, name, is_default }]
+  bindTarget: "", // 选中的空间 id（'' = 还没选）
+  bindMode: "merge", // 'merge' 本机书签并入该空间 | 'overwrite' 用该空间覆盖本机
+  bindNewName: "", // 「新建一个空间并加入」的输入
+  bindCreating: false, // 新建空间输入行展开态
+  bindBusy: false,
+  bindLocalCount: 0, // 本机现有书签条数（弹窗说明用）
 
   // 弹窗二级面板（抽屉）
   drawer: "", // '' | 'spaces' | 'key' | 'advanced' | 'help'
@@ -110,7 +114,6 @@ export const state = reactive({
 
 // ---- 计时器句柄（页面级单例） ----
 let armedTimer = null;
-let overwriteTimer = null;
 
 // ---- Toast ----
 export function showToast(level, title, sub = "") {
@@ -313,9 +316,9 @@ export async function submitPhraseGate() {
 // ---- 空间 / 设备 ----
 export async function refreshSpacesDevices() {
   try {
-    const { spaces: sp, active } = await getActiveSpace();
+    const { spaces: sp, bound } = await getBoundSpace();
     state.spaces = sp;
-    state.activeSpace = active;
+    state.activeSpace = bound;
     state.devices = await listDevices();
     state.myDeviceId = await getDeviceId();
   } catch (e) {
@@ -323,14 +326,24 @@ export async function refreshSpacesDevices() {
   }
 }
 
-export async function doSwitchSpace(sp) {
-  if (sp.id === state.activeSpace?.id || state.spaceBusy) return;
+/** 该空间是否就是本机绑定的空间（UI 徽标 / 换绑入口共用）。 */
+export function isBoundSpace(spaceId) {
+  return state.activeSpace?.id === spaceId;
+}
+
+/**
+ * 换绑本机空间（危险操作，需显式确认，见 SpacesList 的确认条）。
+ *
+ * 语义：本机书签树 ≡ 绑定空间，所以换绑 = **清空本机书签 + 从目标空间重建**。
+ * 由 SW 执行——只有 SW 持有与事件桥同 realm 的 coordinator，「先把原空间的
+ * 未推送 op 推完」才等得到真实队列；成功后 SW 立即同步一次把书签重建出来。
+ */
+export async function doRebindSpace(sp) {
+  if (isBoundSpace(sp.id) || state.spaceBusy) return;
   state.spaceBusy = true;
+  state.rebindTarget = "";
   try {
-    // 切换由 SW 执行：只有 SW 持有与事件桥同 realm 的 coordinator，「切走前
-    // 先把旧空间的未推送 op 推完」才真的等得到；成功后 SW 会立即同步一次，
-    // 让新空间的落地区在本机出现。
-    const r = await api.runtime.sendMessage({ type: "bsync-space-switch", spaceId: sp.id });
+    const r = await api.runtime.sendMessage({ type: "bsync-space-rebind", spaceId: sp.id });
     if (!r?.ok) {
       showToast(
         "danger",
@@ -342,15 +355,16 @@ export async function doSwitchSpace(sp) {
       return;
     }
     await refreshSpacesDevices();
-    // 默认空间的落地就是原生书签栏；其它空间落在书签栏下的容器文件夹里，
-    // 文案要告诉用户去哪儿找（否则会以为本机书签被切没了）。
-    const sub = sp.is_default
-      ? t("spaces_switchedSub")
-      : t("spaces_switchedSubContainer", t("spaces_containerTitle", sp.name));
-    showToast("info", t("spaces_switchedTitle", sp.name), sub);
+    showToast("info", t("spaces_switchedTitle", sp.name), t("spaces_switchedSub"));
   } finally {
     state.spaceBusy = false;
   }
+}
+
+/** 展开/收起换绑确认条（点击非绑定空间时调用）。 */
+export function armRebind(sp) {
+  if (isBoundSpace(sp.id)) return;
+  state.rebindTarget = state.rebindTarget === sp.id ? "" : sp.id;
 }
 
 export async function doCreateSpace() {
@@ -559,101 +573,111 @@ export function openUpgrade() {
   state.showUpgradeModal = true;
 }
 
-// ---- 首同步决策 ----
-export async function firstSyncMerge() {
-  const spaceId = state.firstSyncInfo?.spaceId;
-  state.showFirstSyncModal = false;
-  if (spaceId) await acknowledgeFirstSync(spaceId);
-  await syncNow({ force: true });
-}
+// ---- 首绑引导 ----
+/** 首绑窗冷却：自动同步每 30 分钟一次，不冷却会变成每半小时骚扰一次。 */
+const BIND_PROMPT_KEY = "crdt.bindPromptAt";
+const BIND_PROMPT_COOLDOWN = 24 * 60 * 60 * 1000;
 
-export function firstSyncOverwrite() {
-  if (!state.overwriteArmed) {
-    state.overwriteArmed = true;
-    state.overwriteLeft = 3;
-    clearInterval(overwriteTimer);
-    overwriteTimer = setInterval(() => {
-      state.overwriteLeft -= 1;
-      if (state.overwriteLeft <= 0) {
-        state.overwriteArmed = false;
-        clearInterval(overwriteTimer);
-        overwriteTimer = null;
-      }
-    }, 1000);
-    return;
-  }
-  state.overwriteArmed = false;
-  clearInterval(overwriteTimer);
-  overwriteTimer = null;
-  doOverwriteLocal();
-}
-
-async function doOverwriteLocal() {
-  state.showFirstSyncModal = false;
-  state.syncBusy = true;
+/** 本机书签条数（不含浏览器的固定根容器）。 */
+async function countLocalBookmarks() {
+  const FIXED = new Set([
+    "1", "2", "3",
+    "root________", "toolbar_____", "unfiled_____", "mobile______", "menu________",
+  ]);
   try {
-    const r = await pullOverwriteLocal();
-    if (r.ok) {
-      await api.storage.local.set({
-        lastSyncAt: Date.now(),
-        lastSyncStatus: "ok",
-        lastSyncStatusDetail: "",
-        lastSyncSummary: JSON.stringify({ overwritten: true }),
-      });
-      await refreshStatus();
-      showToast("success", t("common_done"), t("status_overwritten"));
-      await refreshProfile();
-      await refreshSpacesDevices();
-    } else if (r.reason === "decrypt_error") {
-      showToast("danger", t("toast_decryptTitle"), r.error ?? t("toast_checkKey"));
-    } else if (r.reason === "quota_exceeded") {
-      state.showUpgradeModal = true;
-      showToast("warning", t("toast_quotaTitle"), t("toast_quotaSub"));
-    } else {
-      showToast("danger", t("spaces_overwriteFail", r.error ?? r.reason), "");
+    const tree = await api.bookmarks.getTree();
+    let n = 0;
+    const walk = (nodes) => {
+      for (const node of nodes ?? []) {
+        if (!FIXED.has(node.id)) n += 1;
+        walk(node.children);
+      }
+    };
+    for (const root of tree ?? []) walk(root.children);
+    return n;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * 弹首绑窗（`syncNow` 收到 `bind_needed` 时调用）。
+ *
+ * 这是**唯一**一次「这台电脑加入哪个空间」的选择时机：绑定一旦写下就不再是
+ * 「从未绑定」，之后只能走换绑（清空 + 重建）。所以这里宁可多问一次。
+ */
+async function openBindModal(spaces) {
+  if (!spaces?.length) return;
+  const { [BIND_PROMPT_KEY]: last } = await api.storage.local.get(BIND_PROMPT_KEY);
+  if (last && Date.now() - last < BIND_PROMPT_COOLDOWN) return;
+  await api.storage.local.set({ [BIND_PROMPT_KEY]: Date.now() });
+
+  const local = await countLocalBookmarks();
+  state.bindSpaces = spaces;
+  state.bindTarget = spaces.find((s) => s.is_default)?.id ?? spaces[0]?.id ?? "";
+  // 本机没有书签时「并入 / 覆盖」没有区别，直接按并入走（弹窗隐藏该选择）。
+  state.bindMode = "merge";
+  state.bindLocalCount = local;
+  state.bindNewName = "";
+  state.bindCreating = false;
+  state.showBindModal = true;
+}
+
+export function dismissBindModal() {
+  state.showBindModal = false;
+  showToast("info", t("bind_laterTitle"), t("bind_laterSub"));
+}
+
+/**
+ * 绑定本机到选中空间（或先新建一个空间再绑）。
+ *
+ * 由 SW 执行 `bsync-space-bind`：SW 绑定后会立刻同步一次——`merge` 让本机书签
+ * 并入该空间，`overwrite` 先清空本机再从该空间重建。
+ */
+export async function doBindSpace() {
+  if (state.bindBusy) return;
+  const creating = state.bindCreating && !!state.bindNewName.trim();
+  if (!creating && !state.bindTarget) return;
+  state.bindBusy = true;
+  try {
+    let spaceId = state.bindTarget;
+    if (creating) {
+      const r = await createSpace(state.bindNewName.trim());
+      if (!r.ok) {
+        if (r.reason === "plan_locked") {
+          state.showUpgradeModal = true;
+          showToast("warning", t("spaces_limitTitle"), t("spaces_limitSub"));
+        } else {
+          showToast("danger", t("common_failPrefix", r.error ?? r.reason ?? ""), "");
+        }
+        return;
+      }
+      spaceId = r.space?.id ?? "";
+      if (!spaceId) {
+        await refreshSpacesDevices();
+        return;
+      }
     }
-  } catch (e) {
-    showToast("danger", t("common_failPrefix", e?.message ?? e), "");
+    const r = await api.runtime.sendMessage({
+      type: "bsync-space-bind",
+      spaceId,
+      mode: state.bindMode,
+    });
+    if (!r?.ok) {
+      showToast(
+        "danger",
+        t("spaces_switchFailTitle"),
+        t("common_failPrefix", r?.error ?? r?.reason ?? ""),
+      );
+      return;
+    }
+    state.showBindModal = false;
+    await refreshSpacesDevices();
+    await refreshStatus();
+    const name = state.spaces.find((s) => s.id === spaceId)?.name ?? "";
+    showToast("info", t("bind_doneTitle", name), t("bind_doneSub"));
   } finally {
-    state.syncBusy = false;
-  }
-}
-
-export function dismissFirstSync() {
-  state.showFirstSyncModal = false;
-  showToast("info", t("fs_dismissedTitle"), t("fs_dismissedSub"));
-}
-
-export async function importFirstSyncKey() {
-  const ok = await importKey(state.firstSyncKeyInput);
-  if (ok) {
-    resetCoordinator();
-    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
-    state.firstSyncKeyMsg = "";
-    state.firstSyncKeyInput = "";
-    state.showFirstSyncModal = false;
-    await syncNow({});
-  } else {
-    state.firstSyncKeyMsg = t("key_badFormat");
-  }
-}
-
-export async function phraseFirstSyncKey() {
-  const phrase = state.firstSyncPhraseInput;
-  if (!phrase || phrase.length < 8) {
-    state.firstSyncKeyMsg = t("phrase_tooShort");
-    return;
-  }
-  const ok = await setKeyFromPassphrase(phrase);
-  if (ok) {
-    resetCoordinator();
-    api.runtime.sendMessage({ type: "bsync-reset-coordinator" });
-    state.firstSyncKeyMsg = "";
-    state.firstSyncPhraseInput = "";
-    state.showFirstSyncModal = false;
-    await syncNow({});
-  } else {
-    state.firstSyncKeyMsg = t("phrase_setFail");
+    state.bindBusy = false;
   }
 }
 
@@ -707,6 +731,8 @@ export function reasonText(reason) {
   switch (reason) {
     case "not_authenticated": return t("err_notAuthenticated");
     case "no_space": return t("err_noSpace");
+    case "space_unbound": return t("err_spaceUnbound");
+    case "bind_needed": return t("err_bindNeeded");
     case "no_key": return t("err_noKey");
     case "timeout":
     case "no_response": return t("err_timeout");
@@ -746,13 +772,14 @@ export async function syncNow(opts = {}) {
       setTimeout(() => resolve({ ok: false, reason: "timeout", error: t("err_timeout") }), 60000)
     );
     const r = await Promise.race([msgResult, timeout]);
-    if (!r.ok && r.reason === "first_sync_confirm_needed") {
-      // 本设备第一次与该空间同步且需要决策（双方都有书签 / 云端密文待导密钥）
-      state.firstSyncInfo = r;
-      state.overwriteArmed = false;
-      state.firstSyncKeyMsg = "";
-      state.showFirstSyncModal = true;
-      showToast("info", r.remoteEncrypted ? t("toast_fsEncrypted") : t("toast_fsBoth"), "");
+    if (!r.ok && r.reason === "bind_needed") {
+      // 口令门禁优先：还没设置/验证口令时不弹首绑窗——runSync 里绑定判定排在
+      // 口令检查之前，不拦的话弹窗会盖在门禁页上（用户连云端数据都读不到，
+      // 就先被问「加入哪个空间」）。设完口令后那次同步自然会走到这里。
+      if (state.phraseGateVisible) return;
+      // 本机从未绑定过，且云端有多个空间 → 这是唯一的「这台电脑加入哪个空间」
+      // 选择时机（绑定写下去之后就只能走换绑了）。冷却判断在 openBindModal 里。
+      await openBindModal(r.spaces ?? []);
       return;
     }
     if (!r.ok && r.reason === "no_key") {
@@ -890,12 +917,20 @@ export async function submit() {
 
 export async function logout() {
   await supabase.auth.signOut();
+  // 绑定与首绑冷却都是**账号相关**的本机状态，必须随登出清掉：
+  //   - 残留 boundSpaceId → 换个账号登录后读到的是上一个账号的空间 id，查不到
+  //     就误报「绑定空间已被删除」（`space_unbound`），用户被迫手动重绑；
+  //   - 残留冷却时间戳 → 新账号的首绑引导被上一个账号的冷却挡住，弹不出来。
+  await api.storage.local.remove([BOUND_SPACE_KEY, BIND_PROMPT_KEY]).catch(() => {});
   state.session = null;
   state.profile = null;
   state.serverCount = null;
   state.spaces = [];
   state.devices = [];
   state.activeSpace = null;
+  state.rebindTarget = "";
+  state.showBindModal = false;
+  state.bindSpaces = [];
   state.drawer = "";
   state.armed = "";
   state.status = t("toast_loggedOut");
@@ -957,6 +992,7 @@ export async function init(popup) {
       state.spaces = [];
       state.devices = [];
       state.activeSpace = null;
+      state.rebindTarget = "";
       state.drawer = "";
     }
   });

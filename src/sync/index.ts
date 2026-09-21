@@ -36,7 +36,6 @@ export {
   IS_FIREFOX,
   computePosition,
   nativeRootPairs,
-  barRootId,
   LANDING_ROOT_UUIDS,
 } from './chromeBridge.js';
 export type {
@@ -45,19 +44,6 @@ export type {
   IdBridgeOptions,
 } from './chromeBridge.js';
 
-// 多空间落地（B2 多容器并存）：空间 → chrome 落地区解析 + 容器注册表。
-export {
-  SPACE_ROOTS_KEY,
-  FIXED_ROOT_UUIDS,
-  loadSpaceRoots,
-  saveSpaceRoots,
-  persistSpaceLanding,
-  resolveSpaceLanding,
-} from './spaceLanding.js';
-export type {
-  LandingStorage,
-  SpaceLanding,
-  SpaceLandingRow,
-  SpaceRootsRegistry,
-  SpaceLike,
-} from './spaceLanding.js';
+// 设备 ↔ 空间的绑定决策（首绑必须让用户选，见 binding.ts 的文件注释）。
+export { firstBindAction, normalizeBindMode } from './binding.js';
+export type { FirstBindAction, BindMode } from './binding.js';

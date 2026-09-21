@@ -7,7 +7,7 @@ import AuthView from "./components/AuthView.vue";
 import PopupView from "./components/PopupView.vue";
 import OptionsView from "./components/OptionsView.vue";
 import PhraseGate from "./components/PhraseGate.vue";
-import ModalFirstSync from "./components/ModalFirstSync.vue";
+import ModalBindSpace from "./components/ModalBindSpace.vue";
 import ModalUpgrade from "./components/ModalUpgrade.vue";
 import ToastHost from "./components/ui/ToastHost.vue";
 
@@ -27,7 +27,7 @@ onMounted(() => init(props.popup));
   <PopupView v-else-if="props.popup" />
   <OptionsView v-else />
 
-  <ModalFirstSync v-if="state.showFirstSyncModal" />
+  <ModalBindSpace v-if="state.showBindModal" />
   <ModalUpgrade v-if="state.showUpgradeModal" />
   <ToastHost />
 </template>

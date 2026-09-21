@@ -97,14 +97,17 @@
       }
     }
   },
-  "status_overwritten": {
-    "message": "已按云端覆盖本机"
-  },
   "err_notAuthenticated": {
     "message": "请先在插件中登录"
   },
   "err_noSpace": {
     "message": "无法创建默认空间"
+  },
+  "err_spaceUnbound": {
+    "message": "本机绑定的空间已被删除，请在「空间与设备」里重新绑定一个空间"
+  },
+  "err_bindNeeded": {
+    "message": "本机尚未选择同步空间，请在「空间与设备」里选择"
   },
   "err_noKey": {
     "message": "请先设置同步口令"
@@ -403,92 +406,76 @@
   "gate_okVerifySub": {
     "message": "已进入插件。"
   },
-  "fs_phraseTitle": {
-    "message": "需要输入同步口令"
+  "bind_title": {
+    "message": "这台电脑加入哪个空间？"
   },
-  "fs_phraseBody1": {
-    "message": "云端书签已加密，本设备还没有同步口令，无法读取云端数据。请输入你在其他设备上设置的"
-  },
-  "fs_phraseBodyBold": {
-    "message": "同一口令"
-  },
-  "fs_phraseBody2": {
-    "message": "。"
-  },
-  "fs_phrasePh": {
-    "message": "同一句口令（至少 8 位）"
-  },
-  "fs_phraseCta": {
-    "message": "输入并继续"
-  },
-  "fs_later": {
-    "message": "暂不同步"
-  },
-  "fs_bothTitle": {
-    "message": "云端与本机都有书签"
-  },
-  "fs_bothBody": {
-    "message": "本机 $LOCAL$ 条 · 云端 $REMOTE$ 条书签。请选择如何处理：",
-    "placeholders": {
-      "local": {
-        "content": "$1"
-      },
-      "remote": {
-        "content": "$2"
-      }
-    }
-  },
-  "fs_mergeName": {
-    "message": "合并"
-  },
-  "fs_mergeFeat1": {
-    "message": "云端 $REMOTE$ 条与本地 $LOCAL$ 条取并集，双方书签都保留",
-    "placeholders": {
-      "remote": {
-        "content": "$1"
-      },
-      "local": {
-        "content": "$2"
-      }
-    }
-  },
-  "fs_mergeFeat2": {
-    "message": "删除双向生效，之后继续增量同步"
-  },
-  "fs_mergeCta": {
-    "message": "合并并继续"
-  },
-  "fs_overName": {
-    "message": "覆盖本机"
-  },
-  "fs_overFeat1": {
-    "message": "将删除本机独有 $COUNT$ 条书签",
+  "bind_body": {
+    "message": "本机现有 $COUNT$ 条书签。加入后，本机书签树就是该空间的书签，与绑定其它空间的设备各自独立。",
     "placeholders": {
       "count": {
         "content": "$1"
       }
     }
   },
-  "fs_overFeat2": {
-    "message": "以云端为准，本机书签树将被替换"
+  "bind_new": {
+    "message": "新建一个空间并加入"
   },
-  "fs_overCta": {
-    "message": "用云端覆盖本机"
+  "bind_merge": {
+    "message": "本机书签并入该空间"
   },
-  "fs_overConfirm": {
-    "message": "再次点击以确认覆盖"
+  "bind_mergeSub": {
+    "message": "本机 $COUNT$ 条书签加入该空间，双方都保留",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
-  "fs_dismissedTitle": {
-    "message": "已暂不同步"
+  "bind_overwrite": {
+    "message": "用该空间覆盖本机"
   },
-  "fs_dismissedSub": {
-    "message": "下次同步时会再次询问如何处理。"
+  "bind_overwriteSub": {
+    "message": "本机 $COUNT$ 条书签将被清除，改为该空间的书签",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "bind_cta": {
+    "message": "加入该空间"
+  },
+  "bind_ctaOverwrite": {
+    "message": "覆盖本机并加入"
+  },
+  "bind_ctaOverwriteConfirm": {
+    "message": "再次点击确认覆盖"
+  },
+  "bind_later": {
+    "message": "稍后"
+  },
+  "bind_laterTitle": {
+    "message": "尚未选择同步空间"
+  },
+  "bind_laterSub": {
+    "message": "同步暂不进行。可在「空间与设备」里选择这台电脑加入的空间。"
+  },
+  "bind_doneTitle": {
+    "message": "已加入空间「$NAME$」",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "bind_doneSub": {
+    "message": "正在同步该书签。"
   },
   "spaces_title": {
     "message": "空间与设备"
   },
   "spaces_sub": {
-    "message": "每个空间是一棵独立书签树，可分别绑定不同浏览器资料（如工作 / 个人）。"
+    "message": "每个空间是一棵独立书签树。一台设备（或一个浏览器资料）绑定一个空间——本机书签就是该空间的书签，在别的设备上绑定别的空间即可分开管理（如工作 / 个人）。"
   },
   "spaceslist_title": {
     "message": "同步空间"
@@ -497,13 +484,13 @@
     "message": "空间名称"
   },
   "spaceslist_switchTitle": {
-    "message": "点击切换到该空间"
+    "message": "将本机绑定到该空间（会清空本机书签，再从该空间重建）"
   },
   "spaceslist_default": {
     "message": "默认"
   },
-  "spaceslist_current": {
-    "message": "当前"
+  "spaceslist_bound": {
+    "message": "本机绑定"
   },
   "spaceslist_deviceCount": {
     "message": "$COUNT$ 台设备",
@@ -512,6 +499,25 @@
         "content": "$1"
       }
     }
+  },
+  "spaceslist_bindConfirm": {
+    "message": "加入「$NAME$」？本机书签将被清空，再从该空间的书签重建。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaceslist_rebindConfirm": {
+    "message": "换绑到「$NAME$」？本机书签将被清空，再从该空间的书签重建。",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "spaceslist_rebindBtn": {
+    "message": "换绑"
   },
   "spaceslist_renameTitle": {
     "message": "重命名 $NAME$",
@@ -559,29 +565,13 @@
     }
   },
   "spaces_switchedSub": {
-    "message": "下次同步将与该空间的数据按并集合并（本设备书签会并入该空间）。"
-  },
-  "spaces_containerTitle": {
-    "message": "书签空间 · $NAME$",
-    "placeholders": {
-      "name": {
-        "content": "$1"
-      }
-    }
-  },
-  "spaces_switchedSubContainer": {
-    "message": "该空间的书签在本机落在书签栏的「$CONTAINER$」文件夹里，其它空间的书签不受影响。",
-    "placeholders": {
-      "container": {
-        "content": "$1"
-      }
-    }
+    "message": "本机书签已清空，正在从该空间恢复书签。"
   },
   "spaces_switchFailTitle": {
-    "message": "切换空间失败"
+    "message": "换绑空间失败"
   },
   "spaces_switchPushFailed": {
-    "message": "当前空间还有改动没同步成功（网络或额度问题），本次未切换。请稍后重试。"
+    "message": "原空间还有改动没同步成功（网络或额度问题），本次未换绑。请稍后重试。"
   },
   "spaces_limitTitle": {
     "message": "空间数量已达上限"
@@ -624,14 +614,6 @@
     "message": "空间「$NAME$」已删除",
     "placeholders": {
       "name": {
-        "content": "$1"
-      }
-    }
-  },
-  "spaces_overwriteFail": {
-    "message": "覆盖失败: $MSG$",
-    "placeholders": {
-      "msg": {
         "content": "$1"
       }
     }
@@ -986,12 +968,6 @@
   },
   "toast_syncDone": {
     "message": "同步完成"
-  },
-  "toast_fsEncrypted": {
-    "message": "云端数据已加密，请先导入同步密钥"
-  },
-  "toast_fsBoth": {
-    "message": "本机与云端都有书签，请确认如何同步"
   },
   "toast_proByteLimitTitle": {
     "message": "已达 Pro 存储上限"
