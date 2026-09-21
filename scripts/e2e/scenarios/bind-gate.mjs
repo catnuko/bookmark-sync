@@ -81,7 +81,7 @@ export async function run({ cfg, report }) {
       r1.bindGate ? '出现了 bind 门禁' : '',
     );
 
-    const spaces1 = cloud.spaces();
+    const spaces1 = cloud.spaces(uid);
     report.equals('云端空间数 = 1（自动建默认空间）', spaces1.length, 1);
     const defaultSpace = spaces1.find((s) => s.is_default);
     report.assert(
@@ -98,7 +98,7 @@ export async function run({ cfg, report }) {
     // 建第二个空间（走真实 UI；pro 档有权限）
     await createSpaceViaUI(r1.page, dev1, SPACE_B);
     await closeDrawer(r1.page);
-    const spaces2 = cloud.spaces();
+    const spaces2 = cloud.spaces(uid);
     report.equals('UI 新建后云端有 2 个空间', spaces2.length, 2);
     const spaceB = spaces2.find((s) => s.name === SPACE_B);
     report.assert(
@@ -117,10 +117,10 @@ export async function run({ cfg, report }) {
     });
     const seed = await dev1.triggerSync(cfg.timeouts.sync);
     report.assert('设备 1 同步成功', seed?.ok === true, JSON.stringify(seed).slice(0, 200));
-    const st = await cloud.waitCloud(() => (cloud.opStats().ops > 0 ? cloud.opStats() : null), {
-      timeoutMs: 40_000,
-      intervalMs: 800,
-    });
+    const st = await cloud.waitCloud(
+      () => (cloud.opStats(uid).ops > 0 ? cloud.opStats(uid) : null),
+      { timeoutMs: 40_000, intervalMs: 800 },
+    );
     report.assert('A 空间的书签已推上云端', !!st && st.ops > 0, `op=${st?.ops ?? 0}`);
     extra.opsAfterSeed = st?.ops ?? 0;
 
@@ -236,7 +236,7 @@ export async function run({ cfg, report }) {
     );
 
     extra.dev2BoundSpaceId = await boundSpaceId(dev2);
-    report.info('云端空间数', String(cloud.spaces().length));
+    report.info('云端空间数', String(cloud.spaces(uid).length));
 
     return extra;
   } finally {

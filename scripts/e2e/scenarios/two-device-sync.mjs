@@ -77,7 +77,7 @@ export async function run({ cfg, report }) {
 
     const st = await cloud.waitCloud(
       () => {
-        const s = cloud.opStats(MARKER);
+        const s = cloud.opStats(uid, MARKER);
         return s.ops > 0 ? s : null;
       },
       { timeoutMs: 40_000, intervalMs: 800 },
@@ -192,7 +192,7 @@ export async function run({ cfg, report }) {
     );
 
     // ------------------------------------------------------------ 收尾断言
-    const st2 = cloud.opStats(MARKER);
+    const st2 = cloud.opStats(uid, MARKER);
     report.equals('追加操作后云端仍然全是密文', st2.not_enveloped, 0);
     report.equals('追加操作后云端仍然没有明文泄漏', st2.leaks, 0);
     report.info('云端 op 数', `${st?.ops ?? 0} → ${st2.ops}`);

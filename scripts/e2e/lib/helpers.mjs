@@ -24,11 +24,13 @@ import * as cloud from './cloud.mjs';
 export async function ensureCleanStart(cfg, report) {
   if (!cloud.cliAvailable()) throw new Error('找不到 supabase CLI（本场景要核对云端状态）');
 
-  const prof = cloud.profile();
+  // 账号从 E2E_EMAIL 定位 —— 云端可能同时存在多个账号（e2e 专用 / 手工调试用），
+  // 所有查询都必须带上这个 uid，否则会把别的账号的数据算进断言（见 cloud.mjs 的 requireUid）。
+  const uid = cloud.userIdFor(cfg.email);
+  const prof = cloud.profile(uid);
   if (!prof) throw new Error('云端没有 profile —— 测试账号还没登录过扩展？先手动登录一次');
-  const uid = prof.user_id;
-  const stats0 = cloud.opStats();
-  const spaces0 = cloud.spaces();
+  const stats0 = cloud.opStats(uid);
+  const spaces0 = cloud.spaces(uid);
   const junkOps = stats0.ops;
 
   report.info('测试账号', `${prof.email}（plan=${prof.plan}）`);
@@ -67,12 +69,13 @@ export async function ensureCleanStart(cfg, report) {
   }
   cloud.resetUser(uid);
   const after = cloud.profile(uid);
-  const st = cloud.opStats();
-  const okStart = !after?.e2ee_salt && st.ops === 0 && cloud.spaces().length === 0;
+  const st = cloud.opStats(uid);
+  const spacesAfter = cloud.spaces(uid);
+  const okStart = !after?.e2ee_salt && st.ops === 0 && spacesAfter.length === 0;
   report.assert(
     '复位后云端为干净起点',
     okStart,
-    `盐=${after?.e2ee_salt ? '有' : '无'} / op=${st.ops} / 空间=${cloud.spaces().length}`,
+    `盐=${after?.e2ee_salt ? '有' : '无'} / op=${st.ops} / 空间=${spacesAfter.length}`,
   );
   if (!okStart) throw new Error('云端复位失败，中止（否则后面的断言全是假的）');
   return { uid, prof, spaces0: [] };

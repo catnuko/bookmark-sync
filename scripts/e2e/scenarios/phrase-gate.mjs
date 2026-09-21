@@ -126,7 +126,7 @@ export async function run({ cfg, report }) {
 
     const stats = await cloud.waitCloud(
       () => {
-        const s = cloud.opStats(MARKER);
+        const s = cloud.opStats(uid, MARKER);
         return s.ops > 0 ? s : null;
       },
       { timeoutMs: 40_000, intervalMs: 800 },
@@ -233,7 +233,7 @@ export async function run({ cfg, report }) {
     // 通过后的去向（不是本场景的契约，只记录，方便人眼看下一步）
     report.info(
       '通过后落到',
-      `${gate.kind}（本账号 plan=${prof.plan}、云端 ${cloud.spaces().length} 个空间）`,
+      `${gate.kind}（本账号 plan=${prof.plan}、云端 ${cloud.spaces(uid).length} 个空间）`,
     );
 
     return extra;

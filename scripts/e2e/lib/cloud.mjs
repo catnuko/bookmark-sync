@@ -70,37 +70,78 @@ export function exec(query) {
   return cli(['db', 'query', '--linked', query]);
 }
 
-/** 当前账号的 profile 摘要（邮箱 / 档位 / 盐 / 用量）。无 profile 时返回 null。 */
-export function profile(userId = null) {
-  const where = userId ? `where p.user_id = '${userId}'` : '';
+/**
+ * 断言「这条查询带上了账号」。
+ *
+ * 下面几个函数曾经是**全表扫描**（`select ... from public.bsync_spaces` 不带 where）——
+ * 只有一个测试账号时看不出问题，引入 e2e 专用账号后就会把**另一个账号**的数据算进来：
+ * bind-gate 的「云端空间数 = 1」会莫名变成 2 或 3，而失败原因看起来像被测代码的 bug。
+ * 与其静默串数据，不如缺参时立刻炸（本项目对静默失败的既定态度）。
+ */
+function requireUid(fn, userId) {
+  if (!userId) {
+    throw new Error(
+      `${fn}(userId) 缺少 userId —— 云端查询一律按账号过滤，禁止全表扫描（多账号会串数据）`,
+    );
+  }
+  return userId;
+}
+
+/**
+ * 按 email 解析 user_id。场景从 `E2E_EMAIL` 出发定位账号，是唯一的入口 ——
+ * 不要再有「取第一个 profile」这种写法，那等于把测试绑死在「云端只有一个账号」上。
+ */
+export function userIdFor(email) {
+  const rows = sql(`select id from auth.users where lower(email) = lower('${email}')`);
+  const id = rows[0]?.id ?? null;
+  if (!id) throw new Error(`云端没有账号 ${email} —— 先确认它存在于 auth.users`);
+  return id;
+}
+
+/** 指定账号的 profile 摘要（邮箱 / 档位 / 盐 / 用量）。userId 必传；无 profile 时返回 null。 */
+export function profile(userId) {
+  requireUid('profile', userId);
   const rows = sql(
     `select p.user_id, p.plan, p.e2ee_salt, p.used_count, p.used_bytes,
             (select u.email from auth.users u where u.id = p.user_id) as email
-       from public.bsync_profiles p ${where} order by p.created_at limit 5`,
+       from public.bsync_profiles p where p.user_id = '${userId}' limit 1`,
   );
   return rows[0] ?? null;
 }
 
-/** op_log 统计：总数 / 未加密信封数 / 明文泄漏可疑数（按 marker 探测）。 */
-export function opStats(marker = 'bsync-e2e-marker') {
+/** 该账号 op_log 的统计：总数 / 未加密信封数 / 明文泄漏可疑数（按 marker 探测）。 */
+export function opStats(userId, marker = 'bsync-e2e-marker') {
+  requireUid('opStats', userId);
   const rows = sql(
     `select count(*)::int as ops,
-            count(*) filter (where op->>'iv' is null or op->>'ciphertext' is null)::int as not_enveloped,
-            count(*) filter (where position('${marker}' in op::text) > 0)::int as leaks
-       from public.bsync_op_log`,
+            count(*) filter (where o.op->>'iv' is null or o.op->>'ciphertext' is null)::int as not_enveloped,
+            count(*) filter (where position('${marker}' in o.op::text) > 0)::int as leaks
+       from public.bsync_op_log o
+      where o.space_id in (select id from public.bsync_spaces s where s.owner_id = '${userId}')`,
   );
   return rows[0] ?? { ops: 0, not_enveloped: 0, leaks: 0 };
 }
 
-export function spaces() {
+/** 该账号的空间列表。 */
+export function spaces(userId) {
+  requireUid('spaces', userId);
   return sql(
-    `select id, name, is_default, (select count(*)::int from public.bsync_devices d where d.space_id = s.id) as devices
-       from public.bsync_spaces s order by created_at limit 20`,
+    `select s.id, s.name, s.is_default,
+            (select count(*)::int from public.bsync_devices d where d.space_id = s.id) as devices
+       from public.bsync_spaces s where s.owner_id = '${userId}'
+      order by s.created_at limit 20`,
   );
 }
 
-export function opCount() {
-  return sql('select count(*)::int as n from public.bsync_op_log')[0]?.n ?? 0;
+/** 该账号的 op 总数。 */
+export function opCount(userId) {
+  requireUid('opCount', userId);
+  return (
+    sql(
+      `select count(*)::int as n from public.bsync_op_log o
+        where o.space_id in (select id from public.bsync_spaces s where s.owner_id = '${userId}')`,
+    )[0]?.n ?? 0
+  );
 }
 
 /**

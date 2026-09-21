@@ -34,7 +34,10 @@ export function loadEnvFile(path = ENV_PATH) {
   return out;
 }
 
-/** 解析命令行参数（`--fresh` / `--headed` / `--keep-profiles` / `--ext=path`）。 */
+/**
+ * 解析命令行参数（`--fresh` / `--allow-destroy` / `--headed` / `--no-cleanup` /
+ * `--keep-profiles` / `--ext=path`）。任何 `--xxx` 都进 flags 集合，`--k=v` 进 opts。
+ */
 export function parseArgs(argv) {
   const flags = new Set();
   const opts = {};
@@ -71,8 +74,12 @@ export function getConfig(argv = process.argv.slice(2)) {
     fresh: flags.has('fresh'),
     /** --fresh 要清掉**非空**云端数据时的第二把钥匙（防止顺手清掉手工测试数据）。 */
     allowDestroy: flags.has('allow-destroy'),
-    /** 跑完把云端与本机 profile 复位，方便连跑。 */
-    cleanup: flags.has('cleanup'),
+    /**
+     * 跑完**一律**复位云端 + 删本机 profile（成功或失败都清），跑完不留残留。
+     * 默认开启；`--no-cleanup` 保留现场（排障用，否则现场只剩报告文件）。
+     * `--cleanup` 仍接受（历史用法），但它已是默认行为。
+     */
+    cleanup: !flags.has('no-cleanup'),
     /** 口令派生一次 210k 次 PBKDF2，慢；给足超时。 */
     timeouts: {
       boot: Number(pick('E2E_BOOT_MS', 45_000)),

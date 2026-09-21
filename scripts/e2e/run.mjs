@@ -12,8 +12,10 @@
  *
  * 设计约束（为什么不是「一个大脚本」）：
  *   - 场景自带前置检查，前置不成立时**显式失败**，绝不给空洞的绿；
- *   - 默认不动云端数据；只有显式 `--fresh` / `reset` 才会写云端；
- *   - 一台设备一个 profile，跑完即删（--keep-profiles 保留，便于复现现场）。
+ *   - 跑场景时默认不动云端数据；只有显式 `--fresh` / `reset` 才会写云端；
+ *   - **跑完默认清理**：无论成功还是失败都复位云端 + 删本机 profile，跑完不留残留；
+ *     要留着现场排障时加 `--no-cleanup`；
+ *   - 一台设备一个 profile，跑完即删（--keep-profiles 保留目录，便于复现现场）。
  */
 import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -98,17 +100,19 @@ async function main() {
       console.error('找不到 supabase CLI，无法复位云端');
       return 1;
     }
-    const prof = cloud.profile();
+    const uid = cloud.userIdFor(cfg.email);
+    const prof = cloud.profile(uid);
     if (!prof) {
       console.error('云端没有 profile（该账号从没登录过扩展？）');
       return 1;
     }
     console.log(`复位测试账号 ${prof.email}：云端（op/快照/设备/空间/盐）+ 本机 profile …`);
-    cloud.resetUser(prof.user_id);
+    cloud.resetUser(uid);
     const dropped = dropProfiles(cfg.profileRoot);
-    const after = cloud.profile(prof.user_id);
-    const st = cloud.opStats();
-    const ok = !after?.e2ee_salt && st.ops === 0 && cloud.spaces().length === 0;
+    const after = cloud.profile(uid);
+    const st = cloud.opStats(uid);
+    const spacesLeft = cloud.spaces(uid);
+    const ok = !after?.e2ee_salt && st.ops === 0 && spacesLeft.length === 0;
     console.log(
       ok ? '\x1b[32m✓ 已回到干净起点\x1b[0m' : '\x1b[31m✗ 复位后云端仍有残留，请检查\x1b[0m',
     );
@@ -198,10 +202,17 @@ async function main() {
     report.fail('场景中止', e.message);
   }
 
-  // --cleanup：跑完把云端与本机 profile 一并复位，方便连跑；默认保留现场供人眼核对。
-  // 场景中途抛错时拿不到它 return 的 extra，所以退回用 profile 查 uid —— 否则
+  // 跑完**一律**复位云端 + 删本机 profile（成功或失败都清；`--no-cleanup` 保留现场排障）。
+  // 场景中途抛错时拿不到它 return 的 extra，所以退回用 email 定位账号 —— 否则
   // 「跑挂了 → 云端留一堆残留 → 下次跑必须 --fresh --allow-destroy」这套摩擦会劝退人。
-  const cleanupUserId = extra?.userId ?? cloud.profile()?.user_id ?? null;
+  let cleanupUserId = extra?.userId ?? null;
+  if (cfg.cleanup && !cleanupUserId) {
+    try {
+      cleanupUserId = cloud.userIdFor(cfg.email);
+    } catch {
+      cleanupUserId = null; // 账号都定位不到（比如 email 配错了），那也没什么可清的
+    }
+  }
   if (cfg.cleanup && cleanupUserId) {
     try {
       cloud.resetUser(cleanupUserId);
