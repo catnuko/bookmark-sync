@@ -19,7 +19,24 @@
  */
 
 import type { MoveOp } from '../crdt/index.js';
+import { describeError } from '../lib/errors.js';
 import type { EncryptedOpEnvelope } from './opCrypto.js';
+
+/**
+ * 把 supabase RPC 返回的 `error` 变成**不丢信息**的 Error。
+ *
+ * 它不保证是 Error 实例（实测见过普通对象），而 `new Error(String(error))` 会把
+ * 这种对象压成 `Error("[object Object]")` —— **message 与 stack 双废**，上层
+ * `src/sync.js` 的语义码映射（`msg.includes('quota_exceeded')` / `rate_limited` /
+ * `device_limit_reached`）也永远命中不了，用户看到的是通用报错而非升级引导。
+ * 2026-09-22 排查 E2E two-device-sync「删除后 A 拉取失败」就是被它挡住：
+ * `lastSyncError` 只剩 `[object Object] | Error: [object Object]`，连是哪个 RPC
+ * 失败都看不出。
+ */
+function rpcError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new Error(describeError(error));
+}
 
 /** One op the client wants to push (mirrors an element of p_ops). */
 export interface PushOp {
@@ -229,7 +246,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
       p_device: deviceId,
       p_ops: ops.map((o) => ({ seq: o.seq, op: o.op, cid: o.cid ?? null })),
     });
-    if (error) throw error instanceof Error ? error : new Error(String(error));
+    if (error) throw rpcError(error);
     const r = data as { inserted?: number; gc_needed?: boolean };
     return { inserted: r.inserted ?? 0, gc_needed: r.gc_needed ?? false };
   }
@@ -240,7 +257,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
       p_after_id: afterId,
       p_limit: limit,
     });
-    if (error) throw error instanceof Error ? error : new Error(String(error));
+    if (error) throw rpcError(error);
     const r = data as {
       rows?: Array<{
         id: number;
@@ -275,7 +292,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
     const { data, error } = await this.client.rpc('bsync_snapshot_pull', {
       p_space: spaceId,
     });
-    if (error) throw error instanceof Error ? error : new Error(String(error));
+    if (error) throw rpcError(error);
     if (!data) return null;
     const r = data as {
       id?: number;
@@ -297,7 +314,7 @@ export class SupabaseOpLogTransport implements OpLogTransport {
       p_space: spaceId,
       p_projection: projection,
     });
-    if (error) throw error instanceof Error ? error : new Error(String(error));
+    if (error) throw rpcError(error);
     const r = (data ?? {}) as {
       gced?: boolean;
       deleted?: number;
