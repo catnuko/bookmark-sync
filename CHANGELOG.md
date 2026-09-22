@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.4.0](https://github.com/catnuko/bookmark-sync/compare/v2.3.1...v2.4.0) (2026-09-22)
+
+
+### Features
+
+* **db:** bsync_devices 主键改为 (space_id, id)，支持同一设备登记多个空间 ([4538c61](https://github.com/catnuko/bookmark-sync/commit/4538c6141ca35fcf8f48eacb6709374ad15aa540))
+* **db:** 设备表回归「一设备一空间」（迁移 0039） ([b442aa1](https://github.com/catnuko/bookmark-sync/commit/b442aa160bbedf23a1c833dd1ceaaf5928be8e50))
+* **spaces:** 多空间并发落地（B2）——切换空间真正生效 ([f5b5d5b](https://github.com/catnuko/bookmark-sync/commit/f5b5d5b8effb7b4ebfed7ef069151225a4c09bf9))
+
+
+### Bug Fixes
+
+* **errors:** describeError 自身不许退化；oplogClient 不再把 RPC 错误压成 [object Object] ([f1dc9a5](https://github.com/catnuko/bookmark-sync/commit/f1dc9a52bfdfe19abc184d71064b7a0faa50ce93))
+* **errors:** reason:'error' 分支统一走 describeError，别让 [object Object] 吞掉诊断 ([3e45612](https://github.com/catnuko/bookmark-sync/commit/3e45612b34c307820197d115fbe5f127c1378225))
+* **migration:** octet_length(snap.data) 加 ::text 转换 ([cfd1405](https://github.com/catnuko/bookmark-sync/commit/cfd14053231281b7a697ca835eaf3cac99d473cf))
+* **spaces:** 首绑判定按档位细化；修口令门禁假错与 lint 未生效 ([ec56b46](https://github.com/catnuko/bookmark-sync/commit/ec56b467991c27eb3d8b3e9cde1adad28da8707b))
+* **sync:** 空父节点下批量创建会整层倒序，第一遍错、第二遍才自愈 ([a7aad11](https://github.com/catnuko/bookmark-sync/commit/a7aad11107f467bd2dae8ecd546b1d17912a79bd))
+
 ## [2.3.2](https://github.com/catnuko/bookmark-sync/compare/v2.3.1...v2.3.2) (2026-09-22)
 
 ### Bug Fixes
