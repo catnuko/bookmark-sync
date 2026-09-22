@@ -7,9 +7,67 @@
  *
  * 只有「前置无法建立」这种根本性情况才提前中止（比如云端不是干净起点）。
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT } from './env.mjs';
+import { ROOT, loadEnvFile } from './env.mjs';
+
+const ENV_FILE = loadEnvFile();
+
+/**
+ * 读一个整数配置，优先级与 env.mjs 保持一致：
+ * `process.env` > `.workbuddy/e2e.env` > `fallback`。
+ * **必须显式读 env 文件** —— 它只被解析成对象，并不会注入 `process.env`，
+ * 否则写在 e2e.env 里的值会被静默忽略。空串按「没设置」处理（`Number('')` 是 0，
+ * 会悄悄变成「永不裁剪」这种反直觉行为）。
+ */
+function envInt(key, fallback) {
+  const raw = process.env[key] ?? ENV_FILE[key];
+  if (raw == null || String(raw).trim() === '') return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/** 每个场景保留最近多少份报告（`0` = 不裁剪）。 */
+const KEEP_PER_SCENARIO = envInt('E2E_KEEP_REPORTS', 5);
+
+/**
+ * 裁掉每个场景只留最近 N 份报告。
+ *
+ * 为什么需要：报告文件只增不减（一次跑一份），而**默认清理会删掉 profile 现场** ——
+ * 失败时这份 JSON 往往是仅存的证据，所以不能「跑完就删」；但不清理又会无限堆积
+ * （2026-09-22 一看已攒了 33 份，其中只有 3 份是当次跑的）。
+ * 文件名形如 `<场景>-<YYYY-MM-DDTHH-MM-SS>.json`，ISO 时间戳**字典序即时间序**，
+ * 所以直接按字符串倒序排即可，不用 stat。场景名里本身含 `-`（如 two-device-sync），
+ * 故必须从右侧锚定时间戳解析，不能按第一个 `-` 切。
+ */
+export function pruneReports(dir, keep) {
+  if (!Number.isFinite(keep) || keep <= 0) return 0;
+  let byScenario;
+  try {
+    byScenario = new Map();
+    for (const f of readdirSync(dir)) {
+      const m = /^(.+)-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})\.json$/.exec(f);
+      if (!m) continue;
+      if (!byScenario.has(m[1])) byScenario.set(m[1], []);
+      byScenario.get(m[1]).push({ f, stamp: m[2] });
+    }
+  } catch {
+    return 0; // 目录都读不了就没什么可裁的
+  }
+  let removed = 0;
+  for (const list of byScenario.values()) {
+    list.sort((a, b) => (a.stamp < b.stamp ? 1 : -1)); // 新 → 旧
+    for (const { f } of list.slice(keep)) {
+      try {
+        rmSync(join(dir, f));
+        removed++;
+      } catch {
+        /* 被环境拦下（企业策略 / 沙箱批量删除守卫）不该影响测试结论 */
+      }
+    }
+  }
+  return removed;
+}
 
 const C = {
   reset: '\x1b[0m',
@@ -91,6 +149,12 @@ export function createReport(title) {
           ),
         );
         console.log(`${C.dim}报告: ${path}${C.reset}`);
+        const pruned = pruneReports(dir, KEEP_PER_SCENARIO);
+        if (pruned) {
+          console.log(
+            `${C.dim}（已清理 ${pruned} 份历史报告，每场景保留最近 ${KEEP_PER_SCENARIO} 份）${C.reset}`,
+          );
+        }
       } catch (e) {
         console.log(`${C.dim}(报告写入失败: ${e.message})${C.reset}`);
       }
