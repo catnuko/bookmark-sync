@@ -670,8 +670,29 @@ async function ensureReachableNodes(
   const queue: string[] = [ROOT_UUID];
   const visited = new Set<string>();
   const chromeIds = new Set(chromeNodes.keys());
-  /** chrome 侧某父下的全部子节点（活引用：create/move 后就地维护）。 */
-  const siblingsOf = (parentId: string): ChromeTreeNode[] => chromeChildren.get(parentId) ?? [];
+  /**
+   * chrome 侧某父下的全部子节点（**活引用**：create/move 后就地维护）。
+   *
+   * 关键：空列表也必须**落进 map**。`flattenChromeTree` 只为「当时已有子节点」
+   * 的父建键，所以「空父」——新设备上还没内容的书签栏、本轮刚 create 出来的
+   * 文件夹——若用 `?? []` 就会拿到一个**一次性数组**：随后的 splice 全写进那个
+   * 临时数组并立刻被丢弃，下一个兄弟仍看到空列表 → `absoluteIndexFor` 退化成
+   * `Math.min(i, 0) = 0` → **每个子节点都以 index:0 创建，整层顺序倒序**。
+   *
+   * 实测（2026-09-22 用户反馈「第一次同步位置不对、第二次同步又修复」）：远端
+   * `[书签, 文件夹, 文件夹]` 第一遍落地成 `[文件夹, 文件夹, 书签]`；第二遍因节点
+   * 已存在而走 move 对齐分支（此时父已有子、键已存在）才被纠正 —— 一个必然被
+   * 「第二轮」掩盖的 bug。回归测试：tests/sync/reverseApply.test.ts 的
+   * 「空父节点批量创建」用例（配套 mock 必须忠实实现 create 的 index 语义）。
+   */
+  const siblingsOf = (parentId: string): ChromeTreeNode[] => {
+    let arr = chromeChildren.get(parentId);
+    if (!arr) {
+      arr = [];
+      chromeChildren.set(parentId, arr);
+    }
+    return arr;
+  };
   /**
    * 目标绝对 index：把节点放到父下第 i 位。
    * 参考列表是**排除自身**后的列表（chrome.move 的 index 是移动后的位置）。

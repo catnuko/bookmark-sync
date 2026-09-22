@@ -29,6 +29,11 @@ const SPACE = 'bbbbbbbb-0000-4000-8000-111111111111';
 /**
  * A stateful chrome.bookmarks mock: create/move/update/remove mutate an
  * in-memory tree so reverseApply's reconciliation can be asserted.
+ *
+ * ⚠ `create` 必须**忠实实现 `index` 语义**（插到该位次，不是无脑 push）：
+ * 真实 Chrome 会按 index 插入，而 reverseApply 的整层顺序完全依赖它。早期
+ * 这份 mock 直接 `children.push(node)` 忽略 index，于是「空父节点下批量创建
+ * 会整体倒序」这个 bug 在单测里永远测不出来（2026-09-22 用户实测踩到）。
  */
 function makeChrome() {
   interface N extends ChromeTreeNode {
@@ -53,6 +58,7 @@ function makeChrome() {
     },
   ];
   for (const r of ROOTS) seed(r);
+  let seq = 0;
 
   const api: ChromeBookmarksAPI = {
     getTree: async () => {
@@ -65,18 +71,22 @@ function makeChrome() {
       return (p?.children ?? []).map((c) => ({ ...c }));
     },
     create: async (props: { parentId: string; title?: string; url?: string; index?: number }) => {
-      const id = 'n' + Math.random().toString(36).slice(2, 10);
+      const id = 'n' + ++seq;
+      const parent = tree.get(props.parentId)!;
+      const kids = (parent.children ??= []);
+      const idx = Math.min(props.index ?? kids.length, kids.length);
       const node: N = {
         id,
         parentId: props.parentId,
-        index: props.index ?? tree.get(props.parentId)!.children!.length,
+        index: idx,
         title: props.title ?? '',
         url: props.url,
         children: [],
       };
-      tree.get(props.parentId)!.children!.push(node);
+      kids.splice(idx, 0, node); // ← 按 index 插入（不是 push）
+      kids.forEach((c, i) => (c.index = i));
       tree.set(id, node);
-      return { ...node };
+      return { ...node, index: idx };
     },
     move: async (id: string, moveProps: { parentId: string; index?: number }) => {
       const node = tree.get(id)!;
@@ -277,6 +287,121 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     expect(bar.children!.length).toBe(1); // 重新创建而非报错
     expect(bar.children![0].title).toBe('复活');
     expect(bridge.toUuid(bar.children![0].id)).toBe('uu-g'); // 映射更新到新 chromeId
+  });
+});
+
+/** 读出某父下的子节点标题（按 chrome 当前顺序）。 */
+async function titlesUnder(parentId: string): Promise<string[]> {
+  const tree = await chrome.getTree();
+  const find = (ns: ChromeTreeNode[]): ChromeTreeNode | null => {
+    for (const n of ns) {
+      if (n.id === parentId) return n;
+      const hit = find(n.children ?? []);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const hit = find(tree);
+  return (hit?.children ?? []).map((n) => n.title);
+}
+
+/**
+ * 兄弟顺序（meta.position → chrome index）。
+ *
+ * 回归来源（2026-09-22 用户实测）：**新设备首次同步后整层顺序倒序，第二次同步
+ * 又自己修好**。根因在 ensureReachableNodes 的 siblingsOf：空父节点（新设备上
+ * 还没内容的书签栏、本轮刚 create 的文件夹）拿到一次性数组，index 全算成 0 →
+ * 每个子节点都以 index:0 创建 → 倒序；第二轮节点已存在走 move 对齐分支才纠正。
+ *
+ * ⚠ 这些用例只在 mock **忠实实现 create 的 index** 时有效（见 makeChrome 注释）。
+ */
+describe('兄弟顺序（position → chrome index）', () => {
+  it('空父节点下批量创建：第一遍落地就按 position 排好（回归：曾整体倒序）', async () => {
+    // 远端已算好 position 的形状：书签在最前，两个文件夹跟在后面。
+    coordinator.createNodeWithId('p-b', BOOKMARKS_BAR_UUID, {
+      title: '书签',
+      url: 'https://b',
+      position: 'V',
+    });
+    coordinator.createNodeWithId('p-f1', BOOKMARKS_BAR_UUID, { title: '文件夹1', position: 'n' });
+    coordinator.createNodeWithId('p-f2', BOOKMARKS_BAR_UUID, { title: '文件夹2', position: 'x' });
+
+    await reverseApply(chrome, coordinator, new IdBridge());
+
+    expect(await titlesUnder('1')).toEqual(['书签', '文件夹1', '文件夹2']);
+  });
+
+  it('本轮新建的文件夹：其子节点顺序也正确（同一处空父路径）', async () => {
+    coordinator.createNodeWithId('p-folder', BOOKMARKS_BAR_UUID, {
+      title: '文件夹',
+      position: 'V',
+    });
+    for (const [uuid, title, pos] of [
+      ['p-c1', 'c1', 'V'],
+      ['p-c2', 'c2', 'n'],
+      ['p-c3', 'c3', 'x'],
+    ] as const) {
+      coordinator.createNodeWithId(uuid, 'p-folder', {
+        title,
+        url: `https://${title}`,
+        position: pos,
+      });
+    }
+
+    const bridge = new IdBridge();
+    await reverseApply(chrome, coordinator, bridge);
+
+    expect(await titlesUnder('1')).toEqual(['文件夹']);
+    const folderChromeId = bridge.toChromeId('p-folder')!;
+    expect(await titlesUnder(folderChromeId)).toEqual(['c1', 'c2', 'c3']);
+  });
+
+  it('幂等：第二遍 reverseApply 不改变顺序', async () => {
+    for (const [uuid, title, pos] of [
+      ['p-1', 'a', 'V'],
+      ['p-2', 'b', 'n'],
+      ['p-3', 'c', 'x'],
+    ] as const) {
+      coordinator.createNodeWithId(uuid, BOOKMARKS_BAR_UUID, { title, position: pos });
+    }
+    const bridge = new IdBridge();
+    await reverseApply(chrome, coordinator, bridge);
+    expect(await titlesUnder('1')).toEqual(['a', 'b', 'c']);
+
+    await reverseApply(chrome, coordinator, bridge);
+    expect(await titlesUnder('1')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('远端改序后重跑：move 到新位次', async () => {
+    for (const [uuid, title, pos] of [
+      ['p-1', 'a', 'V'],
+      ['p-2', 'b', 'n'],
+      ['p-3', 'c', 'x'],
+    ] as const) {
+      coordinator.createNodeWithId(uuid, BOOKMARKS_BAR_UUID, { title, position: pos });
+    }
+    const bridge = new IdBridge();
+    await reverseApply(chrome, coordinator, bridge);
+
+    // 远端把 a 挪到末尾（position 变大）
+    coordinator.moveNode('p-1', BOOKMARKS_BAR_UUID, { title: 'a', position: 'zz' });
+    await reverseApply(chrome, coordinator, bridge);
+
+    expect(await titlesUnder('1')).toEqual(['b', 'c', 'a']);
+  });
+
+  it('父节点已有未映射的原生书签：扩展节点按 position 落位，原生节点被推向后方', async () => {
+    await chrome.create({ parentId: '1', title: '原生书签', url: 'https://native' });
+    coordinator.createNodeWithId('p-b', BOOKMARKS_BAR_UUID, {
+      title: '书签',
+      url: 'https://b',
+      position: 'V',
+    });
+    coordinator.createNodeWithId('p-f1', BOOKMARKS_BAR_UUID, { title: '文件夹1', position: 'n' });
+
+    await reverseApply(chrome, coordinator, new IdBridge());
+
+    expect(await titlesUnder('1')).toEqual(['书签', '文件夹1', '原生书签']);
   });
 });
 
