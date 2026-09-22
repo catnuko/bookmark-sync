@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.3.2](https://github.com/catnuko/bookmark-sync/compare/v2.3.1...v2.3.2) (2026-09-22)
+
+### Bug Fixes
+
+* **sync:** 空父节点下批量创建会整层倒序，第一遍错、第二遍才自愈 ([a7aad11](https://github.com/catnuko/bookmark-sync/commit/a7aad11107f467bd2dae8ecd546b1d17912a79bd))
+* **errors:** describeError 自身不许退化；oplogClient 不再把 RPC 错误压成 [object Object] ([f1dc9a5](https://github.com/catnuko/bookmark-sync/commit/f1dc9a52bfdfe19abc184d71064b7a0faa50ce93))
+* **errors:** reason:'error' 分支统一走 describeError，别让 [object Object] 吞掉诊断 ([3e45612](https://github.com/catnuko/bookmark-sync/commit/3e45612b34c307820197d115fbe5f127c1378225))
+* **spaces:** 首绑判定按档位细化；修口令门禁假错与 lint 未生效 ([ec56b46](https://github.com/catnuko/bookmark-sync/commit/ec56b467991c27eb3d8b3e9cde1adad28da8707b))
+* **migration:** octet_length(snap.data) 加 ::text 转换 ([cfd1405](https://github.com/catnuko/bookmark-sync/commit/cfd14053231281b7a697ca835eaf3cac99d473cf))
+
+### Features
+
+* **spaces:** 多空间并发落地（B2）——切换空间真正生效 ([f5b5d5b](https://github.com/catnuko/bookmark-sync/commit/f5b5d5b8effb7b4ebfed7ef069151225a4c09bf9))
+* **db:** bsync_devices 主键改为 (space_id, id)，支持同一设备登记多个空间 ([4538c61](https://github.com/catnuko/bookmark-sync/commit/4538c6141ca35fcf8f48eacb6709374ad15aa540))
+* **db:** 设备表回归「一设备一空间」（迁移 0039） ([b442aa1](https://github.com/catnuko/bookmark-sync/commit/b442aa160bbedf23a1c833dd1ceaaf5928be8e50))
+
+### Refactor
+
+* **spaces:** 多空间改为「设备绑定空间」（D），新增首绑引导 ([6e091c8](https://github.com/catnuko/bookmark-sync/commit/6e091c84a90075b71869b122fff4fc46a76c953a))
+
+### Tests
+
+* **e2e:** 新增本地端到端通道（真实 Chrome + 真实 Supabase） ([c530d10](https://github.com/catnuko/bookmark-sync/commit/c530d10ba52ca32649136092f7e4ab6c05ebe3fa))
+* **e2e:** 补 captureLocalTree 播种顺序探针（登录前已有书签） ([f88ef85](https://github.com/catnuko/bookmark-sync/commit/f88ef85fed2d2eac075a23c18fbaa5d7a28d4dc9))
+* **e2e:** 补齐兄弟顺序回归断言（含首次完整采样）、限流退避与失败诊断 ([8a6c2c5](https://github.com/catnuko/bookmark-sync/commit/8a6c2c5fdd4b47afdc0e628a6320e1b7d75856e1))
+* **e2e:** 报告每场景只保留最近 5 份，防无限堆积 ([b14245f](https://github.com/catnuko/bookmark-sync/commit/b14245fcda8fd7610d277387cd5779572bf7edba))
+* **e2e:** 专用测试账号 + 云端查询按账号隔离 + 跑完默认清理 ([38a7881](https://github.com/catnuko/bookmark-sync/commit/38a7881d8cb2f2921d5fc62373120000721def22))
+
+### Chore
+
+* **tooling:** 用 oxc 工具链替换 ESLint，并首次引入 formatter ([9002c8b](https://github.com/catnuko/bookmark-sync/commit/9002c8bfff4af4142c32e3d4e38bf91b86f0717a))
+* **scripts:** 清理 18 个零引用的一次性调试脚本 ([12941af](https://github.com/catnuko/bookmark-sync/commit/12941af81949a621d56b7f7d36210da8f8ee5f08))
+* **quality:** 修复类型错误 + CI 质量门 + 敏感凭据清理 ([0f2d2c6](https://github.com/catnuko/bookmark-sync/commit/0f2d2c69b7ab24cd09e91deb3670aef92c0aa943))
+
 ## [2.3.1](https://github.com/catnuko/bookmark-sync/compare/v2.3.0...v2.3.1) (2026-09-19)
 
 
