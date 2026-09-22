@@ -22,6 +22,7 @@ import {
   waitTree,
   logoutViaUI,
   ensureCleanStart,
+  syncWithRetry,
 } from '../lib/helpers.mjs';
 import { waitGate } from '../lib/gates.mjs';
 import * as cloud from '../lib/cloud.mjs';
@@ -115,7 +116,7 @@ export async function run({ cfg, report }) {
       title: `${MARKER}-in-A`,
       url: `https://${MARKER}.test/a`,
     });
-    const seed = await dev1.triggerSync(cfg.timeouts.sync);
+    const seed = await syncWithRetry(dev1, cfg.timeouts.sync, report);
     report.assert('设备 1 同步成功', seed?.ok === true, JSON.stringify(seed).slice(0, 200));
     const st = await cloud.waitCloud(
       () => (cloud.opStats(uid).ops > 0 ? cloud.opStats(uid) : null),
@@ -225,7 +226,7 @@ export async function run({ cfg, report }) {
     );
 
     // 跨空间隔离：A 空间的书签不该出现在绑了 B 空间的设备上
-    await dev2.triggerSync(cfg.timeouts.sync);
+    await syncWithRetry(dev2, cfg.timeouts.sync, report);
     const flat2 = await waitTree(dev2, () => true, { timeoutMs: 12_000, intervalMs: 1_500 });
     const leaked = searchTitles(flat2, `${MARKER}-in-A`);
     report.equals(

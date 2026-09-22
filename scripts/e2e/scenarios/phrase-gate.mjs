@@ -16,7 +16,7 @@
  */
 import { launchDevice } from '../lib/chrome.mjs';
 import { readGate, waitGate, submitPhrase, login } from '../lib/gates.mjs';
-import { ensureCleanStart } from '../lib/helpers.mjs';
+import { ensureCleanStart, syncWithRetry } from '../lib/helpers.mjs';
 import * as cloud from '../lib/cloud.mjs';
 import { join } from 'node:path';
 
@@ -121,7 +121,7 @@ export async function run({ cfg, report }) {
     });
     report.info('已在本机建 1 文件夹 + 2 书签', `folder id=${folder.id}`);
 
-    const r1 = await dev1.triggerSync(cfg.timeouts.sync);
+    const r1 = await syncWithRetry(dev1, cfg.timeouts.sync, report);
     report.assert('设备 1 同步成功', r1?.ok === true, JSON.stringify(r1).slice(0, 200));
 
     const stats = await cloud.waitCloud(

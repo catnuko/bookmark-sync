@@ -339,6 +339,21 @@ export class Device {
   }
 
   /**
+   * 「书签栏」根 id：Chrome 通常是 '1'，从树里查出来更稳。
+   *
+   * 为什么单独要一个：**默认空间的落地区就是原生书签栏**（多空间里其它空间的容器
+   * 也挂在它下面），所以「书签栏」和「其他书签」不是等价的测试面 —— 顺序类断言
+   * 落在哪一侧，走的分支可能完全不同。
+   */
+  async bookmarksBarId() {
+    const tree = await this.bookmarksGetTree();
+    const roots = tree?.[0]?.children ?? [];
+    const bar = roots.find((c) => c.id === '1') ?? roots[0];
+    if (!bar) throw new Error(`[${this.name}] 找不到「书签栏」根`);
+    return bar.id;
+  }
+
+  /**
    * 触发一次同步：**必须从扩展页面发消息**，SW 不会收到自己发的 sendMessage。
    * SW 是同步权威（事件桥与 coordinator 同 realm），在页面上下文直接跑同步会
    * 另建一份 CRDT 状态（e2e/README 里记过这条坑）。

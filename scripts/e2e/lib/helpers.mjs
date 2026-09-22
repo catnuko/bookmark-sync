@@ -259,6 +259,33 @@ export async function boundSpaceId(device) {
 }
 
 /**
+ * 触发同步；撞到**服务端限流**（`reason === 'rate_limited'`）时退避重试。
+ *
+ * 这是**环境约束而非产品缺陷**：连续跑多个场景、每次 `--fresh` 复位都算写入，
+ * 共用同一个 Supabase 项目时很容易踩到 `bsync_op_*` 的速率限制（migration 0032
+ * 的 `P0001 raise`）。不重试就会把「跑太密」误报成产品 bug —— 2026-09-22 连跑
+ * 三轮时第 1、3 轮整片红，就是被它骗的（当时错误还被 `[object Object]` 掩盖着，
+ * 连 `reason` 都看不出来）。
+ */
+export async function syncWithRetry(
+  device,
+  timeoutMs,
+  report,
+  { delays = [3_000, 12_000, 30_000] } = {},
+) {
+  let res = await device.triggerSync(timeoutMs);
+  for (let i = 0; res?.reason === 'rate_limited' && i < delays.length; i++) {
+    report?.info?.(
+      '撞到服务端限流，退避重试',
+      `${device.name} 等 ${delays[i]}ms（第 ${i + 2} 次）`,
+    );
+    await new Promise((r) => setTimeout(r, delays[i]));
+    res = await device.triggerSync(timeoutMs);
+  }
+  return res;
+}
+
+/**
  * 通过真实 UI 退出登录（主界面 → 高级 → 退出登录；该按钮不是两步确认）。
  *
  * 这条路径是「同账号重登不该再问空间」的回归入口 —— 用户实测踩到过的那个 bug，
