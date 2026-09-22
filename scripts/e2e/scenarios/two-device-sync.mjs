@@ -19,6 +19,8 @@ import {
   waitTree,
   ensureCleanStart,
   syncWithRetry,
+  siblingTitles,
+  watchBarOrder,
 } from '../lib/helpers.mjs';
 import * as cloud from '../lib/cloud.mjs';
 import { join } from 'node:path';
@@ -60,59 +62,11 @@ const BAR_PROBE = [
 ];
 
 /**
- * 取某个父节点下、标题含 needle 的子节点顺序。
+ * 取某个父节点下、标题含 needle 的子节点顺序（`siblingTitles` 已抽到 helpers.mjs）。
  *
  * `flattenTree` 是 DFS 且**保持数组顺序**，所以按 parentId 过滤后的相对顺序就是
  * 浏览器里的真实兄弟位次 —— 这正是「顺序到底乱没乱」要断言的东西。
  */
-function siblingTitles(tree, parentId, needle = '') {
-  return flattenTree(tree)
-    .filter((n) => n.parentId === parentId && n.title.includes(needle))
-    .map((n) => n.title);
-}
-
-/**
- * 后台紧轮询「书签栏探针的顺序轨迹」。
- *
- * 必须**后台**、且必须在**门禁之前**起：绑定空间成功本身就会触发一次同步
- * （`bsync-space-bind` → 绑后立即同步一次），用户说的「第一次同步」就是那一次 ——
- * 它发生在 `reachMain` 返回**之前**。等主线流程走到断言点再采样，看到的已经是
- * 后续轮次自我修正过的状态，transient 被完整抹掉（原 e2e 用 1.5s 轮询 + 只采样
- * 最终态，就是这么漏掉「第一遍倒序、第二遍自己修好」这个 bug 的）。
- *
- * 只记录「探针齐全」且**顺序变化**的快照：`samples[0]` 即第一遍落地后的真实
- * 顺序，其后的条目就是它自己改过序的直接证据。
- */
-function watchBarOrder(dev, { intervalMs = 80, timeoutMs = 120_000 } = {}) {
-  const samples = [];
-  let stopped = false;
-  const done = (async () => {
-    const deadline = Date.now() + timeoutMs;
-    let barId = null;
-    while (!stopped && Date.now() < deadline) {
-      try {
-        // 惰性解析 + 每轮重试：扩展刚装上时 SW 目标还没就绪，此时求值会抛
-        // `chrome is not defined`（**必须整体包在 try 里**，否则未捕获的 rejection
-        // 会把 harness 直接打崩）。
-        barId ??= await dev.bookmarksBarId();
-        const order = siblingTitles(await dev.bookmarksGetTree(), barId, MARKER);
-        const complete = BAR_PROBE.every((s) => order.includes(s.title));
-        if (complete && samples.at(-1)?.join('|') !== order.join('|')) samples.push(order);
-      } catch {
-        /* 浏览器 / service worker 还没就绪，下一轮再试 */
-      }
-      await new Promise((r) => setTimeout(r, intervalMs));
-    }
-  })().catch(() => {});
-  return {
-    samples,
-    async stop() {
-      stopped = true;
-      await done;
-      return samples;
-    },
-  };
-}
 
 /**
  * 同步失败时的诊断尾巴：把扩展持久化的 `lastSyncError`（`src/sync.js` 在
@@ -265,7 +219,7 @@ export async function run({ cfg, report }) {
     const devB = await boot('devB');
     devices.push(devB);
     // ⚠ 必须在 reachMain 之前起：绑定空间成功那一下就会触发「第一次同步」。
-    const barWatch = watchBarOrder(devB);
+    const barWatch = watchBarOrder(devB, { expectTitles: BAR_PROBE.map((s) => s.title) });
     const rB = await reachMain(devB, cfg, report);
     report.assert('设备 B 已过全部门禁', rB.gate.kind === 'main', `实际 ${rB.gate.kind}`);
 

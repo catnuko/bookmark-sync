@@ -235,6 +235,60 @@ export function searchTitles(tree, needle) {
   return flattenTree(tree).filter((n) => n.title.includes(needle));
 }
 
+/** 取某个父节点下、标题含 needle 的子节点顺序（兄弟位次；flattenTree 保持数组序）。 */
+export function siblingTitles(tree, parentId, needle = '') {
+  return flattenTree(tree)
+    .filter((n) => n.parentId === parentId && (needle ? n.title.includes(needle) : true))
+    .map((n) => n.title);
+}
+
+/**
+ * 后台紧轮询「书签栏里某组探针标题的顺序轨迹」。
+ *
+ * 必须后台、且必须在门禁前起：绑定空间成功本身触发第一次同步（captureLocalTree /
+ * 首同步），用户说的「第一次同步」发生在 reachMain 返回之前；等主线流程走到断言点
+ * 再采样，看到的已是后续轮次自我修正后的状态，transient 被抹掉。
+ *
+ * 只记录「探针齐全」且顺序变化的快照；`samples[0]` 即第一遍落地后的真实顺序。
+ *
+ * @param {object} dev 设备句柄
+ * @param {object} opts
+ * @param {string[]} opts.expectTitles 期望出现的探针标题全集（用于判定「探针已齐全」）
+ */
+export function watchBarOrder(
+  dev,
+  { expectTitles = [], intervalMs = 80, timeoutMs = 120_000 } = {},
+) {
+  const samples = [];
+  let stopped = false;
+  const done = (async () => {
+    const deadline = Date.now() + timeoutMs;
+    let barId = null;
+    const expectSet = new Set(expectTitles);
+    while (!stopped && Date.now() < deadline) {
+      try {
+        barId ??= await dev.bookmarksBarId();
+        const order = flattenTree(await dev.bookmarksGetTree())
+          .filter((n) => n.parentId === barId && expectSet.has(n.title))
+          .map((n) => n.title);
+        const complete = expectTitles.every((t) => order.includes(t));
+        if (complete && samples.at(-1)?.join('|') !== order.join('|')) samples.push(order);
+      } catch {
+        /* 浏览器 / SW 还没就绪，下一轮再试 */
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  })().catch(() => {});
+  return {
+    samples,
+    async stop() {
+      stopped = true;
+      await done;
+      return samples;
+    },
+  };
+}
+
 /** 轮询本机书签树直到 pred(flat) 为真；返回最后一次的摊平结果。 */
 export async function waitTree(
   device,
