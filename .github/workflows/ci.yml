@@ -1,10 +1,11 @@
 name: Quality Gate
 
-# 质量门：任何推送（dev/main）与 PR 都先过 typecheck + lint + 单测，
-# 不合格即失败。发版（release.yml）只负责构建与分发，不再重复质量检查。
+# 质量门：只有推送到 main、以及任何 PR 才跑 typecheck + lint + 单测。
+# dev 是自己的日常开发分支，提交不跑 CI（本地用 `pnpm check` 自检），
+# 避免每次提交都刷一屏 workflow run。发版（release.yml）只负责构建与分发。
 on:
   push:
-    branches: [dev, main]
+    branches: [main]
   pull_request:
 
 permissions:
