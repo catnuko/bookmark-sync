@@ -146,3 +146,77 @@ Cross-browser bookmark sync for Chrome / Edge / Firefox with end-to-end encrypti
 - AMO 的 **Detailed Description**：复制第 3.1 节中文说明（或 3.2 英文说明）。AMO 支持 Markdown/HTML，可直接粘贴。
 
 > 注意：AMO 审核还需提交**源码包**（打包 `src/` + `package.json`），产物 zip 见 GitHub Release v2.2.0。
+
+## 8. 测试说明（Chrome Web Store → 测试说明）
+
+> 用途：Chrome 开发者控制台「访问权限 → 测试说明」表单。扩展登录后还有口令门禁，必须把口令一并给出，否则审核员会卡在登录后进不去主界面。
+
+**凭证（专用测试账号，非日常账号）：**
+
+| 字段   | 值                                      |
+| ------ | --------------------------------------- |
+| 用户名 | `bsync-e2e@example.com`                 |
+| 密码   | `yhUYLzxlgL4z3v_zoKEiyRhs`              |
+| 口令   | `bsync-e2e-passphrase-2026`（门禁用）    |
+
+**其他说明（英文，可直接粘贴）：**
+
+```
+This is a dedicated test account with sample bookmarks pre-synced. After signing in, the extension requires a sync passphrase to unlock the interface. Enter: bsync-e2e-passphrase-2026
+```
+
+> 账号维护：由 `scripts/e2e/create-account.mjs` 创建/修复（幂等；会同步密码、补 identity、把 plan 提为 pro），云端已验证 email 已确认、可登录。此账号仅供测试，勿用于真实书签数据。
+
+## 9. 权限申请说明（Chrome Web Store → 隐私权 → 权限）
+
+> 用途：Chrome 开发者控制台「隐私权 → 单一用途 / 需请求权限的理由」表单。以下英文文案为页面实际填写内容（均已通过字符数校验，可直接复制）。
+
+**manifest 声明（`public/manifest.json` / `public/manifest.firefox.json`）：**
+
+```json
+"permissions": ["bookmarks", "storage", "alarms"],
+"host_permissions": ["https://*.supabase.co/*"]
+```
+
+**单一用途说明（Single purpose，116/1,000）：**
+
+```
+This extension keeps a user's browser bookmarks synchronized across browsers and devices with end-to-end encryption.
+```
+
+**需请求 bookmarks 的理由（214/1,000）：**
+
+```
+The extension uses the bookmarks API to read, create, update, move, and delete the user's bookmarks and folders, so that changes made in one browser are synchronized to all of the user's other browsers and devices.
+```
+
+**需请求 storage 的理由（197/1,000）：**
+
+```
+The extension uses the storage API to persist local sync state, the pending operation queue, and encryption settings, so synchronization resumes reliably after browser restarts and offline periods.
+```
+
+**需请求 alarms 的理由（202/1,000）：**
+
+```
+The extension uses the alarms API to schedule background sync retries, ensuring pending bookmark operations are delivered to the server and applied on other devices even after the browser has been idle.
+```
+
+**需请求主机权限的理由（207/1,000）：**
+
+```
+The extension needs host permissions for the Supabase domain (https://*.supabase.co/*) to reach its sync backend, where encrypted bookmark operations are uploaded and downloaded. No other hosts are accessed.
+```
+
+**各权限用途（中文，便于核对）：**
+
+| 权限 | 用途 |
+| ---- | ---- |
+| `bookmarks` | 读取/增删改书签树，是同步的主体数据 |
+| `storage` | 本地缓存同步状态、待发队列、加密设置等（chrome.storage.local） |
+| `alarms` | 定时触发后台同步重试，保证离线期间的操作最终送达 |
+| `https://*.supabase.co/*`（主机权限） | 访问 Supabase 同步后端，上传/下载加密书签操作；仅此一个主机 |
+
+> 说明：
+> - Chrome 提示：涉及主机权限可能导致深入审核与发布延迟，属预期情况，无需移除（该权限为实现同步必需）。
+> - 付费订阅在官网（www.bookmark-sync.top）通过 Creem 完成，扩展本身不访问支付域名，因此主机权限不含官网域名。
