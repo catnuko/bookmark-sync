@@ -1,5 +1,5 @@
 /**
- * src/lib/errors.js — 把「抛出的东西」变成可读字符串。
+ * src/lib/errors.ts — 把「抛出的东西」变成可读字符串。
  *
  * 为什么值得单独一个模块：**`String(e)` / `` `${e}` `` 对非 Error 抛出物会产出
  * `"[object Object]"`**，把唯一的线索丢光。supabase 的 PostgrestError、以及不少
@@ -15,7 +15,7 @@
  * 初版在 `JSON.stringify` 抛错时返回 `Object.prototype.toString.call(e)`，那正是
  * 要消灭的形状 —— 2026-09-22 复跑 E2E 时当场又被这个退化作废了一次排障。
  */
-export function describeError(e) {
+export function describeError(e: unknown): string {
   if (e instanceof Error) return e.message;
   if (e && typeof e === 'object') {
     const props = Object.getOwnPropertyNames(e);
@@ -27,19 +27,21 @@ export function describeError(e) {
     } catch {
       // 循环引用 / getter 抛错 → 落到下面的按字段摘录
     }
-    return `${e.constructor?.name ?? 'Object'} ${excerpt(e, props)}`;
+    const ctor = (e as { constructor?: { name?: string } }).constructor?.name ?? 'Object';
+    return `${ctor} ${excerpt(e, props)}`;
   }
   return String(e);
 }
 
 /** 逐个字段摘录（读不到的字段如实标出，不静默跳过）。 */
-function excerpt(e, props) {
+function excerpt(e: object, props: string[]): string {
+  const rec = e as Record<string, unknown>;
   const parts = [];
   for (const k of props.slice(0, 8)) {
     if (k === 'stack') continue; // 堆栈太长，另有 lastSyncError 单独存
-    let v;
+    let v: unknown;
     try {
-      v = e[k];
+      v = rec[k];
     } catch {
       v = '<读取抛错>';
     }
@@ -50,10 +52,11 @@ function excerpt(e, props) {
 }
 
 /** 值的简短描述：对象只报「构造器名 + 字段名」，避免把循环结构再展开一遍。 */
-function brief(v) {
+function brief(v: unknown): string {
   if (v === null || typeof v !== 'object') return String(v);
   if (Array.isArray(v)) return `Array(${v.length})`;
   if (v instanceof Error) return `Error(${v.message})`;
   const keys = Object.getOwnPropertyNames(v).slice(0, 6);
-  return `${v.constructor?.name ?? 'Object'}{${keys.join(',')}}`;
+  const ctor = (v as { constructor?: { name?: string } }).constructor?.name ?? 'Object';
+  return `${ctor}{${keys.join(',')}}`;
 }

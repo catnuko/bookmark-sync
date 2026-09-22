@@ -4,16 +4,28 @@
 import { createApp, h } from 'vue';
 import './styles/tokens.css';
 import zhMessages from '../public/_locales/zh_CN/messages.json';
+import type { Session } from '@supabase/supabase-js';
 import { state } from './store.js';
 
 // 普通浏览器没有 chrome.i18n：mock 成中文语言包，让预览渲染真实文案而非键名
-globalThis.chrome = {
+(globalThis as typeof globalThis & { chrome: { i18n: PreviewI18n } }).chrome = {
   i18n: {
-    getMessage: (key, subs) => {
-      const msg = zhMessages[key]?.message ?? '';
+    getMessage: (key: string, subs?: string[]) => {
+      const msg =
+        (
+          zhMessages as Record<
+            string,
+            { message?: string; placeholders?: Record<string, { content: string }> }
+          >
+        )[key]?.message ?? '';
       return Array.isArray(subs)
-        ? msg.replace(/\$([A-Z_]+)\$/g, (_, name) => {
-            const ph = zhMessages[key]?.placeholders?.[name.toLowerCase()];
+        ? msg.replace(/\$([A-Z_]+)\$/g, (_, name: string) => {
+            const ph = (
+              zhMessages as Record<
+                string,
+                { message?: string; placeholders?: Record<string, { content: string }> }
+              >
+            )[key]?.placeholders?.[name.toLowerCase()];
             return ph ? (subs[parseInt(ph.content.slice(1), 10) - 1] ?? '') : '';
           })
         : msg;
@@ -21,6 +33,11 @@ globalThis.chrome = {
     getUILanguage: () => 'zh-CN',
   },
 };
+
+interface PreviewI18n {
+  getMessage(key: string, subs?: string[]): string;
+  getUILanguage(): string;
+}
 
 import PopupView from './components/PopupView.vue';
 import AuthView from './components/AuthView.vue';
@@ -35,7 +52,11 @@ const pane = q.get('pane') || 'sync';
 const KEY = '7Kd93mQvZp2xR8nLwT4hYb6sVc1aJfEoNuG5iB0rXzMdQp';
 
 state.email = 'lin.wei@example.com';
-state.session = { user: { email: 'lin.wei@example.com' }, access_token: 'demo' };
+// 模拟会话：仅预览用，字段不求齐真 Session（真实 Session 只来自 supabase.auth）
+state.session = {
+  user: { email: 'lin.wei@example.com' },
+  access_token: 'demo',
+} as unknown as Session;
 state.profile = { plan: 'free', used_count: 128, used_bytes: 0, quota_bytes: 0 };
 state.serverCount = 128;
 state.lastSyncAt = Date.now() - 2 * 60 * 1000;
@@ -55,8 +76,14 @@ state.autoSync = true;
 state.myDeviceId = 'd1';
 
 // 让设置页「加密」面板也能显示密钥（模拟本机已生成密钥；KeyPanel 挂载时会 loadKeyPanel 读取它）
+// 本文件顶部已把 globalThis.chrome 替换成只有 i18n 的 mock（api 在模块加载时捕获的是
+// preview.html 注入的完整 mock，不受影响）；这里直接访问 storage 原 JS 会抛 TypeError
+// 被 catch 吞掉，用可选链等价地静默跳过。
 try {
-  chrome.storage.local.set({ 'crdt.e2eeKey': KEY });
+  const g = globalThis as typeof globalThis & {
+    chrome?: { storage?: { local?: { set: (v: Record<string, unknown>) => void } } };
+  };
+  g.chrome?.storage?.local?.set({ 'crdt.e2eeKey': KEY });
 } catch {}
 
 state.spaces = [

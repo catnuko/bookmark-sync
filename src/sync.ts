@@ -31,6 +31,8 @@ import {
   parseBinding,
 } from './sync/index.js';
 import { KeyManager } from './sync/index.js';
+import type { BindMode, ChromeBookmarksAPI, ChromeTreeNode, PullOutcome } from './sync/index.js';
+import type { Session } from '@supabase/supabase-js';
 import { MENU_UUID, MOBILE_UUID, openBookmarkDb, OutboxStore } from './crdt/index.js';
 
 const DEVICE_ID_KEY = 'crdt.deviceId';
@@ -70,12 +72,18 @@ const MENU_FOLDER_KEY = 'crdt.menuFolderId';
 const MENU_FOLDER_TITLE = '书签菜单';
 
 /** 按空间分区的键名（多空间下每个空间各自一套水位/计数器/映射）。 */
-const afterIdKey = (spaceId) => AFTER_ID_PREFIX + spaceId;
-const counterKey = (spaceId) => COUNTER_PREFIX + spaceId;
-const idmapKey = (spaceId) => IDMAP_PREFIX + spaceId;
+const afterIdKey = (spaceId: string): string => AFTER_ID_PREFIX + spaceId;
+const counterKey = (spaceId: string): string => COUNTER_PREFIX + spaceId;
+const idmapKey = (spaceId: string): string => IDMAP_PREFIX + spaceId;
+
+/** 取 chrome.bookmarks（MV3 声明了 bookmarks 权限，扩展上下文内恒存在）。 */
+function nativeBookmarks(): ChromeBookmarksAPI | undefined {
+  return (globalThis as typeof globalThis & { chrome?: { bookmarks?: ChromeBookmarksAPI } }).chrome
+    ?.bookmarks;
+}
 
 /** 删除所有以 prefix 开头的按空间键（换密钥 / 一键重置用）。 */
-async function removeAllScoped(prefix) {
+async function removeAllScoped(prefix: string): Promise<void> {
   try {
     const all = await api.storage.local.get();
     const keys = Object.keys(all ?? {}).filter((k) => k.startsWith(prefix));
@@ -86,31 +94,91 @@ async function removeAllScoped(prefix) {
 }
 
 const keyManager = new KeyManager({
-  async get(key) {
-    return (await api.storage.local.get(key))[key];
+  async get(key: string) {
+    return (await api.storage.local.get(key))[key] as string | undefined;
   },
-  async set(key, value) {
+  async set(key: string, value: string) {
     await api.storage.local.set({ [key]: value });
   },
-  async remove(key) {
+  async remove(key: string) {
     await api.storage.local.remove(key);
   },
 });
 
+// ---- 业务数据类型（来自 supabase RPC / 表行，供 store / background 使用）----
+
+/** 空间行（bsync_spaces）。 */
+export interface SpaceInfo {
+  id: string;
+  name: string;
+  is_default?: boolean;
+  bookmark_count?: number;
+  device_count?: number;
+  created_at?: string;
+}
+
+/** 设备行（bsync_devices，listDevices 归一化后）。 */
+export interface DeviceInfo {
+  device_id: string;
+  /** v2 表原始字段：id / last_seen_at（listDevices 内归一化）。 */
+  id?: string;
+  last_seen_at?: string | null;
+  name?: string;
+  device_name?: string;
+  space_id?: string;
+  space_name?: string;
+  // 真实值 = 数据库 ISO 字符串；preview 演示数据用毫秒时间戳（组件 fmtRelative 两者都能解析）。
+  last_sync_at?: string | number | null;
+  last_space_id?: string;
+}
+
+/** 付费档案（bsync_get_profile）。 */
+export interface ProfileInfo {
+  plan?: string;
+  used_count?: number;
+  used_bytes?: number;
+  quota_bytes?: number;
+  purchased_at?: string;
+}
+
+/** 空间/设备控制面的统一返回（reason 供 store.reasonText 本地化）。 */
+export type SpaceActionResult =
+  | { ok: true; space?: SpaceInfo }
+  | { ok: false; reason: string; error: string };
+
+/** runSync 的返回：成功带方向摘要；失败带 reason 码（+ 可选 spaces 供首绑门禁）。 */
+export type SyncRunResult =
+  | {
+      ok: true;
+      pushed: number;
+      pulled: number;
+      seeded?: boolean;
+      restored?: boolean;
+      decryptFailed?: number;
+      /** 同步途中空间被换绑/密钥被重置：本轮投影放弃，但数据不丢。 */
+      superseded?: boolean;
+    }
+  | {
+      ok: false;
+      reason: string;
+      error?: string;
+      spaces?: Array<{ id: string; name: string; is_default: boolean }>;
+    };
+
 // ---- 设备 ID（UUID，同时作为 CRDT replicaId）----
-export async function getDeviceId() {
+export async function getDeviceId(): Promise<string> {
   const res = await api.storage.local.get(DEVICE_ID_KEY);
-  if (res[DEVICE_ID_KEY]) return res[DEVICE_ID_KEY];
+  if (res[DEVICE_ID_KEY]) return res[DEVICE_ID_KEY] as string;
   const id = globalThis.crypto.randomUUID();
   await api.storage.local.set({ [DEVICE_ID_KEY]: id });
   return id;
 }
 
 // ---- Profile / 空间 / 设备 控制面 ----
-export async function getProfile() {
+export async function getProfile(): Promise<ProfileInfo> {
   const { data, error } = await supabase.rpc('bsync_get_profile');
   if (error) throw error;
-  return data;
+  return data as ProfileInfo;
 }
 
 /**
@@ -119,7 +187,7 @@ export async function getProfile() {
  * 用 getSession（本地已缓存的会话）而不是 getUser：绑定解析在每次登录取数、
  * 每次同步前都要跑，不该为此多发一次网络往返。
  */
-async function currentUserId() {
+async function currentUserId(): Promise<string> {
   try {
     const { data } = await supabase.auth.getSession();
     return data?.session?.user?.id ?? '';
@@ -138,7 +206,7 @@ async function currentUserId() {
  * 取不到 profile（离线 / RPC 失败）时按 false 处理 = 保持静默绑定：宁可少问一次，
  * 也不要把免费用户误推进整页门禁；付费用户这一步的选择权在空间列表的换绑里还在。
  */
-async function planCanCreateSpace() {
+async function planCanCreateSpace(): Promise<boolean> {
   try {
     const p = await getProfile();
     return isPaidPlan(p?.plan);
@@ -168,14 +236,18 @@ async function planCanCreateSpace() {
  *   - `bound == null, stale == true`：绑定过但空间已被删。不自动回落——那会在
  *     用户不知情时换掉同步目标。
  */
-export async function getBoundSpace() {
+export async function getBoundSpace(): Promise<{
+  spaces: SpaceInfo[];
+  bound: SpaceInfo | null;
+  stale: boolean;
+}> {
   const { data, error } = await supabase
     .from('bsync_spaces')
     .select('*')
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: true });
   if (error) throw error;
-  const spaces = data ?? [];
+  const spaces = (data ?? []) as SpaceInfo[];
   const owner = await currentUserId();
   const { [BOUND_SPACE_KEY]: stored } = await api.storage.local.get(BOUND_SPACE_KEY);
   const rec = parseBinding(stored, owner);
@@ -199,17 +271,17 @@ export async function getBoundSpace() {
  * 事件处理器见 bridge 为 null 即跳过），所以删容器**不会**给任何空间造墓碑。
  * 水位 / 计数器 / 映射 / 口令一律不动。只执行一次。
  */
-async function migrateFromMultiSpaceOnce() {
+async function migrateFromMultiSpaceOnce(): Promise<void> {
   try {
     const res = await api.storage.local.get([SPACE_MIGRATED_KEY, LEGACY_SPACE_ROOTS_KEY]);
     if (res[SPACE_MIGRATED_KEY]) return;
-    const registry = res[LEGACY_SPACE_ROOTS_KEY];
-    const chrome = globalThis.chrome?.bookmarks;
+    const registry = res[LEGACY_SPACE_ROOTS_KEY] as Record<string, unknown> | undefined;
+    const chrome = nativeBookmarks();
     dropBridgeCache();
     if (registry && typeof registry === 'object' && chrome) {
       const nativeIds = new Set(nativeRootPairs(IS_FIREFOX).map(([cid]) => cid));
       for (const row of Object.values(registry)) {
-        const cid = (row && typeof row === 'object' && row.rootId) || '';
+        const cid = (row && typeof row === 'object' && (row as { rootId?: unknown }).rootId) || '';
         if (!cid || typeof cid !== 'string' || nativeIds.has(cid)) continue;
         try {
           await chrome.removeTree(cid); // 容器（其内容在云端有副本，不丢数据）
@@ -229,10 +301,11 @@ async function migrateFromMultiSpaceOnce() {
 // 后端 RAISE EXCEPTION '<code>' 的 message 即 reason（plan_locked /
 // cannot_delete_default / invalid_name / not_found）；唯一索引冲突（23505）
 // 归一为 duplicate，与 store.js 的 reason 分支对齐。
-function spaceRpcError(err) {
+function spaceRpcError(err: unknown): { ok: false; reason: string; error: string } {
   if (!err) return { ok: false, reason: 'unknown', error: 'unknown error' };
-  const msg = err.message || '';
-  if (err.code === '23505') return { ok: false, reason: 'duplicate', error: msg };
+  const e = err as { message?: unknown; code?: unknown };
+  const msg = typeof e.message === 'string' ? e.message : '';
+  if (e.code === '23505') return { ok: false, reason: 'duplicate', error: msg };
   // RAISE EXCEPTION 的自定义 code 直接作为 reason
   // （0032：quota_exceeded / rate_limited；0033：device_limit_reached）
   for (const code of [
@@ -250,19 +323,19 @@ function spaceRpcError(err) {
   return { ok: false, reason: msg, error: msg };
 }
 
-export async function createSpace(name) {
+export async function createSpace(name: string): Promise<SpaceActionResult> {
   const { data, error } = await supabase.rpc('bsync_space_create', { p_name: name });
   if (error) return spaceRpcError(error);
-  return { ok: true, space: data };
+  return { ok: true, space: data as SpaceInfo };
 }
 
-export async function renameSpace(id, name) {
+export async function renameSpace(id: string, name: string): Promise<SpaceActionResult> {
   const { error } = await supabase.rpc('bsync_space_rename', { p_space: id, p_name: name });
   if (error) return spaceRpcError(error);
   return { ok: true };
 }
 
-export async function deleteSpace(id) {
+export async function deleteSpace(id: string): Promise<SpaceActionResult> {
   const { error } = await supabase.rpc('bsync_space_delete', { p_space: id });
   if (error) return spaceRpcError(error);
   return { ok: true };
@@ -274,7 +347,7 @@ export async function deleteSpace(id) {
  * 连账号 id 一起写：绑定是「账号 × 设备」的事实，换账号登录时才能判出「这条
  * 记录不属于当前账号」而按从未绑定处理（见 getBoundSpace）。
  */
-async function commitBinding(id) {
+async function commitBinding(id: string): Promise<void> {
   const owner = await currentUserId();
   await api.storage.local.set({ [BOUND_SPACE_KEY]: { u: owner, s: id } });
   // 下次同步按新空间重建：水位/计数器/映射都按空间分区，各自续拉，不互相污染。
@@ -295,7 +368,10 @@ async function commitBinding(id) {
  *
  * 由 SW（background）执行：只有 SW 持有与事件桥同 realm 的 coordinator 单例。
  */
-export async function bindSpace(id, { mode } = {}) {
+export async function bindSpace(
+  id: string,
+  { mode }: { mode?: BindMode } = {},
+): Promise<{ ok: boolean; noop?: boolean }> {
   const cur = getCoordinatorCached();
   if (cur && cur.spaceId === id) return { ok: true, noop: true };
   // mode 来自 UI 消息，不可信：非法值一律退回 merge（不破坏本机数据的那个）。
@@ -321,7 +397,9 @@ export async function bindSpace(id, { mode } = {}) {
  *
  * 由 SW（background）执行：只有 SW 持有与事件桥同 realm 的 coordinator 单例。
  */
-export async function rebindSpace(id) {
+export async function rebindSpace(
+  id: string,
+): Promise<{ ok: boolean; reason?: string; noop?: boolean }> {
   const cur = getCoordinatorCached();
   if (cur && cur.spaceId === id) return { ok: true, noop: true };
   if (cur) {
@@ -347,13 +425,13 @@ export async function rebindSpace(id) {
  *
  * Firefox 的「移动设备书签」（`mobile______`）归 Firefox Sync 管，不碰。
  */
-async function clearNativeBookmarks() {
-  const chrome = globalThis.chrome?.bookmarks;
+async function clearNativeBookmarks(): Promise<void> {
+  const chrome = nativeBookmarks();
   if (!chrome) return;
   dropBridgeCache();
   for (const [rootId, uuid] of nativeRootPairs(IS_FIREFOX).slice(1)) {
     if (IS_FIREFOX && uuid === MOBILE_UUID) continue;
-    let kids = [];
+    let kids: ChromeTreeNode[] = [];
     try {
       kids = (await chrome.getChildren(rootId)) ?? [];
     } catch {
@@ -381,7 +459,7 @@ async function clearNativeBookmarks() {
  * `flushPush` 在「已有推送在途」时直接返回 0（防重入），所以必须轮询到
  * pendingPush 真的空——否则会在有在途推送时误判「已推完」而放行切换。
  */
-async function drainPush(coordinator, timeoutMs = 20000) {
+async function drainPush(coordinator: SyncCoordinator, timeoutMs = 20000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     if (pendingCount(coordinator) === 0) return true;
@@ -392,7 +470,7 @@ async function drainPush(coordinator, timeoutMs = 20000) {
       });
       await api.storage.local.set({ [afterIdKey(coordinator.spaceId)]: coordinator.afterId });
     } catch (e) {
-      console.warn(`[bsync] 切换空间前推送失败: ${e?.message ?? e}`);
+      console.warn(`[bsync] 切换空间前推送失败: ${(e as { message?: unknown })?.message ?? e}`);
       return false;
     }
     if (pendingCount(coordinator) === 0) return true;
@@ -404,11 +482,11 @@ async function drainPush(coordinator, timeoutMs = 20000) {
   }
 }
 
-function pendingCount(coordinator) {
-  return coordinator?.pendingPush?.length ?? 0;
+function pendingCount(coordinator: SyncCoordinator | null | undefined): number {
+  return coordinator?.pendingPushCount ?? 0;
 }
 
-export async function listDevices(spaceId) {
+export async function listDevices(spaceId?: string): Promise<DeviceInfo[]> {
   const sid = spaceId ?? (await getBoundSpace()).bound?.id;
   if (!sid) return [];
   const { data, error } = await supabase
@@ -418,27 +496,27 @@ export async function listDevices(spaceId) {
     .order('last_seen_at', { ascending: false });
   if (error) throw error;
   // 归一化到 App.vue 期望的字段名（v2 表是 id / last_seen_at）。
-  return (data ?? []).map((d) => ({
+  return ((data ?? []) as Array<Record<string, unknown>>).map((d) => ({
     ...d,
     device_id: d.id,
     last_sync_at: d.last_seen_at,
-  }));
+  })) as DeviceInfo[];
 }
 
-export async function removeDevice(deviceId) {
+export async function removeDevice(deviceId: string): Promise<{ ok: boolean; error?: string }> {
   const { error } = await supabase.rpc('bsync_device_remove', { p_device: deviceId });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
-export async function renameDevice(deviceId, name) {
+export async function renameDevice(deviceId: string, name: string): Promise<SpaceActionResult> {
   const { error } = await supabase.rpc('bsync_device_rename', { p_device: deviceId, p_name: name });
   if (error) return spaceRpcError(error);
   return { ok: true };
 }
 
 // 服务端书签计数（v2：从 profile.used_count 读）。
-export async function countServerBookmarks() {
+export async function countServerBookmarks(): Promise<number> {
   try {
     const p = await getProfile();
     return p?.used_count ?? 0;
@@ -459,13 +537,15 @@ export async function countServerBookmarks() {
  * 兜底：getSession() 为 null 时，直接从 storage 读取原始 session 并 setSession
  * 恢复。storage 里也没有才是真正的未登录。
  */
-async function ensureSession() {
+async function ensureSession(): Promise<Session | null> {
   const { data: sess } = await supabase.auth.getSession();
   if (sess?.session) return sess.session;
   try {
-    const key = supabase.auth.storageKey;
+    // supabase 客户端把 storageKey 设为受保护成员（createStorageKey(url) 动态生成），
+    // 原 JS 直接读运行时值；此处经窄边界 cast 取同一真实键，行为不变。
+    const key = (supabase.auth as unknown as { storageKey: string }).storageKey;
     const raw = await api.storage.local.get(key);
-    const stored = raw[key];
+    const stored = raw[key] as { access_token?: string; refresh_token?: string } | undefined;
     if (stored && stored.access_token && stored.refresh_token) {
       const { data, error } = await supabase.auth.setSession({
         access_token: stored.access_token,
@@ -485,7 +565,7 @@ async function ensureSession() {
 // 事件桥（registerLocalEventBridge）在 SW 顶层注册 chrome.bookmarks 监听，
 // 本地变更 → coordinator 入队 → flushSoon 去抖推送；本函数负责周期/手动全量
 // 同步：拉远端 → 播种（仅云端为空且本机未播种时）→ 推本地。
-export async function runSync(_opts = {}) {
+export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
   const runGen = _coordinatorGen;
   try {
     // SW 冷启动 / 跨上下文登录态脱节：用 ensureSession 兜底，避免 popup 已登录
@@ -578,7 +658,7 @@ export async function runSync(_opts = {}) {
     // 行）；无快照时退回全量重放 pullFrom(0)。
     // 累计本次同步所有阶段的解密失败（冷启动重放 + 主 pull），
     // 统一用于：是否跳过 used_count 上报、是否在 popup 显示警告。
-    const allDecryptErrors = [];
+    const allDecryptErrors: PullOutcome['decryptErrors'] = [];
 
     // 记录本次同步开始时本机是否还没有云端水位（afterId=0）。
     // 若随后从云端拉到了历史数据，这是「新设备首次从云端恢复书签」，
@@ -657,11 +737,11 @@ export async function runSync(_opts = {}) {
     //    非空时旧实现不播种），这些孤儿在旧实现下永不同步。重扫描让「任一
     //    设备有而服务端没有的都保留」（并集合并）真正成立。
     //    didSeedThisRun 仅用于 UI 一次性提示（首台设备云端为空时的首次上传）。
-    const captured = await captureLocalTree(coordinator, active, spaces);
+    const captured = await captureLocalTree(coordinator, active);
     const didSeedThisRun = captured > 0 && hadNoWatermark && pull.applied === 0;
     if (captured > 0) {
       console.log(
-        `[bsync] 本地重扫描: 补建 ${captured} 条 op, pending ops=${coordinator.pendingPush?.length ?? 0}`,
+        `[bsync] 本地重扫描: 补建 ${captured} 条 op, pending ops=${coordinator.pendingPushCount}`,
       );
     }
 
@@ -676,7 +756,7 @@ export async function runSync(_opts = {}) {
     const visTree = coordinator.replica.getVisibleTree();
     console.log(`[bsync] CRDT 可见树 (${visTree.length} 个节点)`);
     console.log(`[bsync] 开始反向应用 (decryptErrors=${allDecryptErrors.length})...`);
-    await reverseApplyIntoChrome(coordinator, active, spaces);
+    await reverseApplyIntoChrome(coordinator, active);
     console.log('[bsync] 反向应用完成');
 
     // 5) op-log GC：服务端托管——push/pull 响应带 gc_needed（行数超过用户
@@ -748,7 +828,9 @@ export async function runSync(_opts = {}) {
         });
       } catch (e) {
         try {
-          await api.storage.local.set({ lastUsedReportError: e?.message ?? String(e) });
+          await api.storage.local.set({
+            lastUsedReportError: (e as { message?: unknown })?.message ?? String(e),
+          });
         } catch {}
       }
     }
@@ -773,7 +855,7 @@ export async function runSync(_opts = {}) {
     // 服务端语义码直接作为 reason（push/pull 抛出的 PostgREST 错误 message
     // 即服务端 raise 的码：0032 quota_exceeded / rate_limited，0033 device_limit_reached），
     // 由 store.js 映射为按档位区分的升级 / 清理指引。
-    const msg = String(e?.message ?? e);
+    const msg = String((e as { message?: unknown })?.message ?? e);
     for (const code of ['quota_exceeded', 'rate_limited', 'device_limit_reached']) {
       if (msg.includes(code)) {
         try {
@@ -785,7 +867,7 @@ export async function runSync(_opts = {}) {
     // 诊断：持久化完整错误与堆栈（readStorageLocal 可读）
     const detail = describeError(e);
     try {
-      await api.storage.local.set({ lastSyncError: `${detail} | ${e?.stack ?? ''}` });
+      await api.storage.local.set({ lastSyncError: `${detail} | ${(e as Error)?.stack ?? ''}` });
     } catch {}
     return { ok: false, reason: 'error', error: detail };
   }
@@ -795,11 +877,11 @@ export async function runSync(_opts = {}) {
 // MV3 要求 chrome.* 事件监听在 SW 顶层注册；coordinator 未就绪（未登录/无空间）
 // 时事件安全跳过，下次 runSync 的重扫描兜底。
 let bridgeRegistered = false;
-let _coordinator = null; // 惰性单例（按 spaceId 缓存）
+let _coordinator: SyncCoordinator | null = null; // 惰性单例（按 spaceId 缓存）
 let _coordinatorGen = 0; // 递增世代：resetCoordinator 后旧 boot 不再覆盖单例
-let _eventGuard = { suppressed: { value: false } }; // captureLocalEvents 返回的 suppressed 标志
+let _eventGuard: { suppressed: { value: boolean } } = { suppressed: { value: false } }; // captureLocalEvents 返回的 suppressed 标志
 
-export function registerLocalEventBridge() {
+export function registerLocalEventBridge(): void {
   if (bridgeRegistered) return;
   bridgeRegistered = true;
   // 映射桥按空间多变，事件处理器经 getter 取「当前活动空间」的映射表
@@ -808,8 +890,9 @@ export function registerLocalEventBridge() {
   // 冷启动防丢事件：coordinator 未就绪（SW 刚被事件唤醒、runSync 尚未跑）时
   // 懒启动一个 coordinator，而不是静默丢弃本地事件。否则 SW 冷窗口内的删除
   // 不产生墓碑，「立即同步」的全量重放会把已删除节点拉回来。
+  // MV3 声明了 bookmarks 权限，SW 中 globalThis.chrome.bookmarks 恒存在。
   _eventGuard = captureLocalEvents(
-    globalThis.chrome?.bookmarks,
+    nativeBookmarks() as ChromeBookmarksAPI,
     () => getCoordinatorCached() ?? bootCoordinatorForEvent(),
     bridgeGetter,
     flushSoon,
@@ -817,11 +900,11 @@ export function registerLocalEventBridge() {
 }
 
 /** 惰性单例：事件到达时 coordinator 未创建 → 启动一个（登录态 + 空间 + 密钥）。 */
-let _bootPromise = null;
-function bootCoordinatorForEvent() {
+let _bootPromise: Promise<SyncCoordinator | null> | null = null;
+function bootCoordinatorForEvent(): SyncCoordinator | null | Promise<SyncCoordinator | null> {
   if (_coordinator) return _coordinator;
   if (!_bootPromise) {
-    _bootPromise = (async () => {
+    _bootPromise = (async (): Promise<SyncCoordinator | null> => {
       const gen = _coordinatorGen;
       try {
         // 冷启动防丢事件：SW 刚被事件唤醒时 supabase session 是异步从
@@ -862,8 +945,11 @@ function bootCoordinatorForEvent() {
  * 只写绑定空间的落地树 = 本环境原生根（本机书签树 ≡ 绑定空间）。映射按空间
  * 隔离：不属于本空间的节点在本桥里「无映射」，reverseApply 因此不会碰它们。
  */
-async function reverseApplyIntoChrome(coordinator, space) {
-  const chrome = globalThis.chrome?.bookmarks;
+async function reverseApplyIntoChrome(
+  coordinator: SyncCoordinator,
+  space: SpaceInfo,
+): Promise<void> {
+  const chrome = nativeBookmarks();
   if (!chrome) return;
   const bridge = await ensureActiveBridge(space);
   const guard = _eventGuard ?? { suppressed: { value: false } };
@@ -901,12 +987,12 @@ async function reverseApplyIntoChrome(coordinator, space) {
  * MENU_UUID；容器被删/重装后在此补建。菜单内容清空后由
  * cleanupEmptyMenuContainer 移除容器。
  */
-async function ensureMenuFolder(coordinator, bridge) {
+async function ensureMenuFolder(coordinator: SyncCoordinator, bridge: IdBridge): Promise<void> {
   if (IS_FIREFOX) return; // Firefox 端 menu________ 是原生根，无需容器
-  const chrome = globalThis.chrome?.bookmarks;
+  const chrome = nativeBookmarks();
   if (!chrome) return;
   const saved = await api.storage.local.get(MENU_FOLDER_KEY);
-  const savedId = saved[MENU_FOLDER_KEY];
+  const savedId = saved[MENU_FOLDER_KEY] as string | undefined;
   if (savedId) {
     try {
       const nodes = await chrome.get(savedId);
@@ -926,12 +1012,12 @@ async function ensureMenuFolder(coordinator, bridge) {
  * 端出现无意义的空文件夹。容器内仍有 chrome 子节点时跳过（可能是尚未同步
  * 的本地书签，数据安全优先，留待下轮收敛后再删）。
  */
-async function cleanupEmptyMenuContainer(bridge) {
+async function cleanupEmptyMenuContainer(bridge: IdBridge): Promise<void> {
   if (IS_FIREFOX) return; // Firefox 端 menu________ 是原生根，不可删
-  const chrome = globalThis.chrome?.bookmarks;
+  const chrome = nativeBookmarks();
   if (!chrome) return;
   const saved = await api.storage.local.get(MENU_FOLDER_KEY);
-  const savedId = saved[MENU_FOLDER_KEY];
+  const savedId = saved[MENU_FOLDER_KEY] as string | undefined;
   if (!savedId) return;
   try {
     const nodes = await chrome.get(savedId);
@@ -954,12 +1040,16 @@ async function cleanupEmptyMenuContainer(bridge) {
   }
 }
 
-function getCoordinatorCached() {
+function getCoordinatorCached(): SyncCoordinator | null {
   return _coordinator;
 }
 
 /** 获取（必要时创建）跨事件/同步共用的 coordinator 单例。 */
-export async function getCoordinator(spaceId, deviceId, key) {
+export async function getCoordinator(
+  spaceId: string,
+  deviceId: string,
+  key: CryptoKey,
+): Promise<SyncCoordinator> {
   if (_coordinator && _coordinator.spaceId === spaceId) return _coordinator;
   // 水位 / 计数器按空间分区（各空间各自续拉，互不覆盖）。
   const stored = await api.storage.local.get([afterIdKey(spaceId), counterKey(spaceId)]);
@@ -1007,9 +1097,9 @@ export async function getCoordinator(spaceId, deviceId, key) {
 // 若只有映射落盘而 op 丢失，「已映射但 CRDT 不可达」会让 reverseApply 把
 // 本地书签误删；顺序固定为 outbox 先、IDMAP 后——残余崩溃窗口（亚毫秒级）
 // 的最坏情况是重复书签（可恢复），绝不是数据丢失。
-let persistTimer = null;
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let persistRunning = false;
-function schedulePersist() {
+function schedulePersist(): void {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
     persistTimer = null;
@@ -1017,8 +1107,8 @@ function schedulePersist() {
   }, 300);
 }
 
-let _outboxStore = null;
-async function getOutboxStore() {
+let _outboxStore: OutboxStore | null = null;
+async function getOutboxStore(): Promise<OutboxStore> {
   if (!_outboxStore) {
     const db = await openBookmarkDb(globalThis.indexedDB);
     _outboxStore = new OutboxStore(db);
@@ -1026,7 +1116,7 @@ async function getOutboxStore() {
   return _outboxStore;
 }
 
-async function flushPersist() {
+async function flushPersist(): Promise<void> {
   if (persistRunning) return;
   persistRunning = true;
   try {
@@ -1066,9 +1156,9 @@ async function flushPersist() {
  *
  * 落地区恒为本环境原生根（本机书签树 ≡ 绑定空间）。
  */
-const _bridges = new Map(); // spaceId -> { bridge, sig }
+const _bridges = new Map<string, { bridge: IdBridge; sig: string }>();
 /** 事件桥使用的「当前绑定空间」映射表（runSync / 懒启动时确立）。 */
-let _activeBridge = null;
+let _activeBridge: IdBridge | null = null;
 
 /**
  * 建立（或复用）绑定空间的映射桥。
@@ -1076,7 +1166,7 @@ let _activeBridge = null;
  * 同一空间复用内存中的桥（保留映射）；换绑 / 重置后由 dropBridgeCache 清掉，
  * 下次按新空间重建并重新载入持久化映射。
  */
-async function ensureActiveBridge(space) {
+async function ensureActiveBridge(space: SpaceInfo): Promise<IdBridge> {
   const pairs = nativeRootPairs(IS_FIREFOX);
   const sig = JSON.stringify(pairs);
   const cached = _bridges.get(space.id);
@@ -1101,7 +1191,7 @@ async function ensureActiveBridge(space) {
   // 创建（SW 每次冷启动/回收后同步都复制一批书签）。
   try {
     const res = await api.storage.local.get(idmapKey(space.id));
-    const map = res[idmapKey(space.id)];
+    const map = res[idmapKey(space.id)] as Record<string, string> | undefined;
     if (map) bridge.load(map);
   } catch {
     /* storage 不可用：本轮按空映射处理 */
@@ -1111,12 +1201,12 @@ async function ensureActiveBridge(space) {
   return bridge;
 }
 
-function getActiveBridge() {
+function getActiveBridge(): IdBridge | null {
   return _activeBridge;
 }
 
 /** 切换空间 / 重置后丢弃缓存的映射表（下次按新空间重建并重新载入）。 */
-function dropBridgeCache(spaceId) {
+function dropBridgeCache(spaceId?: string): void {
   if (spaceId) _bridges.delete(spaceId);
   else _bridges.clear();
   _activeBridge = null;
@@ -1130,12 +1220,16 @@ function dropBridgeCache(spaceId) {
  *
  * 从本环境原生根起走（本机书签树 ≡ 绑定空间）。
  */
-export async function captureLocalTree(coordinator, space) {
+export async function captureLocalTree(
+  coordinator: SyncCoordinator,
+  space: SpaceInfo,
+): Promise<number> {
   if (!space?.id) return 0;
   const bridge = await ensureActiveBridge(space);
-  if (!globalThis.chrome?.bookmarks) return 0;
+  const bookmarks = nativeBookmarks();
+  if (!bookmarks) return 0;
   const captured = await captureUnmappedTree(
-    globalThis.chrome.bookmarks,
+    bookmarks,
     coordinator,
     bridge,
     nativeRootPairs(IS_FIREFOX)[0][0],
@@ -1145,9 +1239,9 @@ export async function captureLocalTree(coordinator, space) {
 }
 
 /** 事件入队后去抖 flush（2s），实现「自动无感同步」。 */
-let flushTimer = null;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
 const AUTO_SYNC_KEY = 'crdt.autoSync';
-export function flushSoon() {
+export function flushSoon(): void {
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = setTimeout(async () => {
     flushTimer = null;
@@ -1176,7 +1270,7 @@ export function flushSoon() {
 }
 
 // 简易设备名：从 UA 推断浏览器 + 平台。
-async function detectDeviceName() {
+async function detectDeviceName(): Promise<string> {
   try {
     const ua = navigator.userAgent;
     const browser = /Edg\//.test(ua)
@@ -1206,7 +1300,7 @@ async function detectDeviceName() {
 // ── 密钥变更后重置 coordinator（让下次同步用新密钥重建）──────────────────
 // 导入密钥 / 用口令设置密钥后，SyncCoordinator 内存中仍缓存旧 CryptoKey，
 // 必须置空单例，下次 bootCoordinatorForEvent 会用 storage 中的新密钥重建。
-export function resetCoordinator() {
+export function resetCoordinator(): void {
   _coordinatorGen++;
   _coordinator = null;
   _bootPromise = null;
@@ -1224,7 +1318,7 @@ export function resetCoordinator() {
 //
 // 注意：重置后本机绑定空间不再登记，下次同步会重新绑定默认空间并把云端书签
 // 重新投影进来；本机原有书签会被重新捕获成新节点（重置的本质就是从零重测）。
-export async function resetSyncState() {
+export async function resetSyncState(): Promise<void> {
   _coordinator = null;
   _coordinatorGen++;
   dropBridgeCache();
@@ -1258,14 +1352,17 @@ export async function resetSyncState() {
   await removeAllScoped(IDMAP_PREFIX);
   // 清除 IndexedDB 中的 CRDT 持久化状态（ops/snapshot/uuidMapping/meta）
   try {
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const req = indexedDB.deleteDatabase('bookmark-crdt-sync');
-      req.onsuccess = resolve;
+      req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
-      req.onblocked = resolve;
+      req.onblocked = () => resolve();
     });
   } catch (e) {
-    console.warn('[bsync] resetSyncState: IndexedDB 删除失败:', e?.message);
+    console.warn(
+      '[bsync] resetSyncState: IndexedDB 删除失败:',
+      (e as { message?: unknown })?.message,
+    );
   }
 }
 // 供测试：暴露内存传输 + 协调器类型（避免重复实例化）。

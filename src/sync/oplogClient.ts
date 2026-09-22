@@ -230,7 +230,12 @@ export class MemoryOpLogTransport implements OpLogTransport {
 
 /** Minimal shape of the Supabase client (injected to keep this testable). */
 export interface SupabaseRpcClient {
-  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+  // 真实 supabase.rpc 返回 PostgrestFilterBuilder（thenable 而非原生 Promise），
+  // 用 PromiseLike 保持结构兼容；await 语义一致。
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => PromiseLike<{ data: unknown; error: unknown }>;
 }
 
 /**

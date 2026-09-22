@@ -2,7 +2,7 @@
 //   - onInstalled / onStartup：全量首拉 + 本地事件捕获
 //   - chrome.alarms：每 30 分钟增量 pull（afterId 水位）
 //   - 本地书签变更由 chrome.bookmarks 事件驱动，入队后随下一次 flush 推送
-import { api } from './lib/ext.js';
+import { api, type ExtensionMessage } from './lib/ext.js';
 import { describeError } from './lib/errors.js';
 import {
   runSync,
@@ -10,9 +10,13 @@ import {
   resetCoordinator,
   rebindSpace,
   bindSpace,
+  type SyncRunResult,
 } from './sync.js';
 import { registerTestChannel } from './testChannel.js';
 import { installLogBridge } from './logBridge.js';
+
+// vite define 注入的构建时间（见 vite.config.js）
+declare const __BUILD_TIME__: string;
 
 // 日志桥接：SW 中所有 console.log 自动转发到 options 页面控制台
 installLogBridge();
@@ -28,7 +32,7 @@ const AUTO_SYNC_KEY = 'crdt.autoSync';
 // 自动同步开关（默认开）：关闭时 onInstalled / onStartup / 周期 alarm 不再
 // 自动同步；popup/options 的「立即同步」消息与事件桥 flush 的推送不受影响
 // （事件桥的 flushSoon 在 sync.js 内单独检查该开关）。
-async function autoSyncEnabled() {
+async function autoSyncEnabled(): Promise<boolean> {
   const s = await api.storage.local.get(AUTO_SYNC_KEY);
   return s[AUTO_SYNC_KEY] !== false;
 }
@@ -39,7 +43,7 @@ registerLocalEventBridge();
 // 测试通道（仅 Firefox E2E；生产无测试桥扩展，通道天然不可达）
 registerTestChannel();
 
-async function sync() {
+async function sync(): Promise<SyncRunResult> {
   try {
     const r = await runSync();
     if (r.ok) {
@@ -71,7 +75,7 @@ async function sync() {
     return r;
   } catch (e) {
     const detail = describeError(e);
-    const r = { ok: false, reason: 'error', error: detail };
+    const r: SyncRunResult = { ok: false, reason: 'error', error: detail };
     await api.storage.local.set({
       lastSyncAt: Date.now(),
       lastSyncStatus: 'error',
@@ -85,7 +89,7 @@ async function sync() {
 
 // 自动同步（事件桥 flushSoon / 定时拉取）跑完后，通知开着的 popup/options
 // 刷新状态——否则 UI 里的书签数、最后同步时间还停留在打开时的旧值。
-function notifyUiRefreshed() {
+function notifyUiRefreshed(): void {
   try {
     api.runtime.sendMessage({ type: 'bsync-sync-done' }).catch(() => {
       // 没有 popup 开着时 sendMessage 会 reject，忽略
@@ -97,7 +101,7 @@ function notifyUiRefreshed() {
 
 // popup/options 通过消息触发 SW 内的同步（SW 是同步权威：事件桥与
 // coordinator 同 realm，避免 popup/SW 各持一份 CRDT 状态）。
-api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+api.runtime.onMessage.addListener((msg: ExtensionMessage, _sender, sendResponse) => {
   if (msg?.type === 'bsync-sync') {
     sync().then(sendResponse);
     return true; // 异步 sendResponse
@@ -112,7 +116,8 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === 'bsync-space-bind') {
     // 首绑（新设备第一次同步前的显式选择）同样由 SW 执行：绑定后立刻同步一次，
     // 让本机书签并入目标空间（merge）或由目标空间重建本机书签（overwrite）。
-    bindSpace(msg.spaceId, { mode: msg.mode === 'overwrite' ? 'overwrite' : 'merge' })
+    // 消息契约保证 spaceId 为空间 id 字符串（由 store.doBindSpace 发送）。
+    bindSpace(msg.spaceId as string, { mode: msg.mode === 'overwrite' ? 'overwrite' : 'merge' })
       .then(async (r) => {
         if (r?.ok) await sync();
         sendResponse(r ?? { ok: false, reason: 'unknown' });
@@ -124,7 +129,8 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     // 换绑空间必须由 SW 执行：只有 SW 持有与事件桥同 realm 的 coordinator 单例，
     // 「清空本机前把原空间的未推送 op 推完」才等得到真实队列。换绑成功后立刻
     // 同步一次，把目标空间的书签重新投影到本机。
-    rebindSpace(msg.spaceId)
+    // 消息契约保证 spaceId 为空间 id 字符串（由 store.doRebindSpace 发送）。
+    rebindSpace(msg.spaceId as string)
       .then(async (r) => {
         if (r?.ok) await sync();
         sendResponse(r ?? { ok: false, reason: 'unknown' });
@@ -136,7 +142,7 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 // 注册 30 分钟周期 alarm（MV3 service worker 可被回收，alarm 是唯一可靠定时器）
-function scheduleAlarms() {
+function scheduleAlarms(): void {
   if (api.alarms?.create) {
     api.alarms.create(ALARM_NAME, { periodInMinutes: 30 });
   }

@@ -120,6 +120,14 @@ export class SyncCoordinator {
     return this.gcNeededFlag;
   }
 
+  /**
+   * 当前待推送 op 数（sync.js 换绑前 drainPush 轮询用）。
+   * pendingPush 为私有字段；原 JS 版直接访问私有成员，迁 TS 后走公开 getter。
+   */
+  get pendingPushCount(): number {
+    return this.pendingPush.length;
+  }
+
   constructor(opts: SyncCoordinatorOptions) {
     this.spaceId = opts.spaceId;
     this.deviceId = opts.deviceId;

@@ -153,11 +153,11 @@ Cross-browser bookmark sync for Chrome / Edge / Firefox with end-to-end encrypti
 
 **凭证（专用测试账号，非日常账号）：**
 
-| 字段   | 值                                      |
-| ------ | --------------------------------------- |
-| 用户名 | `bsync-e2e@example.com`                 |
-| 密码   | `yhUYLzxlgL4z3v_zoKEiyRhs`              |
-| 口令   | `bsync-e2e-passphrase-2026`（门禁用）    |
+| 字段   | 值                                    |
+| ------ | ------------------------------------- |
+| 用户名 | `bsync-e2e@example.com`               |
+| 密码   | `yhUYLzxlgL4z3v_zoKEiyRhs`            |
+| 口令   | `bsync-e2e-passphrase-2026`（门禁用） |
 
 **其他说明（英文，可直接粘贴）：**
 
@@ -210,13 +210,14 @@ The extension needs host permissions for the Supabase domain (https://*.supabase
 
 **各权限用途（中文，便于核对）：**
 
-| 权限 | 用途 |
-| ---- | ---- |
-| `bookmarks` | 读取/增删改书签树，是同步的主体数据 |
-| `storage` | 本地缓存同步状态、待发队列、加密设置等（chrome.storage.local） |
-| `alarms` | 定时触发后台同步重试，保证离线期间的操作最终送达 |
-| `https://*.supabase.co/*`（主机权限） | 访问 Supabase 同步后端，上传/下载加密书签操作；仅此一个主机 |
+| 权限                                  | 用途                                                           |
+| ------------------------------------- | -------------------------------------------------------------- |
+| `bookmarks`                           | 读取/增删改书签树，是同步的主体数据                            |
+| `storage`                             | 本地缓存同步状态、待发队列、加密设置等（chrome.storage.local） |
+| `alarms`                              | 定时触发后台同步重试，保证离线期间的操作最终送达               |
+| `https://*.supabase.co/*`（主机权限） | 访问 Supabase 同步后端，上传/下载加密书签操作；仅此一个主机    |
 
 > 说明：
+>
 > - Chrome 提示：涉及主机权限可能导致深入审核与发布延迟，属预期情况，无需移除（该权限为实现同步必需）。
 > - 付费订阅在官网（www.bookmark-sync.top）通过 Creem 完成，扩展本身不访问支付域名，因此主机权限不含官网域名。
