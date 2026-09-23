@@ -975,6 +975,24 @@
   "autosync_offSub": {
     "message": "本地变更将不再自动上传，可随时手动「立即同步」"
   },
+  "errreport_title": {
+    "message": "错误诊断上报"
+  },
+  "errreport_sub": {
+    "message": "同步失败时上报错误类型与所在阶段，用于定位高频故障。只含错误信息与版本号，不上传书签内容、网址或同步口令"
+  },
+  "errreport_onTitle": {
+    "message": "已开启错误诊断上报"
+  },
+  "errreport_onSub": {
+    "message": "感谢——线上出问题时，这是我们唯一的线索来源"
+  },
+  "errreport_offTitle": {
+    "message": "已关闭错误诊断上报"
+  },
+  "errreport_offSub": {
+    "message": "我们只能等你主动反馈才知道出了问题"
+  },
   "toast_syncDone": {
     "message": "同步完成"
   },

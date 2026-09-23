@@ -14,6 +14,7 @@
 import { api } from './lib/ext.js';
 import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
+import { reportError } from './lib/telemetry.js';
 import { t } from './lib/i18n.js';
 import {
   SupabaseOpLogTransport,
@@ -861,6 +862,8 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
         try {
           await api.storage.local.set({ lastSyncError: msg });
         } catch {}
+        // 语义码不是崩溃，是**产品信号**（配额触顶频率 ≈ 升级意愿）→ 单独记 reason
+        void reportError('sync', code, e, { handled: true });
         return { ok: false, reason: code, error: msg };
       }
     }
@@ -869,6 +872,7 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     try {
       await api.storage.local.set({ lastSyncError: `${detail} | ${(e as Error)?.stack ?? ''}` });
     } catch {}
+    void reportError('sync', 'error', e);
     return { ok: false, reason: 'error', error: detail };
   }
 }

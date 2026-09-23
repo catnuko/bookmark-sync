@@ -4,6 +4,7 @@
 //   - 本地书签变更由 chrome.bookmarks 事件驱动，入队后随下一次 flush 推送
 import { api, type ExtensionMessage } from './lib/ext.js';
 import { describeError } from './lib/errors.js';
+import { reportError } from './lib/telemetry.js';
 import {
   runSync,
   registerLocalEventBridge,
@@ -28,6 +29,22 @@ console.log('[bsync] Boot time: ', new Date().toISOString());
 
 const ALARM_NAME = 'bsync-periodic-pull';
 const AUTO_SYNC_KEY = 'crdt.autoSync';
+
+// 真实「崩溃」入口：SW 里未捕获的异常 / rejection 在 MV3 下只会静默死掉
+// （事件处理器的 Promise reject 不写任何日志），必须显式挂全局钩子 —— 这也是
+// 唯一能看到「连 catch 都没进」的错误的地方。钩子自身不会抛（reportError 全吞）。
+const globalHooks = globalThis as unknown as {
+  addEventListener?: (
+    type: string,
+    listener: (ev: { error?: unknown; reason?: unknown }) => void,
+  ) => void;
+};
+globalHooks.addEventListener?.('error', (ev) => {
+  void reportError('crash', 'uncaught', ev?.error ?? ev);
+});
+globalHooks.addEventListener?.('unhandledrejection', (ev) => {
+  void reportError('rejection', 'unhandled', ev?.reason ?? ev);
+});
 
 // 自动同步开关（默认开）：关闭时 onInstalled / onStartup / 周期 alarm 不再
 // 自动同步；popup/options 的「立即同步」消息与事件桥 flush 的推送不受影响
@@ -75,6 +92,7 @@ async function sync(): Promise<SyncRunResult> {
     return r;
   } catch (e) {
     const detail = describeError(e);
+    void reportError('background', 'error', e);
     const r: SyncRunResult = { ok: false, reason: 'error', error: detail };
     await api.storage.local.set({
       lastSyncAt: Date.now(),
@@ -122,7 +140,10 @@ api.runtime.onMessage.addListener((msg: ExtensionMessage, _sender, sendResponse)
         if (r?.ok) await sync();
         sendResponse(r ?? { ok: false, reason: 'unknown' });
       })
-      .catch((e) => sendResponse({ ok: false, reason: 'error', error: describeError(e) }));
+      .catch((e) => {
+        void reportError('bind', 'error', e, { op: 'bind-space' });
+        sendResponse({ ok: false, reason: 'error', error: describeError(e) });
+      });
     return true; // 异步 sendResponse
   }
   if (msg?.type === 'bsync-space-rebind') {
@@ -135,7 +156,10 @@ api.runtime.onMessage.addListener((msg: ExtensionMessage, _sender, sendResponse)
         if (r?.ok) await sync();
         sendResponse(r ?? { ok: false, reason: 'unknown' });
       })
-      .catch((e) => sendResponse({ ok: false, reason: 'error', error: describeError(e) }));
+      .catch((e) => {
+        void reportError('rebind', 'error', e, { op: 'rebind-space' });
+        sendResponse({ ok: false, reason: 'error', error: describeError(e) });
+      });
     return true; // 异步 sendResponse
   }
   return false;

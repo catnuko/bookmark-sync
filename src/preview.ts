@@ -6,6 +6,10 @@ import './styles/tokens.css';
 import zhMessages from '../public/_locales/zh_CN/messages.json';
 import type { Session } from '@supabase/supabase-js';
 import { state } from './store.js';
+import { setErrorReportEnabled } from './lib/telemetry.js';
+
+// 预览环境没有真实会话、也没有扩展存储：关掉上报，避免产生无意义的请求
+setErrorReportEnabled(false);
 
 // 普通浏览器没有 chrome.i18n：mock 成中文语言包，让预览渲染真实文案而非键名
 (globalThis as typeof globalThis & { chrome: { i18n: PreviewI18n } }).chrome = {

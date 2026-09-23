@@ -48,6 +48,8 @@ export interface ExtensionRuntime {
   onStartup: {
     addListener(listener: () => void): void;
   };
+  /** 扩展自身的 manifest（取版本号用于错误上报；非扩展环境为 undefined）。 */
+  getManifest?(): { version?: string } | undefined;
 }
 
 /** chrome.alarms 子集（MV3 service worker 唯一可靠定时器）。 */

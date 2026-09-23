@@ -5,6 +5,12 @@ import { reactive, computed, type ComputedRef } from 'vue';
 import { api, type ExtensionMessage } from './lib/ext.js';
 import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
+import {
+  reportError,
+  loadErrorReportPref,
+  setErrorReportEnabled,
+  ERROR_REPORT_KEY,
+} from './lib/telemetry.js';
 import type { AuthError, Session } from '@supabase/supabase-js';
 import {
   getProfile,
@@ -163,6 +169,9 @@ export const state = reactive({
 
   // 自动同步开关
   autoSync: true,
+
+  // 错误诊断上报开关（默认开；只上报元数据，不含书签内容）
+  errorReport: true,
 
   // 共存与存储（GC）
   lastGcAt: null as number | null,
@@ -947,6 +956,7 @@ export async function syncNow(opts: boolean | { force?: boolean } = {}): Promise
           resolve((resp ?? { ok: false, reason: 'no_response' }) as SyncRunResult);
         });
       } catch (e) {
+        void reportError('store', 'error', e, { op: 'sync-message' });
         resolve({ ok: false, reason: 'error', error: describeError(e) });
       }
     });
@@ -1042,6 +1052,24 @@ export async function toggleAutoSync(): Promise<void> {
     'info',
     state.autoSync ? t('autosync_onTitle') : t('autosync_offTitle'),
     state.autoSync ? t('autosync_onSub') : t('autosync_offSub'),
+  );
+}
+
+// ---- 错误上报开关（与自动同步同款：默认开，显式 false 才关） ----
+export async function loadErrorReport(): Promise<void> {
+  await loadErrorReportPref();
+  const s = await api.storage.local.get(ERROR_REPORT_KEY);
+  state.errorReport = s[ERROR_REPORT_KEY] !== false;
+}
+
+export async function toggleErrorReport(): Promise<void> {
+  state.errorReport = !state.errorReport;
+  await api.storage.local.set({ [ERROR_REPORT_KEY]: state.errorReport });
+  setErrorReportEnabled(state.errorReport);
+  showToast(
+    'info',
+    state.errorReport ? t('errreport_onTitle') : t('errreport_offTitle'),
+    state.errorReport ? t('errreport_onSub') : t('errreport_offSub'),
   );
 }
 
@@ -1160,6 +1188,7 @@ export async function init(popup: boolean): Promise<void> {
         refreshProfile(),
         refreshSpacesDevices(),
         loadAutoSync(),
+        loadErrorReport(),
         loadCoexistPanel(),
         refreshKeyState(),
       ]),
@@ -1180,6 +1209,7 @@ export async function init(popup: boolean): Promise<void> {
           refreshProfile(),
           refreshSpacesDevices(),
           loadAutoSync(),
+          loadErrorReport(),
           loadCoexistPanel(),
           refreshKeyState(),
         ]),
