@@ -27,6 +27,14 @@
 - secrets 不写入代码，用 `supabase secrets set` 或 CI secrets 管理。
 - 每次变更后更新本地文件并提交 Git。需要远端写操作时，先给出迁移文件、函数代码或命令，等用户审查后再执行。
 
+## ★ 表授权（2026-10-30 起强制）
+
+Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动授予 Data API 权限（changelog #45329）。**存量表保留授权，生产不受影响**；风险在「全量重放」场景（`supabase db reset`、preview branch、新项目、灾备重建）——那会得到 Data API 全不可见的库。
+
+- **任何 `create table public.*` 的迁移必须在同一文件里写全 `grant`**，序列另需 `grant usage on sequence`。角色按需：`anon`（仅公开表单）、`authenticated`（一般只 `select`，写入走 SECURITY DEFINER RPC）、`service_role`（边缘函数直连）。
+- **禁止** `alter default privileges ... grant` 自救（对所有未来表开放全量 DML，废掉 0032 的收权）；**禁止** `DROP TABLE + CREATE TABLE` 式迁移（0017 这么做时把在用的 grant 全抹了）。
+- 存量表授权基线：`supabase/migrations/0040_explicit_data_api_grants.sql`。完整规范见 `supabase/TENANTS.md` 第 11 条。
+
 ## 本地环境（无 Docker / 无本地 PostgreSQL）
 
 - 沙箱环境无法运行 Docker（无 iptables / 无 KVM），且不安装本地 PostgreSQL。
