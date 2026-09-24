@@ -31,7 +31,7 @@
         width: 980px;
       }
     </style>
-    <!-- 关键：必须在模块脚本之前注入 mock，让 src/lib/ext.js 的 api 拿到内存实现 -->
+    <!-- 关键：必须在模块脚本之前注入 mock，让 src/lib/ext.ts 的 api 拿到内存实现 -->
     <script>
       (function () {
         var mem = {};
@@ -110,6 +110,6 @@
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/preview.js"></script>
+    <script type="module" src="/src/preview.ts"></script>
   </body>
 </html>

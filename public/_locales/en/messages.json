@@ -975,6 +975,24 @@
   "autosync_offSub": {
     "message": "Local changes will no longer upload automatically; use \"Sync now\" anytime"
   },
+  "errreport_title": {
+    "message": "Error diagnostics"
+  },
+  "errreport_sub": {
+    "message": "On sync failure, reports the error type and the stage it happened in, so we can spot widespread problems. Error details and version only — never bookmark content, URLs, or your passphrase"
+  },
+  "errreport_onTitle": {
+    "message": "Error diagnostics on"
+  },
+  "errreport_onSub": {
+    "message": "Thank you — this is our only way to notice problems in the wild"
+  },
+  "errreport_offTitle": {
+    "message": "Error diagnostics off"
+  },
+  "errreport_offSub": {
+    "message": "We can only learn about problems from your reports"
+  },
   "toast_syncDone": {
     "message": "Sync complete"
   },

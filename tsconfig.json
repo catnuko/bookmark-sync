@@ -9,11 +9,15 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    // src/ 已全部迁移为 TS（include 不含任何 .js），此开关仅为 tests/ 导入
+    // website/ 的 JS 模块（admin/lib/format.js 等，仍为 JS）提供解析入口；
+    // checkJs 未开，不检查也不产出声明文件。
     "allowJs": true,
     "types": ["node", "fake-indexeddb"]
   },
-  "include": ["src/**/*.ts", "src/**/*.js", "tests/**/*.ts", "vite.config.js"],
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "extension", "extension-firefox", "dist"]
 }

@@ -18,7 +18,7 @@ import { supabase } from './lib/supabase.js';
 
 const keyManager = new KeyManager({
   async get(key) {
-    return (await api.storage.local.get(key))[key];
+    return (await api.storage.local.get(key))[key] as string | undefined;
   },
   async set(key, value) {
     await api.storage.local.set({ [key]: value });
@@ -33,17 +33,17 @@ const keyManager = new KeyManager({
 //   云端有盐（此前设备上传过）→ 拉下来覆盖本地（本地无盐或不同）；
 //   本地有盐且云端无 → 上传（本设备是第一个设口令的）。
 // 未登录时退化为纯本地语义（无盐则生成本地盐），保证离线可用。
-async function fetchRemoteSalt() {
+async function fetchRemoteSalt(): Promise<string | null> {
   try {
     const { data, error } = await supabase.rpc('bsync_get_e2ee_salt');
     if (error) return null;
-    return data ?? null;
+    return typeof data === 'string' ? data : null;
   } catch {
     return null;
   }
 }
 
-async function pushRemoteSalt(saltB64) {
+async function pushRemoteSalt(saltB64: string): Promise<boolean> {
   try {
     const { error } = await supabase.rpc('bsync_set_e2ee_salt', { p_salt: saltB64 });
     return !error;
@@ -52,7 +52,7 @@ async function pushRemoteSalt(saltB64) {
   }
 }
 
-async function ensurePhraseSalt() {
+async function ensurePhraseSalt(): Promise<void> {
   const { data } = await supabase.auth.getSession();
   if (!data?.session) return; // 未登录：不动云端
   const remote = await fetchRemoteSalt();
@@ -65,19 +65,19 @@ async function ensurePhraseSalt() {
 }
 
 // 兼容旧 API：返回 base64url 字符串
-export async function exportKey() {
+export async function exportKey(): Promise<string> {
   return keyManager.exportKey();
 }
 
-export async function importKey(b64) {
+export async function importKey(b64: string): Promise<boolean> {
   return keyManager.importKey(b64);
 }
 
-export async function hasKey() {
+export async function hasKey(): Promise<boolean> {
   return keyManager.hasKey();
 }
 
-export async function setKeyFromPassphrase(passphrase) {
+export async function setKeyFromPassphrase(passphrase: string): Promise<boolean> {
   await ensurePhraseSalt();
   const ok = await keyManager.setKeyFromPassphrase(passphrase);
   if (ok) {
@@ -97,12 +97,12 @@ export async function setKeyFromPassphrase(passphrase) {
 }
 
 /** 当前口令盐（base64url；调试/展示用，非机密）。 */
-export async function getPhraseSalt() {
+export async function getPhraseSalt(): Promise<string | null> {
   return keyManager.getSalt();
 }
 
 /** 云端是否已有口令盐——没有就是「第一台设备」（要设新口令），有就是新设备。 */
-export async function isFirstDevice() {
+export async function isFirstDevice(): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   if (!data?.session) return true;
   const remote = await fetchRemoteSalt();
@@ -110,11 +110,11 @@ export async function isFirstDevice() {
 }
 
 /** 清除本机已存的密钥和盐（口令验证失败时回滚，避免误入主界面）。 */
-export async function clearLocalKey() {
+export async function clearLocalKey(): Promise<void> {
   await keyManager.clear();
 }
 
 /** 取回本机已存的 CryptoKey（用于验证解密），无则 null。 */
-export async function ensureLocalKey() {
+export async function ensureLocalKey(): Promise<CryptoKey | null> {
   return keyManager.ensureKey();
 }

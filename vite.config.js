@@ -16,11 +16,14 @@ export default defineConfig({
   build: {
     outDir: 'extension',
     emptyOutDir: true,
+    // 显式关闭生产 sourcemap：防止 .map 随扩展 zip 分发泄露源码。
+    // （release.yml 的 CI 同样跑 vite build，这里一处关掉即同时覆盖本地和 CI。）
+    sourcemap: false,
     rollupOptions: {
       input: {
         options: resolve(import.meta.dirname, 'options.html'),
         popup: resolve(import.meta.dirname, 'popup.html'),
-        background: resolve(import.meta.dirname, 'src/background.js'),
+        background: resolve(import.meta.dirname, 'src/background.ts'),
       },
       output: {
         entryFileNames: (chunk) =>

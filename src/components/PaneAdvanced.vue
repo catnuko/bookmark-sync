@@ -68,6 +68,18 @@
           />
         </div>
         <div class="inset-row">
+          <span class="lede"><Icon name="alert" /></span>
+          <div class="r-main">
+            <div class="r-title">{{ t('errreport_title') }}</div>
+            <div class="r-sub">{{ t('errreport_sub') }}</div>
+          </div>
+          <SwitchToggle
+            :model-value="state.errorReport"
+            :aria-label="t('errreport_title')"
+            @update:model-value="toggleErrorReport"
+          />
+        </div>
+        <div class="inset-row">
           <span class="lede"><Icon name="log-out" /></span>
           <div class="r-main">
             <div class="r-title">{{ t('account_logout') }}</div>
@@ -83,7 +95,7 @@
 </template>
 
 <script setup>
-import { state, toggleAutoSync, logout, fmt } from '../store.js';
+import { state, toggleAutoSync, toggleErrorReport, logout, fmt } from '../store.js';
 import { t } from '../lib/i18n.js';
 import SwitchToggle from './ui/SwitchToggle.vue';
 import Icon from './ui/Icon.vue';
