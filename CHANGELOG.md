@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.5.0](https://github.com/catnuko/bookmark-sync/compare/v2.4.0...v2.5.0) (2026-09-24)
+
+
+### Features
+
+* **db:** 错误上报元数据表与上报 RPC（0042） ([6c5d321](https://github.com/catnuko/bookmark-sync/commit/6c5d3210080862417f2ea8ab6b623584db62c8c7))
+* **telemetry:** 客户端错误上报（6 处挂点 + MV3 全局钩子 + 开关） ([42e0e96](https://github.com/catnuko/bookmark-sync/commit/42e0e967a76d28981c3db1495627152c999d2e17))
+
+
+### Bug Fixes
+
+* **build:** 显式关闭生产 sourcemap，防止 .map 随扩展包分发泄露源码 ([f7b5fb4](https://github.com/catnuko/bookmark-sync/commit/f7b5fb4ad785a016fecc9c50a8075e59caab5d8d))
+* **db:** 收回 bsync_waitlist 越权读取面（0041） ([041581e](https://github.com/catnuko/bookmark-sync/commit/041581e4298379fd603f3c92f89c558a250577d9))
+
 ## [2.4.0](https://github.com/catnuko/bookmark-sync/compare/v2.3.1...v2.4.0) (2026-09-22)
 
 
