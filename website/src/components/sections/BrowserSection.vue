@@ -3,10 +3,23 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
+// 三家商店均已上架，卡片直达商店详情页
 const browsers = [
-  { key: 'chrome', color: '#4285F4', url: '/download#manual', available: true },
-  { key: 'edge', color: '#0078D7', url: '/download#manual', available: true },
-  { key: 'firefox', color: '#FF7139', url: '/download#manual', available: true },
+  {
+    key: 'chrome',
+    color: '#4285F4',
+    url: 'https://chromewebstore.google.com/detail/emmjhpmhfepapemiflddnbmikicklfml',
+  },
+  {
+    key: 'edge',
+    color: '#0078D7',
+    url: 'https://microsoftedge.microsoft.com/addons/detail/bookmark-sync/ilhfggggmdgfnliiimnkhdbaijjombah',
+  },
+  {
+    key: 'firefox',
+    color: '#FF7139',
+    url: 'https://addons.mozilla.org/zh-CN/firefox/addon/bookmark-sync-app/',
+  },
 ];
 
 // 浏览器图标统一用一个简洁的圆形书签符号，颜色用品牌色区分
@@ -27,10 +40,12 @@ const iconPaths = {
       </div>
 
       <div class="browser-grid">
-        <RouterLink
+        <a
           v-for="b in browsers"
           :key="b.key"
-          :to="b.url"
+          :href="b.url"
+          target="_blank"
+          rel="noopener"
           class="browser-card card card-hover"
         >
           <div class="browser-icon" :style="{ background: b.color }">
@@ -52,7 +67,7 @@ const iconPaths = {
             <p class="browser-store">{{ t(`browsers.${b.key}.desc`) }}</p>
           </div>
           <div class="browser-action">
-            <span class="browser-cta">{{ t('download.ctaManual') }}</span>
+            <span class="browser-cta">{{ t('download.cta') }}</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path
                 d="M7 17L17 7M17 7H8M17 7v9"
@@ -63,7 +78,7 @@ const iconPaths = {
               />
             </svg>
           </div>
-        </RouterLink>
+        </a>
       </div>
     </div>
   </section>

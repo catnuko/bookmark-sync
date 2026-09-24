@@ -5,10 +5,9 @@ import { supabase } from '../lib/supabase.js';
 
 const { t, tm } = useI18n();
 
-// 商店审核中：卡片仅展示「即将推出」，不可点击；真实安装包走下方手动安装区。
-// 商店详情页上线后，把卡片恢复为 <a> 并指向商店详情页。
+// 三家商店已上架：卡片直达商店详情页。
 //
-// 安装包托管在 Supabase Storage public bucket `downloads`（release.yml 发版时
+// 离线安装包托管在 Supabase Storage public bucket `downloads`（release.yml 发版时
 // 上传 + 写 latest.json），这里运行时读取最新版本号生成下载链接——发新版官网
 // 无需重新部署。latest.json 拉取失败时回落到 FALLBACK_VERSION。
 const FALLBACK_VERSION = '2.2.0';
@@ -31,10 +30,23 @@ onMounted(async () => {
   }
 });
 
+// 商店详情页（均已上架）
 const browsers = [
-  { key: 'chrome', color: '#4285F4' },
-  { key: 'edge', color: '#0078D7' },
-  { key: 'firefox', color: '#FF7139' },
+  {
+    key: 'chrome',
+    color: '#4285F4',
+    url: 'https://chromewebstore.google.com/detail/emmjhpmhfepapemiflddnbmikicklfml',
+  },
+  {
+    key: 'edge',
+    color: '#0078D7',
+    url: 'https://microsoftedge.microsoft.com/addons/detail/bookmark-sync/ilhfggggmdgfnliiimnkhdbaijjombah',
+  },
+  {
+    key: 'firefox',
+    color: '#FF7139',
+    url: 'https://addons.mozilla.org/zh-CN/firefox/addon/bookmark-sync-app/',
+  },
 ];
 
 const iconPaths = {
@@ -48,7 +60,7 @@ const submitted = ref(false);
 const busy = ref(false);
 const error = ref('');
 
-// 订阅上架通知：写入 Supabase bsync_waitlist（需先在远端执行 0025_waitlist.sql 迁移）
+// 订阅版本更新：写入 Supabase bsync_waitlist（需先在远端执行 0025_waitlist.sql 迁移）
 async function subscribe() {
   if (busy.value) return;
   if (!email.value || !email.value.includes('@')) return;
@@ -77,11 +89,17 @@ async function subscribe() {
           <p class="section-eyebrow">{{ t('download.eyebrow') }}</p>
           <h1 class="section-title">{{ t('download.title') }}</h1>
           <p class="section-subtitle">{{ t('download.subtitle') }}</p>
-          <p class="download-note">{{ t('download.storePendingNote') }}</p>
         </div>
 
         <div class="browser-grid">
-          <div v-for="b in browsers" :key="b.key" class="browser-card browser-card-soon">
+          <a
+            v-for="b in browsers"
+            :key="b.key"
+            :href="b.url"
+            target="_blank"
+            rel="noopener"
+            class="browser-card"
+          >
             <div class="browser-icon" :style="{ background: b.color }">
               <svg
                 width="32"
@@ -100,13 +118,24 @@ async function subscribe() {
               <h3 class="browser-name">{{ t(`browsers.${b.key}.name`) }}</h3>
               <p class="browser-store">{{ t(`browsers.${b.key}.desc`) }}</p>
             </div>
-            <span class="browser-soon">{{ t('common.comingSoon') }}</span>
-          </div>
+            <span class="browser-cta">
+              {{ t('download.cta') }}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M7 17L17 7M17 7H8M17 7v9"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+          </a>
         </div>
       </div>
     </section>
 
-    <!-- 手动安装——安装包直发在官网，商店上架前是唯一安装路径 -->
+    <!-- 离线安装包——商店安装不便时的备用路径 -->
     <section id="manual" class="section manual-section">
       <div class="container container-narrow">
         <div class="manual-card">
@@ -129,7 +158,7 @@ async function subscribe() {
       </div>
     </section>
 
-    <!-- 邮箱订阅：商店上架后第一时间通知 -->
+    <!-- 邮箱订阅：新版本发布时通知 -->
     <section id="subscribe" class="section subscribe-section">
       <div class="container">
         <div class="subscribe-card">
@@ -190,12 +219,6 @@ async function subscribe() {
   align-items: center;
 }
 
-.download-note {
-  margin-top: var(--space-4);
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 .browser-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -247,25 +270,14 @@ async function subscribe() {
   color: var(--color-text-muted);
 }
 
-.browser-card-soon {
-  cursor: default;
-}
-
-.browser-card-soon:hover {
-  border-color: var(--color-border);
-  box-shadow: none;
-  transform: none;
-}
-
-.browser-soon {
+.browser-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   flex-shrink: 0;
-  padding: 0.5rem 0.875rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-soft);
-  color: var(--color-text-faint);
   font-size: var(--text-sm);
   font-weight: 500;
+  color: var(--color-text);
 }
 
 .manual-section {
