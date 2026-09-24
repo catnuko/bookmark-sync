@@ -49,6 +49,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: node
 
+      # gh 要在 git 仓库上下文里解析目标仓库；本 job 此前没有 checkout，
+      # `gh pr merge` 会直接报 `failed to run git: fatal: not a git repository`
+      # （v2.5.0 实测，run 36006530813），release PR 建了却合不掉。
+      - name: Checkout
+        uses: actions/checkout@v4
+
       # 全自动发版：release PR 无需人工合并，检测到即自动合并。
       # 合并会再次触发本 workflow，由 release-please 创建 tag + Release，随后 build job 打包上传。
       # 注意：必须用 merge commit（--merge），release-please 靠 merge commit message 识别发布。
@@ -59,6 +65,8 @@ jobs:
         if: steps.release.outputs.releases_created != 'true' && steps.release.outputs.prs_created == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 显式指定仓库，双保险：即使 checkout 失效也不依赖本地 git 上下文
+          GH_REPO: ${{ github.repository }}
           PRS_JSON: ${{ steps.release.outputs.prs }}
         run: |
           echo "$PRS_JSON" | jq -c '.[]' | while read -r pr; do
