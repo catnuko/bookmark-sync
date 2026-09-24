@@ -22,7 +22,6 @@
     "oneTime": "一次性",
     "lifetime": "终身",
     "perMonth": "/ 月",
-    "comingSoon": "即将推出",
     "subscribe": "订阅更新",
     "subscribePlaceholder": "你的邮箱地址",
     "getStarted": "立即开始",
@@ -337,13 +336,11 @@
   "download": {
     "eyebrow": "下载",
     "title": "选择你的浏览器",
-    "subtitle": "当前商店版本审核中，可从官网直接下载安装包手动安装，或留下邮箱在上架后第一时间获知。",
+    "subtitle": "已上架 Chrome Web Store、Edge Add-ons 与 Firefox Add-ons，点击卡片直达商店安装；也可下载离线安装包手动加载。",
     "cta": "前往商店",
-    "ctaManual": "手动安装",
-    "storePendingNote": "Chrome Web Store、Edge Add-ons 与 Firefox Add-ons 版本正在审核中，当前可从官网直接下载安装包手动安装。",
     "manual": {
-      "title": "手动安装（v{version}）",
-      "subtitle": "下载对应浏览器的 zip，解压后按下面的步骤加载。商店上架后这里会切换为商店安装入口。",
+      "title": "离线安装包（v{version}）",
+      "subtitle": "商店安装不便时，可下载对应浏览器的 zip 解压后按下面的步骤手动加载。",
       "chromiumCta": "下载 Chromium 版（Chrome / Edge）",
       "firefoxCta": "下载 Firefox 版",
       "steps": [
@@ -353,11 +350,11 @@
       ]
     },
     "subscribe": {
-      "title": "商店上架后第一时间通知你",
-      "subtitle": "留下邮箱，Chrome / Edge / Firefox 任一商店上架时通知你。",
+      "title": "订阅版本更新",
+      "subtitle": "留下邮箱，新版本发布时第一时间通知你。",
       "submit": "订阅通知",
       "submitting": "提交中…",
-      "success": "订阅成功！我们会在新版上线时通知你。",
+      "success": "订阅成功！有新版本时我们会通知你。",
       "error": "订阅失败，请稍后重试，或直接联系 support{'@'}bookmark-sync.top"
     }
   },
@@ -372,7 +369,7 @@
         "steps": [
           {
             "t": "下载安装",
-            "d": "当前商店版本审核中：在官网下载页下载对应浏览器的 zip。解压后，Chrome / Edge 在扩展管理页开启「开发者模式」并「加载已解压的扩展程序」；Firefox 在 about:debugging#/runtime/this-firefox 中「临时载入附加组件」。"
+            "d": "在对应商店安装：在 Chrome Web Store、Edge Add-ons 或 Firefox Add-ons 搜索 BookmarkSync 即可一键安装。也可在官网下载页下载离线安装包，按页面步骤手动加载。"
           },
           {
             "t": "登录账号",

@@ -22,7 +22,6 @@
     "oneTime": "one-time",
     "lifetime": "Lifetime",
     "perMonth": "/ mo",
-    "comingSoon": "Coming Soon",
     "subscribe": "Subscribe",
     "subscribePlaceholder": "Your email address",
     "getStarted": "Get Started",
@@ -337,13 +336,11 @@
   "download": {
     "eyebrow": "Download",
     "title": "Choose your browser",
-    "subtitle": "Store listings are pending review — download the install packages directly from this site, or leave your email to be notified once published.",
+    "subtitle": "Now live on the Chrome Web Store, Edge Add-ons, and Firefox Add-ons — click a card to install. You can also grab an offline package and load it manually.",
     "cta": "Visit store",
-    "ctaManual": "Install manually",
-    "storePendingNote": "Chrome Web Store, Edge Add-ons, and Firefox Add-ons listings are under review. For now, download the install packages directly from this site.",
     "manual": {
-      "title": "Manual install (v{version})",
-      "subtitle": "Download the zip for your browser and load it as follows. Store install links will replace this once listings are approved.",
+      "title": "Offline package (v{version})",
+      "subtitle": "If installing from a store isn't convenient, download the zip for your browser, unzip it, and load it as follows.",
       "chromiumCta": "Download for Chromium (Chrome / Edge)",
       "firefoxCta": "Download for Firefox",
       "steps": [
@@ -353,11 +350,11 @@
       ]
     },
     "subscribe": {
-      "title": "Be notified when we hit the stores",
-      "subtitle": "Leave your email and we'll notify you when we launch on Chrome, Edge, or Firefox.",
+      "title": "Get release updates",
+      "subtitle": "Leave your email and we'll notify you when a new version ships.",
       "submit": "Notify me",
       "submitting": "Submitting…",
-      "success": "Subscribed! We'll notify you when the new version launches.",
+      "success": "Subscribed! We'll notify you when a new version ships.",
       "error": "Subscription failed. Please retry later, or contact support{'@'}bookmark-sync.top"
     }
   },
@@ -372,7 +369,7 @@
         "steps": [
           {
             "t": "Download & install",
-            "d": "Store listings are pending review: download the zip for your browser from the download page on this site. Unzip it, then in Chrome / Edge open the extensions page, enable Developer Mode, and Load unpacked; in Firefox open about:debugging#/runtime/this-firefox and Load Temporary Add-on."
+            "d": "Install from your browser's store: search for BookmarkSync on the Chrome Web Store, Edge Add-ons, or Firefox Add-ons. You can also download an offline package from the download page and load it manually."
           },
           {
             "t": "Log in",
