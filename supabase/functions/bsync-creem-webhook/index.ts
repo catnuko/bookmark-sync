@@ -188,23 +188,51 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true, skipped: 'bad_plan' });
       }
       const subObj = obj as CreemSubscriptionObject;
-      const status = subObj.status || 'active'; // scheduled_cancel 也按其真实状态落库
-      const periodEnd = subObj.current_period_end_date || null;
+      // 本分支的三种事件 object 形状不同：
+      //   subscription.active / paid 的 object 是「订阅」，status 是订阅状态（active/trialing/...）；
+      //   checkout.completed 的 object 是「收银台会话」，它的 status 是**收银台**生命周期
+      //   （文档样例里是 completed），且压根没有 current_period_end_date。
+      // 原样抄会犯两个错：把 'completed' 写进订阅状态列（门户/官网/后台都按订阅状态展示），
+      // 以及把 current_period_end 清成 null。后者在事件重投/乱序时是**永久性**的
+      // ——Creem 明确说 webhook 会重投，checkout.completed 晚于 subscription.active 到达时
+      // 会把已写好的账期抹掉。收银台完成即订阅已生效，所以这里按 active 落，账期留给订阅事件。
+      const isCheckout = eventType === 'checkout.completed';
+      const status = isCheckout ? 'active' : subObj.status || 'active';
 
       if (subscriptionId) {
-        await sb.from('bsync_subscriptions').upsert(
+        // onConflict 用 **user_id**（本表主键，一人一行），不是 creem_subscription_id：
+        // 用户「取消后重新订阅」会拿到新的 sub id，按 sub id 做冲突目标时那行命中不了，
+        // 于是走 INSERT 撞上 pkey(user_id) 报 23505，台账就永远停在旧订阅上。
+        // 唯一索引 bsync_subscriptions_creem_subscription_id_key（0043）仍在，
+        // 它负责防「两个用户抢同一个 Creem 订阅」。
+        const { error: subErr } = await sb.from('bsync_subscriptions').upsert(
           {
             user_id: userId,
             plan,
             status,
             creem_subscription_id: subscriptionId,
             creem_customer_id: customerId || null,
-            current_period_end: periodEnd,
-            canceled_at: subObj.canceled_at || null,
+            // 订阅生命周期字段只在 subscription.* 事件里写：checkout.completed 上没有这些字段，
+            // 带上它就会在重投时把 subscription.active 写好的账期覆盖成 null。
+            ...(isCheckout
+              ? {}
+              : {
+                  current_period_end: subObj.current_period_end_date || null,
+                  canceled_at: subObj.canceled_at || null,
+                }),
             updated_at: new Date().toISOString(),
           },
-          { onConflict: 'creem_subscription_id' },
+          { onConflict: 'user_id' },
         );
+        // 必须显式记日志：supabase-js 不把 PostgREST 错误当异常抛，漏检时表现为
+        // 「webhook 返回 200、plan 也翻了，但订阅台账是空的」——0043 之前线上就是
+        // 这个状态（42P10 被静默吞掉），坏的是售后（门户查不到 customer_id）。
+        if (subErr) {
+          console.error(
+            `creem-webhook: subscription upsert failed (${eventType})`,
+            JSON.stringify(subErr),
+          );
+        }
       }
 
       // 降级与否取决于订阅是否仍生效：scheduled_cancel 到期前照样可用
