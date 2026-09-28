@@ -357,7 +357,10 @@ Deno.serve(async (req: Request) => {
       if (orderId) {
         await sb.from('bsync_orders').update({ status: 'refunded' }).eq('creem_order_id', orderId);
       } else {
-        console.warn(`creem-webhook: refund.created 无订单号，无法对账`, JSON.stringify(obj).slice(0, 500));
+        console.warn(
+          `creem-webhook: refund.created 无订单号，无法对账`,
+          JSON.stringify(obj).slice(0, 500),
+        );
       }
       return json({ ok: true });
     }
