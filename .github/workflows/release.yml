@@ -23,11 +23,24 @@ name: Automated Release
 #   feat(ui): add export button      → 触发 minor（新功能）
 #   fix(sync): resolve merge crash   → 触发 patch（修复）
 #   BREAKING CHANGE                  → 触发 major（不兼容改动）
+#
+# 发版卡住了怎么救（2026-09-29 补）：
+#   - 「release PR 合了但没 tag」→ gh workflow run release.yml --ref main
+#   - 「tag/Release 建好了但 zip 没传上去」（build 失败，且重跑整个工作流
+#     救不回来——release 已存在，release-please 不会再报 release_created）→
+#       gh workflow run release.yml --ref main -f tag=v2.5.1
+#     resolve job 会按这个 tag 只跑 build：重新打包 + 覆盖上传
+#     （GitHub Release 用 --clobber，Supabase 用 x-upsert），可反复执行。
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: '补发：按已存在的 tag 只重跑打包上传（如 v2.5.1）；留空 = 正常发版流程'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -42,16 +55,39 @@ concurrency:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    # 两次尝试的 outputs 用 `||` 取先成功的那个（失败/跳过的步骤 output 为空串，
+    # 会自然落到下一次尝试）。注意 'false' 是非空串，在表达式里为真，所以
+    # 「真的返回了 false」不会被误判成「这次没值」。
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      release_created: ${{ steps.release.outputs.release_created || steps.release_retry.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name || steps.release_retry.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version || steps.release_retry.outputs.version }}
     steps:
       - id: release
+        continue-on-error: true
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: node
+
+      # release-please 偶发 GitHub GraphQL 5xx（2026-09-22 run 35690360641：
+      # `release-please failed: Something went wrong while executing your query`），
+      # 单次抖动就让整轮发版停摆。release-please 是幂等的（重跑只是更新已有
+      # release PR），所以原地重试一次；两次都失败由末尾守卫步骤显式报错。
+      - id: release_retry
+        if: steps.release.outcome == 'failure'
+        continue-on-error: true
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: node
+
+      # continue-on-error 会把失败吞成绿色，这里把「两次都失败」重新炸出来。
+      - name: Fail if release-please failed twice
+        if: steps.release.outcome == 'failure' && steps.release_retry.outcome == 'failure'
+        run: |
+          echo "::error::release-please 连续两次失败（多为 GitHub API 5xx 抖动）；重跑本工作流即可，或 gh workflow run release.yml --ref main"
+          exit 1
 
       # gh 要在 git 仓库上下文里解析目标仓库；本 job 此前没有 checkout，
       # `gh pr merge` 会直接报 `failed to run git: fatal: not a git repository`
@@ -65,12 +101,12 @@ jobs:
       # 创建 release PR 的轮次里是 unset；release_created（根组件）无 release 时也是
       # unset 而非 'false'。因此条件必须用 releases_created != 'true' + prs_created == 'true'。
       - name: Auto-merge release PR
-        if: steps.release.outputs.releases_created != 'true' && steps.release.outputs.prs_created == 'true'
+        if: (steps.release.outputs.releases_created || steps.release_retry.outputs.releases_created) != 'true' && (steps.release.outputs.prs_created || steps.release_retry.outputs.prs_created) == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # 显式指定仓库，双保险：即使 checkout 失效也不依赖本地 git 上下文
           GH_REPO: ${{ github.repository }}
-          PRS_JSON: ${{ steps.release.outputs.prs }}
+          PRS_JSON: ${{ steps.release.outputs.prs || steps.release_retry.outputs.prs }}
         run: |
           echo "$PRS_JSON" | jq -c '.[]' | while read -r pr; do
             PR_NUMBER=$(echo "$pr" | jq -r '.number // empty')
@@ -88,22 +124,55 @@ jobs:
       # workflow_dispatch 是这条规则的**例外**，所以合并完自己踢一脚。
       # 第二轮里 releases_created == 'true'，本步骤会被上面的 if 跳过，不会自激循环。
       - name: Dispatch next run to create tag/Release
-        if: steps.release.outputs.releases_created != 'true' && steps.release.outputs.prs_created == 'true'
+        if: (steps.release.outputs.releases_created || steps.release_retry.outputs.releases_created) != 'true' && (steps.release.outputs.prs_created || steps.release_retry.outputs.prs_created) == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: gh workflow run release.yml --ref main
 
-  build:
+  # 统一决定「这次构建哪个 tag / 哪个版本」，让 build job 不再直接依赖
+  # release-please 的「刚刚创建了 release」这一瞬时输出 —— 否则 tag 一旦存在，
+  # build 就永远被跳过，打包/上传失败后再也补不回来（重跑整轮也没用）。
+  resolve:
     needs: release-please
-    # 仅当 release-please 真正创建了本次 Release 时才打包
-    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      should_build: ${{ steps.resolve.outputs.should_build }}
+    steps:
+      - id: resolve
+        env:
+          # 手动补发时显式给的 tag 优先（正常发版的自动 dispatch 不带输入，为空）
+          INPUT_TAG: ${{ inputs.tag }}
+          CREATED_TAG: ${{ needs.release-please.outputs.tag_name }}
+          CREATED_VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+            VER="${INPUT_TAG#v}"
+          elif [ -n "$CREATED_TAG" ]; then
+            TAG="$CREATED_TAG"
+            VER="$CREATED_VERSION"
+          else
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "should_build=true" >> "$GITHUB_OUTPUT"
+          echo "本次构建目标：$TAG（版本 $VER）"
+
+  build:
+    needs: resolve
+    # 正常发版（release-please 刚建了 release）和按 tag 补发，都会让 should_build=true
+    if: needs.resolve.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -139,7 +208,7 @@ jobs:
             }
           "
         env:
-          VER: ${{ needs.release-please.outputs.version }}
+          VER: ${{ needs.resolve.outputs.version }}
 
       # 注意：不用 pnpm build（会顺带做 Safari 的 Xcode 同步/编译），
       # 这里只跑 vite build + 手工跑 Firefox 脚本。
@@ -151,7 +220,7 @@ jobs:
 
       - name: Package zips
         run: |
-          VER="${{ needs.release-please.outputs.version }}"
+          VER="${{ needs.resolve.outputs.version }}"
           mkdir -p dist
           (cd extension && zip -r "../dist/bookmark-sync-chromium-$VER.zip" .)
           (cd extension-firefox && zip -r "../dist/bookmark-sync-firefox-$VER.zip" .)
@@ -159,9 +228,10 @@ jobs:
           ls -l dist/
 
       - name: Upload to GitHub Release
+        # 直接用 tag（而不是 "v$VER" 拼），补发时 tag 与 version 的前缀写法不一致也不会传错地方
         run: |
-          VER="${{ needs.release-please.outputs.version }}"
-          gh release upload "v$VER" \
+          VER="${{ needs.resolve.outputs.version }}"
+          gh release upload "${{ needs.resolve.outputs.tag }}" \
             "dist/bookmark-sync-chromium-$VER.zip" \
             "dist/bookmark-sync-firefox-$VER.zip" \
             --clobber
@@ -173,7 +243,7 @@ jobs:
       - name: Upload zips to Supabase Storage
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          VER: ${{ needs.release-please.outputs.version }}
+          VER: ${{ needs.resolve.outputs.version }}
         run: |
           BASE="https://cwtqnsbpcetvqopdkcou.supabase.co/storage/v1/object/downloads"
           upload() {
