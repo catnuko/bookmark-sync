@@ -95,6 +95,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - release-please 按 Conventional Commits 定版本：`fix:` → patch，`feat:` → minor，`BREAKING CHANGE` → major。**提交不带前缀不会触发版本升级**；`chore:` 适合 CI/配置/文档改动，不 bump。
 - **dev→main 合并不要 squash**，避免折叠掉 Conventional 前缀导致版本判断失效。
 - `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`）。本地 token **可以** `gh workflow run`（2026-09-28 实测，此前「无 workflow dispatch 权限」的说法不成立），发版卡住时可用它手动补触发。
+- **发版失败的两条恢复路径**（2026-09-29 起）：①「release PR 合了但没 tag」→ `gh workflow run release.yml --ref main`；②「tag/Release 建好了但 zip 没上传」（build 或质量门失败）→ `gh workflow run release.yml --ref main -f tag=vX.Y.Z`，resolve job 按该 tag 只重跑 build，GitHub Release 用 `--clobber`、Supabase 用 `x-upsert`，幂等可重复。②在 2026-09-29 之前是无解的：build 只认「release-please 刚创建了 release」这个瞬时输出，tag 一旦存在就永久跳过，重跑整轮也救不回来。
 - 私有仓库：匿名 curl 下载 release asset 返回 404，须用 `gh release download <tag> --repo catnuko/bookmark-sync`。
 - **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。
 
