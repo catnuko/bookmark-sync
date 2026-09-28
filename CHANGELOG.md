@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.5.1](https://github.com/catnuko/bookmark-sync/compare/v2.5.0...v2.5.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **creem:** 修复取消即掉档与退款静默丢单两个台账 bug ([6e9310e](https://github.com/catnuko/bookmark-sync/commit/6e9310e2b7d7b5001d1a7e424bc59b48ef768799))
+* **creem:** 修复订阅台账静默写不进去的三个问题 ([9632e66](https://github.com/catnuko/bookmark-sync/commit/9632e66a6bb5ca06523dc4939cecde92439d9410))
+* **creem:** 取消订阅不再立即降级，改按账期判断（BUG 4） ([b869403](https://github.com/catnuko/bookmark-sync/commit/b86940380422fd9b77b019a18324dd9bd2134b95))
+* **creem:** 退款事件不再被静默丢弃（BUG 5） ([60ff401](https://github.com/catnuko/bookmark-sync/commit/60ff4011d0f979ef88910143782e1245b6c38b0b))
+
 ## [2.5.0](https://github.com/catnuko/bookmark-sync/compare/v2.4.0...v2.5.0) (2026-09-24)
 
 
