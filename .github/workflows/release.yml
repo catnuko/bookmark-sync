@@ -6,6 +6,8 @@ name: Automated Release
 #   2. 自动更新 package.json / public/manifest.json / public/manifest.firefox.json
 #      的版本并生成 CHANGELOG.md，建一个 release PR，随后本工作流自动合并它
 #   3. release PR 合并后，release-please 自动打 tag 并创建 GitHub Release
+#      （注意：GITHUB_TOKEN 的合并不会自动触发这一轮，需显式 workflow_dispatch 踢一脚，
+#        见 Auto-merge 之后的 Dispatch 步骤）
 #   4. 本工作流随后构建两个 zip 并上传到该 Release：
 #        - Chromium 包（Chrome/Edge 共用）
 #        - Firefox 包
@@ -30,6 +32,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # 合并 release PR 后要自己 workflow_dispatch 踢一脚（见 Auto-merge 之后的步骤）
+  actions: write
 
 concurrency:
   group: release
@@ -56,7 +60,6 @@ jobs:
         uses: actions/checkout@v4
 
       # 全自动发版：release PR 无需人工合并，检测到即自动合并。
-      # 合并会再次触发本 workflow，由 release-please 创建 tag + Release，随后 build job 打包上传。
       # 注意：必须用 merge commit（--merge），release-please 靠 merge commit message 识别发布。
       # 注意（v4 输出语义，踩坑两次）：pr/prs 仅在「release 已创建」的轮次有值，
       # 创建 release PR 的轮次里是 unset；release_created（根组件）无 release 时也是
@@ -76,6 +79,20 @@ jobs:
               gh pr merge --merge "$PR_NUMBER" --delete-branch=false
             fi
           done
+
+      # ★ 合并动作本身**不会**触发第二轮：合并用的是 GITHUB_TOKEN，而 GitHub 规定
+      # 「由 GITHUB_TOKEN 引发的事件不会再创建新的 workflow run」（防递归）。
+      # 于是 release PR 合了、tag 却永远建不出来（2.5.1 实测：合并提交 ee3c4f8 的
+      # `actions/runs?head_sha=...` 查询返回 total_count=0）。此前一直靠「人工合并」
+      # （人的身份）绕开这条规则；a17dec4 把自动合并修好之后，反而断在这里。
+      # workflow_dispatch 是这条规则的**例外**，所以合并完自己踢一脚。
+      # 第二轮里 releases_created == 'true'，本步骤会被上面的 if 跳过，不会自激循环。
+      - name: Dispatch next run to create tag/Release
+        if: steps.release.outputs.releases_created != 'true' && steps.release.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run release.yml --ref main
 
   build:
     needs: release-please
