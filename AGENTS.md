@@ -74,7 +74,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 1. push / 合并到 main → release-please 按约定式提交计算下一版本
 2. release-please 自动更新 `package.json` + `CHANGELOG.md` + manifest 版本（extra-files），并开 release PR
 3. workflow 的 **Auto-merge** 步骤自动合并该 PR（`gh pr merge --merge`）
-4. 合并触发新 run → release-please 自动打 tag + 创建 GitHub Release
+4. ★ **合并动作本身不会触发下一轮**（2026-09-28 发 2.5.1 实测）：`GITHUB_TOKEN` 引发的事件被 GitHub 递归抑制，合并产生的 push 事件不创建新 run，tag 就永远建不出来。所以第 3 步之后必须显式 `gh workflow run release.yml --ref main` 踢一脚（`workflow_dispatch` 是递归规则的例外）。下一轮 release-please 才打 tag + 创建 GitHub Release。
 5. build job 构建并上传 `bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip`
 
 ### 版本管理文件（勿手动改版本号发版）
@@ -94,7 +94,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - **extra-files(json) 实测不生效**（PR #9/#13/#14 均未触碰 manifest）：release.yml 在 build job 里于 vite build 前按 package.json 版本回填两个 manifest，保证发出去的 zip 版本号正确；仓库内 manifest 版本号在每次 main→dev 回带时手动补齐（当前 2.3.1）。
 - release-please 按 Conventional Commits 定版本：`fix:` → patch，`feat:` → minor，`BREAKING CHANGE` → major。**提交不带前缀不会触发版本升级**；`chore:` 适合 CI/配置/文档改动，不 bump。
 - **dev→main 合并不要 squash**，避免折叠掉 Conventional 前缀导致版本判断失效。
-- `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`），但该 token 无 workflow dispatch 权限，触发工作流用 push 事件即可。
+- `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`）。本地 token **可以** `gh workflow run`（2026-09-28 实测，此前「无 workflow dispatch 权限」的说法不成立），发版卡住时可用它手动补触发。
 - 私有仓库：匿名 curl 下载 release asset 返回 404，须用 `gh release download <tag> --repo catnuko/bookmark-sync`。
 - **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。
 
