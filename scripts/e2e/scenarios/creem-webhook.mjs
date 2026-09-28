@@ -20,8 +20,9 @@
  * 缺失直接失败，不给空洞的绿。
  *
  * 副作用与还原：会**临时**把 e2e 账号的 plan/quota 改成 plus/20MiB、并插入一条
- * 订阅与一条订单（id 都带 `_e2e` 前缀）。`finally` 里按原值还原并删掉这两条，
- * 中途抛错也生效。
+ * 订阅与若干订单（id 都带 `_e2e` 前缀）。中途还会把这条订阅的账期改到过去、调用
+ * 迁移 0044 的兜底函数（`bsync_expire_subscriptions`）验证到期降级。`finally` 里
+ * 按原值还原并删掉这些行，中途抛错也生效。
  */
 import { createHmac } from 'node:crypto';
 import { join } from 'node:path';
@@ -40,7 +41,7 @@ const PLUS_QUOTA_BYTES = 20 * 1024 * 1024;
 export const meta = {
   name: 'creem-webhook',
   describe:
-    'Creem webhook（live 密钥）：验签 + 落订阅/订单 + 翻档；错签被拒；乱序重投不回退订阅状态与账期',
+    'Creem webhook（live 密钥）：验签 + 落订阅/订单 + 翻档；错签被拒；乱序重投不回退订阅状态与账期；取消但未到期不得提前降级',
   needsCloud: true,
 };
 
@@ -107,6 +108,32 @@ function makeSubActiveEvent(uid, stamp, ids, periodEnd) {
   });
 }
 
+/**
+ * 造一条 subscription.canceled：**关键在账期**。
+ * Creem 的 canceled 语义是「不再续费」，object 里 current_period_end_date 仍指向
+ * 本期末（实测：客户门户取消于 2026-09-28，到期日 2027-09-28）。所以这个事件
+ * **不能**被当成「立即失效」处理。
+ */
+function makeSubCanceledEvent(uid, stamp, ids, periodEnd, canceledAt) {
+  return JSON.stringify({
+    id: `evt_cancel_e2e_${stamp}`,
+    eventType: 'subscription.canceled',
+    created_at: Date.now(),
+    object: {
+      id: ids.sub,
+      object: 'subscription',
+      status: 'canceled',
+      customer: { id: ids.cus, object: 'customer' },
+      product: { id: PLUS_PRODUCT, object: 'product' },
+      current_period_end_date: periodEnd,
+      current_period_start_date: new Date(Date.now() - 864e5).toISOString(),
+      canceled_at: canceledAt,
+      metadata: { user_id: uid, plan: 'plus' },
+      mode: 'local',
+    },
+  });
+}
+
 /** 从扩展 SW 发一次带签名的 POST，读回状态码与响应体。 */
 async function postFromSw(dev, body, signature) {
   return dev.swEval(`(async () => {
@@ -134,7 +161,7 @@ const profRow = (uid) =>
 
 const subRow = (uid, subId) =>
   cloud.sql(
-    `select status, plan, creem_subscription_id, creem_customer_id, current_period_end
+    `select status, plan, creem_subscription_id, creem_customer_id, current_period_end, canceled_at
        from public.bsync_subscriptions
       where user_id = '${uid}' and creem_subscription_id = '${subId}' limit 1`,
   )[0] ?? null;
@@ -275,6 +302,45 @@ export async function run({ cfg, report }) {
       sameInstant(sub3?.current_period_end, periodEnd),
       `${sub3?.current_period_end} vs ${periodEnd}`,
     );
+
+    // ------------------------------- 取消但未到期：必须保留已付费的剩余周期
+    // 回归点（线上真实事故）：Creem 客户门户的「取消」发的是 subscription.canceled，
+    // **不是** subscription.scheduled_cancel。原实现对 canceled 无条件 plan='free'，
+    // 于是用户关掉自动续费就立刻失去已付费的整年服务（实测：$20 年订阅，取消后
+    // 4 分钟被降级成 free）。判据必须是账期，不是事件名。
+    report.section('取消但未到期（canceled + 未来账期）→ 保留 plan，只标记不再续费');
+    const canceledAt = new Date().toISOString();
+    const cancelBody = makeSubCanceledEvent(uid, stamp, ids, periodEnd, canceledAt);
+    const cancelRes = await postFromSw(dev, cancelBody, sign(cancelBody));
+    extra.subCanceled = cancelRes;
+    report.equals('subscription.canceled 返回 200', cancelRes.status, 200);
+
+    const sub4 = subRow(uid, ids.sub);
+    report.equals('订阅行 status = scheduled_cancel', sub4?.status, 'scheduled_cancel');
+    report.assert(
+      '订阅行 current_period_end 仍保留',
+      sameInstant(sub4?.current_period_end, periodEnd),
+      `${sub4?.current_period_end} vs ${periodEnd}`,
+    );
+    report.assert('订阅行 canceled_at 已记录', !!sub4?.canceled_at, sub4?.canceled_at);
+
+    const afterCancel = profRow(uid);
+    report.equals('到期前 plan 仍是 plus（不得提前降级）', afterCancel?.plan, 'plus');
+    report.equals('到期前 quota 仍是 20MiB', afterCancel?.quota_bytes, PLUS_QUOTA_BYTES);
+
+    // ------------------------------- 到期兜底任务（迁移 0044）
+    // Creem 是否会在真实到期日补发 subscription.expired 无法验证（要等一年），
+    // 所以靠这个每日任务兜底。这里直接把账期改到过去，验证兜底确实会降级。
+    report.section('到期兜底：账期已过的取消订阅由 bsync_expire_subscriptions 降级');
+    cloud.exec(
+      `update public.bsync_subscriptions set current_period_end = now() - interval '1 hour'
+        where user_id = '${uid}' and creem_subscription_id = '${ids.sub}'`,
+    );
+    const swept = cloud.sql('select public.bsync_expire_subscriptions() as n')[0]?.n;
+    extra.sweptCount = swept;
+    report.assert('兜底任务至少降级 1 个 profile', Number(swept) >= 1, `返回 ${swept}`);
+    report.equals('到期后订阅行 status = expired', subRow(uid, ids.sub)?.status, 'expired');
+    report.equals('到期后 plan 降为 free', profRow(uid)?.plan, 'free');
 
     return extra;
   } finally {

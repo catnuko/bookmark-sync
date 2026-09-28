@@ -9,12 +9,14 @@
 //   checkout.completed / subscription.active / subscription.paid
 //       => 开通或续期：bsync_subscriptions upsert，
 //          bsync_profiles 翻转 plan + quota_bytes
-//   subscription.scheduled_cancel
-//       => 已约取消：本期结束前仍可用（current_period_end 为准）
-//   subscription.past_due
+//   subscription.past_due / paused
 //       => 扣款失败重试中：记录状态，暂不停服务
-//   subscription.canceled / expired / unpaid
-//       => 立即降级回 free（5MB）
+//   subscription.canceled / scheduled_cancel / expired / unpaid
+//       => 按**账期**决定：current_period_end 未到 → 保留 plan、status 记
+//          scheduled_cancel；已到 → 降级 free。
+//          不能对 canceled 无条件降级：门户取消后 current_period_end_date 仍指向
+//          本期末（实测取消于 2026-09-28、到期日 2027-09-28），立即降级等于吞掉
+//          用户已付费的整年服务。到期兜底见迁移 0044 的每日任务。
 //   refund.created
 //       => 订单标记 refunded（对账用，不自动降级，人工处理）
 //
@@ -247,23 +249,6 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
-    // ---------- 已约取消（本期结束前可用，等 expired 再降级） ----------
-    if (eventType === 'subscription.scheduled_cancel') {
-      const periodEnd = (obj as CreemSubscriptionObject).current_period_end_date || null;
-      if (subscriptionId) {
-        await sb
-          .from('bsync_subscriptions')
-          .update({
-            status: 'scheduled_cancel',
-            current_period_end: periodEnd,
-            canceled_at: (obj as CreemSubscriptionObject).canceled_at || new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('creem_subscription_id', subscriptionId);
-      }
-      return json({ ok: true });
-    }
-
     // ---------- 扣款失败重试中：宽限期，暂不停服 ----------
     if (eventType === 'subscription.past_due' || eventType === 'subscription.paused') {
       if (subscriptionId) {
@@ -275,26 +260,51 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
-    // ---------- 终态：立即降级回 free ----------
+    // ---------- 取消 / 到期 / 欠费：按**账期**决定是否立即降级 ----------
+    // Creem 的 canceled 语义是「不再续费」，不是「立即失效」：客户门户点取消后
+    // object 里 current_period_end_date 仍指向本期末（实测取消于 2026-09-28、
+    // 到期日 2027-09-28），文档也把「当期结束时取消」描述为在
+    // current_period_end_date 之前保持 active。但**门户实际发的是 canceled 而不是
+    // scheduled_cancel**（实测），所以这里必须自己按账期判断——否则用户关掉自动
+    // 续费就立刻失去已付费的整年服务。
     if (
       eventType === 'subscription.canceled' ||
+      eventType === 'subscription.scheduled_cancel' ||
       eventType === 'subscription.expired' ||
       eventType === 'subscription.unpaid'
     ) {
+      const sub = obj as CreemSubscriptionObject;
+      const periodEnd = sub.current_period_end_date || null;
+      // expired 按定义就是账期已过；其余事件看本期是否还没走完
+      const stillPaid =
+        eventType !== 'subscription.expired' &&
+        !!periodEnd &&
+        new Date(periodEnd).getTime() > Date.now();
+
       if (subscriptionId) {
         await sb
           .from('bsync_subscriptions')
           .update({
-            status: eventType === 'subscription.canceled' ? 'canceled' : 'expired',
-            canceled_at: (obj as CreemSubscriptionObject).canceled_at || new Date().toISOString(),
+            status: stillPaid
+              ? 'scheduled_cancel'
+              : eventType === 'subscription.canceled'
+                ? 'canceled'
+                : 'expired',
+            canceled_at: sub.canceled_at || new Date().toISOString(),
+            current_period_end: periodEnd,
             updated_at: new Date().toISOString(),
           })
           .eq('creem_subscription_id', subscriptionId);
       }
-      await sb
-        .from('bsync_profiles')
-        .update({ plan: 'free', quota_bytes: PLAN_QUOTA_BYTES.free })
-        .eq('user_id', userId);
+
+      // 已付费周期没走完就保留 plan。到期由 subscription.expired 或迁移 0044 的
+      // 每日兜底任务（bsync_expire_subscriptions）降级。
+      if (!stillPaid) {
+        await sb
+          .from('bsync_profiles')
+          .update({ plan: 'free', quota_bytes: PLAN_QUOTA_BYTES.free })
+          .eq('user_id', userId);
+      }
       return json({ ok: true });
     }
 
