@@ -41,7 +41,7 @@ const PLUS_QUOTA_BYTES = 20 * 1024 * 1024;
 export const meta = {
   name: 'creem-webhook',
   describe:
-    'Creem webhook（live 密钥）：验签 + 落订阅/订单 + 翻档；错签被拒；乱序重投不回退订阅状态与账期；取消但未到期不得提前降级',
+    'Creem webhook（live 密钥）：验签 + 落订阅/订单 + 翻档；错签被拒；乱序重投不回退订阅状态与账期；取消但未到期不得提前降级；退款翻成 refunded',
   needsCloud: true,
 };
 
@@ -134,6 +134,40 @@ function makeSubCanceledEvent(uid, stamp, ids, periodEnd, canceledAt) {
   });
 }
 
+/**
+ * 造一条 refund.created：**object 是「退款」不是「订阅」**。
+ * 形状照抄 Creem 文档样例：订单号在 `object.transaction.order`（不是顶层 object.order），
+ * 订阅以 `transaction.subscription`（字符串）与 `object.subscription`（展开对象，带
+ * metadata）两处出现。原实现读 `obj.order` 且只认顶层 metadata → 事件被当「无关客户」
+ * 丢弃，退款永远不入账（bsync_orders 停在 paid，退款被计成营收）。
+ */
+function makeRefundEvent(uid, stamp, ids) {
+  return JSON.stringify({
+    id: `evt_refund_e2e_${stamp}`,
+    eventType: 'refund.created',
+    created_at: Date.now(),
+    object: {
+      id: `ref_e2e_${stamp}`,
+      object: 'refund',
+      status: 'succeeded',
+      refund_amount: 2000,
+      refund_currency: 'USD',
+      transaction: {
+        id: `tran_e2e_${stamp}`,
+        object: 'transaction',
+        order: ids.ord,
+        subscription: ids.sub,
+      },
+      subscription: {
+        id: ids.sub,
+        object: 'subscription',
+        status: 'canceled',
+        metadata: { user_id: uid, plan: 'plus' },
+      },
+    },
+  });
+}
+
 /** 从扩展 SW 发一次带签名的 POST，读回状态码与响应体。 */
 async function postFromSw(dev, body, signature) {
   return dev.swEval(`(async () => {
@@ -170,6 +204,13 @@ const orderRow = (subId) =>
   cloud.sql(
     `select status, event_type, plan, creem_subscription_id
        from public.bsync_orders where creem_subscription_id = '${subId}' limit 1`,
+  )[0] ?? null;
+
+/** 按 Creem 订单号查（退款只改这一行的 status，subscription.* 事件没有 order 号）。 */
+const orderByOrderId = (orderId) =>
+  cloud.sql(
+    `select status, event_type, creem_order_id
+       from public.bsync_orders where creem_order_id = '${orderId}' limit 1`,
   )[0] ?? null;
 
 export async function run({ cfg, report }) {
@@ -302,6 +343,29 @@ export async function run({ cfg, report }) {
       sameInstant(sub3?.current_period_end, periodEnd),
       `${sub3?.current_period_end} vs ${periodEnd}`,
     );
+
+    // -------------------------------------------- 退款：订单必须翻成 refunded
+    // 回归点（线上真实事故）：refund.created 的 object 是「退款」，订单号在
+    // object.transaction.order，metadata 挂在 object.subscription。原实现读 obj.order
+    // 且只认顶层 metadata → 拿不到 user_id 直接 skipped:no_user，退款静默丢单，
+    // bsync_orders 永远停在 paid（退款被当成营收）。
+    report.section('退款（refund.created）→ 订单翻成 refunded，且事件能被定位到用户');
+    const refundBody = makeRefundEvent(uid, stamp, ids);
+    const refundRes = await postFromSw(dev, refundBody, sign(refundBody));
+    extra.refund = refundRes;
+    report.equals('refund.created 返回 200', refundRes.status, 200);
+    report.assert(
+      'refund.created 未被当成无关客户丢弃',
+      !String(refundRes.text).includes('no_user'),
+      String(refundRes.text).slice(0, 120),
+    );
+    const refunded = orderByOrderId(ids.ord);
+    report.assert(
+      '订单行已按订单号定位到（creem_order_id = transaction.order）',
+      !!refunded,
+      refunded ? JSON.stringify(refunded) : `没有 creem_order_id = ${ids.ord} 的订单行`,
+    );
+    report.equals('订单行 status = refunded', refunded?.status, 'refunded');
 
     // ------------------------------- 取消但未到期：必须保留已付费的剩余周期
     // 回归点（线上真实事故）：Creem 客户门户的「取消」发的是 subscription.canceled，

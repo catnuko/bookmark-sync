@@ -18,7 +18,9 @@
 //          本期末（实测取消于 2026-09-28、到期日 2027-09-28），立即降级等于吞掉
 //          用户已付费的整年服务。到期兜底见迁移 0044 的每日任务。
 //   refund.created
-//       => 订单标记 refunded（对账用，不自动降级，人工处理）
+//       => 订单标记 refunded（对账用，不自动降级，人工处理）。
+//          object 是「退款」不是「订阅」：订单号在 object.transaction.order，
+//          metadata/订阅在 object.subscription —— 读顶层会静默丢单。
 //
 // Secrets：CREEM_WEBHOOK_SECRET
 // ============================================================
@@ -99,6 +101,46 @@ function productIdOf(obj: Record<string, unknown>): string | undefined {
   return obj.items?.[0]?.product_id as string | undefined;
 }
 
+/**
+ * 取事件里的订阅 ID。订阅事件（subscription.*）的 object **就是**订阅，ID 在顶层；
+ * 收银台（checkout.completed）与退款（refund.created）的 object 是别的实体，订阅
+ * 挂在嵌套的 `subscription` 上（收银台是展开对象，退款样例里 `transaction.subscription`
+ * 是纯字符串）。只认 `sub_` 前缀，避免把 `ref_`/`ord_` 之类误当订阅。
+ */
+function subscriptionIdOf(obj: Record<string, unknown>): string | undefined {
+  if (typeof obj.id === 'string' && obj.id.startsWith('sub_')) return obj.id;
+  const sub = obj.subscription;
+  if (typeof sub === 'string' && sub.startsWith('sub_')) return sub;
+  if (sub && typeof sub === 'object') {
+    const id = (sub as { id?: string }).id;
+    if (typeof id === 'string' && id.startsWith('sub_')) return id;
+  }
+  const tx = obj.transaction;
+  if (tx && typeof tx === 'object') {
+    const s = (tx as { subscription?: unknown }).subscription;
+    if (typeof s === 'string' && s.startsWith('sub_')) return s;
+  }
+  return undefined;
+}
+
+/**
+ * 取事件里的订单 ID。收银台事件在顶层 `object.order`；**退款事件的 object 是「退款」**，
+ * 订单藏在 `object.transaction.order`（文档样例即如此）—— 读错位置会让退款静默丢单，
+ * `bsync_orders` 永远停在 paid，退款被当成营收。
+ */
+function orderIdOf(obj: Record<string, unknown>): string | null {
+  const tx = obj.transaction;
+  if (tx && typeof tx === 'object') {
+    const o = (tx as { order?: unknown }).order;
+    if (typeof o === 'string') return o;
+    if (o && typeof o === 'object') return (o as { id?: string }).id ?? null;
+  }
+  const o = obj.order;
+  if (typeof o === 'string') return o;
+  if (o && typeof o === 'object') return (o as { id?: string }).id ?? null;
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405);
@@ -126,16 +168,17 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ---------- 提取公共字段 ----------
-    const metadata = (obj.metadata || {}) as Record<string, unknown>;
+    // metadata 不一定在顶层：退款事件的 object 是「退款」，metadata 挂在嵌套的
+    // subscription 上（文档样例）。只读顶层会拿不到 user_id，事件被当「无关客户」
+    // 静默丢弃（返回 skipped:no_user），退款永远不入账。
+    const nestedSub =
+      obj.subscription && typeof obj.subscription === 'object'
+        ? (obj.subscription as Record<string, unknown>)
+        : undefined;
+    const metadata = ((obj.metadata ?? nestedSub?.metadata) || {}) as Record<string, unknown>;
     let userId = typeof metadata.user_id === 'string' ? metadata.user_id : undefined;
     let plan = typeof metadata.plan === 'string' ? metadata.plan.toLowerCase() : undefined;
-    const subscriptionId =
-      (typeof obj.id === 'string' && obj.id.startsWith('sub_') ? obj.id : undefined) ||
-      (eventType === 'checkout.completed'
-        ? typeof obj.subscription === 'string'
-          ? obj.subscription
-          : ((obj.subscription as { id?: string } | undefined)?.id ?? undefined)
-        : undefined);
+    const subscriptionId = subscriptionIdOf(obj);
 
     // metadata 缺失时按订阅 ID 反查（如用户在 Creem 门户自助操作）
     if (!userId && subscriptionId) {
@@ -165,10 +208,7 @@ Deno.serve(async (req: Request) => {
         user_id: userId,
         plan: plan || null,
         creem_checkout_id: typeof obj.checkout_id === 'string' ? obj.checkout_id : null,
-        creem_order_id:
-          typeof obj.order === 'string'
-            ? obj.order
-            : ((obj.order as { id?: string } | undefined)?.id ?? null),
+        creem_order_id: orderIdOf(obj),
         creem_subscription_id: subscriptionId || null,
         creem_customer_id: customerId || null,
         status: eventType.includes('paid') || eventType.includes('completed') ? 'paid' : 'pending',
@@ -309,13 +349,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // ---------- 退款（对账用，降级走人工） ----------
+    // 退款事件的 object 是「退款」：订单在 object.transaction.order，订阅在
+    // object.subscription（样例里 transaction.subscription 是纯字符串）。
+    // 早期实现读 obj.order → 拿不到订单号 → 静默丢单，退款被计成营收。
     if (eventType === 'refund.created') {
-      const orderId =
-        typeof obj.order === 'string'
-          ? obj.order
-          : ((obj.order as { id?: string } | undefined)?.id ?? null);
+      const orderId = orderIdOf(obj);
       if (orderId) {
         await sb.from('bsync_orders').update({ status: 'refunded' }).eq('creem_order_id', orderId);
+      } else {
+        console.warn(`creem-webhook: refund.created 无订单号，无法对账`, JSON.stringify(obj).slice(0, 500));
       }
       return json({ ok: true });
     }
