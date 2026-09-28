@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.2](https://github.com/catnuko/bookmark-sync/compare/v2.5.1...v2.5.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* **ci:** 发版链路补「按 tag 补发」入口，release-please 加一次重试 ([b5ddb14](https://github.com/catnuko/bookmark-sync/commit/b5ddb14fbcbc85f4684c5410e98ec059c7d566e4))
+* **ci:** 发版链路补「按 tag 补发」入口，release-please 加一次重试 ([a8ef34a](https://github.com/catnuko/bookmark-sync/commit/a8ef34ab9b69ca3b36211ddb828ea1219c3fd379))
+
 ## [2.5.1](https://github.com/catnuko/bookmark-sync/compare/v2.5.0...v2.5.1) (2026-09-28)
 
 
