@@ -53,10 +53,11 @@ async function submit() {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
   background: var(--color-bg-soft);
 }
 .login-card {
-  width: 360px;
+  width: min(360px, calc(100vw - 32px));
   background: #fff;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -116,5 +117,15 @@ h1 {
   font-size: 13px;
   color: var(--color-text-muted);
   text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .login-card {
+    padding: 24px 20px;
+  }
+  /* 16px 防 iOS 聚焦时自动放大页面 */
+  .field input {
+    font-size: 16px;
+  }
 }
 </style>

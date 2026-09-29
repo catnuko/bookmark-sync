@@ -94,6 +94,37 @@ function openUser(id) {
         <td>{{ formatTime(row.last_seen_at) }}</td>
         <td><button class="link" @click="openUser(row.user_id)">详情 →</button></td>
       </template>
+      <template #card="{ row }">
+        <article class="u-card">
+          <div class="u-head">
+            <span class="u-mail">{{ row.email }}</span>
+            <StatusBadge :label="planLabel(row.plan)" :tone="planTone(row.plan)" />
+          </div>
+          <div class="u-row">
+            <span class="u-k">用量</span>
+            <span class="u-v"
+              >{{ formatBytes(row.used_bytes) }} / {{ formatBytes(row.quota_bytes) }}</span
+            >
+          </div>
+          <div class="u-row">
+            <span class="u-k">条数</span>
+            <span class="u-v">{{ formatCount(row.used_count) }}</span>
+          </div>
+          <div class="u-row">
+            <span class="u-k">设备 / 空间</span>
+            <span class="u-v">{{ row.device_count }} / {{ row.space_count }}</span>
+          </div>
+          <div class="u-row">
+            <span class="u-k">注册时间</span>
+            <span class="u-v">{{ formatTime(row.created_at) }}</span>
+          </div>
+          <div class="u-row">
+            <span class="u-k">最后活跃</span>
+            <span class="u-v">{{ formatTime(row.last_seen_at) }}</span>
+          </div>
+          <button class="link u-open" @click="openUser(row.user_id)">详情 →</button>
+        </article>
+      </template>
     </DataTable>
   </div>
 </template>
@@ -136,5 +167,54 @@ function openUser(id) {
   color: var(--color-accent);
   cursor: pointer;
   font-size: 13px;
+}
+
+/* 移动端卡片（插槽内容编译在父作用域，此处 scoped 样式直接生效） */
+.u-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.u-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.u-mail {
+  font-weight: 600;
+  font-size: 14px;
+  word-break: break-all;
+}
+.u-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+.u-k {
+  color: var(--color-text-muted);
+  flex: none;
+}
+.u-v {
+  text-align: right;
+  word-break: break-all;
+}
+.u-open {
+  margin-top: 8px;
+  min-height: 36px;
+}
+
+@media (max-width: 768px) {
+  .filters {
+    flex-wrap: wrap;
+  }
+  .filters input,
+  .filters select {
+    flex: 1 1 140px;
+    font-size: 16px;
+  }
 }
 </style>

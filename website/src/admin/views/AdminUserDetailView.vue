@@ -189,76 +189,82 @@ async function clearUserData() {
       <div class="cols">
         <section class="card">
           <h3>空间（{{ data.spaces?.length || 0 }}）</h3>
-          <table class="mini">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>默认</th>
-                <th>op 数</th>
-                <th>设备数</th>
-                <th>创建</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="s in data.spaces" :key="s.id">
-                <td>{{ s.name }}<span v-if="s.is_default" class="tag">default</span></td>
-                <td>{{ s.is_default ? '✓' : '' }}</td>
-                <td>{{ formatCount(s.op_count) }}</td>
-                <td>{{ s.device_count }}</td>
-                <td>{{ formatTime(s.created_at) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="mini">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>默认</th>
+                  <th>op 数</th>
+                  <th>设备数</th>
+                  <th>创建</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in data.spaces" :key="s.id">
+                  <td>{{ s.name }}<span v-if="s.is_default" class="tag">default</span></td>
+                  <td>{{ s.is_default ? '✓' : '' }}</td>
+                  <td>{{ formatCount(s.op_count) }}</td>
+                  <td>{{ s.device_count }}</td>
+                  <td>{{ formatTime(s.created_at) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section class="card">
           <h3>设备（{{ data.devices?.length || 0 }}）</h3>
-          <table class="mini">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>空间</th>
-                <th>最后在线</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="d in data.devices" :key="d.id">
-                <td>{{ d.name || '(未命名)' }}</td>
-                <td>{{ d.space_name }}</td>
-                <td>{{ formatTime(d.last_seen_at) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="mini">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>空间</th>
+                  <th>最后在线</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="d in data.devices" :key="d.id">
+                  <td>{{ d.name || '(未命名)' }}</td>
+                  <td>{{ d.space_name }}</td>
+                  <td>{{ formatTime(d.last_seen_at) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
 
       <section class="card">
         <h3>最近订单（{{ data.recent_orders?.length || 0 }}）</h3>
-        <table class="mini">
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>plan</th>
-              <th>金额</th>
-              <th>状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="o in data.recent_orders" :key="o.id">
-              <td>{{ formatTime(o.created_at) }}</td>
-              <td>{{ o.plan }}</td>
-              <td>
-                {{ o.amount_cents ? (o.amount_cents / 100).toFixed(2) + ' ' + o.currency : '—' }}
-              </td>
-              <td>
-                <StatusBadge
-                  :label="orderStatusMeta(o.status).label"
-                  :tone="orderStatusMeta(o.status).tone"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="mini">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>plan</th>
+                <th>金额</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="o in data.recent_orders" :key="o.id">
+                <td>{{ formatTime(o.created_at) }}</td>
+                <td>{{ o.plan }}</td>
+                <td>
+                  {{ o.amount_cents ? (o.amount_cents / 100).toFixed(2) + ' ' + o.currency : '—' }}
+                </td>
+                <td>
+                  <StatusBadge
+                    :label="orderStatusMeta(o.status).label"
+                    :tone="orderStatusMeta(o.status).tone"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section class="card">
@@ -293,28 +299,30 @@ async function clearUserData() {
             </div>
           </div>
 
-          <table class="mini">
-            <thead>
-              <tr>
-                <th>空间</th>
-                <th>op 行数</th>
-                <th>快照体积</th>
-                <th>快照水位</th>
-                <th>快照时间</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="s in gc.spaces" :key="s.id">
-                <td>{{ s.name }}<span v-if="s.is_default" class="tag">default</span></td>
-                <td>{{ formatCount(s.op_count) }}</td>
-                <td>{{ s.snapshot_bytes ? formatBytes(s.snapshot_bytes) : '—' }}</td>
-                <td>
-                  {{ s.snapshot_after_op_id != null ? formatCount(s.snapshot_after_op_id) : '—' }}
-                </td>
-                <td>{{ s.snapshot_created_at ? formatTime(s.snapshot_created_at) : '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="mini">
+              <thead>
+                <tr>
+                  <th>空间</th>
+                  <th>op 行数</th>
+                  <th>快照体积</th>
+                  <th>快照水位</th>
+                  <th>快照时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in gc.spaces" :key="s.id">
+                  <td>{{ s.name }}<span v-if="s.is_default" class="tag">default</span></td>
+                  <td>{{ formatCount(s.op_count) }}</td>
+                  <td>{{ s.snapshot_bytes ? formatBytes(s.snapshot_bytes) : '—' }}</td>
+                  <td>
+                    {{ s.snapshot_after_op_id != null ? formatCount(s.snapshot_after_op_id) : '—' }}
+                  </td>
+                  <td>{{ s.snapshot_created_at ? formatTime(s.snapshot_created_at) : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <div class="actions">
             <input
@@ -386,6 +394,10 @@ h2 {
 .card p {
   margin: 4px 0;
   font-size: 13px;
+}
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .mini {
   width: 100%;
@@ -494,6 +506,33 @@ h2 {
 @media (max-width: 900px) {
   .cols {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 14px 12px;
+  }
+  /* 小表不再挤压换行：放不下时横向滚动 */
+  .mini th,
+  .mini td {
+    white-space: nowrap;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+  .actions .btn,
+  .actions .btn-danger,
+  .actions .btn-ghost,
+  .actions select {
+    min-height: 40px;
+  }
+  .actions select,
+  .gc-input {
+    font-size: 16px;
+  }
+  .gc-input {
+    width: 100%;
   }
 }
 </style>

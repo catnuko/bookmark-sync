@@ -74,6 +74,33 @@ watch([page, status], load);
         </td>
         <td class="mono">{{ row.creem_order_id || '—' }}</td>
       </template>
+      <template #card="{ row }">
+        <article class="o-card">
+          <div class="o-head">
+            <span class="o-amount">{{ formatMoney(row.amount_cents, row.currency) }}</span>
+            <StatusBadge
+              :label="orderStatusMeta(row.status).label"
+              :tone="orderStatusMeta(row.status).tone"
+            />
+          </div>
+          <div class="o-row">
+            <span class="o-k">时间</span>
+            <span class="o-v">{{ formatTime(row.created_at) }}</span>
+          </div>
+          <div class="o-row">
+            <span class="o-k">邮箱</span>
+            <span class="o-v">{{ row.email || '—' }}</span>
+          </div>
+          <div class="o-row">
+            <span class="o-k">plan</span>
+            <span class="o-v">{{ row.plan }}</span>
+          </div>
+          <div class="o-row">
+            <span class="o-k">Creem Order ID</span>
+            <span class="o-v mono">{{ row.creem_order_id || '—' }}</span>
+          </div>
+        </article>
+      </template>
     </DataTable>
   </div>
 </template>
@@ -97,5 +124,48 @@ select {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--color-text-muted);
+}
+
+/* 移动端卡片 */
+.o-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.o-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.o-amount {
+  font-weight: 600;
+  font-size: 15px;
+}
+.o-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+.o-k {
+  color: var(--color-text-muted);
+  flex: none;
+}
+.o-v {
+  text-align: right;
+  word-break: break-all;
+}
+
+@media (max-width: 768px) {
+  .bar {
+    flex-wrap: wrap;
+  }
+  select {
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
 }
 </style>

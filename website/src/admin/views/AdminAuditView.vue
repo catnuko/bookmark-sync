@@ -79,6 +79,23 @@ watch([page, action], load);
         <td>{{ row.target_email || row.target_user || '—' }}</td>
         <td class="detail">{{ formatAuditDetail(row.detail) }}</td>
       </template>
+      <template #card="{ row }">
+        <article class="a-card">
+          <div class="a-head">
+            <span class="tag">{{ actionLabel(row.action) }}</span>
+            <span class="a-time">{{ formatTime(row.created_at) }}</span>
+          </div>
+          <div class="a-row">
+            <span class="a-k">操作人</span>
+            <span class="a-v">{{ row.admin_email || row.admin_id }}</span>
+          </div>
+          <div class="a-row">
+            <span class="a-k">目标用户</span>
+            <span class="a-v">{{ row.target_email || row.target_user || '—' }}</span>
+          </div>
+          <div class="a-detail">{{ formatAuditDetail(row.detail) }}</div>
+        </article>
+      </template>
     </DataTable>
   </div>
 </template>
@@ -119,5 +136,58 @@ select {
 }
 .nowrap {
   white-space: nowrap;
+}
+
+/* 移动端卡片 */
+.a-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.a-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.a-time {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.a-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+.a-k {
+  color: var(--color-text-muted);
+  flex: none;
+}
+.a-v {
+  text-align: right;
+  word-break: break-all;
+}
+.a-detail {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-soft);
+  word-break: break-all;
+}
+
+@media (max-width: 768px) {
+  .bar {
+    flex-wrap: wrap;
+  }
+  select {
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
 }
 </style>
