@@ -63,7 +63,11 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - Chrome / Edge：同一份产物。`npx vite build` → `extension/`（同时拷入 `public/manifest.json`），manifest 在 zip 根目录。
 - Firefox：`node scripts/build-firefox.mjs` = 拷贝 `extension/` → `extension-firefox/` 并**替换成 `public/manifest.firefox.json`**（`background.scripts` + `options_ui` + `browser_specific_settings.gecko.id`）。
 - 注意：`pnpm build` = `vite build && node scripts/post-build-safari.mjs`，会顺带同步并尝试编译 Xcode Safari 工程 —— **CI 里不要用 `pnpm build`**，要分别跑 `npx vite build` + `node scripts/build-firefox.mjs`。
-- 每个 Release 产出两个 zip：`bookmark-sync-chromium-<ver>.zip`、`bookmark-sync-firefox-<ver>.zip`。
+- 每个 Release 产出三个 zip：`bookmark-sync-chromium-<ver>.zip`、`bookmark-sync-firefox-<ver>.zip`、`bookmark-sync-source-<ver>.zip`（AMO 源码包，见第 5 节）。
+- 打包脚本（本地 `pnpm package` 与 CI 走**同一条路径**，产物都落 `dist/`）：
+  - `scripts/package-zips.mjs [ver]` → chromium / firefox 两个扩展包，manifest 在 zip 根目录；
+  - `scripts/package-source.mjs [ver]` → AMO 源码包（可复现构建的最小源码集 + 自动生成的 `BUILD.md`）；
+  - 二者共用 `scripts/lib/zip.mjs`（无依赖 zip 写入器，不依赖 runner 的 `zip` 命令）。版本号缺省取 `package.json`，CI 显式传 `resolve` job 定下的版本。
 
 ## 2. 发版流程（全自动，dev → main，无需人工介入）
 
@@ -76,7 +80,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 3. workflow 的 **Auto-merge** 步骤自动合并该 PR（`gh pr merge --merge`）
 4. ★ **合并动作本身不会触发下一轮**：`GITHUB_TOKEN` 引发的事件被 GitHub 递归抑制，合并产生的 push 事件不创建新 run，tag 就建不出来（2026-09-28 发 2.5.1 实测）。**由工作流自己解决**：Auto-merge 之后紧接一步 `gh workflow run release.yml --ref main`（`workflow_dispatch` 是这条递归规则的例外），**不需要人工踢**。第二轮 release-please 才打 tag + 创建 GitHub Release。
 5. **`resolve` job** 统一算「这次构建哪个 tag / 哪个版本」：正常发版取 release-please 的输出，手动补发取 `workflow_dispatch` 的 `tag` 输入；`build` 只依赖它 —— 这样 tag 建好之后若质量门/打包/上传失败，**还能按 tag 重跑 build**（否则 build 会因 `release_created` 已 unset 而永久跳过）。
-6. build job 构建并上传 `bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip`
+6. build job 构建并上传三个 zip：`bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip` / `bookmark-sync-source-<ver>.zip`（最后一个只挂 Release，不进官网）
 
 ### 版本管理文件（勿手动改版本号发版）
 
@@ -98,7 +102,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`）。本地 token **可以** `gh workflow run`（2026-09-28 实测，此前「无 workflow dispatch 权限」的说法不成立）—— 用途仅限于下面的「重跑自动化」。
 - **发版卡住时只「重跑自动化」，这不是手动发版**（两条命令都不碰版本号 / tag / Release，2026-09-29 已实测）：①「release PR 合了但没 tag」→ `gh workflow run release.yml --ref main`；②「tag/Release 建好了但 zip 没上传」（build 或质量门失败）→ `gh workflow run release.yml --ref main -f tag=vX.Y.Z`，resolve job 按该 tag 只重跑 build，GitHub Release 用 `--clobber`、Supabase 用 `x-upsert`，幂等可重复。**两条都救不回来 → 修 `release.yml` 并走 dev→main。**
 - 私有仓库：匿名 curl 下载 release asset 返回 404，须用 `gh release download <tag> --repo catnuko/bookmark-sync`。
-- **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。
+- **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。**源码包不进 Supabase**（官网访客不需要源码），只挂 Release。
 
 ## 3. ★ Safari 硬约束（暂缓，勿投入）
 
@@ -115,7 +119,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 ## 5. 商店发布注意
 
 - 三家商店都要求公开隐私政策 URL（`https://www.bookmark-sync.top/privacy`）。
-- AMO：`manifest.firefox.json` 已声明 `data_collection_permissions`（邮箱/书签/PII）；审核要交**源码包**（打包 `src/`+`package.json`），产物是压缩 bundle；`gecko.id` 一经提交不可改。
+- AMO：`manifest.firefox.json` 已声明 `data_collection_permissions`（邮箱/书签/PII）；审核要交**源码包** —— 每次 Release 已自动附带 `bookmark-sync-source-<ver>.zip`（`scripts/package-source.mjs` 生成：可复现构建的最小源码集 + 自动写入的 `BUILD.md` 构建说明），直接下载上传即可，**不用再手工打包**；提交给 AMO 的产物是 Vite 压缩 bundle；`gecko.id` 一经提交不可改。
 - Chrome/Edge 提交 `extension/` 的 zip。
 
 ## 6. 与用户协作约定

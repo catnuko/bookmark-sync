@@ -8,15 +8,17 @@ name: Automated Release
 #   3. release PR 合并后，release-please 自动打 tag 并创建 GitHub Release
 #      （注意：GITHUB_TOKEN 的合并不会自动触发这一轮，需显式 workflow_dispatch 踢一脚，
 #        见 Auto-merge 之后的 Dispatch 步骤）
-#   4. 本工作流随后构建两个 zip 并上传到该 Release：
+#   4. 本工作流随后构建并上传到该 Release：
 #        - Chromium 包（Chrome/Edge 共用）
 #        - Firefox 包
-    #    一次覆盖三个浏览器，Safari 不参与。
-    #
-    # 5) 上传 GitHub Release 后，同步上传 Supabase Storage public bucket
-    #    `downloads`（官网下载页的分发源）+ latest.json（版本寻址）。
-    #    官网 DownloadView 运行时读 latest.json 生成下载链接，发新版官网无需重新部署。
-    #    仓库不再提交 zip 二进制（website/public/downloads 已 gitignore）。
+#        - AMO 源码包（Firefox 上架审核要交源码，见 scripts/package-source.mjs）
+#      一次覆盖三个浏览器，Safari 不参与。
+#
+#   5. 上传 GitHub Release 后，同步上传 Supabase Storage public bucket
+#      `downloads`（官网下载页的分发源）+ latest.json（版本寻址）。
+#      官网 DownloadView 运行时读 latest.json 生成下载链接，发新版官网无需重新部署。
+#      仓库不再提交 zip 二进制（website/public/downloads 已 gitignore）。
+#      源码包只挂 Release，不进 Supabase —— 官网访客不需要源码。
 #
 # 开发流程：所有改动走 dev 分支，用 Conventional Commits 提交，合并到 main 即自动发版。
 # 提交格式示例：
@@ -219,11 +221,12 @@ jobs:
         run: node scripts/build-firefox.mjs
 
       - name: Package zips
+        # 统一走 Node 脚本（与本地 `pnpm package` 同一条路径），不再依赖 runner 的 zip
+        # 命令；版本显式传 resolve 定下的值，与 manifest 回填、上传文件名同源。
         run: |
           VER="${{ needs.resolve.outputs.version }}"
-          mkdir -p dist
-          (cd extension && zip -r "../dist/bookmark-sync-chromium-$VER.zip" .)
-          (cd extension-firefox && zip -r "../dist/bookmark-sync-firefox-$VER.zip" .)
+          node scripts/package-zips.mjs "$VER"
+          node scripts/package-source.mjs "$VER"
           echo "--- artifacts ---"
           ls -l dist/
 
@@ -234,6 +237,7 @@ jobs:
           gh release upload "${{ needs.resolve.outputs.tag }}" \
             "dist/bookmark-sync-chromium-$VER.zip" \
             "dist/bookmark-sync-firefox-$VER.zip" \
+            "dist/bookmark-sync-source-$VER.zip" \
             --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

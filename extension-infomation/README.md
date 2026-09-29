@@ -145,7 +145,7 @@ Cross-browser bookmark sync for Chrome / Edge / Firefox with end-to-end encrypti
 
 - AMO 的 **Detailed Description**：复制第 3.1 节中文说明（或 3.2 英文说明）。AMO 支持 Markdown/HTML，可直接粘贴。
 
-> 注意：AMO 审核还需提交**源码包**（打包 `src/` + `package.json`），产物 zip 见 GitHub Release v2.2.0。
+> 注意：AMO 审核还需提交**源码包**。每次 Release 已自动附带 `bookmark-sync-source-<ver>.zip`（由 `scripts/package-source.mjs` 生成，内含可复现构建的最小源码集 + `BUILD.md` 构建说明），到对应 tag 的 GitHub Release 下载后直接上传即可，无需手工打包。
 
 ## 8. 测试说明（Chrome Web Store → 测试说明）
 
