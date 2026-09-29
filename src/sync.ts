@@ -176,9 +176,23 @@ export async function getDeviceId(): Promise<string> {
 }
 
 // ---- Profile / 空间 / 设备 控制面 ----
+
+/**
+ * 把 supabase 返回的 `error` 变成**不丢信息**的 Error。
+ *
+ * 它不保证是 Error 实例（PostgrestError 实测是普通对象 `{message, details, hint, code}`）。
+ * 裸 `throw error` 出去而调用方又没接住时，Chrome 扩展错误列表只会显示 `[object Object]`
+ * 加几个压缩后的堆栈帧，等于没线索 —— 2026-09-29 排查 popup 启动报错时就卡在这里。
+ * 走 `describeError` 至少留下服务端原话。写法与 sync/oplogClient.ts 的同名函数一致。
+ */
+function rpcError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new Error(describeError(error));
+}
+
 export async function getProfile(): Promise<ProfileInfo> {
   const { data, error } = await supabase.rpc('bsync_get_profile');
-  if (error) throw error;
+  if (error) throw rpcError(error);
   return data as ProfileInfo;
 }
 
@@ -247,7 +261,7 @@ export async function getBoundSpace(): Promise<{
     .select('*')
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: true });
-  if (error) throw error;
+  if (error) throw rpcError(error);
   const spaces = (data ?? []) as SpaceInfo[];
   const owner = await currentUserId();
   const { [BOUND_SPACE_KEY]: stored } = await api.storage.local.get(BOUND_SPACE_KEY);
@@ -524,7 +538,7 @@ export async function listDevices(spaceId?: string | null): Promise<DeviceInfo[]
     .select('*')
     .eq('space_id', sid)
     .order('last_seen_at', { ascending: false });
-  if (error) throw error;
+  if (error) throw rpcError(error);
   // 归一化到 App.vue 期望的字段名（v2 表是 id / last_seen_at）。
   return ((data ?? []) as Array<Record<string, unknown>>).map((d) => ({
     ...d,
