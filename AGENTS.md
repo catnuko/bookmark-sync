@@ -68,6 +68,8 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
   - `scripts/package-zips.mjs [ver]` → chromium / firefox 两个扩展包，manifest 在 zip 根目录；
   - `scripts/package-source.mjs [ver]` → AMO 源码包（可复现构建的最小源码集 + 自动生成的 `BUILD.md`）；
   - 二者共用 `scripts/lib/zip.mjs`（无依赖 zip 写入器，不依赖 runner 的 `zip` 命令）。版本号缺省取 `package.json`，CI 显式传 `resolve` job 定下的版本。
+- 定价封面图（Creem 产品用，**不参与发版**）：`pnpm pricing-cover` → `scripts/make-pricing-cover.mjs`，渲染官网 `/pricing` 的英文版截 `.pricing-hero`，产出 `dist/creem-pricing-cover-{plus,pro}.png`（3840×2000）。Plus 版带「Recommended」徽标，Pro 版去掉 —— 免得在 Pro 产品页反向推销更便宜的 Plus。
+  走 Playwright + **系统 Chrome**（`channel: 'chrome'`；本机没装 Playwright 自带的 chromium，`CHROME_BIN` 可覆盖）。**别用 Safari MCP 截图**：它回传 base64、落不了盘，而 Creem 上传要磁盘上的文件。
 
 ## 2. 发版流程（全自动，dev → main；唯一人工动作 = 手动触发商店提交）
 
