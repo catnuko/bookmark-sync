@@ -260,6 +260,28 @@ export async function getBoundSpace(): Promise<{
 }
 
 /**
+ * 本机是否已有**属于当前账号**的绑定记录（纯本地读，不发网络请求）。
+ *
+ * 用途：popup 首屏决定「要不要等云端」。首绑门禁只可能在「本机从未绑定」时挡出
+ * （`bindGateNeeded` 里 `boundStale` 与 `bound != null` 两条都直接让开），而这个
+ * 事实完全在本地——已绑定的机器可以直接渲染主界面，不必等 `bsync_spaces` 回来；
+ * 只有从未绑定的机器才需要等云端取回空间列表判门禁，否则会先渲染主界面、再被
+ * 整页门禁盖上（违反「登录 → 门禁 → 主界面」的顺序）。
+ *
+ * 读不到（storage 异常 / 无会话）一律按未绑定处理：走「等云端」的保守分支，
+ * 代价只是多等一次取数，而不是漏挡门禁。
+ */
+export async function hasLocalBinding(): Promise<boolean> {
+  try {
+    const owner = await currentUserId();
+    const { [BOUND_SPACE_KEY]: stored } = await api.storage.local.get(BOUND_SPACE_KEY);
+    return parseBinding(stored, owner).mine;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * B2「多容器并存」→「设备绑定空间」的一次性迁移。
  *
  * B2 时代本机可能残留：① 容器注册表 `crdt.spaceRoots`；② 书签栏下的容器
@@ -487,8 +509,15 @@ function pendingCount(coordinator: SyncCoordinator | null | undefined): number {
   return coordinator?.pendingPushCount ?? 0;
 }
 
-export async function listDevices(spaceId?: string): Promise<DeviceInfo[]> {
-  const sid = spaceId ?? (await getBoundSpace()).bound?.id;
+/**
+ * 某空间的设备列表。
+ *
+ * `spaceId` 显式传 `null` = 「本机没有绑定空间，直接空集」，**不回落**去查一次
+ * `bsync_spaces`。回落分支只服务于「调用方手上没有 bound」的场景；首屏关键路径
+ * 上的 refreshSpacesDevices 已经拿到 bound，再查一遍就是白白多一次往返。
+ */
+export async function listDevices(spaceId?: string | null): Promise<DeviceInfo[]> {
+  const sid = spaceId !== undefined ? spaceId : (await getBoundSpace()).bound?.id;
   if (!sid) return [];
   const { data, error } = await supabase
     .from('bsync_devices')

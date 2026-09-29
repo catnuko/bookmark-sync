@@ -204,6 +204,9 @@
   "quota_loading": {
     "message": "Loading quota…"
   },
+  "quota_loadFailed": {
+    "message": "Quota unavailable"
+  },
   "quota_countOf": {
     "message": "/ $N$ items",
     "placeholders": {

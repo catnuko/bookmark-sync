@@ -204,6 +204,9 @@
   "quota_loading": {
     "message": "额度加载中…"
   },
+  "quota_loadFailed": {
+    "message": "额度加载失败"
+  },
   "quota_countOf": {
     "message": "/ $N$ 条",
     "placeholders": {
