@@ -43,3 +43,4 @@ website/public/downloads/
 
 # 商店提交凭证（publish-extension init 生成；CLI 会自动加载 cwd 下的它）
 .env.submit
+.codebuddy
