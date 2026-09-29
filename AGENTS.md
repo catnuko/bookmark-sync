@@ -69,9 +69,9 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
   - `scripts/package-source.mjs [ver]` → AMO 源码包（可复现构建的最小源码集 + 自动生成的 `BUILD.md`）；
   - 二者共用 `scripts/lib/zip.mjs`（无依赖 zip 写入器，不依赖 runner 的 `zip` 命令）。版本号缺省取 `package.json`，CI 显式传 `resolve` job 定下的版本。
 
-## 2. 发版流程（全自动，dev → main，无需人工介入）
+## 2. 发版流程（全自动，dev → main；唯一人工动作 = 手动触发商店提交）
 
-**开发流程：所有改动走 `dev` 分支，用 Conventional Commits 提交；合并到 `main` 即全自动发版，全程无人操作（release PR 自动合并，不做人工合并）。** 2026-09-29 发 v2.5.2 已实测跑通全程零人工介入。
+**开发流程：所有改动走 `dev` 分支，用 Conventional Commits 提交；合并到 `main` 即全自动发版（release PR 自动合并，不做人工合并）。** 2026-09-29 发 v2.5.2 已实测跑通全程零人工介入；2026-09-29 起追加「商店自动提交」，但提交动作拆到独立工作流，需人工在 Actions 页面点一次 Run workflow 放行（见第 5 节）。
 
 ### 全自动闭环（`.github/workflows/release.yml`）
 
@@ -81,6 +81,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 4. ★ **合并动作本身不会触发下一轮**：`GITHUB_TOKEN` 引发的事件被 GitHub 递归抑制，合并产生的 push 事件不创建新 run，tag 就建不出来（2026-09-28 发 2.5.1 实测）。**由工作流自己解决**：Auto-merge 之后紧接一步 `gh workflow run release.yml --ref main`（`workflow_dispatch` 是这条递归规则的例外），**不需要人工踢**。第二轮 release-please 才打 tag + 创建 GitHub Release。
 5. **`resolve` job** 统一算「这次构建哪个 tag / 哪个版本」：正常发版取 release-please 的输出，手动补发取 `workflow_dispatch` 的 `tag` 输入；`build` 只依赖它 —— 这样 tag 建好之后若质量门/打包/上传失败，**还能按 tag 重跑 build**（否则 build 会因 `release_created` 已 unset 而永久跳过）。
 6. build job 构建并上传三个 zip：`bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip` / `bookmark-sync-source-<ver>.zip`（最后一个只挂 Release，不进官网）
+7. ★ **商店提交不在 `release.yml` 里**，见独立工作流 `.github/workflows/publish-stores.yml`：手动 `workflow_dispatch` 触发，从 GitHub Release 取回三个 zip 提交到 Chrome Web Store / Edge Add-ons / Firefox AMO。**这是全流程唯一的人工动作** —— 到 Actions 页面点一次「Run workflow」（tag 留空 = 取最新 Release）。商店提交失败**不影响** `release.yml` 已发布的一切（Release / tag / 官网下载在 build 阶段就发布完了）。
 
 ### 版本管理文件（勿手动改版本号发版）
 
@@ -100,7 +101,9 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - release-please 按 Conventional Commits 定版本：`fix:` → patch，`feat:` → minor，`BREAKING CHANGE` → major。**提交不带前缀不会触发版本升级**；`chore:` 适合 CI/配置/文档改动，不 bump。
 - **dev→main 合并不要 squash**，避免折叠掉 Conventional 前缀导致版本判断失效。
 - `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`）。本地 token **可以** `gh workflow run`（2026-09-28 实测，此前「无 workflow dispatch 权限」的说法不成立）—— 用途仅限于下面的「重跑自动化」。
-- **发版卡住时只「重跑自动化」，这不是手动发版**（两条命令都不碰版本号 / tag / Release，2026-09-29 已实测）：①「release PR 合了但没 tag」→ `gh workflow run release.yml --ref main`；②「tag/Release 建好了但 zip 没上传」（build 或质量门失败）→ `gh workflow run release.yml --ref main -f tag=vX.Y.Z`，resolve job 按该 tag 只重跑 build，GitHub Release 用 `--clobber`、Supabase 用 `x-upsert`，幂等可重复。**两条都救不回来 → 修 `release.yml` 并走 dev→main。**
+- **发版卡住时只「重跑自动化」，这不是手动发版**（三条命令都不碰版本号 / tag / Release，2026-09-29 已实测）：①「release PR 合了但没 tag」→ `gh workflow run release.yml --ref main`；②「tag/Release 建好了但 zip 没上传」（build 或质量门失败）→ `gh workflow run release.yml --ref main -f tag=vX.Y.Z`，resolve job 按该 tag 只重跑 build，GitHub Release 用 `--clobber`、Supabase 用 `x-upsert`，幂等可重复；③「商店没提交成功」（凭证错/过期、商店系统抖动）→ 先修 `stores` environment 的凭证，再重跑商店提交 `gh workflow run publish-stores.yml --ref main -f tag=vX.Y.Z`（等价于在 Actions 页面点 Run workflow），只提交商店，不重跑打包、不重建 tag。**三条都救不回来 → 修 workflow 并走 dev→main。**
+- **商店提交是独立工作流、默认不自动跑**：`release.yml` 完全不碰商店；`publish-stores.yml` 只有人工 `workflow_dispatch` 一个入口。**同一版本重复提交会被三家商店以「版本号未递增」拒绝**，所以绝不要在 `release.yml` 里加「自动调用 publish-stores」的步骤。
+- **★ 私有仓库 + Free 套餐不支持 environment 保护规则**（2026-09-29 实测）：`Required reviewers` / `Wait timer` 都返回 422「Please ensure the billing plan supports ... protection rule」；`Environment secrets/variables` 和 `Deployment branches` 限制**仍然可用**。这就是商店提交必须走独立工作流手动触发、而不是在流水线中途暂停等 Approve 的原因。升级到 GitHub Pro 后可改回「挂 `environment: stores` + Required reviewers」的一键 Approve 模式。
 - 私有仓库：匿名 curl 下载 release asset 返回 404，须用 `gh release download <tag> --repo catnuko/bookmark-sync`。
 - **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。**源码包不进 Supabase**（官网访客不需要源码），只挂 Release。
 
@@ -121,6 +124,51 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - 三家商店都要求公开隐私政策 URL（`https://www.bookmark-sync.top/privacy`）。
 - AMO：`manifest.firefox.json` 已声明 `data_collection_permissions`（邮箱/书签/PII）；审核要交**源码包** —— 每次 Release 已自动附带 `bookmark-sync-source-<ver>.zip`（`scripts/package-source.mjs` 生成：可复现构建的最小源码集 + 自动写入的 `BUILD.md` 构建说明），直接下载上传即可，**不用再手工打包**；提交给 AMO 的产物是 Vite 压缩 bundle；`gecko.id` 一经提交不可改。
 - Chrome/Edge 提交 `extension/` 的 zip。
+
+### 自动提交（2026-09-29 起，不再人工传包）
+
+`.github/workflows/publish-stores.yml` 是**独立**工作流（`workflow_dispatch` 手动触发），从 GitHub Release 取回三个 zip 提交到三家商店；`release.yml` 完全不碰商店。用第三方 CLI `publish-browser-extension`（钉死 **`@6.1.1`**，`npx --yes` 拉取，**不进 `devDependencies`** —— 免得污染 `pnpm-lock.yaml` 与 AMO 源码包）。
+
+- **★ 为什么独立工作流 + 手动触发，而不是挂在 release.yml 末尾等 Approve**：私有仓库 + Free 套餐**不支持** environment 保护规则（`Required reviewers` / `Wait timer` 均 422，见第 2 节要点）。于是把「放行」交给 `workflow_dispatch`：人点一次 Run workflow 就是审批动作，免费、纯浏览器。升级到 Pro 后可改回「`release.yml` 里挂 `environment: stores` + Required reviewers」。
+- **凭证全部放在 GitHub Environment `stores`**（`Settings → Environments`；**Deployment branches 已限 `main`** —— 在别的分支触发本工作流会失败，这是刻意的）。job 声明 `environment: stores`；**environment secret/variable 只有 job 真正开始后才注入**，所以凭证预检步骤必须在 job 内部。
+
+  | 名字                                                                         | 类型     | 来源                                                                                                                  |
+  | ---------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+  | `CHROME_PUBLISHER_ID`                                                        | variable | CWS 开发者后台（当前值 `0d540b21-27e1-4770-8294-7505eb33fe5c`）                                                       |
+  | `EDGE_PRODUCT_ID`                                                            | variable | Partner Center → 产品的 **Extension Identity**（小写 GUID，**不是**商店 URL 里的 `ilhfggggmdgfnliiimnkhdbaijjombah`） |
+  | `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL` / `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` | secret   | GCP 服务账号 JSON 的 `client_email` / `private_key`                                                                   |
+  | `EDGE_CLIENT_ID` / `EDGE_API_KEY`                                            | secret   | Partner Center → Publish API                                                                                          |
+  | `FIREFOX_JWT_ISSUER` / `FIREFOX_JWT_SECRET`                                  | secret   | AMO → API Credentials                                                                                                 |
+
+  公开常量（`CHROME_EXTENSION_ID`、`FIREFOX_EXTENSION_ID`、`CHROME_API_VERSION`）直接写死在 workflow 里。
+
+- **一次性开通步骤**（三家各一次，做完不用再动）：
+  - **Chrome**：GCP 建服务账号（本项目用 `bookmark-sync-publish` 项目，SA `catnuko6912@bookmark-sync-publish.iam.gserviceaccount.com`）→ 下载 JSON key → 取 `client_email` / `private_key` → **再去 CWS 后台 `设置 → 服务账号` 把 SA 邮箱加进去**（见下条，漏了这步 API 会 403）。
+  - **Edge**：Partner Center → Publish API → 生成 Client ID + API key（**key 有 Expiry，约 72 天，到期必须轮换**）。
+  - **Firefox**：AMO → 开发者中心 → 管理 API 密钥 → 拿 JWT issuer / secret。
+- **★ Chrome 必须用 API v2 + Service Account**：CWS API v1.1 **2026-10-15 停用**（官方 Warning），workflow 里写死 `CHROME_API_VERSION: v2`。
+- **★ 光建 SA 不够，必须在 CWS 后台授权**（2026-09-29 实测）：只建 SA 直接调 API 会返回 **403 `PERMISSION_DENIED`**（"Permission denied on resource ... (or it might not exist)"，措辞极具误导性 —— 看着像资源不存在，其实是没授权）。要到 **CWS 开发者信息中心 → `设置`（`/settings`）→「服务账号」区块 → 填 SA 邮箱 → 添加服务账号**；加完立即生效，**不需要点页面底部的「保存更改」**。**一个 publisher 只能挂 1 个 SA**。
+- **★ 三家凭证都能「只读」自检**（不提交任何东西，改凭证后建议先跑一遍）：
+  - Chrome：SA key 换 access token（`https://oauth2.googleapis.com/token`，`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer`，scope `https://www.googleapis.com/auth/chromewebstore`）→ **`GET https://chromewebstore.googleapis.com/v2/publishers/<pub>/items/<ext>:fetchStatus`**（★ 是 **GET** 不是 POST；写成 POST 会得到 Google 前端的 HTML 404，看着像 API 没启用）。200 = 通；403 = SA 没在 CWS 授权。
+  - Edge：**`GET https://api.addons.microsoftedge.microsoft.com/v1/products/<productId>/submissions/draft/package/operations/<任意 UUID>`** —— 凭证正确返回 **404**（鉴权过了、operation 不存在），凭证错误返回 **401**。这是唯一能区分鉴权的只读探针（`/v1/products/<id>` 之类未知路由一律 404，掩盖鉴权，不可用）。
+  - Firefox：`GET https://addons.mozilla.org/api/v5/addons/addon/<id>/versions/` 带 `Authorization: JWT <token>` —— 200 且能看到 **`approval_notes`**（owner-only 字段）= 通；无 JWT 时该字段为 `undefined`；secret 错则 **401 "Error decoding signature."**。JWT 是 HS256、`{iss, jti, iat, exp}`、60 秒内有效且 jti 不可复用。
+  - 本机跑这些探针要**走代理 `-x http://127.0.0.1:7897`**（Node 原生 fetch/https 不读代理 env，直连被 RST）。
+- **★ 可选环境变量不能写成空串**：CLI 用 `?? process.env.X` 取值，空串会被当成「给了值」→ 配置校验直接失败（`vars.X` 未配置时正是渲染成空串）。所以可选项（`CHROME_PUBLISH_TYPE` / `CHROME_CANCEL_PENDING` / `FIREFOX_CHANNEL`）一律不写；必需项走 job 内的预检步骤点名。
+- **★ `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` 必须是「真实换行」的 PEM**：CLI 只在**交互式 `init`** 里做 `replaceAll("\\n","\n")`，走环境变量时**不反转义** → 塞带字面 `\n` 的单行串会在签名时炸。用 `gh secret set` 从 stdin 灌原始 JSON 的 `private_key` 即可（`node -e 'process.stdout.write(require("<key.json>").private_key)' | gh secret set ...`）。
+- **Node 必须 ≥ 22**：该 CLI 的 `engines.node` 是 `>=22.0.0`，publish job 用 Node 22（build job 的 Node 20 跑不了）。
+- **三家分开调用 CLI**（不一次传三个 zip）：CLI 是「传了哪个 zip 才提交哪家」，分开跑可让一家失败不阻断另两家；各步骤 `continue-on-error` 收集结果，末尾统一 `exit 1` 让 run 变红。
+- **Chrome 首轮用 `CHROME_PUBLISH_TYPE: STAGED_PUBLISH`**（提交审核但**不自动上架**，需在 CWS 后台点发布）—— 链路验证无误后删掉那一行即恢复「审核通过即全量发布」。
+- **Edge 的 `--dry-run` 是空操作**（源码里明写无法在 dry run 校验 API key）→ Edge 凭证只能在真实提交时验证（用上面的只读探针代替）。
+- 本地验证凭证（不污染线上商店；凭证放 gitignored 的 `.env.submit`，CLI 会自动加载）：
+
+  ```bash
+  pnpm package
+  npx --yes publish-browser-extension@6.1.1 --dry-run \
+    --chrome-zip dist/bookmark-sync-chromium-<ver>.zip \
+    --firefox-zip dist/bookmark-sync-firefox-<ver>.zip \
+    --firefox-sources-zip dist/bookmark-sync-source-<ver>.zip \
+    --edge-zip dist/bookmark-sync-chromium-<ver>.zip
+  ```
 
 ## 6. 与用户协作约定
 
