@@ -57,10 +57,11 @@ node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
 
 ## 发布（CI 自动发版）
 
-推送 `feat:`/`fix:` 提交（Conventional Commits）到 `main` 后，GitHub Actions 自动完成：升级版本号 → 生成 `CHANGELOG.md` → 开 release PR → 合并后打 tag 并发布，产出**两个 zip** 挂到 Release：
+推送 `feat:`/`fix:` 提交（Conventional Commits）到 `main` 后，GitHub Actions 自动完成：升级版本号 → 生成 `CHANGELOG.md` → 开 release PR → 合并后打 tag 并发布，产出**三个 zip** 挂到 Release：
 
 - `bookmark-sync-chromium-<ver>.zip`（Chrome / Edge）
 - `bookmark-sync-firefox-<ver>.zip`（Firefox）
+- `bookmark-sync-source-<ver>.zip`（AMO 审核用源码包，含 `BUILD.md` 构建说明；Chrome / Edge 商店不需要）
 
 任何推送到 `dev` / `main` 或 PR 都会先跑 **Quality Gate**（`tsc` 类型检查 + eslint + vitest 单测，本地可用 `pnpm check` 一键执行），未通过不会发版。
 

@@ -63,25 +63,30 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - Chrome / Edge：同一份产物。`npx vite build` → `extension/`（同时拷入 `public/manifest.json`），manifest 在 zip 根目录。
 - Firefox：`node scripts/build-firefox.mjs` = 拷贝 `extension/` → `extension-firefox/` 并**替换成 `public/manifest.firefox.json`**（`background.scripts` + `options_ui` + `browser_specific_settings.gecko.id`）。
 - 注意：`pnpm build` = `vite build && node scripts/post-build-safari.mjs`，会顺带同步并尝试编译 Xcode Safari 工程 —— **CI 里不要用 `pnpm build`**，要分别跑 `npx vite build` + `node scripts/build-firefox.mjs`。
-- 每个 Release 产出两个 zip：`bookmark-sync-chromium-<ver>.zip`、`bookmark-sync-firefox-<ver>.zip`。
+- 每个 Release 产出三个 zip：`bookmark-sync-chromium-<ver>.zip`、`bookmark-sync-firefox-<ver>.zip`、`bookmark-sync-source-<ver>.zip`（AMO 源码包，见第 5 节）。
+- 打包脚本（本地 `pnpm package` 与 CI 走**同一条路径**，产物都落 `dist/`）：
+  - `scripts/package-zips.mjs [ver]` → chromium / firefox 两个扩展包，manifest 在 zip 根目录；
+  - `scripts/package-source.mjs [ver]` → AMO 源码包（可复现构建的最小源码集 + 自动生成的 `BUILD.md`）；
+  - 二者共用 `scripts/lib/zip.mjs`（无依赖 zip 写入器，不依赖 runner 的 `zip` 命令）。版本号缺省取 `package.json`，CI 显式传 `resolve` job 定下的版本。
 
 ## 2. 发版流程（全自动，dev → main，无需人工介入）
 
-**开发流程：所有改动走 `dev` 分支，用 Conventional Commits 提交；合并到 `main` 即全自动发版，全程无人操作（release PR 自动合并，不做人工合并）。**
+**开发流程：所有改动走 `dev` 分支，用 Conventional Commits 提交；合并到 `main` 即全自动发版，全程无人操作（release PR 自动合并，不做人工合并）。** 2026-09-29 发 v2.5.2 已实测跑通全程零人工介入。
 
 ### 全自动闭环（`.github/workflows/release.yml`）
 
 1. push / 合并到 main → release-please 按约定式提交计算下一版本
 2. release-please 自动更新 `package.json` + `CHANGELOG.md` + manifest 版本（extra-files），并开 release PR
 3. workflow 的 **Auto-merge** 步骤自动合并该 PR（`gh pr merge --merge`）
-4. ★ **合并动作本身不会触发下一轮**（2026-09-28 发 2.5.1 实测）：`GITHUB_TOKEN` 引发的事件被 GitHub 递归抑制，合并产生的 push 事件不创建新 run，tag 就永远建不出来。所以第 3 步之后必须显式 `gh workflow run release.yml --ref main` 踢一脚（`workflow_dispatch` 是递归规则的例外）。下一轮 release-please 才打 tag + 创建 GitHub Release。
-5. build job 构建并上传 `bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip`
+4. ★ **合并动作本身不会触发下一轮**：`GITHUB_TOKEN` 引发的事件被 GitHub 递归抑制，合并产生的 push 事件不创建新 run，tag 就建不出来（2026-09-28 发 2.5.1 实测）。**由工作流自己解决**：Auto-merge 之后紧接一步 `gh workflow run release.yml --ref main`（`workflow_dispatch` 是这条递归规则的例外），**不需要人工踢**。第二轮 release-please 才打 tag + 创建 GitHub Release。
+5. **`resolve` job** 统一算「这次构建哪个 tag / 哪个版本」：正常发版取 release-please 的输出，手动补发取 `workflow_dispatch` 的 `tag` 输入；`build` 只依赖它 —— 这样 tag 建好之后若质量门/打包/上传失败，**还能按 tag 重跑 build**（否则 build 会因 `release_created` 已 unset 而永久跳过）。
+6. build job 构建并上传三个 zip：`bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip` / `bookmark-sync-source-<ver>.zip`（最后一个只挂 Release，不进官网）
 
 ### 版本管理文件（勿手动改版本号发版）
 
 - `release-please-config.json`：extra-files 让 release PR 同步 `public/manifest.json`、`public/manifest.firefox.json` 的 `version` 字段
-- `.release-please-manifest.json`：版本基线（当前 2.1.0）
-- **禁止**手动改 package.json 版本号或手动打 tag / 建 Release——会绕过 release-please 导致版本错乱（v2.0.0 就是这么出的岔子：release PR 悬挂、manifest 版本滞后）
+- `.release-please-manifest.json`：版本基线（当前 2.5.2）
+- **禁止**手动改 package.json 版本号或手动打 tag / 建 Release——会绕过 release-please 导致版本错乱（v2.0.0 就是这么出的岔子：release PR 悬挂、manifest 版本滞后）。**同理禁止代用户合 release PR、禁止本地手工打包上传**：发版链路上的问题一律「修好流水线」而不是绕过它。
 
 ### 要点（踩过的坑，勿回退）
 
@@ -91,13 +96,13 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - 不用 `pnpm build`（会顺带跑 Safari 的 Xcode 同步/编译），CI 里分别跑 `npx vite build` + `node scripts/build-firefox.mjs`。
 - **Auto-merge 必须用 `--merge`（merge commit）**：release-please 靠 merge commit message 识别发布。
 - **release-please-action v4 输出语义（踩坑两次，v2.3.0/2.3.1 实测）**：`pr`/`prs` 仅在「release 已创建」的轮次有值，创建 release PR 的轮次是 unset；根组件的 `release_created` 无 release 时也是 unset 而非 `'false'`。auto-merge 条件必须写 `releases_created != 'true' && prs_created == 'true'`（`releases_created` 文档保证无 release 时为 'false'）。
-- **extra-files(json) 实测不生效**（PR #9/#13/#14 均未触碰 manifest）：release.yml 在 build job 里于 vite build 前按 package.json 版本回填两个 manifest，保证发出去的 zip 版本号正确；仓库内 manifest 版本号在每次 main→dev 回带时手动补齐（当前 2.3.1）。
+- **extra-files(json) 实测不生效**（PR #9/#13/#14 均未触碰 manifest）：release.yml 在 build job 里于 vite build 前按 package.json 版本回填两个 manifest，**发出去的 zip 版本号恒正确**；仓库内这两个文件的版本号会漂移（2026-09-29 时是 2.5.0 而 package.json 已是 2.5.2），按惯例在 main→dev 回带时顺手补齐，它不参与发版判定。
 - release-please 按 Conventional Commits 定版本：`fix:` → patch，`feat:` → minor，`BREAKING CHANGE` → major。**提交不带前缀不会触发版本升级**；`chore:` 适合 CI/配置/文档改动，不 bump。
 - **dev→main 合并不要 squash**，避免折叠掉 Conventional 前缀导致版本判断失效。
-- `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`）。本地 token **可以** `gh workflow run`（2026-09-28 实测，此前「无 workflow dispatch 权限」的说法不成立），发版卡住时可用它手动补触发。
-- **发版失败的两条恢复路径**（2026-09-29 起）：①「release PR 合了但没 tag」→ `gh workflow run release.yml --ref main`；②「tag/Release 建好了但 zip 没上传」（build 或质量门失败）→ `gh workflow run release.yml --ref main -f tag=vX.Y.Z`，resolve job 按该 tag 只重跑 build，GitHub Release 用 `--clobber`、Supabase 用 `x-upsert`，幂等可重复。②在 2026-09-29 之前是无解的：build 只认「release-please 刚创建了 release」这个瞬时输出，tag 一旦存在就永久跳过，重跑整轮也救不回来。
+- `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`）。本地 token **可以** `gh workflow run`（2026-09-28 实测，此前「无 workflow dispatch 权限」的说法不成立）—— 用途仅限于下面的「重跑自动化」。
+- **发版卡住时只「重跑自动化」，这不是手动发版**（两条命令都不碰版本号 / tag / Release，2026-09-29 已实测）：①「release PR 合了但没 tag」→ `gh workflow run release.yml --ref main`；②「tag/Release 建好了但 zip 没上传」（build 或质量门失败）→ `gh workflow run release.yml --ref main -f tag=vX.Y.Z`，resolve job 按该 tag 只重跑 build，GitHub Release 用 `--clobber`、Supabase 用 `x-upsert`，幂等可重复。**两条都救不回来 → 修 `release.yml` 并走 dev→main。**
 - 私有仓库：匿名 curl 下载 release asset 返回 404，须用 `gh release download <tag> --repo catnuko/bookmark-sync`。
-- **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。
+- **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。**源码包不进 Supabase**（官网访客不需要源码），只挂 Release。
 
 ## 3. ★ Safari 硬约束（暂缓，勿投入）
 
@@ -114,7 +119,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 ## 5. 商店发布注意
 
 - 三家商店都要求公开隐私政策 URL（`https://www.bookmark-sync.top/privacy`）。
-- AMO：`manifest.firefox.json` 已声明 `data_collection_permissions`（邮箱/书签/PII）；审核要交**源码包**（打包 `src/`+`package.json`），产物是压缩 bundle；`gecko.id` 一经提交不可改。
+- AMO：`manifest.firefox.json` 已声明 `data_collection_permissions`（邮箱/书签/PII）；审核要交**源码包** —— 每次 Release 已自动附带 `bookmark-sync-source-<ver>.zip`（`scripts/package-source.mjs` 生成：可复现构建的最小源码集 + 自动写入的 `BUILD.md` 构建说明），直接下载上传即可，**不用再手工打包**；提交给 AMO 的产物是 Vite 压缩 bundle；`gecko.id` 一经提交不可改。
 - Chrome/Edge 提交 `extension/` 的 zip。
 
 ## 6. 与用户协作约定
