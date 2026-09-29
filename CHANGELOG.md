@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.0](https://github.com/catnuko/bookmark-sync/compare/v2.5.2...v2.6.0) (2026-09-29)
+
+
+### Features
+
+* **ci:** 发版自动产出 AMO 源码包 ([d538f17](https://github.com/catnuko/bookmark-sync/commit/d538f17d10b13f5270ad31cf3733a5c699f827a1))
+* **ci:** 发版自动产出 AMO 源码包 ([e08e9cb](https://github.com/catnuko/bookmark-sync/commit/e08e9cbab72cbd31c3b4512865a511159dd147aa))
+
 ## [2.5.2](https://github.com/catnuko/bookmark-sync/compare/v2.5.1...v2.5.2) (2026-09-28)
 
 
