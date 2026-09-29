@@ -33,13 +33,22 @@ const keyManager = new KeyManager({
 //   云端有盐（此前设备上传过）→ 拉下来覆盖本地（本地无盐或不同）；
 //   本地有盐且云端无 → 上传（本设备是第一个设口令的）。
 // 未登录时退化为纯本地语义（无盐则生成本地盐），保证离线可用。
-async function fetchRemoteSalt(): Promise<string | null> {
+//
+// ★ 「问不到云端」≠「云端没有盐」，所以取盐一律走三态（ok:false = 问不到），
+//   绝不用 null 兼表「没有」。混为一谈会同时炸掉两件事：
+//   ① 新设备被误判成第一台设备，门禁引导它设新口令，派生出一把解不开既有数据的
+//      密钥 —— 而且全程没有任何一步会报错；
+//   ② 本机刚生成的盐被当成「首设」推上云，覆盖掉真正的云端盐 —— 之后所有设备
+//      对齐时都会拿到这个盐，一起派生错密钥。
+type RemoteSalt = { ok: true; salt: string | null } | { ok: false };
+
+async function fetchRemoteSalt(): Promise<RemoteSalt> {
   try {
     const { data, error } = await supabase.rpc('bsync_get_e2ee_salt');
-    if (error) return null;
-    return typeof data === 'string' ? data : null;
+    if (error) return { ok: false };
+    return { ok: true, salt: typeof data === 'string' && data ? data : null };
   } catch {
-    return null;
+    return { ok: false };
   }
 }
 
@@ -56,10 +65,11 @@ async function ensurePhraseSalt(): Promise<void> {
   const { data } = await supabase.auth.getSession();
   if (!data?.session) return; // 未登录：不动云端
   const remote = await fetchRemoteSalt();
+  if (!remote.ok) return; // 问不到：什么都不动（尤其不能推盐，见上面的 ★）
   const local = await keyManager.getSalt();
-  if (remote && local !== remote) {
-    await keyManager.setSalt(remote); // 云端权威
-  } else if (!remote && local) {
+  if (remote.salt && local !== remote.salt) {
+    await keyManager.setSalt(remote.salt); // 云端权威
+  } else if (!remote.salt && local) {
     await pushRemoteSalt(local); // 首设备：上传
   }
 }
@@ -90,7 +100,9 @@ export async function setKeyFromPassphrase(passphrase: string): Promise<boolean>
     if (data?.session) {
       const remote = await fetchRemoteSalt();
       const local = await keyManager.getSalt();
-      if (!remote && local) await pushRemoteSalt(local);
+      // 只有**确认**云端没有盐才推。问不到时推 = 把本机刚生成的盐覆盖到云端，
+      // 已设过口令的设备下次对齐都会拿到它，一起派生错密钥（见上面的 ★）。
+      if (remote.ok && !remote.salt && local) await pushRemoteSalt(local);
     }
   }
   return ok;
@@ -101,12 +113,19 @@ export async function getPhraseSalt(): Promise<string | null> {
   return keyManager.getSalt();
 }
 
-/** 云端是否已有口令盐——没有就是「第一台设备」（要设新口令），有就是新设备。 */
-export async function isFirstDevice(): Promise<boolean> {
+/**
+ * 云端是否已有口令盐 —— 没有就是「第一台设备」（要设新口令），有就是新设备。
+ *
+ * 三态：`true` / `false` / **`null` = 问不到云端**。调用方必须把 `null` 当成
+ * 「不能确定」并按最保守的一侧处理（门禁取 verify，见 store.ts 的 initPhraseGate）：
+ * 把 `null` 当 `true`，网络抖动时的第二台设备会被引导「设置新口令」，派生出一把
+ * 永远解不开既有数据的密钥，而且全程没有任何一步会报错（2026-09-29 修）。
+ */
+export async function isFirstDevice(): Promise<boolean | null> {
   const { data } = await supabase.auth.getSession();
   if (!data?.session) return true;
   const remote = await fetchRemoteSalt();
-  return !remote;
+  return remote.ok ? !remote.salt : null;
 }
 
 /** 清除本机已存的密钥和盐（口令验证失败时回滚，避免误入主界面）。 */

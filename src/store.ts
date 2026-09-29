@@ -411,7 +411,14 @@ export async function initPhraseGate(): Promise<void> {
     state.phraseGateVisible = false;
     return;
   }
-  state.phraseGateMode = (await isFirstDevice()) ? 'setup' : 'verify';
+  // 判据是 isFirstDevice 的三态（见 crypto.ts）：只有**确认**云端没有盐才进 setup，
+  // 问不到（null）必须落在保守的 verify —— 云端有数据时错口令解不开会被
+  // verifyPassphrase 拦下并回滚本机密钥，云端没数据时才算新设备设口令。把 null 当
+  // 首设备会让网络抖动中的第二台设备被引导设新口令，派生出一把解不开既有数据的密钥。
+  // 写全 `=== true` 而不是真值判断：对 boolean|null 两者恰好等价（null 也 falsy），
+  // 写全是为了把「null ≠ 首设备」摆在调用点，免得日后 isFirstDevice 改成别的三态值
+  // （比如字符串状态码）时这里被悄悄带偏。
+  state.phraseGateMode = (await isFirstDevice()) === true ? 'setup' : 'verify';
   state.phraseGateInput = '';
   state.phraseGateMsg = '';
   state.phraseGateBusy = false;
