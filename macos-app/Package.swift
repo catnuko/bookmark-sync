@@ -27,9 +27,20 @@ let package = Package(
         .macOS(.v13)
     ],
     targets: [
+        // Plist 层（M3）：FDA + 宽容解析 + FSEvents，独立 library 便于 XCTest。
+        .target(
+            name: "BookmarkSyncPlist",
+            path: "Sources/BookmarkSyncPlist"
+        ),
         .executableTarget(
             name: "BookmarkSyncMenu",
+            dependencies: ["BookmarkSyncPlist"],
             path: "Sources/BookmarkSyncMenu"
-        )
+        ),
+        .testTarget(
+            name: "BookmarkSyncPlistTests",
+            dependencies: ["BookmarkSyncPlist"],
+            path: "Tests/BookmarkSyncPlistTests"
+        ),
     ]
 )
