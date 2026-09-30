@@ -1,7 +1,11 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
+import { useStoreVersions } from '../../composables/useStoreVersions.js';
 
 const { t } = useI18n();
+
+// 商店在架版本（stores.json，定时采集）。拉取失败时不显示，不影响卡片本身。
+const { storeVersions } = useStoreVersions();
 
 // 三家商店均已上架，卡片直达商店详情页
 const browsers = [
@@ -64,7 +68,12 @@ const iconPaths = {
           </div>
           <div class="browser-info">
             <h3 class="browser-name">{{ t(`browsers.${b.key}.name`) }}</h3>
-            <p class="browser-store">{{ t(`browsers.${b.key}.desc`) }}</p>
+            <p class="browser-store">
+              {{ t(`browsers.${b.key}.desc`) }}
+              <template v-if="storeVersions[b.key]">
+                · {{ t('browsers.storeVersion', { version: storeVersions[b.key].version }) }}
+              </template>
+            </p>
           </div>
           <div class="browser-action">
             <span class="browser-cta">{{ t('download.cta') }}</span>

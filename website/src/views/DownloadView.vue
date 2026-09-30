@@ -1,34 +1,23 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { supabase } from '../lib/supabase.js';
+import { STORAGE_BASE, useLatestVersion } from '../composables/useLatestVersion.js';
+import { useStoreVersions } from '../composables/useStoreVersions.js';
 
 const { t, tm } = useI18n();
 
 // 三家商店已上架：卡片直达商店详情页。
 //
-// 离线安装包托管在 Supabase Storage public bucket `downloads`（release.yml 发版时
-// 上传 + 写 latest.json），这里运行时读取最新版本号生成下载链接——发新版官网
-// 无需重新部署。latest.json 拉取失败时回落到 FALLBACK_VERSION。
-const FALLBACK_VERSION = '2.2.0';
-const STORAGE_BASE = 'https://cwtqnsbpcetvqopdkcou.supabase.co/storage/v1/object/public/downloads';
+// 版本号有两个口径，刻意分开展示（详见 composables/）：
+//   - 「最新发布」= latest.json，我们已发布的版本，决定离线安装包下载链接；
+//   - 「商店在架」= stores.json，商店实际在售的版本 —— 审核有延迟，常落后于前者。
+// 只显示其中一个会让用户点进商店后看到不一致的版本号。
+const { version } = useLatestVersion();
+const { storeVersions } = useStoreVersions();
 
-const version = ref(FALLBACK_VERSION);
 const chromiumZip = computed(() => `${STORAGE_BASE}/bookmark-sync-chromium-${version.value}.zip`);
 const firefoxZip = computed(() => `${STORAGE_BASE}/bookmark-sync-firefox-${version.value}.zip`);
-
-onMounted(async () => {
-  try {
-    const r = await fetch(`${STORAGE_BASE}/latest.json`, { cache: 'no-store' });
-    if (!r.ok) return;
-    const j = await r.json();
-    if (typeof j?.version === 'string' && /^\d+(\.\d+)*$/.test(j.version)) {
-      version.value = j.version;
-    }
-  } catch {
-    /* 网络异常时用内置版本号 */
-  }
-});
 
 // 商店详情页（均已上架）
 const browsers = [
@@ -89,6 +78,7 @@ async function subscribe() {
           <p class="section-eyebrow">{{ t('download.eyebrow') }}</p>
           <h1 class="section-title">{{ t('download.title') }}</h1>
           <p class="section-subtitle">{{ t('download.subtitle') }}</p>
+          <p class="version-badge">{{ t('download.versionBadge', { version }) }}</p>
         </div>
 
         <div class="browser-grid">
@@ -116,7 +106,15 @@ async function subscribe() {
             </div>
             <div class="browser-info">
               <h3 class="browser-name">{{ t(`browsers.${b.key}.name`) }}</h3>
-              <p class="browser-store">{{ t(`browsers.${b.key}.desc`) }}</p>
+              <p class="browser-store">
+                {{ t(`browsers.${b.key}.desc`) }}
+                <template v-if="storeVersions[b.key]">
+                  · {{ t('browsers.storeVersion', { version: storeVersions[b.key].version }) }}
+                  <template v-if="storeVersions[b.key].pending">
+                    · {{ t('browsers.pending', { version: storeVersions[b.key].pending }) }}
+                  </template>
+                </template>
+              </p>
             </div>
             <span class="browser-cta">
               {{ t('download.cta') }}
@@ -217,6 +215,17 @@ async function subscribe() {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.version-badge {
+  margin-top: var(--space-4);
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-soft);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
 .browser-grid {

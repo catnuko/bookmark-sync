@@ -32,14 +32,14 @@ export const ROUTE_SEO = {
     zh: {
       title: 'BookmarkSync · 跨浏览器书签同步与备份工具',
       description:
-        '跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox 之间书签自动同步、多设备一致与跨设备迁移。真树结构，文件夹改名/移动不丢子项；精准删除永不复活；多端自动合并不覆盖。免费 500 条书签起步，Plus / Pro 按年订阅解锁更多条数。',
+        '跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox 之间书签自动同步，跨设备与跨时间保持一致。真树结构，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 500 条书签起步，Plus / Pro 按年订阅解锁更多条数。',
       keywords:
         '书签同步,书签备份,跨浏览器书签,Chrome 书签同步,Edge 书签同步,Firefox 书签同步,书签云同步,书签多设备同步,书签迁移,文件夹改名不丢子项',
     },
     en: {
       title: 'BookmarkSync · Cross-browser bookmark sync & backup',
       description:
-        'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — precise, tombstone-based deletes that never resurrect, and automatic multi-device merge. Start free with 500 bookmarks; Plus and Pro are yearly subscriptions for more.',
+        'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — tombstone-based deletes that never resurrect, and convergent multi-device merge with no overwrites. Start free with 500 bookmarks; Plus and Pro are yearly subscriptions for more.',
       keywords:
         'bookmark sync,bookmark backup,cross-browser bookmarks,Chrome bookmark sync,Edge bookmark sync,Firefox bookmark sync,bookmark cloud sync,bookmark multi-device sync,bookmark migration,folders no lost children',
     },
@@ -166,8 +166,8 @@ export function getSoftwareAppJsonLd(locale = 'zh') {
     operatingSystem: 'Chrome, Edge, Firefox',
     url: SITE.url,
     description: isZh
-      ? '跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox 之间书签自动同步。真树结构同步，文件夹改名/移动不丢子项；精准删除永不复活；多端自动合并不覆盖。免费 500 条书签起步。'
-      : 'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children. Start free with 500 bookmarks.',
+      ? '跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox 之间书签自动同步。真树同步，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 500 条书签起步。'
+      : 'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — and convergent multi-device merge. Start free with 500 bookmarks.',
     offers: [
       {
         '@type': 'Offer',

@@ -1,0 +1,97 @@
+name: Store versions
+
+# 定时采集三家商店（Chrome Web Store / Edge Add-ons / Firefox AMO）的**在架版本**，
+# 写入 Supabase Storage public bucket `downloads` 的 `stores.json`，供官网在
+# 「下载」页与首页浏览器卡片上展示「商店在架 vX.Y.Z」。
+#
+# 为什么单独一份文件、不复用 latest.json：两者语义不同 —— latest.json 是**我们
+# 已发布**的版本，stores.json 是**商店在架**的版本。商店审核有延迟，两者经常不
+# 一致；官网必须分开展示，否则用户点进商店会看到与官网不符的版本号。
+#
+# 为什么用 cron 而不是发版时顺手写：商店在架版本的变化不由我们控制（审核通过、
+# 商店下架都在我们发版之外发生），只能在发版之外周期性探测。
+#
+# 每 6 小时一次：≈120 次/月，单次约 1 分钟，远低于私有仓库每月 2000 分钟的额度。
+# 刻意**不**改成每小时。
+#
+# 采集逻辑全在 `scripts/fetch-store-versions.mjs`（本地可跑同一条路径）：
+#   node scripts/fetch-store-versions.mjs --dry-run
+# 该脚本对三家**分别**采集，单家失败不影响其他，并把失败项保留为线上旧值；
+# 任一失败即 exit 1，让本工作流红起来。
+#
+# 凭证（Chrome 需要；Edge / Firefox 不需要）在 environment `stores`：
+#   variable CHROME_PUBLISHER_ID
+#   secret   CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL / CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
+# SUPABASE_SERVICE_ROLE_KEY 是仓库级 secret（与 release.yml 同一份）。
+# environment `stores` 的 Deployment branches 已限 main —— schedule 恒跑默认分支，
+# 与之一致；在别的分支 dispatch 会因拿不到 secret 而失败，这是刻意的。
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只采集并打印，不写 Supabase（用于改完凭证先自检）'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  # 不碰仓库内容：只需要读代码、写外部 Supabase。
+  contents: read
+
+concurrency:
+  # 采集之间互不干扰，但避免 schedule 与手动触发重叠写同一个对象。
+  group: store-versions
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # 凭证闸门：environment secret/variable 只有在 job 真正开始时才注入。
+    environment: stores
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 脚本用全局 fetch / AbortSignal.timeout；Node 20 起即可，取 22 与商店相关
+          # 工作流保持一致。
+          node-version: 22
+
+      # 凭证预检：脚本里缺变量时报错点分散，先在这里点名。
+      # 只检查「非空」并点名缺哪个，不打印任何值。
+      # ★ `vars.X` 未配置时渲染成**空串**，所以必须按非空判断。
+      - name: Preflight credentials
+        env:
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          missing=()
+          for v in CHROME_PUBLISHER_ID CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL \
+                   CHROME_SERVICE_ACCOUNT_PRIVATE_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            [ -n "${!v:-}" ] || missing+=("$v")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::缺少凭证：${missing[*]}（检查 Settings → Environments → stores 与仓库级 secrets）"
+            exit 1
+          fi
+
+      - name: Collect store versions
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            node scripts/fetch-store-versions.mjs --dry-run
+          else
+            node scripts/fetch-store-versions.mjs
+          fi
