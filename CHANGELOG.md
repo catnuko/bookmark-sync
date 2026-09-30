@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.8.0](https://github.com/catnuko/bookmark-sync/compare/v2.7.0...v2.8.0) (2026-09-30)
+
+
+### Features
+
+* **popup:** 主屏显示当前账户与扩展版本号，帮助补全自动同步触发时机 ([2c5a35a](https://github.com/catnuko/bookmark-sync/commit/2c5a35af993f4f5236dda6e0faa06e45ee251911))
+* **popup:** 增加商店评价入口 ([d0627bb](https://github.com/catnuko/bookmark-sync/commit/d0627bb7b0962c5b11d3554075f4dbc904bf8f79))
+* **website:** 并列显示发布版本与商店在架版本，卖点文案升级为跨端跨时收敛 ([362e59b](https://github.com/catnuko/bookmark-sync/commit/362e59b371ef3645b68064d1805701b480ad8d11))
+
+
+### Bug Fixes
+
+* **i18n:** 补 zh_TW 文案，繁体中文用户不再落英文 ([c109b5f](https://github.com/catnuko/bookmark-sync/commit/c109b5fbc286d7201f90b3d0c1f9c0991798018a))
+
 ## [2.7.0](https://github.com/catnuko/bookmark-sync/compare/v2.6.0...v2.7.0) (2026-09-30)
 
 
