@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.7.0](https://github.com/catnuko/bookmark-sync/compare/v2.6.0...v2.7.0) (2026-09-30)
+
+
+### Features
+
+* **admin:** 后台管理系统移动端适配（抽屉导航 + 卡片表格 + 全屏独立） ([ca317b3](https://github.com/catnuko/bookmark-sync/commit/ca317b303807f4404ec1ae4942b66293d9e79ad3))
+* **ci:** 商店提交自动化，独立 publish-stores 工作流 ([aa837db](https://github.com/catnuko/bookmark-sync/commit/aa837dba7b1109bc66941422565e8e559cee6816))
+
+
+### Bug Fixes
+
+* **crypto:** 云端口令盐区分「问不到」与「没有盐」 ([0d3b11a](https://github.com/catnuko/bookmark-sync/commit/0d3b11aa61832192d1ca1813d42a5453605cdacf))
+* **errors:** 抛出物不再只剩 [object Object] ([e1033f7](https://github.com/catnuko/bookmark-sync/commit/e1033f73f9acc7337a64ea50d8ec434d0a2d9dda))
+* **popup:** 打开即出界面，失败不再无限转圈 ([0da96fd](https://github.com/catnuko/bookmark-sync/commit/0da96fd847b2a85272fdfe1b014b8f27c54c7ef1))
+* **website:** 痛点区补齐第六张卡片，去掉功能区蓝色强调图标 ([cdc7164](https://github.com/catnuko/bookmark-sync/commit/cdc7164bb7075c8c4156e2bceefbea103b34437f))
+
 ## [2.6.0](https://github.com/catnuko/bookmark-sync/compare/v2.5.2...v2.6.0) (2026-09-29)
 
 
