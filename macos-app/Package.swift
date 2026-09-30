@@ -32,15 +32,25 @@ let package = Package(
             name: "BookmarkSyncPlist",
             path: "Sources/BookmarkSyncPlist"
         ),
+        // JSCore 桥（M4a）：crypto/KVStore 注入 + core bundle 加载。
+        .target(
+            name: "BookmarkSyncCoreBridge",
+            path: "Sources/BookmarkSyncCoreBridge"
+        ),
         .executableTarget(
             name: "BookmarkSyncMenu",
-            dependencies: ["BookmarkSyncPlist"],
+            dependencies: ["BookmarkSyncPlist", "BookmarkSyncCoreBridge"],
             path: "Sources/BookmarkSyncMenu"
         ),
         .testTarget(
             name: "BookmarkSyncPlistTests",
             dependencies: ["BookmarkSyncPlist"],
             path: "Tests/BookmarkSyncPlistTests"
+        ),
+        .testTarget(
+            name: "BookmarkSyncCoreBridgeTests",
+            dependencies: ["BookmarkSyncCoreBridge"],
+            path: "Tests/BookmarkSyncCoreBridgeTests"
         ),
     ]
 )

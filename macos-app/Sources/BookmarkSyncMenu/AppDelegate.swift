@@ -6,7 +6,9 @@
 //   - 打开设置：未授权 → 弹窗引导深链系统设置；已授权 → 显示书签统计。
 
 import AppKit
+import BookmarkSyncCoreBridge
 import BookmarkSyncPlist
+import JavaScriptCore
 
 /// 菜单栏 App 的应用代理。
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -14,6 +16,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var statusMenuItem: NSMenuItem?
     private var monitor: BookmarksMonitor?
+    /// M4a：启动时预加载 core bundle（JSContext + Swift crypto 注入），
+    /// 后续 M5 的 SyncCoordinator 直接复用。
+    private var coreContext: JSContext?
+    private var coreEngineLoaded = false
 
     // MARK: - NSApplicationDelegate
 
@@ -28,6 +34,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.menu = buildMenu()
         self.statusItem = item
         refreshAccessStatus()
+        preloadCoreEngine()
+    }
+
+    /// M4a：预加载 core bundle（Swift crypto 注入）。失败只记录，不阻塞菜单栏启动。
+    private func preloadCoreEngine() {
+        do {
+            coreContext = try CoreBridge.loadBundle()
+            coreEngineLoaded = true
+            print("[bsync-mac] core bundle 已加载（Swift crypto 注入生效）")
+        } catch {
+            coreEngineLoaded = false
+            print("[bsync-mac] core bundle 加载失败: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - 菜单
@@ -121,6 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         文件夹 \(stats.folders) 个 · 书签 \(stats.bookmarks) 条 · 阅读列表 \(stats.reading) 条
 
         已启动 FSEvents 监听：书签文件变更会触发同步上传（M5 实现）。
+        核心引擎：\(coreEngineLoaded ? "已加载" : "未加载\(coreContext == nil ? "（先 pnpm build:core）" : "")")
         路径：\(SafariBookmarks.plistPath)
         """
         alert.runModal()

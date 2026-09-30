@@ -70,6 +70,12 @@ Swift 实现：`URLSession` POST `https://<project-ref>.supabase.co/rest/v1/rpc/
 
 `src/crdt/crypto/key.ts` 的 base64url 编解码硬依赖 `btoa/atob`，JSCore 不提供。bundle 入口在缺失时以纯 JS polyfill（与浏览器语义一致），已由冒烟脚本验证往返正确。**宿主不要自行注入**，避免双实现漂移。
 
+### 2.5 `TextEncoder / TextDecoder`（宿主必须注入，M4a 真机新增）
+
+JavaScriptCore **不提供** `TextEncoder / TextDecoder`（bundle 的 `aesGcm.ts` / `key.ts` / `opCrypto.ts` 大量使用：`new TextEncoder().encode(canonical)`、`new TextDecoder().decode(plain)`）。L1 的 node:vm 冒烟因 node 自带而**掩盖了该依赖**，直到 Swift 注入测试才暴露。
+
+宿主注入：`new TextEncoder()` → `{ encode(str) -> Uint8Array }`，`new TextDecoder()` → `{ decode(bytes) -> string }`（Swift 实现见 `TextCodecBridge.swift`；encode 返回普通数组，JS 侧 `new Uint8Array(...)` 或按索引访问均成立）。
+
 ## 3. 导出清单（`globalThis.BookmarkSyncCore`）
 
 - 协调器：`SyncCoordinator`（构造见下）、类型 `SyncCoordinatorOptions` / `PullOutcome`
@@ -82,12 +88,21 @@ Swift 实现：`URLSession` POST `https://<project-ref>.supabase.co/rest/v1/rpc/
 
 ## 4. Swift 侧组装（M4 对接）
 
+> **JSC 微任务限制（M4a 实测）**：JSCore 中 Promise 的 then 回调若用 Swift block
+> （JSExport 桥接）实现，在微任务执行时**不会触发**（JSC 限制，已实验证实）。
+> 所有需要等 JS Promise 结果的场景（如 `setKeyFromPassphrase`），必须用 **JS 闭包
+> 把结果写入全局对象 + Swift 轮询**（参考 `CoreBridgeTests.awaitJS`）。bundle 内部
+> async 函数体**同步调用** Swift block 注入的 crypto/kv 是正常的（不经过微任务回调）。
+
 ```swift
-// 1) 注入三件套（2.1–2.3），再 evaluateScript 加载 bookmark-sync-core.js
+// 1) 注入四件套（2.1–2.5），再 evaluateScript 加载 bookmark-sync-core.js
 let core = context.evaluateScript("BookmarkSyncCore") // JSValue → 桥
 
-// 2) createCore：把 Swift 的 KVStore / RPC 桥接对象传进去
-let inst = core.invokeMethod("createCore", withArguments: [kvBridge, rpcBridge])
+// 2) createCore({ kv, rpc })：单对象参数（Swift 侧构造 host 对象）
+let host = JSValue(newObjectIn: context)!
+host.setObject(kvBridge, forKeyedSubscript: "kv")   // 2.2
+host.setObject(rpcBridge, forKeyedSubscript: "rpc") // 2.3
+let inst = core.invokeMethod("createCore", withArguments: [host])
 
 // 3) 口令派生（与扩展完全一致：同口令 + 同盐 → 同密钥）
 let ok = inst.objectForKeyedSubscript("keyManager").invokeMethod("setKeyFromPassphrase", withArguments: [passphrase])
