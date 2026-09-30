@@ -38,11 +38,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// M4a：预加载 core bundle（Swift crypto 注入）。失败只记录，不阻塞菜单栏启动。
+    /// M4b：有 Supabase 环境变量配置时注入真实 rpc 客户端，否则退化为占位。
     private func preloadCoreEngine() {
         do {
-            coreContext = try CoreBridge.loadBundle()
+            let supabase = SupabaseRpcClient.fromEnvironment()
+            coreContext = try CoreBridge.loadBundle(supabase: supabase)
             coreEngineLoaded = true
-            print("[bsync-mac] core bundle 已加载（Swift crypto 注入生效）")
+            print(
+                "[bsync-mac] core bundle 已加载（Swift crypto 注入生效；" +
+                "rpc=\(supabase == nil ? "占位(未配置)" : "真实 URLSession")）"
+            )
         } catch {
             coreEngineLoaded = false
             print("[bsync-mac] core bundle 加载失败: \(error.localizedDescription)")

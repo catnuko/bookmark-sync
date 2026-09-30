@@ -15,6 +15,7 @@ import ObjectiveC
 public enum CoreBridge {
 
     private static var bridgeKey: UInt8 = 0
+    private static var rpcKey: UInt8 = 0
 
     /// 默认 bundle 路径：swift run / swift test 的 cwd 是 macos-app/，
     /// 产物在 ../dist/core/bookmark-sync-core.js（先 `pnpm build:core`）。
@@ -23,11 +24,16 @@ public enum CoreBridge {
         return (cwd as NSString).appendingPathComponent("../dist/core/bookmark-sync-core.js")
     }
 
-    /// 加载 bundle 到新 JSContext（注入三件套）。
+    /// 加载 bundle 到新 JSContext（注入注入面四件套 + rpc）。
+    /// - Parameters:
+    ///   - supabase: 非 nil 时注入真实 URLSession rpc 客户端；nil 时注入占位
+    ///     （未配置快速失败，行为同 M4a）。
     /// - throws: bundle 文件缺失 / JS 加载失败 / BookmarkSyncCore 未导出。
     public static func loadBundle(
         at path: String = defaultBundlePath,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        supabase: SupabaseRpcClient.Config? = nil,
+        session: URLSession = .shared
     ) throws -> JSContext {
         guard FileManager.default.fileExists(atPath: path) else {
             throw CoreBridgeError.bundleMissing(path: path)
@@ -52,15 +58,26 @@ public enum CoreBridge {
             forKeyedSubscript: "crypto" as NSString
         )
 
-        // 注入面②③：kv + rpc 挂全局，createCore 组装时取用。
+        // 注入面②：kv 挂全局，createCore 组装时取用。
         context.setObject(
             KVStoreBridge.makeKVObject(in: context, defaults: defaults),
             forKeyedSubscript: "kv" as NSString
         )
-        context.setObject(
-            KVStoreBridge.makeRpcPlaceholder(in: context),
-            forKeyedSubscript: "rpc" as NSString
-        )
+
+        // 注入面③：rpc —— 有配置走真实 URLSession 客户端，否则占位快速失败。
+        if let supabase {
+            let client = SupabaseRpcClient(config: supabase, session: session)
+            objc_setAssociatedObject(context, &rpcKey, client, .OBJC_ASSOCIATION_RETAIN)
+            context.setObject(
+                client.makeRpcObject(in: context),
+                forKeyedSubscript: "rpc" as NSString
+            )
+        } else {
+            context.setObject(
+                KVStoreBridge.makeRpcPlaceholder(in: context),
+                forKeyedSubscript: "rpc" as NSString
+            )
+        }
 
         // 注入面④：JSCore 无 TextEncoder/TextDecoder（bundle 依赖，node:vm 冒烟掩盖）。
         context.setObject(

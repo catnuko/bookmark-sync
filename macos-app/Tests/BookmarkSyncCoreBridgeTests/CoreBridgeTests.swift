@@ -70,7 +70,9 @@ final class CoreBridgeTests: XCTestCase {
             if Date().timeIntervalSince(start) > timeout {
                 throw NSError(domain: "CoreBridgeTests", code: 2, userInfo: [NSLocalizedDescriptionKey: "JS Promise 超时"])
             }
-            Thread.sleep(forTimeInterval: 0.01)
+            // RunLoop 而非忙等：留出主线程执行 main queue 任务（如 URLSession 回调的
+            // DispatchQueue.main.async，供 M4b rpc 与未来 M5 复用）。
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
         }
     }
 
