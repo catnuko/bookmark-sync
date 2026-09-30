@@ -17,6 +17,10 @@ public enum CoreBridge {
     private static var bridgeKey: UInt8 = 0
     private static var rpcKey: UInt8 = 0
 
+    /// M4c：最近一次注入的真实 rpc client（App 主线程访问，登录后 setAuthToken）。
+    /// 未配置 supabase 时保持 nil（占位 rpc 无 token 概念）。
+    public private(set) static var lastRpcClient: SupabaseRpcClient?
+
     /// 默认 bundle 路径：swift run / swift test 的 cwd 是 macos-app/，
     /// 产物在 ../dist/core/bookmark-sync-core.js（先 `pnpm build:core`）。
     public static var defaultBundlePath: String {
@@ -68,11 +72,13 @@ public enum CoreBridge {
         if let supabase {
             let client = SupabaseRpcClient(config: supabase, session: session)
             objc_setAssociatedObject(context, &rpcKey, client, .OBJC_ASSOCIATION_RETAIN)
+            lastRpcClient = client
             context.setObject(
                 client.makeRpcObject(in: context),
                 forKeyedSubscript: "rpc" as NSString
             )
         } else {
+            lastRpcClient = nil
             context.setObject(
                 KVStoreBridge.makeRpcPlaceholder(in: context),
                 forKeyedSubscript: "rpc" as NSString

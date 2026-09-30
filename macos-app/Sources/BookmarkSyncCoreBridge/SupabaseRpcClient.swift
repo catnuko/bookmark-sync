@@ -27,21 +27,35 @@ public final class SupabaseRpcClient {
     public struct Config {
         public let projectURL: String // 形如 https://<project-ref>.supabase.co
         public let anonKey: String
-        public let authToken: String? // M5 登录会话后注入（Bearer 优先用用户 token）
 
-        public init(projectURL: String, anonKey: String, authToken: String? = nil) {
+        public init(projectURL: String, anonKey: String) {
             self.projectURL = projectURL
             self.anonKey = anonKey
-            self.authToken = authToken
         }
     }
 
     private let config: Config
     private let session: URLSession
+    private let tokenLock = NSLock()
+    /// M4c：登录后注入用户 access_token；nil 时用 anon key（未登录状态）。
+    private var authToken: String?
 
     public init(config: Config, session: URLSession = .shared) {
         self.config = config
         self.session = session
+    }
+
+    /// M4c：登录成功后注入用户 token（Bearer 优先级：用户 token > anon key）。
+    public func setAuthToken(_ token: String?) {
+        tokenLock.lock()
+        authToken = token
+        tokenLock.unlock()
+    }
+
+    public var effectiveBearer: String {
+        tokenLock.lock()
+        defer { tokenLock.unlock() }
+        return authToken ?? config.anonKey
     }
 
     /// 从环境变量读取配置（开发期；M5 前不引入设置面板/Keychain）。
@@ -66,13 +80,13 @@ public final class SupabaseRpcClient {
     private func makeRpcBlock(context: JSContext) -> @convention(block) (String, JSValue) -> JSValue {
         let baseURL = config.projectURL
         let apikey = config.anonKey
-        let bearer = config.authToken ?? config.anonKey
         let session = self.session
+        let client = self
 
         let block: @convention(block) (String, JSValue) -> JSValue = { fn, args in
             let ctx = JSContext.current() ?? context
 
-            // 1) 创建 JS Promise，立即取走 res/rej（局部持有，避免并发覆盖）。
+            // 1) 创建 JS Promise，立即取走 resolve（局部持有，避免并发覆盖）。
             //    （evaluateScript 返回 IUO；脚本为常量，必然成功，直接解包。）
             let promise = ctx.evaluateScript(
                 "(function(){ return new Promise(function(res, rej){ globalThis.__bsync_rpc_pending = [res, rej]; }); })()"
@@ -85,6 +99,7 @@ public final class SupabaseRpcClient {
             // 2) 构造请求（fn 仅由引擎代码调用，固定 4 个白名单 RPC，无注入风险）。
             //    契约：rpc 必须 resolve { data, error }（transport 用
             //    `const { data, error } = await rpc(...)` 解构；reject 会让解构崩掉）。
+            //    Bearer 每次现取：登录后 token 变化无需重载 bundle。
             guard let url = URL(string: baseURL + "/rest/v1/rpc/" + fn) else {
                 DispatchQueue.main.async {
                     _ = resolve.call(withArguments: [[
@@ -97,7 +112,7 @@ public final class SupabaseRpcClient {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue(apikey, forHTTPHeaderField: "apikey")
-            request.setValue("Bearer " + bearer, forHTTPHeaderField: "Authorization")
+            request.setValue("Bearer " + client.effectiveBearer, forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             do {
                 let jsonData = try JSONSerialization.data(withJSONObject: args.toObject() ?? [:])
