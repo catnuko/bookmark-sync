@@ -1,6 +1,10 @@
 // i18n — chrome.i18n 轻量包装
-// 语言跟随浏览器 UI 语言（Chrome / Edge / Firefox 一致行为）：
-// _locales/zh_CN 命中中文浏览器，其余回落 default_locale（en）。
+// 语言跟随浏览器 UI 语言（Chrome / Edge / Firefox 一致行为），查找链三步：
+//   ① 精确命中 _locales/<ui语言>  ② 若带地区，去掉地区再找（zh-TW → zh）
+//   ③ 回落 default_locale（en）
+// ★ zh_CN 与 zh_TW 是两个**独立代码**，不是同一个中文：繁体用户不会命中 zh_CN。
+//   所以 zh_TW/ 是一份**与 zh_CN 内容相同的副本**（繁中用户看到的即简体文案，
+//   与官网 detectLocale()「zh* 一律给中文」的行为对齐）。改 zh_CN 文案时 zh_TW 要同步。
 // 见 https://developer.chrome.com/docs/extensions/reference/api/i18n
 //
 // 消息键与文案定义在 public/_locales/<locale>/messages.json（构建时拷入产物根目录）。
