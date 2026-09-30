@@ -5,6 +5,7 @@ import { reactive, computed, type ComputedRef } from 'vue';
 import { api, type ExtensionMessage } from './lib/ext.js';
 import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
+import { readUiCache, writeUiCache, clearUiCache, type UiCache } from './lib/uiCache.js';
 import {
   reportError,
   loadErrorReportPref,
@@ -16,6 +17,7 @@ import {
   getProfile,
   countServerBookmarks,
   getBoundSpace,
+  hasLocalBinding,
   createSpace,
   deleteSpace,
   renameSpace,
@@ -122,6 +124,9 @@ export const state = reactive({
   // 付费档案
   profile: null as ProfileInfo | null, // { plan, quota_bytes, used_bytes, used_count?, purchased_at }
   serverCount: null as number | null, // 基线回退：最近一次同步后的服务端书签条数
+  // 云端补水（hydrateRemote）是否失败。首屏不再等云端取数，失败就必须有个说法
+  // ——否则额度卡会永远停在「加载中」（见 quotaPlaceholder）。
+  remoteFailed: false,
   showUpgradeModal: false,
   checkoutBusy: false,
 
@@ -179,6 +184,53 @@ export const state = reactive({
   // toast 队列
   toasts: [] as Toast[],
 });
+
+// ---- 首屏缓存 / 云端补水 ----
+//
+// 分工（见 lib/uiCache.ts 的完整背景）：
+//   bootstrapLocal()  —— 本地状态放行首屏，**不等云端**；
+//   hydrateRemote()   —— 云端取数，结果到了再覆盖；失败只降级，不抛穿、不卡首屏。
+// 两者都不该把「渲染」压在网络往返上，这是 popup「打开要转好几秒」的病根。
+
+/** 把当前 state 的云端投影落盘，供下次打开先渲染（stale-while-revalidate）。 */
+function persistUiCache(): Promise<void> {
+  return writeUiCache(state.session?.user?.id ?? '', {
+    profile: state.profile,
+    serverCount: state.serverCount,
+    spaces: state.spaces,
+    activeSpace: state.activeSpace,
+    boundStale: state.boundStale,
+    devices: state.devices,
+  });
+}
+
+/**
+ * 用上一帧的缓存先填一遍 state（随后被 hydrateRemote 的权威结果覆盖）。
+ *
+ * 只填展示数据，**不碰门禁**：首绑门禁必须等云端确认了空间列表才谈得上判定，
+ * 拿缓存去判会凭过期数据挡出整页门禁。
+ */
+function applyUiCache(c: UiCache | null): void {
+  if (!c) return;
+  state.profile = c.profile;
+  state.serverCount = c.serverCount;
+  state.spaces = c.spaces;
+  state.activeSpace = c.activeSpace;
+  state.boundStale = c.boundStale;
+  state.devices = c.devices;
+}
+
+/**
+ * 云端补水：付费档案 / 空间 / 设备。
+ *
+ * `remoteFailed` 只在这里写（两个请求都成功才清），免得 refreshProfile 与
+ * refreshSpacesDevices 并发跑时互相覆盖；两者都不抛异常，所以这里也永远不会
+ * 把失败甩给调用方——UI 路径上「取数失败」只该表现为额度卡的占位文案。
+ */
+async function hydrateRemote(): Promise<void> {
+  const [profileOk, spacesOk] = await Promise.all([refreshProfile(), refreshSpacesDevices()]);
+  state.remoteFailed = !(profileOk && spacesOk);
+}
 
 // ---- 计时器句柄（页面级单例） ----
 let armedTimer: ReturnType<typeof setInterval> | null = null;
@@ -359,7 +411,14 @@ export async function initPhraseGate(): Promise<void> {
     state.phraseGateVisible = false;
     return;
   }
-  state.phraseGateMode = (await isFirstDevice()) ? 'setup' : 'verify';
+  // 判据是 isFirstDevice 的三态（见 crypto.ts）：只有**确认**云端没有盐才进 setup，
+  // 问不到（null）必须落在保守的 verify —— 云端有数据时错口令解不开会被
+  // verifyPassphrase 拦下并回滚本机密钥，云端没数据时才算新设备设口令。把 null 当
+  // 首设备会让网络抖动中的第二台设备被引导设新口令，派生出一把解不开既有数据的密钥。
+  // 写全 `=== true` 而不是真值判断：对 boolean|null 两者恰好等价（null 也 falsy），
+  // 写全是为了把「null ≠ 首设备」摆在调用点，免得日后 isFirstDevice 改成别的三态值
+  // （比如字符串状态码）时这里被悄悄带偏。
+  state.phraseGateMode = (await isFirstDevice()) === true ? 'setup' : 'verify';
   state.phraseGateInput = '';
   state.phraseGateMsg = '';
   state.phraseGateBusy = false;
@@ -398,12 +457,7 @@ export async function submitPhraseGate(): Promise<void> {
     state.phraseGateInput = '';
     resetCoordinator();
     api.runtime.sendMessage({ type: 'bsync-reset-coordinator' });
-    await Promise.all([
-      refreshStatus(),
-      refreshProfile(),
-      refreshSpacesDevices(),
-      refreshKeyState(),
-    ]);
+    await Promise.all([refreshStatus(), refreshKeyState(), hydrateRemote()]);
     showToast(
       'success',
       state.phraseGateMode === 'setup' ? t('gate_okSetupTitle') : t('gate_okVerifyTitle'),
@@ -418,20 +472,26 @@ export async function submitPhraseGate(): Promise<void> {
 }
 
 // ---- 空间 / 设备 ----
-export async function refreshSpacesDevices(): Promise<void> {
+/** @returns 是否取到云端空间/设备（false = 网络或权限失败）。不抛异常：调用方多为 UI 路径。 */
+export async function refreshSpacesDevices(): Promise<boolean> {
   try {
     const { spaces: sp, bound, stale } = await getBoundSpace();
     state.spaces = sp;
     state.activeSpace = bound;
     state.boundStale = !!stale;
-    state.devices = await listDevices();
+    // 把已经拿到的绑定 id 直接传下去。不传的话 listDevices 会自己再查一遍
+    // bsync_spaces——首屏关键路径上白白多一次往返（见 lib/uiCache.ts 的说明）。
+    state.devices = await listDevices(bound?.id ?? null);
     state.myDeviceId = await getDeviceId();
     syncBindGate();
+    void persistUiCache();
+    return true;
   } catch (e) {
     console.warn(
       '[store] refreshSpacesDevices failed:',
       (e as { message?: unknown })?.message ?? e,
     );
+    return false;
   }
 }
 
@@ -635,16 +695,30 @@ export function deviceCountForSpace(spaceId: string): number {
 }
 
 // ---- 付费 / 配额 ----
-export async function refreshProfile(): Promise<void> {
-  state.profile = await getProfile();
-  if (!(state.profile && typeof state.profile.used_count === 'number')) {
-    state.serverCount = await countServerBookmarks();
+/**
+ * 取云端付费档案（+ 配额口径兜底的服务端条数）。
+ *
+ * @returns 是否取到（false = 网络 / 权限失败）。**不抛异常**：这条链上的调用方
+ *          多是 UI 路径（登录后、设完口令、同步完成后），抛出去会把后面的
+ *          「关门禁 / 提示 / 触发同步」全跳过——用户在界面上只会看到卡住。
+ */
+export async function refreshProfile(): Promise<boolean> {
+  try {
+    state.profile = await getProfile();
+    if (!(state.profile && typeof state.profile.used_count === 'number')) {
+      state.serverCount = await countServerBookmarks();
+    }
+    // 门禁判据含档位（付费才谈得上「新建一个空间」），所以要在这里也重判一次：
+    // 登录时 refreshProfile 与 refreshSpacesDevices 是并发跑的，谁先到不确定，
+    // 只在 refreshSpacesDevices 末尾判会读到 profile=null（=当免费处理）而漏挡。
+    // syncBindGate 幂等，两边都调是安全的。
+    syncBindGate();
+    void persistUiCache();
+    return true;
+  } catch (e) {
+    console.warn('[store] refreshProfile failed:', (e as { message?: unknown })?.message ?? e);
+    return false;
   }
-  // 门禁判据含档位（付费才谈得上「新建一个空间」），所以要在这里也重判一次：
-  // 登录时 refreshProfile 与 refreshSpacesDevices 是并发跑的，谁先到不确定，
-  // 只在 refreshSpacesDevices 末尾判会读到 profile=null（=当免费处理）而漏挡。
-  // syncBindGate 幂等，两边都调是安全的。
-  syncBindGate();
 }
 
 export async function startCheckout(plan: string): Promise<void> {
@@ -1022,11 +1096,10 @@ export async function syncNow(opts: boolean | { force?: boolean } = {}): Promise
     // 同步后刷新配额与空间/设备状态（push 会登记本设备）。
     // 兜底超时：popup 的 supabase 查询偶尔挂起（网络/会话竞争），
     // 不能让「同步中…」永久卡住——同步本身已完成（storage 已更新）。
+    // hydrateRemote 不抛异常，所以取数失败只会落在额度卡的占位文案上，
+    // 不会被下面的 catch 误报成「同步失败」。
     if (r.ok) {
-      await Promise.race([
-        Promise.all([refreshProfile(), refreshSpacesDevices()]),
-        new Promise((resolve) => setTimeout(resolve, 15000)),
-      ]);
+      await Promise.race([hydrateRemote(), new Promise((resolve) => setTimeout(resolve, 15000))]);
     }
   } catch (e) {
     showToast(
@@ -1115,11 +1188,9 @@ export async function submit(): Promise<void> {
     state.gateChecked = false;
     // 记住邮箱，方便下次登录（密码不落盘）
     await api.storage.local.set({ rememberEmail: em });
-    await refreshStatus();
-    await refreshProfile();
-    // 登录后立刻判定门禁：无口令 → 立即显示门禁页；有口令 → 直接进主界面
-    await initPhraseGate();
-    state.gateChecked = true;
+    // 与冷启动同一条路径：本地状态 + 门禁判定放行首屏，云端取数在后台补水。
+    // 别在这里 await refreshProfile()——它走网络，慢的时候登录按钮会一直转。
+    await bootSession();
     // 登录成功后自动触发一次同步：消除登录前的失败状态残留（如 onStartup
     // 未登录时记录的 not_authenticated），同时让 SW 中的 supabase 客户端
     // 通过 ensureSession 兜底恢复 session。
@@ -1137,6 +1208,7 @@ export async function logout(): Promise<void> {
   state.session = null;
   state.profile = null;
   state.serverCount = null;
+  state.remoteFailed = false;
   state.spaces = [];
   state.devices = [];
   state.activeSpace = null;
@@ -1148,6 +1220,8 @@ export async function logout(): Promise<void> {
   state.drawer = '';
   state.armed = '';
   state.status = t('toast_loggedOut');
+  // 首屏缓存跟着会话走：不清的话，换账号登录会把上个账号的空间名/设备名先画出来。
+  await clearUiCache();
   showToast('info', t('toast_loggedOut'), '');
 }
 
@@ -1172,6 +1246,73 @@ export function openHelp(): void {
 }
 
 // ---- 初始化（App onMounted 调用） ----
+
+/**
+ * 首屏阶段：**只读 chrome.storage + 本机密钥**。唯一的例外是「本机还没有同步
+ * 口令」时判 setup / verify 要问一次云端盐（见 initPhraseGate）——那是一条一次性
+ * 路径，设过口令之后每次打开都是纯本地。
+ *
+ * 决定「首屏该渲染哪一关」的信息全在本地：登录态、本机有没有同步口令、上次同步
+ * 结果、各个开关。把它们与云端取数（档案 / 空间 / 设备）拆开，popup 才能立刻出
+ * 界面——旧实现把两者塞进同一个 Promise.all 再 await，于是「打开要转好几秒」：
+ * 本机走代理时一次往返 ~0.9s，而 refreshSpacesDevices 是三次串行。
+ *
+ * 顺序保证不变：有口令 → 不放行门禁；没口令 → 门禁页立刻顶上，都不会先闪主界面。
+ */
+async function bootstrapLocal(userId: string): Promise<void> {
+  try {
+    applyUiCache(await readUiCache(userId));
+    await Promise.all([
+      refreshStatus(),
+      refreshKeyState(),
+      loadAutoSync(),
+      loadErrorReport(),
+      loadCoexistPanel(),
+    ]);
+  } catch (e) {
+    // 这一段只读 storage，理论上不会失败；真失败了也必须放行首屏——否则
+    // gateChecked 永远为 false，popup 会永远停在启动占位上（旧版的病根）。
+    console.warn('[store] bootstrapLocal failed:', (e as { message?: unknown })?.message ?? e);
+  }
+  // 口令门禁单独兜底，且**失败要 fail closed**：它是硬门槛，一次 storage /
+  // 网络抖动就把没设口令的机器放进主界面是不能接受的。mode 取 verify 是最保守的
+  // 一侧——云端有数据时错口令解不开会被拦下，云端没数据时才算新设备设口令。
+  try {
+    await initPhraseGate();
+  } catch (e) {
+    console.warn('[store] initPhraseGate failed:', (e as { message?: unknown })?.message ?? e);
+    state.phraseGateMode = 'verify';
+    state.phraseGateInput = '';
+    state.phraseGateMsg = '';
+    state.phraseGateBusy = false;
+    state.phraseGateVisible = true;
+  }
+}
+
+/**
+ * 首屏（本地）→ 云端补水（后台）。冷启动与登录共用这一条路径。
+ *
+ * 「能不能直接放行主界面」取决于首绑门禁会不会挡出来，而门禁只可能在**本机从未
+ * 绑定**时出现（见 sync/binding.ts 的 bindGateNeeded）——这个事实在本地：
+ *   - 已绑定（含绑定空间已被删的 boundStale）→ 门禁不可能出现，直接放行主界面，
+ *     云端取数在后台补（这就是日常「打开即出界面」的那条路径）；
+ *   - 从未绑定 → 门禁判据要云端空间列表，只能等这一次取数，否则会先渲染主界面
+ *     再被整页门禁盖上，破坏「登录 → 门禁 → 主界面」的顺序。
+ */
+async function bootSession(): Promise<void> {
+  await bootstrapLocal(state.session?.user?.id ?? '');
+  if (await hasLocalBinding()) {
+    state.gateChecked = true;
+    void hydrateRemote();
+    return;
+  }
+  await hydrateRemote();
+  state.gateChecked = true;
+}
+
+/**
+ * 冷启动 / 登录后的入口：本地放行首屏，云端在后台补水。
+ */
 export async function init(popup: boolean): Promise<void> {
   if (popup) document.body.classList.add('popup');
   // 记住上次登录的邮箱（只存邮箱，不存密码），退出登录后自动填充
@@ -1179,23 +1320,7 @@ export async function init(popup: boolean): Promise<void> {
   if (rememberEmail) state.email = rememberEmail as string;
   const { data } = await supabase.auth.getSession();
   state.session = data.session;
-  if (state.session) {
-    // 口令门禁判定与资料刷新并行；判定完成（gateChecked=true）前 App.vue
-    // 不渲染主界面，保证「登录 → 门禁 → 主界面」顺序，不会先闪现主界面。
-    await Promise.all([
-      Promise.all([
-        refreshStatus(),
-        refreshProfile(),
-        refreshSpacesDevices(),
-        loadAutoSync(),
-        loadErrorReport(),
-        loadCoexistPanel(),
-        refreshKeyState(),
-      ]),
-      initPhraseGate(),
-    ]);
-    state.gateChecked = true;
-  }
+  if (state.session) await bootSession();
   supabase.auth.onAuthStateChange(async (_e, s) => {
     const prev = state.session;
     state.session = s;
@@ -1203,22 +1328,11 @@ export async function init(popup: boolean): Promise<void> {
       // 刚登录（prev 为空）：主界面等门禁判定完成后再渲染；
       // TOKEN_REFRESHED 等事件（prev 非空）不重置，避免已渲染界面闪烁。
       if (!prev) state.gateChecked = false;
-      await Promise.all([
-        Promise.all([
-          refreshStatus(),
-          refreshProfile(),
-          refreshSpacesDevices(),
-          loadAutoSync(),
-          loadErrorReport(),
-          loadCoexistPanel(),
-          refreshKeyState(),
-        ]),
-        initPhraseGate(),
-      ]);
-      state.gateChecked = true;
+      await bootSession();
     } else {
       state.profile = null;
       state.serverCount = null;
+      state.remoteFailed = false;
       state.spaces = [];
       state.devices = [];
       state.activeSpace = null;
@@ -1227,6 +1341,9 @@ export async function init(popup: boolean): Promise<void> {
       state.canCreateSpace = false;
       state.rebindTarget = '';
       state.drawer = '';
+      // 会话没了（登出 / 令牌失效）：首屏缓存一并清掉，别把上个账号的
+      // 空间名、设备名留在盘上。
+      void clearUiCache();
     }
   });
 
@@ -1313,6 +1430,16 @@ export const quotaBadge = computed(() => {
   if (quotaState.value === 'warn') return { text: t('quota_warn'), cls: 'badge-warning' };
   return { text: planLabel.value.toUpperCase(), cls: 'badge-neutral' };
 });
+
+/**
+ * 额度卡在拿不到服务端档案时的占位文案。
+ *
+ * 首屏不再等云端（见 bootstrapLocal），所以这个位置既可能是「还在取」也可能是
+ * 「取不到」——后者必须说出来，否则会永远停在「加载中」骗人。
+ */
+export const quotaPlaceholder = computed(() =>
+  state.remoteFailed ? t('quota_loadFailed') : t('quota_loading'),
+);
 
 export const quotaFoot = computed(() => {
   const spaceName = state.activeSpace?.name ?? '';

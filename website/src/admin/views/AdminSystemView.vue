@@ -49,22 +49,24 @@ onMounted(async () => {
 
       <section class="card">
         <h3>op_log 占用 Top 10 用户（仅元数据，不解密）</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>邮箱</th>
-              <th>op 行数</th>
-              <th>字节</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="u in data.top_users" :key="u.user_id">
-              <td>{{ u.email || u.user_id }}</td>
-              <td>{{ formatCount(u.oplog_rows) }}</td>
-              <td>{{ formatBytes(u.oplog_bytes) }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>邮箱</th>
+                <th>op 行数</th>
+                <th>字节</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="u in data.top_users" :key="u.user_id">
+                <td>{{ u.email || u.user_id }}</td>
+                <td>{{ formatCount(u.oplog_rows) }}</td>
+                <td>{{ formatBytes(u.oplog_bytes) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </template>
   </div>
@@ -90,6 +92,10 @@ h2 {
   margin: 0 0 10px;
   font-size: 14px;
 }
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 table {
   width: 100%;
   border-collapse: collapse;
@@ -107,5 +113,19 @@ th {
 }
 .err {
   color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 14px 12px;
+  }
+  th,
+  td {
+    white-space: nowrap;
+  }
+  td:first-child {
+    white-space: normal;
+    word-break: break-all;
+  }
 }
 </style>

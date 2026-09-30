@@ -20,6 +20,14 @@ name: Automated Release
 #      仓库不再提交 zip 二进制（website/public/downloads 已 gitignore）。
 #      源码包只挂 Release，不进 Supabase —— 官网访客不需要源码。
 #
+#   6. ★ 三家商店（Chrome / Edge / Firefox AMO）的提交**不在本工作流里**：
+#      见 .github/workflows/publish-stores.yml —— 独立 workflow_dispatch 工作流，
+#      人在 Actions 页面点一次「Run workflow」即放行，这是全流程唯一的人工动作。
+#      为什么不挂在本工作流末尾：私有仓库 + Free 套餐不支持 environment 的
+#      required reviewers / wait timer 保护规则（API 实测 422「billing plan
+#      supports ... protection rule」），没法在流水线中途暂停等审批。
+#      商店提交失败不影响本工作流已发布的一切（tag / Release / 官网下载）。
+#
 # 开发流程：所有改动走 dev 分支，用 Conventional Commits 提交，合并到 main 即自动发版。
 # 提交格式示例：
 #   feat(ui): add export button      → 触发 minor（新功能）
@@ -33,6 +41,9 @@ name: Automated Release
 #       gh workflow run release.yml --ref main -f tag=v2.5.1
 #     resolve job 会按这个 tag 只跑 build：重新打包 + 覆盖上传
 #     （GitHub Release 用 --clobber，Supabase 用 x-upsert），可反复执行。
+#   - 「商店没提交成功」（凭证错/过期、审核系统抖动）→ 先修 stores environment 的
+#     凭证，再跑 publish-stores.yml（Actions → Publish to stores → Run workflow），
+#     只提交商店，不重跑打包、不重建 tag。
 
 on:
   push:
@@ -151,17 +162,24 @@ jobs:
           CREATED_VERSION: ${{ needs.release-please.outputs.version }}
         run: |
           if [ -n "$INPUT_TAG" ]; then
+            # ── 手动补发（-f tag=...）：按该 tag 重跑打包上传 ──────────────
             TAG="$INPUT_TAG"
             VER="${INPUT_TAG#v}"
           elif [ -n "$CREATED_TAG" ]; then
+            # ── 自动路径（push / 自动 dispatch 的第二轮）─────────────────
+            # 第一轮（建 release PR）CREATED_TAG 为空 → 不构建；
+            # 第二轮（打 tag / 建 Release）才有值 → 构建。
             TAG="$CREATED_TAG"
             VER="$CREATED_VERSION"
           else
+            # 没有可构建的 tag：保持 false（不构建）
+            echo "没有可构建的 tag：既未给 inputs.tag，release-please 也未创建 Release"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+          echo "tag=$TAG"          >> "$GITHUB_OUTPUT"
+          echo "version=$VER"      >> "$GITHUB_OUTPUT"
           echo "should_build=true" >> "$GITHUB_OUTPUT"
           echo "本次构建目标：$TAG（版本 $VER）"
 

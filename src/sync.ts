@@ -176,9 +176,23 @@ export async function getDeviceId(): Promise<string> {
 }
 
 // ---- Profile / 空间 / 设备 控制面 ----
+
+/**
+ * 把 supabase 返回的 `error` 变成**不丢信息**的 Error。
+ *
+ * 它不保证是 Error 实例（PostgrestError 实测是普通对象 `{message, details, hint, code}`）。
+ * 裸 `throw error` 出去而调用方又没接住时，Chrome 扩展错误列表只会显示 `[object Object]`
+ * 加几个压缩后的堆栈帧，等于没线索 —— 2026-09-29 排查 popup 启动报错时就卡在这里。
+ * 走 `describeError` 至少留下服务端原话。写法与 sync/oplogClient.ts 的同名函数一致。
+ */
+function rpcError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new Error(describeError(error));
+}
+
 export async function getProfile(): Promise<ProfileInfo> {
   const { data, error } = await supabase.rpc('bsync_get_profile');
-  if (error) throw error;
+  if (error) throw rpcError(error);
   return data as ProfileInfo;
 }
 
@@ -247,7 +261,7 @@ export async function getBoundSpace(): Promise<{
     .select('*')
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: true });
-  if (error) throw error;
+  if (error) throw rpcError(error);
   const spaces = (data ?? []) as SpaceInfo[];
   const owner = await currentUserId();
   const { [BOUND_SPACE_KEY]: stored } = await api.storage.local.get(BOUND_SPACE_KEY);
@@ -257,6 +271,28 @@ export async function getBoundSpace(): Promise<{
     await api.storage.local.set({ [BOUND_SPACE_KEY]: { u: owner, s: rec.spaceId } });
   }
   return { spaces, bound, stale: rec.mine && !bound };
+}
+
+/**
+ * 本机是否已有**属于当前账号**的绑定记录（纯本地读，不发网络请求）。
+ *
+ * 用途：popup 首屏决定「要不要等云端」。首绑门禁只可能在「本机从未绑定」时挡出
+ * （`bindGateNeeded` 里 `boundStale` 与 `bound != null` 两条都直接让开），而这个
+ * 事实完全在本地——已绑定的机器可以直接渲染主界面，不必等 `bsync_spaces` 回来；
+ * 只有从未绑定的机器才需要等云端取回空间列表判门禁，否则会先渲染主界面、再被
+ * 整页门禁盖上（违反「登录 → 门禁 → 主界面」的顺序）。
+ *
+ * 读不到（storage 异常 / 无会话）一律按未绑定处理：走「等云端」的保守分支，
+ * 代价只是多等一次取数，而不是漏挡门禁。
+ */
+export async function hasLocalBinding(): Promise<boolean> {
+  try {
+    const owner = await currentUserId();
+    const { [BOUND_SPACE_KEY]: stored } = await api.storage.local.get(BOUND_SPACE_KEY);
+    return parseBinding(stored, owner).mine;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -487,15 +523,22 @@ function pendingCount(coordinator: SyncCoordinator | null | undefined): number {
   return coordinator?.pendingPushCount ?? 0;
 }
 
-export async function listDevices(spaceId?: string): Promise<DeviceInfo[]> {
-  const sid = spaceId ?? (await getBoundSpace()).bound?.id;
+/**
+ * 某空间的设备列表。
+ *
+ * `spaceId` 显式传 `null` = 「本机没有绑定空间，直接空集」，**不回落**去查一次
+ * `bsync_spaces`。回落分支只服务于「调用方手上没有 bound」的场景；首屏关键路径
+ * 上的 refreshSpacesDevices 已经拿到 bound，再查一遍就是白白多一次往返。
+ */
+export async function listDevices(spaceId?: string | null): Promise<DeviceInfo[]> {
+  const sid = spaceId !== undefined ? spaceId : (await getBoundSpace()).bound?.id;
   if (!sid) return [];
   const { data, error } = await supabase
     .from('bsync_devices')
     .select('*')
     .eq('space_id', sid)
     .order('last_seen_at', { ascending: false });
-  if (error) throw error;
+  if (error) throw rpcError(error);
   // 归一化到 App.vue 期望的字段名（v2 表是 id / last_seen_at）。
   return ((data ?? []) as Array<Record<string, unknown>>).map((d) => ({
     ...d,

@@ -20,7 +20,7 @@
     </div>
     <div class="q-line">
       <template v-if="usedCount == null">
-        <span class="q-total">{{ t('quota_loading') }}</span>
+        <span class="q-total">{{ quotaPlaceholder }}</span>
       </template>
       <template v-else>
         <span class="q-used">{{ usedCount.toLocaleString() }}</span>
@@ -52,6 +52,7 @@ import {
   usagePct,
   quotaState,
   quotaBadge,
+  quotaPlaceholder,
   quotaFoot,
   quotaBtn,
   openUpgrade,

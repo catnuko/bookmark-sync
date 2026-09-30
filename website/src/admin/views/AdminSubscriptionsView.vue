@@ -93,7 +93,8 @@ select {
   background: #fff;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  overflow: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 table {
   width: 100%;
@@ -114,5 +115,23 @@ th {
   text-align: center;
   color: var(--color-text-faint);
   padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .bar {
+    flex-wrap: wrap;
+  }
+  select {
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
+  table {
+    min-width: 640px;
+  }
+  th,
+  td {
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
 }
 </style>

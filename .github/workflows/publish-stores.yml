@@ -1,0 +1,222 @@
+name: Publish to stores
+
+# 手动把某个 Release 的三个 zip 提交到三家商店（Chrome Web Store / Edge Add-ons /
+# Firefox AMO）。这是发版流程里唯一的人工动作：在 Actions 页面点一次
+# 「Run workflow」即放行，无需本地 CLI。
+#
+# ★ 为什么是独立工作流，而不是挂在 release.yml 末尾自动跑：
+#   私有仓库 + GitHub Free 套餐**不支持** environment 的 required reviewers /
+#   wait timer 保护规则（API 实测返回 422「Failed to create the environment
+#   protection rule. Please ensure the billing plan supports ... protection rule」），
+#   没法在流水线中途暂停等人工审批。于是把「放行」这一步交给 workflow_dispatch：
+#   人点 Run workflow 就是审批动作，免费、纯浏览器。若将来升级到 Pro，可以改为在
+#   release.yml 里挂 environment: stores + Required reviewers，本工作流即可废弃。
+#
+# ★ 为什么从 GitHub Release 下载 zip，而不是复用 build 的 artifact：
+#   1) 单一真相源：Release 资产就是已经发给用户、且与官网 Supabase downloads
+#      同源的那份字节；商店提交必须是同一份，不能再多出一条「第二份 zip」的路径。
+#   2) artifact 只活在产生它的那次 run 里（默认 90 天过期），而商店提交失败往往
+#      隔几天才修好凭证重试 —— 那时 Release 资产仍在。
+#   3) 私有仓库匿名 curl 下载 Release 资产返回 404（AGENTS.md 已记），所以走
+#      gh CLI + GITHUB_TOKEN，不裸 curl。
+#
+# ★ 手动触发默认**不**碰商店（本工作流本身就是手动触发的，且只提交不打包）：
+#   同一版本重复提交会被三家商店以「版本号未递增」拒绝，所以只在明确要提交时才跑。
+#
+# 用法：Actions → Publish to stores → Run workflow
+#   tag 留空 = 取最新 Release；也可显式填 v2.5.3 重提某个旧版本。
+#
+# 凭证在 environment `stores`（Settings → Environments → stores）：
+#   variable CHROME_PUBLISHER_ID / EDGE_PRODUCT_ID
+#   secret   CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL / CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
+#            EDGE_CLIENT_ID / EDGE_API_KEY
+#            FIREFOX_JWT_ISSUER / FIREFOX_JWT_SECRET
+#   该 environment 的 Deployment branches 已限制为仅 main —— 在别的分支触发本
+#   工作流会直接失败（拿不到 secret），这是刻意的。
+#
+# 本地验证凭证（不污染线上商店；凭证放 gitignored 的 .env.submit，CLI 会自动加载）：
+#   pnpm package
+#   npx --yes publish-browser-extension@6.1.1 --dry-run \
+#     --chrome-zip dist/bookmark-sync-chromium-<ver>.zip \
+#     --firefox-zip dist/bookmark-sync-firefox-<ver>.zip \
+#     --firefox-sources-zip dist/bookmark-sync-source-<ver>.zip \
+#     --edge-zip dist/bookmark-sync-chromium-<ver>.zip
+#   注意 Edge 的 --dry-run 是空操作（CLI 源码里明写无法在 dry run 校验 API key），
+#   Edge 凭证只能在真实提交时验证。
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要提交的 Release tag（如 v2.5.3）；留空 = 取最新 Release'
+        required: false
+        type: string
+
+permissions:
+  # 只需读 Release 资产。刻意最小权限：不碰 contents:write / actions:write。
+  contents: read
+
+concurrency:
+  # 商店提交不并发：同一版本同时提交会互相踩（Edge/Chrome 都要求版本号递增）。
+  group: publish-stores
+  cancel-in-progress: false
+
+jobs:
+  publish-stores:
+    runs-on: ubuntu-latest
+    # 凭证闸门：environment secret/variable 只有在 job 真正开始时才注入。
+    # Deployment branches 限 main —— 在别的分支 dispatch 会失败，这是刻意的。
+    environment: stores
+    env:
+      # 三家商店共用一个钉死版本的 CLI（不加 devDependency，避免污染
+      # pnpm-lock.yaml 与 AMO 源码包）。该包 engines 要求 Node >= 22。
+      PUBLISH_CMD: npx --yes publish-browser-extension@6.1.1
+    steps:
+      - name: Resolve target tag and version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG="$INPUT_TAG"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release view --json tagName --jq .tagName)
+            echo "未指定 tag，取最新 Release：${TAG}"
+          fi
+          [ -n "$TAG" ] || { echo "::error::无法确定要提交的 tag"; exit 1; }
+          VER="${TAG#v}"
+          echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "本次提交目标：${TAG}（版本 ${VER}）"
+
+      - name: Setup Node.js
+        # 本 job 不 checkout、不装项目依赖；setup-node 只为满足 CLI 的
+        # engines: node >= 22（release.yml 的 build job 用的是 Node 20，跑不了）。
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download zips from GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          VER: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download "$TAG" --dir dist --clobber \
+            --pattern "bookmark-sync-chromium-$VER.zip" \
+            --pattern "bookmark-sync-firefox-$VER.zip" \
+            --pattern "bookmark-sync-source-$VER.zip"
+          ls -l dist/
+          # 完整性自检：文件非空 + zip 可解析（runner 自带 unzip）。坏包绝不提交商店。
+          for f in "dist/bookmark-sync-chromium-$VER.zip" \
+                   "dist/bookmark-sync-firefox-$VER.zip" \
+                   "dist/bookmark-sync-source-$VER.zip"; do
+            [ -s "$f" ] || { echo "::error::Release ${TAG} 缺少资产 $f"; exit 1; }
+            unzip -t "$f" > /dev/null || { echo "::error::zip 损坏：$f"; exit 1; }
+          done
+
+      # 凭证预检：第三方 CLI 缺变量时的报错很难懂，早发现早报错。
+      # 只检查「非空」并点名缺哪个，不打印任何值。
+      # ★ 注意 `vars.X` 未配置时渲染成**空串**，而 CLI 用 `?? process.env.X`
+      #   取值 —— 空串会被当成「给了值」→ 配置校验直接失败。所以必需项一律预检。
+      - name: Preflight credentials
+        env:
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+        run: |
+          missing=()
+          for v in CHROME_PUBLISHER_ID CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL \
+                   CHROME_SERVICE_ACCOUNT_PRIVATE_KEY EDGE_PRODUCT_ID EDGE_CLIENT_ID \
+                   EDGE_API_KEY FIREFOX_JWT_ISSUER FIREFOX_JWT_SECRET; do
+            [ -n "${!v:-}" ] || missing+=("$v")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::缺少商店凭证：${missing[*]}（检查 Settings → Environments → stores）"
+            exit 1
+          fi
+
+      # ★ 三家分开跑，而不是一次 publish-extension 传三个 zip：
+      #   该 CLI「传了哪个 zip 才提交哪家」（config.ts 里只有 zip 存在才初始化
+      #   对应 store）。分开调用可让「一家失败不阻断另两家」，且每家的 outcome
+      #   能分别展示在 step summary 里。各步骤 continue-on-error，末尾统一报红。
+      - name: Submit to Chrome Web Store
+        id: chrome
+        continue-on-error: true
+        env:
+          # 固定常量内联，不走 vars：未配置的 var 渲染成空串会把 CLI 的
+          # 可选枚举校验炸掉（`??` 只挡 undefined）。
+          CHROME_API_VERSION: v2
+          CHROME_EXTENSION_ID: emmjhpmhfepapemiflddnbmikicklfml
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          CHROME_ZIP: dist/bookmark-sync-chromium-${{ steps.resolve.outputs.version }}.zip
+          # ★ 首次接入的临时安全阀：提交审核但**不自动上架**，需在 CWS 后台点发布。
+          #   链路验证无误后删掉这一行即恢复「审核通过即全量发布」。
+          #   （不设 CHROME_CANCEL_PENDING：不动正在审核的提交。）
+          CHROME_PUBLISH_TYPE: STAGED_PUBLISH
+        run: $PUBLISH_CMD
+
+      - name: Submit to Edge Add-ons
+        id: edge
+        continue-on-error: true
+        env:
+          EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          # Edge 与 Chrome 共用同一份 chromium 产物
+          EDGE_ZIP: dist/bookmark-sync-chromium-${{ steps.resolve.outputs.version }}.zip
+        run: $PUBLISH_CMD
+
+      - name: Submit to Firefox AMO
+        id: firefox
+        continue-on-error: true
+        env:
+          FIREFOX_EXTENSION_ID: bookmark-sync@bookmarksync.app
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+          FIREFOX_ZIP: dist/bookmark-sync-firefox-${{ steps.resolve.outputs.version }}.zip
+          # AMO 上架审核要源码包；release.yml 的 build 已产出并挂 Release，这里直接取用。
+          FIREFOX_SOURCES_ZIP: dist/bookmark-sync-source-${{ steps.resolve.outputs.version }}.zip
+          # FIREFOX_CHANNEL 默认 listed，不设即 listed（空串同样会炸，故不写）。
+        run: $PUBLISH_CMD
+
+      - name: Store submission summary
+        if: always()
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          {
+            echo "## 商店提交结果（${TAG:-未解析}）"
+            echo ""
+            echo "| 商店 | 结果 |"
+            echo "|---|---|"
+            echo "| Chrome Web Store | ${{ steps.chrome.outcome }} |"
+            echo "| Edge Add-ons | ${{ steps.edge.outcome }} |"
+            echo "| Firefox AMO | ${{ steps.firefox.outcome }} |"
+            echo ""
+            echo "> 本工作流只提交商店，不影响任何已发布产物（tag / Release / 官网下载）。"
+            echo "> 重试：Actions → Publish to stores → Run workflow（tag 填 ${TAG}）。"
+            echo "> Chrome 首轮为 STAGED_PUBLISH：审核通过后需在 CWS 后台手动点发布。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # 各提交步骤 continue-on-error 保证三家都尝试；这里统一把失败炸出来
+      # （job 红 + run 红），避免「商店没提交成功」被当成成功。
+      - name: Fail if any store submission failed
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        if: steps.chrome.outcome == 'failure' || steps.edge.outcome == 'failure' || steps.firefox.outcome == 'failure'
+        run: |
+          echo "::error::商店提交失败（详见 step summary 与各步骤日志）。Release ${TAG} 本身不受影响；修好 stores environment 的凭证后重跑本工作流即可。"
+          exit 1

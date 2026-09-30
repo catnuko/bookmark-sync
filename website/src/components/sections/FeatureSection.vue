@@ -4,15 +4,15 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 
 const features = [
-  { key: 'sync', accent: false },
-  { key: 'spaces', accent: false },
-  { key: 'devices', accent: false },
-  { key: 'history', accent: true },
-  { key: 'order', accent: false },
-  { key: 'quota', accent: false },
-  { key: 'privacy', accent: false },
-  { key: 'conflict', accent: false },
-  { key: 'migration', accent: false },
+  { key: 'sync' },
+  { key: 'spaces' },
+  { key: 'devices' },
+  { key: 'history' },
+  { key: 'order' },
+  { key: 'quota' },
+  { key: 'privacy' },
+  { key: 'conflict' },
+  { key: 'migration' },
 ];
 
 const iconPaths = {
@@ -38,12 +38,7 @@ const iconPaths = {
       </div>
 
       <div class="features-grid">
-        <div
-          v-for="feature in features"
-          :key="feature.key"
-          class="feature-card"
-          :class="{ 'feature-accent': feature.accent }"
-        >
+        <div v-for="feature in features" :key="feature.key" class="feature-card">
           <div class="feature-icon">
             <svg
               width="22"
@@ -97,19 +92,6 @@ const iconPaths = {
 
 .feature-card:hover {
   background: var(--color-bg-soft);
-}
-
-.feature-accent {
-  background: var(--color-accent-soft);
-}
-
-.feature-accent:hover {
-  background: var(--color-accent-soft);
-}
-
-.feature-accent .feature-icon {
-  background: var(--color-accent);
-  color: white;
 }
 
 .feature-icon {

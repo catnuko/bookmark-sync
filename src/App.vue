@@ -3,6 +3,7 @@
 // 业务逻辑集中在 src/store.js（弹窗与设置页共用同一套状态与动作）
 import { onMounted } from 'vue';
 import { state, init } from './store.js';
+import { describeError } from './lib/errors.js';
 import AuthView from './components/AuthView.vue';
 import PopupView from './components/PopupView.vue';
 import OptionsView from './components/OptionsView.vue';
@@ -13,7 +14,15 @@ import ToastHost from './components/ui/ToastHost.vue';
 
 const props = defineProps({ popup: { type: Boolean, default: false } });
 
-onMounted(() => init(props.popup));
+// init() 现在保证「本地优先 + 已知路径不抛错」，但它仍是异步的，而 onMounted 不会
+// 接住返回的 promise —— 一旦有意外 reject，Chrome 扩展错误列表里只剩一个
+// `[object Object]`（非 Error 抛出物会被 String()），排障等于没有线索。
+// 这里兜底记一条可读日志；门禁该 fail closed 仍 fail closed，不在这里放行。
+onMounted(() => {
+  void init(props.popup).catch((e) => {
+    console.warn('[app] init failed:', describeError(e));
+  });
+});
 </script>
 
 <template>

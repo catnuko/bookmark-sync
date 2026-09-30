@@ -64,6 +64,10 @@
         "title": "Deletes resurrect and edits overwrite",
         "desc": "A bookmark you deleted on computer A comes back; two devices edit at once and one side silently overwrites the other."
       },
+      "mixed": {
+        "title": "Work and personal bookmarks collide",
+        "desc": "Everything sits in one tree: work links and personal saves get tangled together, and splitting them apart means hand-sorting folders."
+      },
       "lock": {
         "title": "Native sync locks you into a vendor cloud",
         "desc": "Chrome and Edge native sync stores your bookmarks in plaintext in the browser vendor's cloud: switch browsers and it breaks, privacy is out of your hands, and browsers never talk to each other."

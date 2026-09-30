@@ -10,6 +10,7 @@
     "build:all": "node scripts/build-all.mjs",
     "package": "vite build && node scripts/build-firefox.mjs && node scripts/package-zips.mjs && node scripts/package-source.mjs",
     "package:source": "node scripts/package-source.mjs",
+    "pricing-cover": "node scripts/make-pricing-cover.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

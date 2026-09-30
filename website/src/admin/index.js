@@ -1,5 +1,7 @@
 // 后台管理 — 路由表
 // 主 router 直接挂载这段 children；/admin/login 与 /admin/forbidden 不走 AdminLayout。
+// meta.admin 标记「后台页」，App.vue 据此隐藏官网页头/页脚（后台全屏独立，见 docs/admin/PROPOSAL.md §5）。
+// 只需标三个顶层记录，子路由靠 vue-router 的 meta 合并继承。
 import AdminLayout from './components/AdminLayout.vue';
 import { requireAdmin } from './lib/auth.js';
 
@@ -8,18 +10,18 @@ export const adminRoutes = [
     path: '/admin/login',
     name: 'admin-login',
     component: () => import('./views/AdminLoginView.vue'),
-    meta: { title: 'Admin 登录', public: true },
+    meta: { title: 'Admin 登录', public: true, admin: true },
   },
   {
     path: '/admin/forbidden',
     name: 'admin-forbidden',
     component: () => import('./views/AdminForbiddenView.vue'),
-    meta: { title: '无权访问', public: true },
+    meta: { title: '无权访问', public: true, admin: true },
   },
   {
     path: '/admin',
     component: AdminLayout,
-    meta: { requiresAdmin: true },
+    meta: { requiresAdmin: true, admin: true },
     children: [
       {
         path: '',
