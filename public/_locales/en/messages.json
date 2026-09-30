@@ -201,6 +201,9 @@
   "popup_helpTail": {
     "message": "FAQ & notes"
   },
+  "popup_rateRow": {
+    "message": "Rate this extension"
+  },
   "quota_loading": {
     "message": "Loading quota…"
   },

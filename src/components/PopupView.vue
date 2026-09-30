@@ -74,6 +74,13 @@
           <span class="sc-tail">{{ t('popup_helpTail') }}</span>
           <Icon class="chev" name="chevron-right" />
         </button>
+        <button type="button" class="inset-row clickable" @click="openStoreReview()">
+          <span class="lede"><Icon name="star" /></span>
+          <span class="r-main"
+            ><span class="r-title">{{ t('popup_rateRow') }}</span></span
+          >
+          <Icon class="chev" name="chevron-right" />
+        </button>
       </div>
     </div>
   </div>
@@ -100,6 +107,7 @@
 import { computed } from 'vue';
 import { state, openDrawer, closeDrawer, syncNow, syncState } from '../store.js';
 import { t } from '../lib/i18n.js';
+import { openStoreReview } from '../lib/storeLink.js';
 import StatusCard from './StatusCard.vue';
 import QuotaCard from './QuotaCard.vue';
 import SpacesDrawer from './SpacesDrawer.vue';

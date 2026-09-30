@@ -201,6 +201,9 @@
   "popup_helpTail": {
     "message": "常见问题与说明"
   },
+  "popup_rateRow": {
+    "message": "给个好评"
+  },
   "quota_loading": {
     "message": "额度加载中…"
   },
