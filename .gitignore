@@ -16,6 +16,9 @@ bookmark-sync/build/
 xcuserdata/
 .DS_Store
 
+# SwiftPM 菜单栏 App 编译产物（macos-app，swift build 输出）
+macos-app/.build/
+
 # 本地打包产物（pnpm package 输出）
 /dist/
 
