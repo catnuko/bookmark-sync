@@ -1,7 +1,9 @@
 <template>
   <section class="pane active">
-    <h2>{{ t('account_title') }}</h2>
-    <p class="pane-sub">{{ t('account_sub') }}</p>
+    <template v-if="!bare">
+      <h2>{{ t('account_title') }}</h2>
+      <p class="pane-sub">{{ t('account_sub') }}</p>
+    </template>
 
     <div class="grp">
       <div class="inset-group">
@@ -46,6 +48,8 @@ import {
 } from '../store.js';
 import { t } from '../lib/i18n.js';
 import Icon from './ui/Icon.vue';
+
+defineProps({ bare: { type: Boolean, default: false } });
 
 const initial = computed(() => (userEmail.value ? userEmail.value[0].toUpperCase() : '?'));
 

@@ -32,7 +32,7 @@ const openIdx = ref(-1);
 
 // 帮助条目全文（含 HTML）存放在 _locales/*/messages.json（help_n_title / help_n_body）
 const items = computed(() =>
-  Array.from({ length: 7 }, (_, i) => ({
+  Array.from({ length: 8 }, (_, i) => ({
     title: t(`help_${i + 1}_title`),
     body: t(`help_${i + 1}_body`),
   })),

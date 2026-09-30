@@ -204,6 +204,9 @@
   "popup_rateRow": {
     "message": "Rate this extension"
   },
+  "popup_accountRow": {
+    "message": "Account & plan"
+  },
   "quota_loading": {
     "message": "Loading quota…"
   },
@@ -957,6 +960,9 @@
   "adv_gcFoot": {
     "message": "Compaction only merges operation history; it never deletes bookmarks. The server runs it automatically as needed."
   },
+  "adv_version": {
+    "message": "Version"
+  },
   "adv_local": {
     "message": "Local settings"
   },
@@ -1079,6 +1085,12 @@
   },
   "help_7_body": {
     "message": "<p>Sync messages describe the direction of the result; they no longer show \"pushed/pulled N\" — that number counts internal sync operations, which never matches your actual bookmark count. Reference:</p><table class=\"help-tbl\"><thead><tr><th>Message</th><th>Meaning</th></tr></thead><tbody><tr><td>First sync complete — bookmarks uploaded encrypted</td><td>This device uploaded its bookmarks to the cloud for the first time (the cloud was empty)</td></tr><tr><td>First sync complete — bookmarks restored from the cloud</td><td>New device or reinstall pulled existing cloud bookmarks</td></tr><tr><td>Two-way sync complete</td><td>Both this device and others had changes; both directions synced</td></tr><tr><td>Uploaded local changes</td><td>Only local new/changed bookmarks were uploaded</td></tr><tr><td>Synced changes from other devices</td><td>Received new bookmarks added by other devices</td></tr><tr><td>Already up to date</td><td>No changes, nothing to do</td></tr></tbody></table><p>The \"N bookmarks\" on the status card is the true total and is accurate. \"⚠️ N cloud entries failed to decrypt\" means your sync key doesn't match the cloud data — check your key or passphrase.</p>"
+  },
+  "help_8_title": {
+    "message": "⏱️ When does automatic sync trigger?"
+  },
+  "help_8_body": {
+    "message": "<p>Automatic sync is on by default. While it's on, sync runs at any of these moments:</p><table class=\"help-tbl\"><thead><tr><th>Trigger</th><th>Detail</th></tr></thead><tbody><tr><td>After a bookmark change</td><td>Add / edit / move / delete triggers an encrypted upload after ~2 seconds; continuous changes keep resetting the timer, so it runs about 2s after you stop</td></tr><tr><td>Every 30 minutes</td><td>A background job pulls cloud deltas to stay in step with your other devices</td></tr><tr><td>On browser startup</td><td>Rebuilds the timer and syncs once</td></tr><tr><td>After install / update</td><td>Syncs once right after the extension installs or updates</td></tr><tr><td>After a successful login</td><td>Triggers sync once automatically</td></tr><tr><td>After setting or verifying the passphrase</td><td>Triggers sync once automatically</td></tr><tr><td>After binding / switching a space</td><td>Syncs the current space immediately</td></tr></tbody></table><p>You can also trigger a sync anytime with Sync Now.</p><p>If you turn off Auto-sync under Advanced, only a manual Sync Now, a successful login, a passed passphrase, or a space binding will trigger sync — the ~2s debounced upload and the 30-minute pull stop. When a sync fails, unconfirmed changes stay queued and retry automatically on the next trigger.</p>"
   },
   "gate_hintSetup": {
     "message": "Set a sync passphrase — it's the only credential that can decrypt your bookmarks. It can't be changed once set, and it can't be recovered if forgotten."

@@ -81,6 +81,14 @@
           >
           <Icon class="chev" name="chevron-right" />
         </button>
+        <button type="button" class="inset-row clickable" @click="openDrawer('account')">
+          <span class="lede"><Icon name="user" /></span>
+          <span class="r-main"
+            ><span class="r-title">{{ t('popup_accountRow') }}</span></span
+          >
+          <span class="sc-tail">{{ planLabel }}</span>
+          <Icon class="chev" name="chevron-right" />
+        </button>
       </div>
     </div>
   </div>
@@ -98,6 +106,7 @@
       <SpacesDrawer v-if="state.drawer === 'spaces'" />
       <KeyPanel v-else-if="state.drawer === 'key'" />
       <PaneAdvanced v-else-if="state.drawer === 'advanced'" bare />
+      <PaneAccount v-else-if="state.drawer === 'account'" bare />
       <PaneHelp v-else bare />
     </div>
   </div>
@@ -105,7 +114,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { state, openDrawer, closeDrawer, syncNow, syncState } from '../store.js';
+import { state, openDrawer, closeDrawer, syncNow, syncState, planLabel } from '../store.js';
 import { t } from '../lib/i18n.js';
 import { openStoreReview } from '../lib/storeLink.js';
 import StatusCard from './StatusCard.vue';
@@ -113,6 +122,7 @@ import QuotaCard from './QuotaCard.vue';
 import SpacesDrawer from './SpacesDrawer.vue';
 import KeyPanel from './KeyPanel.vue';
 import PaneAdvanced from './PaneAdvanced.vue';
+import PaneAccount from './PaneAccount.vue';
 import PaneHelp from './PaneHelp.vue';
 import Icon from './ui/Icon.vue';
 
@@ -121,6 +131,7 @@ const drawerTitles = {
   key: () => t('popup_keyRow'),
   advanced: () => t('adv_title'),
   help: () => t('common_help'),
+  account: () => t('account_title'),
 };
 const drawerTitle = computed(() => drawerTitles[state.drawer]?.() ?? '');
 </script>
