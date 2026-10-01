@@ -430,6 +430,30 @@ function ensureFreshProfile(profileDir) {
   }
 }
 
+/**
+ * 等 SW 全局**真的可用**（`chrome.bookmarks` 已注入）。
+ *
+ * 坑：SW target 出现在 `/json/list` 里 ≠ 扩展 API 已装好。MV3 的 SW 是「先有
+ * target、后装 `chrome.*` 绑定」，中间那段窗口里 `Runtime.evaluate` 落在一个空
+ * context 上，直接抛 `ReferenceError: chrome is not defined`；同一连接稍后重试
+ * 就正常（实测 devB 上就是这么自愈的）。谁在 `launchDevice` 之后**立刻** swEval
+ * 谁就踩中 —— `seed-before-sync` 要在登录前播种，是唯一这样的场景；先过门禁的
+ * 场景因为要等 popup 渲染几秒，反而看不出来。
+ *
+ * 所以把「SW 存在」升级成「SW 可用」再返回设备，别把这段竞态留给调用方。
+ */
+async function waitSwReady(sw, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    const r = await sw.eval('(typeof chrome !== "undefined" && !!chrome.bookmarks)');
+    if (r.err === null && r.val === true) return true;
+    last = r.err ?? r.val;
+    await sleep(200);
+  }
+  throw new Error(`扩展 SW 未就绪：${timeoutMs}ms 内 chrome.bookmarks 仍不可用（最后：${last}）`);
+}
+
 /** 启动一台设备并加载扩展，等 SW 就绪后返回驱动句柄。 */
 export async function launchDevice(opts) {
   const { name, port } = opts;
@@ -438,7 +462,7 @@ export async function launchDevice(opts) {
   } catch (e) {
     // 实测的偶发：扩展已加载但 SW 不启动（上一轮残留进程 / 扩展服务初始化竞态）。
     // 清掉端口残留后重试一次，胜过让整轮 E2E 白跑。
-    if (!/SW 未在/.test(e.message ?? '')) throw e;
+    if (!/SW 未(在|就绪)/.test(e.message ?? '')) throw e;
     console.error(`[${name}] 首次启动没拿到扩展 SW，清理端口 ${port} 后重试一次…`);
     killPort(port);
     await waitPortFree(port);
@@ -528,6 +552,7 @@ async function launchOnce({
       (!expectedId || new URL(t.url).host === expectedId),
   );
   const sw = await connect(swTarget.webSocketDebuggerUrl);
+  await waitSwReady(sw, bootTimeoutMs);
 
   const device = new Device({ name, port, profileDir: activeProfileDir, extId, browser, child });
   device.sw = sw;
