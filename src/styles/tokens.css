@@ -523,6 +523,34 @@ svg {
   gap: 4px;
 }
 
+/* 多行输入（反馈正文）。.input 是固定 height，不能复用 —— 这里只覆盖高度相关项 */
+.textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border-radius: var(--input-radius);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  line-height: var(--lh-secondary, 1.5);
+  resize: vertical;
+  transition:
+    border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+.textarea::placeholder {
+  color: var(--text-placeholder);
+}
+.textarea:hover {
+  border-color: var(--text-quaternary);
+}
+.textarea.is-error {
+  border: 1.5px solid var(--danger-text);
+  box-shadow: 0 0 0 3px rgba(215, 0, 21, 0.18);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

@@ -1016,7 +1016,12 @@ async function reverseApplyIntoChrome(
         await ensureMenuFolder(coordinator, bridge);
       }
     }
-    await reverseApply(chrome, coordinator, bridge);
+    // 回退文件夹名走 i18n：根下浏览器内部永久文件夹（历史脏 op）在本机没有
+    // 映射时，会在「其他书签」下建一个同名文件夹承载它的整棵子树
+    // （见 chromeBridge.ensureRootFallback）。名字跟着界面语言走。
+    await reverseApply(chrome, coordinator, bridge, {
+      fallbackRootTitle: t('sync_recoveredRoot'),
+    });
     if (!IS_FIREFOX) {
       // 同步收敛后：若「书签菜单」容器已空，移除容器，让 Chrome 端只在
       // Firefox 菜单有书签时显示它。

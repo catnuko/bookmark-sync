@@ -34,50 +34,50 @@
   },
   "hero": {
     "badge": "Chrome · Edge · Firefox",
-    "title": "Across devices and across time, your bookmarks stay converged",
-    "subtitle": "Built on an operation log and convergent merging: your Chrome, Edge, and Firefox bookmarks ultimately converge to one tree on every device. Offline edits, concurrent changes, and past deletions are all preserved in order — your organization never has to make way for sync.",
+    "title": "Reorganize folders all you want — not a single bookmark is lost",
+    "subtitle": "Install the extension, sign in, and your Chrome, Edge, and Firefox bookmarks become one tree. Keep organizing the way you always have — the sync engine handles the rest.",
     "ctaPrimary": "Download Free",
     "ctaSecondary": "View Pricing",
-    "trustBadge": "No credit card · 500 bookmarks free · End-to-end encryption on by default · Convergent ordering across devices",
+    "trustBadge": "No credit card · 500 bookmarks free · End-to-end encryption on by default · Reorder once, synced everywhere",
     "previewFolder1": "Development",
     "previewFolder2": "Design resources",
     "previewDeleted": "Deleted · never resurrected"
   },
   "pain": {
     "eyebrow": "Why you need it",
-    "title": "How bookmarks drift out of control",
-    "subtitle": "Bookmarks diverge across browsers, devices, and long stretches of time — losses, duplicates, and scrambled hierarchies often surface only much later.",
+    "title": "The real pains of bookmark management",
+    "subtitle": "Your bookmarks are scattered everywhere — once lost, duplicated, or scrambled, they're hard to get back.",
     "items": {
       "lost": {
-        "title": "Bookmarks vanish without a trace",
-        "desc": "Mistakes, browser crashes, or failed syncs can wipe out links you've curated for years."
+        "title": "Bookmarks silently disappear",
+        "desc": "Mistakes, browser crashes, sync failures — years of curated links gone in a flash."
       },
       "crossBrowser": {
-        "title": "Browsers stay isolated from each other",
-        "desc": "Chrome, Edge, and Firefox each hold their own copy; the same bookmarks never line up across them, and nothing converges."
+        "title": "Browsers don't talk to each other",
+        "desc": "Chrome, Edge, and Firefox each keep their own set, and the same bookmarks never line up across them."
       },
       "migration": {
-        "title": "One reorganization misaligns the structure",
-        "desc": "Rename, move, or merge a folder and children vanish or the hierarchy drifts — leaving you to reorganize from scratch."
+        "title": "One reorganization scrambles everything",
+        "desc": "Rename, move, or merge a folder and children often vanish or the hierarchy turns into a mess — fixing it is a nightmare."
       },
       "history": {
-        "title": "Deletes resurrect, concurrent edits overwrite",
-        "desc": "A bookmark deleted on device A reappears; when two devices edit at once, one side's changes are silently overwritten by the other."
+        "title": "Deletes resurrect and edits overwrite",
+        "desc": "A bookmark you deleted on computer A comes back; two devices edit at once and one side silently overwrites the other."
       },
       "mixed": {
-        "title": "Work and personal share one tree",
-        "desc": "Everything sits in a single tree: work links and personal saves get tangled, and separating them means hand-sorting folders."
+        "title": "Work and personal bookmarks collide",
+        "desc": "Everything sits in one tree: work links and personal saves get tangled together, and splitting them apart means hand-sorting folders."
       },
       "lock": {
         "title": "Native sync locks you into a vendor cloud",
-        "desc": "Chrome and Edge native sync stores your bookmarks in plaintext in the vendor's cloud: switch browsers and it breaks, privacy is out of your hands, and other browsers never see them."
+        "desc": "Chrome and Edge native sync stores your bookmarks in plaintext in the browser vendor's cloud: switch browsers and it breaks, privacy is out of your hands, and browsers never talk to each other."
       }
     }
   },
   "features": {
     "eyebrow": "Core capabilities",
-    "title": "A convergent engine built for real sync scenarios",
-    "subtitle": "More than a cloud backup: an engine that preserves your bookmark tree and keeps it converged across devices.",
+    "title": "An engine built for real sync scenarios",
+    "subtitle": "More than a cloud backup — intelligent sync that actually preserves your bookmark structure.",
     "items": {
       "sync": {
         "title": "True tree structure, hierarchy never breaks",
@@ -104,25 +104,23 @@
         "desc": "End-to-end encryption is on by default: every bookmark operation is encrypted on your device before upload, so the server only holds ciphertext — even BookmarkSync itself can't read your bookmarks. Keys never touch the server; on a new device, just sign in and enter the same passphrase — no 44-character key to remember."
       },
       "conflict": {
-        "title": "Concurrent edits converge, no overwrites",
-        "desc": "Concurrent add/edit/delete across devices converges through three-way merge: every side's additions are kept, and there is no \"last write wins\" overwrite. Offline changes merge in automatically once you reconnect."
+        "title": "Automatic merge, nothing overwritten",
+        "desc": "Two devices editing, deleting, and adding at once are reconciled by intelligent three-way merge — both sides' additions survive, nothing is blindly overwritten or lost. Offline edits merge in the moment you reconnect."
       },
       "migration": {
         "title": "Free cross-account migration",
         "desc": "Sign in to any account to pull the full bookmark tree. New devices and new accounts initialize in seconds — no HTML exports, no manual cleanup."
       },
       "order": {
-        "title": "Globally convergent order: reorder once, consistent everywhere",
-        "desc": "Fractional indexes are the source of truth for ordering, so concurrent reorders across devices still converge to one order instead of degrading into internal ID order. What you see is what every device keeps."
+        "title": "Order follows you — reorder once, everywhere",
+        "desc": "Drag to reorder folders and bookmarks on one device, and every other device keeps the same order. The engine converges on fractional sort keys instead of scrambling your arrangement into an internal ID order — what you see is what stays."
       }
     }
   },
   "browsers": {
     "eyebrow": "Browser support",
     "title": "Works with major browsers",
-    "subtitle": "Install once — one setup folds your everyday browsers' bookmarks into a single, continuously converging tree.",
-    "storeVersion": "Store v{version}",
-    "pending": "In review v{version}",
+    "subtitle": "Install once — one setup unlocks all your bookmarks in the browsers you use daily.",
     "chrome": {
       "name": "Google Chrome",
       "desc": "Chrome Web Store"
@@ -344,7 +342,6 @@
     "title": "Choose your browser",
     "subtitle": "Now live on the Chrome Web Store, Edge Add-ons, and Firefox Add-ons — click a card to install. You can also grab an offline package and load it manually.",
     "cta": "Visit store",
-    "versionBadge": "Latest release v{version}",
     "manual": {
       "title": "Offline package (v{version})",
       "subtitle": "If installing from a store isn't convenient, download the zip for your browser, unzip it, and load it as follows.",
@@ -422,7 +419,7 @@
           },
           {
             "t": "Automatic sync",
-            "d": "On by default. Triggers: an encrypted upload ~2s after a bookmark change; a background delta pull every 30 minutes; one sync on browser startup and after install/update; and one after a successful login, a passed passphrase, or a space bind/switch. You can also tap Sync Now anytime. With Auto-sync off, only manual sync plus the login / passphrase / bind triggers remain."
+            "d": "Detects local bookmark changes and uploads/pulls deltas in the background automatically; can be disabled under Advanced for manual-only sync."
           },
           {
             "t": "Cross-browser bookmark menu",
@@ -478,7 +475,7 @@
           },
           {
             "q": "Sync isn't triggering?",
-            "a": "First check network and login state. Auto-sync is on by default and triggers on: a bookmark change (~2s debounce upload), a background delta pull every 30 minutes, browser startup / extension install or update, and after a successful login, a passed passphrase, or a space bind. You can also tap Sync Now manually. If Auto-sync is off under Advanced, only manual sync plus the login / passphrase / bind triggers remain; failed syncs keep unconfirmed changes queued and retry on the next trigger."
+            "a": "Check network and login state. Auto-sync is on by default: local changes push after a ~2s debounce, and a delta pull runs every 30 minutes. You can also tap Sync Now manually."
           }
         ]
       }
@@ -491,7 +488,7 @@
     "sections": {
       "collect": {
         "title": "What we collect",
-        "body": "Only the minimum data needed to run the service: email address (for sign-in), browser bookmarks (for sync). We do not collect browsing history, do not track usage behavior, and do not embed third-party analytics."
+        "body": "Only the minimum data needed to run the service: email address (for sign-in), browser bookmarks (for sync). We also collect two things that **you provide or the extension attaches automatically, and that never contain bookmark content**: (1) feedback you submit in the extension plus an optional reply email; (2) diagnostic metadata reported automatically on sync errors (extension version, browser, UI language, failing stage and error type). We do not collect browsing history, do not track usage behavior, and do not embed third-party analytics."
       },
       "store": {
         "title": "How data is stored",
@@ -499,7 +496,7 @@
       },
       "use": {
         "title": "How data is used",
-        "body": "Bookmark data is used solely for cross-browser sync. It will never be used for ads, marketing, user profiling, or any commercial analytics."
+        "body": "Bookmark data is used solely for cross-browser sync. It will never be used for ads, marketing, user profiling, or any commercial analytics. Feedback and error diagnostics are used only to investigate issues, improve the product, and reply to you."
       },
       "share": {
         "title": "Do we share with third parties",
@@ -517,7 +514,7 @@
     "updatedAtPrefix": "Updated on"
   },
   "footer": {
-    "tagline": "Cross-browser bookmark sync: across devices and across time, always converging on one tree.",
+    "tagline": "Cross-browser bookmark cloud sync and backup.",
     "product": "Product",
     "resources": "Resources",
     "legal": "Legal",

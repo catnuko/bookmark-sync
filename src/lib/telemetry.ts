@@ -44,6 +44,18 @@ const MAX_VAL_LEN = 120;
 let enabled = true;
 const lastSentAt = new Map<string, number>();
 
+/**
+ * 最近一次被上报的错误 phase（仅内存，跨会话丢失）。
+ * 用途：用户主动提交反馈时，把它当作排查上下文附带（见 ./feedback.ts）。
+ * 只在 `enabled` 时记录 —— 用户关掉错误上报后，我们也不该继续留错误痕迹。
+ */
+let lastErrorPhase = '';
+
+/** 最近一次错误上报的 phase；没有则返回空串。 */
+export function getLastErrorPhase(): string {
+  return lastErrorPhase;
+}
+
 /** 读开关。与 `loadAutoSync()` 同款：storage 里没有该键时视为开启。 */
 export async function loadErrorReportPref(): Promise<void> {
   try {
@@ -80,6 +92,9 @@ export async function reportError(
 ): Promise<void> {
   try {
     if (!enabled) return;
+
+    // 记下最近出错的阶段（本地上下文，供用户提交反馈时附带）
+    if (phase) lastErrorPhase = phase;
 
     // 前端节流：同一 phase + reason 30 秒内只发一次（错误风暴的第一道闸）。
     // ⚠ 键里必须带 reason：只按 phase 节流的话，`sync` 上一个高发的
@@ -127,8 +142,8 @@ function sanitizeContext(context?: Record<string, unknown>): Record<string, stri
   return out;
 }
 
-/** 扩展版本（manifest version）；取不到时回落构建时间。 */
-function appVersion(): string {
+/** 扩展版本（manifest version）；取不到时回落构建时间。feedback.ts 复用它。 */
+export function appVersion(): string {
   try {
     const v = api.runtime?.getManifest?.()?.version;
     if (typeof v === 'string' && v) return v;
@@ -138,8 +153,8 @@ function appVersion(): string {
   return typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : 'unknown';
 }
 
-/** 压成 "Chrome 137" 这种短标签 —— 列宽只有 40，别塞完整 UA。 */
-function platformTag(): string {
+/** 压成 "Chrome 137" 这种短标签 —— 列宽只有 40，别塞完整 UA。feedback.ts 复用它。 */
+export function platformTag(): string {
   try {
     const ua = globalThis.navigator?.userAgent ?? '';
     const m = /(Edg|Firefox|Chrome)\/(\d+)/.exec(ua);

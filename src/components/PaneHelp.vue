@@ -5,6 +5,8 @@
       <p class="pane-sub">{{ t('help_sub') }}</p>
     </template>
 
+    <FeedbackForm />
+
     <div class="grp">
       <div class="acc">
         <div v-for="(item, i) in items" :key="i" class="acc-item" :class="{ open: openIdx === i }">
@@ -25,6 +27,7 @@
 import { ref, computed } from 'vue';
 import { t } from '../lib/i18n.js';
 import Icon from './ui/Icon.vue';
+import FeedbackForm from './FeedbackForm.vue';
 
 defineProps({ bare: { type: Boolean, default: false } });
 
@@ -32,7 +35,7 @@ const openIdx = ref(-1);
 
 // 帮助条目全文（含 HTML）存放在 _locales/*/messages.json（help_n_title / help_n_body）
 const items = computed(() =>
-  Array.from({ length: 8 }, (_, i) => ({
+  Array.from({ length: 7 }, (_, i) => ({
     title: t(`help_${i + 1}_title`),
     body: t(`help_${i + 1}_body`),
   })),

@@ -6,6 +6,11 @@ do $$ begin
     if not exists (select 1 from pg_roles where rolname = 'authenticated') then
         create role authenticated nologin;
     end if;
+    -- Supabase 默认还有 service_role（边缘函数/后台直连用）。缺了它，0027 起
+    -- 所有 `grant ... to service_role` 的迁移在本地重放会直接失败。
+    if not exists (select 1 from pg_roles where rolname = 'service_role') then
+        create role service_role nologin;
+    end if;
 end $$;
 
 drop schema if exists auth cascade;

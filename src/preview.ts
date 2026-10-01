@@ -4,7 +4,6 @@
 import { createApp, h } from 'vue';
 import './styles/tokens.css';
 import zhMessages from '../public/_locales/zh_CN/messages.json';
-import manifest from '../public/manifest.json';
 import type { Session } from '@supabase/supabase-js';
 import { state } from './store.js';
 import { setErrorReportEnabled } from './lib/telemetry.js';
@@ -13,12 +12,7 @@ import { setErrorReportEnabled } from './lib/telemetry.js';
 setErrorReportEnabled(false);
 
 // 普通浏览器没有 chrome.i18n：mock 成中文语言包，让预览渲染真实文案而非键名
-// runtime.getManifest 一并 mock，让预览能显示真实版本号（与构建产物一致）
-(
-  globalThis as typeof globalThis & {
-    chrome: { i18n: PreviewI18n; runtime: { getManifest: () => { version: string } } };
-  }
-).chrome = {
+(globalThis as typeof globalThis & { chrome: { i18n: PreviewI18n } }).chrome = {
   i18n: {
     getMessage: (key: string, subs?: string[]) => {
       const msg =
@@ -42,7 +36,6 @@ setErrorReportEnabled(false);
     },
     getUILanguage: () => 'zh-CN',
   },
-  runtime: { getManifest: () => ({ version: manifest.version }) },
 };
 
 interface PreviewI18n {
@@ -126,7 +119,8 @@ const isPopup = view === 'popup' || view === 'key' || view === 'spaces';
 if (isPopup) {
   // 不加 body.popup：preview.html 的 dev-frame 已用 #app{width:400px;height:600px} 还原弹窗尺寸，
   // 若再加 popup 类会与 dev-frame 的 padding 冲突（body 又被压到固定宽高）。
-  state.drawer = view === 'key' ? 'key' : view === 'spaces' ? 'spaces' : '';
+  // ?drawer=help 可直接打开帮助抽屉（反馈表单在 popup 里就走这条路径）。
+  state.drawer = q.get('drawer') || (view === 'key' ? 'key' : view === 'spaces' ? 'spaces' : '');
 } else if (view === 'gate') {
   // 口令门禁页：?mode=setup|verify（默认 setup）
   state.phraseGateVisible = true;
