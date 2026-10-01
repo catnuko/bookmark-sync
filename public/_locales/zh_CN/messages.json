@@ -877,6 +877,9 @@
   "sync_now": {
     "message": "立即同步"
   },
+  "sync_recoveredRoot": {
+    "message": "同步恢复的书签"
+  },
   "sync_lastSync": {
     "message": "上次同步 $TIME$ · $COUNT$ 条",
     "placeholders": {

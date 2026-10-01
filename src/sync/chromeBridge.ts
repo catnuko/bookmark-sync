@@ -570,6 +570,18 @@ const PROTECTED_UUIDS = new Set([
  */
 export const BROWSER_ROOT_IDS: ReadonlySet<string> = new Set([CHROME_ROOT_ID, 'root________']);
 
+/**
+ * 根下浏览器内部永久文件夹（历史脏 op）的**回退落地根**。
+ *
+ * 选「其他书签」而不是「书签栏」：回退是补救路径，落在一个「杂物筐」里既不
+ * 打断用户对书签栏的心智，也不会盖住源设备上真正的书签栏内容；用户拖动一次
+ * 就能归位。选中哪个固定根**不需要知道那个内部文件夹到底是哪一类**
+ * （Chromium 的 `BookmarkNode::Type` 里账号根与本地根同型、只靠
+ * `is_account_node_` 区分，扩展 API 的 `folderType` 也因此分不出来），
+ * 这正是这个设计不需要任何外部信息的原因。
+ */
+const FALLBACK_ROOT_UUID: string = OTHER_BOOKMARKS_UUID;
+
 interface ChromeNodeInfo {
   chromeId: string;
   parentId: string | null;
@@ -586,6 +598,7 @@ export async function reverseApply(
   chrome: ChromeBookmarksAPI,
   coordinator: SyncCoordinator,
   bridge: IdBridge,
+  opts: { fallbackRootTitle?: string } = {},
 ): Promise<void> {
   // 1. Reachability set + children map from the visible CRDT tree.
   const { reachable, childrenByParent } = buildReachable(coordinator);
@@ -602,6 +615,9 @@ export async function reverseApply(
     reachable,
     chromeNodes,
     chromeChildren,
+    // 回退文件夹的名字走 i18n（调用方传），拿不到就用空标题——Chrome 允许，
+    // 但调用方（sync.js）一定会传，见 reverseApplyIntoChrome。
+    opts.fallbackRootTitle ?? '',
   );
 
   // 4. Remove Chrome nodes whose CRDT uuid is unreachable (and mapped).
@@ -682,6 +698,7 @@ async function ensureReachableNodes(
   reachable: Set<string>,
   chromeNodes: Map<string, ChromeNodeInfo>,
   chromeChildren: Map<string, ChromeTreeNode[]>,
+  fallbackRootTitle: string,
 ): Promise<void> {
   const queue: string[] = [ROOT_UUID];
   const visited = new Set<string>();
@@ -741,6 +758,56 @@ async function ensureReachableNodes(
     return false;
   };
 
+  /**
+   * 根下「浏览器内部永久文件夹」的回退落地。
+   *
+   * 这类节点（Chrome 账号书签 / 受管书签永久文件夹，`BookmarkNode::Type` 与本地
+   * 对应根同型、靠 `is_account_node_` 区分；Firefox `tags________`）不可能在
+   * 根下被 create —— Chrome 只对 `is_root()` 报
+   * "Can't modify the root bookmark folders."。但它们**也不能被整棵跳过**：
+   * 挂在其下的整棵子树会因此永久投影不出来。
+   *
+   * 2026-10-01 线上实测（用户空间 op 数 1509、可见树 988 节点 / 854 书签）：
+   * 跳过守卫让 977 个节点（849 书签 + 128 文件夹）一个都没落地，新设备上
+   * 「同步成功但书签不出现」。
+   *
+   * 两条路径，都**不会**在根下 create：
+   *   1. 本机已有映射且节点还在（= 当初捕获它的那台设备）→ 直接沿用那个
+   *      chrome 节点当父。一个 move 都不发，源设备的 Chrome 树保持原样
+   *      （账号书签仍是账号书签，不会被搬出 Google 账号）。
+   *   2. 本机没有映射（新设备 / 换过空间）→ 在回退固定根（其他书签）下建一个
+   *      同名文件夹并把该 uuid 映射上去，子树照常投影。
+   *
+   * 映射到同一个 uuid 后，两条路径对 CRDT 是等价的（同一个节点，各设备各自的
+   * 落地形态），因此不会产生 op，也不会在设备之间打架。
+   */
+  const ensureRootFallback = async (uuid: string, meta: Metadata): Promise<void> => {
+    const existing = bridge.toChromeId(uuid);
+    if (existing && chromeIds.has(existing)) return; // 路径 1：沿用，不动
+    if (existing) bridge.removeByChromeId(existing); // 映射陈旧（节点已被删）
+
+    const parentChromeId = bridge.toChromeId(FALLBACK_ROOT_UUID);
+    if (!parentChromeId) return; // 回退根没落地（浏览器异常）：本轮跳过，下轮再试
+
+    const siblings = siblingsOf(parentChromeId);
+    const title = ((meta.title as string) ?? '') || fallbackRootTitle;
+    const created = await chrome.create({
+      parentId: parentChromeId,
+      title,
+      index: siblings.length, // 放末尾：不打乱回退根下已有兄弟的顺序
+    });
+    siblings.push(created);
+    chromeNodes.set(created.id, {
+      chromeId: created.id,
+      parentId: parentChromeId,
+      title: created.title,
+      url: created.url,
+      depth: (chromeNodes.get(parentChromeId)?.depth ?? 0) + 1,
+    });
+    chromeIds.add(created.id);
+    bridge.map(created.id, uuid);
+  };
+
   while (queue.length > 0) {
     const parentUuid = queue.shift()!;
     if (visited.has(parentUuid)) continue;
@@ -758,17 +825,20 @@ async function ensureReachableNodes(
       const { child: childUuid, meta } = kids[i];
       if (!reachable.has(childUuid)) continue;
 
-      // 根节点下只有本环境原生根是「我们的」节点；其余（Chrome 账号书签 /
-      // 受管书签永久文件夹等浏览器内部节点）整棵子树跳过。理由有两条：
-      //   1. 根下**不能** create —— Chrome 只对 `is_root()` 报
-      //      "Can't modify the root bookmark folders."，一条这样的 op 就能让
-      //      每台新设备的同步直接失败（2026-10-01 实测：新 profile 选默认空间
-      //      报错，error_reports 里 app_version=2.7.0 / platform=Chrome 154）；
-      //   2. 它们是浏览器自己管理的（Chrome 账号同步 / 企业策略），不是本空间
-      //      的内容，投影进来只会重复一份。
-      // 历史 op 里已经落成 parent=ROOT_UUID 的节点（append-only，删不掉）由这条
-      // 守卫兜住：跳过而非抛错，同步照常收敛。
-      if (parentUuid === ROOT_UUID && !bridge.isLandingRoot(childUuid)) continue;
+      // 根节点下只有本环境原生根是「我们的」节点；其余是浏览器内部永久文件夹
+      // （Chrome 账号书签 / 受管书签，Firefox tags________）。根下**不能**
+      // create —— Chrome 只对 `is_root()` 报 "Can't modify the root bookmark
+      // folders."，一条这样的 op 就能让每台新设备的同步直接失败（2026-10-01
+      // 实测：新 profile 选默认空间报错，error_reports 里 app_version=2.7.0 /
+      // platform=Chrome 154）。
+      // 但**也不能整棵跳过** —— 那会把挂在其下的整棵子树永久藏起来（同一事故的
+      // 第二阶段：报错消失后，新设备「同步成功但书签不出现」）。走回退落地：
+      // 本机有映射就沿用，没有就在回退固定根下建一个同名文件夹。
+      if (parentUuid === ROOT_UUID && !bridge.isLandingRoot(childUuid)) {
+        await ensureRootFallback(childUuid, meta);
+        queue.push(childUuid);
+        continue;
+      }
 
       queue.push(childUuid);
 

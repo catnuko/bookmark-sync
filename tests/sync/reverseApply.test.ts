@@ -53,9 +53,13 @@ function makeChrome(extraRootChildren: ChromeTreeNode[] = []) {
     url?: string;
   }
   const tree = new Map<string, N>();
-  const seed = (n: N) => {
+  // 真实 getTree() 的每个节点都带 parentId（根 "0" 除外）。预置的嵌套子树必须
+  // 一并补上，否则 move 的 mock 会在 `tree.get(node.parentId!)` 拿到 undefined
+  // ——那是 mock 的失真，不是被测代码的问题。
+  const seed = (n: N, parentId?: string) => {
+    if (parentId !== undefined && n.parentId === undefined) n.parentId = parentId;
     tree.set(n.id, n);
-    for (const c of n.children ?? []) seed(c);
+    for (const c of n.children ?? []) seed(c, n.id);
   };
   const ROOT_CHILDREN: N[] = [
     { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
@@ -324,20 +328,78 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
    *   "Can't modify the root bookmark folders."
    * 触发它的 profile（捕获方）反而正常：节点已存在且已映射，走不到 create。
    * 症状 = 「新建 profile → 选默认空间 → 同步失败」。
+   *
+   * ★ 第二阶段（同一次事故，修完报错之后才暴露）：把这类节点**整棵跳过**能让
+   * 报错消失，但挂在其下的整棵子树会永久投影不出来 —— 实测 854 条书签里 977 个
+   * 节点被跳过，新设备只落地 6 个，表现为「同步成功但书签不出现」。
+   * 所以正确的处理是**回退落地**（见 chromeBridge.ensureRootFallback）：
+   * 本机有映射就沿用原节点，没有就在回退固定根下建一个同名文件夹。
    */
-  it('CRDT 里 parent=ROOT_UUID 的节点（历史脏数据）不再让同步崩掉，且根下不建任何东西', async () => {
+  it('脏节点未映射（新设备）→ 回退落到「其他书签」下，根下不建任何东西', async () => {
     // 模拟旧版本捕获出来的脏节点：直接挂在 ROOT_UUID 下
     await coordinator.createNodeWithId('uu-account-other', ROOT_UUID, { title: 'Other bookmarks' });
     await coordinator.createNodeWithId('uu-account-child', 'uu-account-other', {
       title: '账号书签',
       url: 'https://account.example',
     });
+    const bridge = new IdBridge();
 
-    await expect(reverseApply(chrome, coordinator, new IdBridge())).resolves.toBeUndefined();
+    // mock 的 create/move 对 parentId="0" 会抛 kModifySpecialError ——
+    // 只有走回退路径才可能 resolve
+    await expect(reverseApply(chrome, coordinator, bridge)).resolves.toBeUndefined();
 
     // 根（"0"）下仍只有三个固定根文件夹，没被塞进任何东西
     const root = (await chrome.getTree())[0];
     expect(root.children!.map((n) => n.id)).toEqual(['1', '2', '3']);
+
+    // 整棵子树落到回退根（其他书签 "2"）下：同名文件夹 + 里面的书签
+    const other = root.children!.find((n) => n.id === '2')!;
+    expect(other.children!.map((n) => n.title)).toEqual(['Other bookmarks']);
+    const recovered = other.children![0];
+    expect(recovered.children!.map((n) => n.title)).toEqual(['账号书签']);
+    // 回退文件夹映射到同一个 uuid：下一轮 capture 不会把它当新节点重复捕获
+    expect(bridge.toUuid(recovered.id)).toBe('uu-account-other');
+  });
+
+  it('脏节点标题为空 → 用调用方给的 i18n 回退名（Chrome 永久文件夹标题通常是空的）', async () => {
+    await coordinator.createNodeWithId('uu-account-empty', ROOT_UUID, { title: '' });
+
+    await reverseApply(chrome, coordinator, new IdBridge(), {
+      fallbackRootTitle: '同步恢复的书签',
+    });
+
+    const root = (await chrome.getTree())[0];
+    const other = root.children!.find((n) => n.id === '2')!;
+    expect(other.children!.map((n) => n.title)).toEqual(['同步恢复的书签']);
+  });
+
+  it('脏节点已映射（= 捕获它的那台设备）→ 沿用原节点，不搬动、不新建', async () => {
+    // 源设备形态：账号书签永久文件夹（动态 id "4"）+ 里面一条书签，映射都在
+    const chromeWithAccountRoot = makeChrome([
+      {
+        id: '4',
+        title: 'Other bookmarks',
+        children: [{ id: '4-1', title: '账号书签', url: 'https://account.example' }],
+      },
+    ]);
+    const bridge = new IdBridge();
+    bridge.map('4', 'uu-account-other');
+    bridge.map('4-1', 'uu-account-child');
+    await coordinator.createNodeWithId('uu-account-other', ROOT_UUID, { title: 'Other bookmarks' });
+    await coordinator.createNodeWithId('uu-account-child', 'uu-account-other', {
+      title: '账号书签',
+      url: 'https://account.example',
+    });
+
+    await expect(reverseApply(chromeWithAccountRoot, coordinator, bridge)).resolves.toBeUndefined();
+
+    // 账号文件夹原地不动：既没被搬出账号根，也没被复制一份到「其他书签」下
+    const root = (await chromeWithAccountRoot.getTree())[0];
+    expect(root.children!.map((n) => n.id)).toEqual(['1', '2', '3', '4']);
+    const accountRoot = root.children!.find((n) => n.id === '4')!;
+    expect(accountRoot.parentId).toBe('0');
+    expect(accountRoot.children!.map((n) => n.id)).toEqual(['4-1']);
+    expect(root.children!.find((n) => n.id === '2')!.children!.length).toBe(0);
   });
 
   it('captureLocalTree 不捕获浏览器根下的非原生根子节点（账号书签 / 受管书签 / Firefox tags）', async () => {

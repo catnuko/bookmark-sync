@@ -877,6 +877,9 @@
   "sync_now": {
     "message": "Sync now"
   },
+  "sync_recoveredRoot": {
+    "message": "Recovered bookmarks"
+  },
   "sync_lastSync": {
     "message": "Last sync $TIME$ · $COUNT$ bookmarks",
     "placeholders": {
