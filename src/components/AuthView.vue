@@ -70,6 +70,9 @@
         <button type="button" class="link-btn" @click="openHelp">{{ t('auth_forgot') }}</button>
         <i class="fw-sep"></i>
         <button type="button" class="link-btn" @click="openHelp">{{ t('common_help') }}</button>
+        <i class="fw-sep"></i>
+        <!-- 未登录是硬门禁（App.vue 只渲染本组件），所以反馈入口只能放这儿 -->
+        <a class="link-btn" :href="mailtoHref">{{ t('feedback_mailto') }}</a>
       </div>
     </div>
   </div>
@@ -78,6 +81,16 @@
 <script setup>
 import { state, submit, openHelp } from '../store.js';
 import { t } from '../lib/i18n.js';
+import { buildMailto } from '../lib/feedback.js';
 import SegTabs from './ui/SegTabs.vue';
 import Icon from './ui/Icon.vue';
+
+// 登录页的反馈兜底：带版本/平台直接发邮件（用户可能正是因为登录不上才需要反馈）
+const mailtoHref = buildMailto(t('feedback_title'), t('feedback_bodyPh'));
 </script>
+
+<style scoped>
+a.link-btn {
+  text-decoration: none;
+}
+</style>

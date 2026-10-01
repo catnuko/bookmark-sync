@@ -112,6 +112,29 @@ export function subStatusMeta(status) {
   );
 }
 
+/** 反馈类型 → 中文 + 颜色（0045） */
+export function feedbackKindMeta(kind) {
+  return (
+    {
+      bug: { label: '问题', tone: 'danger' },
+      idea: { label: '建议', tone: 'info' },
+      other: { label: '其他', tone: 'neutral' },
+    }[kind] || { label: kind || '—', tone: 'neutral' }
+  );
+}
+
+/** 反馈处理状态 → 中文 + 颜色（0045） */
+export function feedbackStatusMeta(status) {
+  return (
+    {
+      new: { label: '待处理', tone: 'warning' },
+      read: { label: '已读', tone: 'info' },
+      resolved: { label: '已处理', tone: 'success' },
+      wontfix: { label: '不处理', tone: 'neutral' },
+    }[status] || { label: status || '—', tone: 'neutral' }
+  );
+}
+
 /** 百分比（0~1 小数）→ 显示字符串 */
 export function formatRate(ratio) {
   const n = Number(ratio) || 0;
@@ -136,6 +159,7 @@ export function actionLabel(action) {
       reset_user_data: '清空数据',
       set_gc_threshold: '改 GC 阈值',
       request_gc: '请求 GC',
+      mark_feedback: '标记反馈',
     }[action] ||
     action ||
     '—'

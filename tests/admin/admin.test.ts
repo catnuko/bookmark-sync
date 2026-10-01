@@ -15,6 +15,8 @@ import {
   maskEmail,
   actionLabel,
   formatAuditDetail,
+  feedbackKindMeta,
+  feedbackStatusMeta,
 } from '../../website/src/admin/lib/format.js';
 
 describe('formatBytes', () => {
@@ -107,6 +109,7 @@ describe('审计展示辅助', () => {
   it('actionLabel 映射', () => {
     expect(actionLabel('set_plan')).toBe('改 plan');
     expect(actionLabel('request_gc')).toBe('请求 GC');
+    expect(actionLabel('mark_feedback')).toBe('标记反馈');
     expect(actionLabel('unknown_op')).toBe('unknown_op');
     expect(actionLabel(null)).toBe('—');
   });
@@ -116,6 +119,23 @@ describe('审计展示辅助', () => {
     );
     expect(formatAuditDetail(null)).toBe('—');
     expect(formatAuditDetail({ long: 'x'.repeat(60) })).toMatch(/…$/);
+  });
+});
+
+describe('反馈元数据（0045）', () => {
+  it('feedbackKindMeta', () => {
+    expect(feedbackKindMeta('bug')).toEqual({ label: '问题', tone: 'danger' });
+    expect(feedbackKindMeta('idea').tone).toBe('info');
+    expect(feedbackKindMeta('other').label).toBe('其他');
+    // 未知值回落，不抛错（服务端 kind 有 CHECK，但仍要防脏数据）
+    expect(feedbackKindMeta('weird')).toEqual({ label: 'weird', tone: 'neutral' });
+    expect(feedbackKindMeta(null)).toEqual({ label: '—', tone: 'neutral' });
+  });
+  it('feedbackStatusMeta', () => {
+    expect(feedbackStatusMeta('new').label).toBe('待处理');
+    expect(feedbackStatusMeta('resolved').tone).toBe('success');
+    expect(feedbackStatusMeta('wontfix').tone).toBe('neutral');
+    expect(feedbackStatusMeta(undefined)).toEqual({ label: '—', tone: 'neutral' });
   });
 });
 
@@ -174,5 +194,56 @@ describe('adminApi 参数构造', () => {
       p_limit: 50,
       p_offset: 100,
     });
+  });
+
+  it('listFeedback 把状态/类型映射成 p_ 前缀', async () => {
+    rpcMock.mockResolvedValue({ data: { rows: [], total: 0 }, error: null });
+    const { adminApi } = await import('../../website/src/admin/lib/client.js');
+    await adminApi.listFeedback({ status: 'new', kind: 'bug', limit: 50, offset: 0 });
+    expect(rpcMock).toHaveBeenCalledWith('admin_list_feedback', {
+      p_status: 'new',
+      p_kind: 'bug',
+      p_limit: 50,
+      p_offset: 0,
+    });
+  });
+
+  it('setFeedbackStatus 传 p_id / p_status / p_note', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: null });
+    const { adminApi } = await import('../../website/src/admin/lib/client.js');
+    await adminApi.setFeedbackStatus(42, 'resolved', '已确认');
+    expect(rpcMock).toHaveBeenCalledWith('admin_set_feedback_status', {
+      p_id: 42,
+      p_status: 'resolved',
+      p_note: '已确认',
+    });
+  });
+
+  it('listErrorReports 默认按行分组，group 可切指纹', async () => {
+    rpcMock.mockResolvedValue({ data: { rows: [], total: 0 }, error: null });
+    const { adminApi } = await import('../../website/src/admin/lib/client.js');
+    await adminApi.listErrorReports({ phase: 'sync', limit: 50, offset: 0 });
+    expect(rpcMock).toHaveBeenCalledWith('admin_list_error_reports', {
+      p_phase: 'sync',
+      p_app_version: null,
+      p_group: 'row',
+      p_limit: 50,
+      p_offset: 0,
+    });
+    await adminApi.listErrorReports({ group: 'fingerprint' });
+    expect(rpcMock).toHaveBeenLastCalledWith('admin_list_error_reports', {
+      p_phase: null,
+      p_app_version: null,
+      p_group: 'fingerprint',
+      p_limit: 50,
+      p_offset: 0,
+    });
+  });
+
+  it('getErrorReport 传 p_id', async () => {
+    rpcMock.mockResolvedValue({ data: {}, error: null });
+    const { adminApi } = await import('../../website/src/admin/lib/client.js');
+    await adminApi.getErrorReport(7);
+    expect(rpcMock).toHaveBeenCalledWith('admin_get_error_report', { p_id: 7 });
   });
 });

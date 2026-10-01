@@ -62,4 +62,23 @@ export const adminApi = {
       p_limit: params.limit ?? 50,
       p_offset: params.offset ?? 0,
     }),
+  // —— 用户反馈与错误上报（0045：反馈表 + 补上 0042 的读取通道）——
+  listFeedback: (params) =>
+    callAdmin('admin_list_feedback', {
+      p_status: params.status ?? null,
+      p_kind: params.kind ?? null,
+      p_limit: params.limit ?? 50,
+      p_offset: params.offset ?? 0,
+    }),
+  setFeedbackStatus: (id, status, note = '') =>
+    callAdmin('admin_set_feedback_status', { p_id: id, p_status: status, p_note: note }),
+  listErrorReports: (params) =>
+    callAdmin('admin_list_error_reports', {
+      p_phase: params.phase ?? null,
+      p_app_version: params.appVersion ?? null,
+      p_group: params.group ?? 'row',
+      p_limit: params.limit ?? 50,
+      p_offset: params.offset ?? 0,
+    }),
+  getErrorReport: (id) => callAdmin('admin_get_error_report', { p_id: id }),
 };

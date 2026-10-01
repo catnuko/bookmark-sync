@@ -60,6 +60,12 @@ export const adminRoutes = [
         meta: { title: '审计' },
       },
       {
+        path: 'feedback',
+        name: 'admin-feedback',
+        component: () => import('./views/AdminFeedbackView.vue'),
+        meta: { title: '反馈' },
+      },
+      {
         path: 'system',
         name: 'admin-system',
         component: () => import('./views/AdminSystemView.vue'),

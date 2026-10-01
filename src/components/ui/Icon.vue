@@ -172,6 +172,21 @@ const ICONS = {
   'log-out': {
     d: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
   },
+  mail: {
+    r: [
+      {
+        x: 3,
+        y: 5,
+        width: 18,
+        height: 14,
+        rx: 2,
+        fill: 'none',
+        stroke: 'currentColor',
+        'stroke-width': 1.75,
+      },
+    ],
+    d: ['M4 7l8 5.5L20 7'],
+  },
 };
 
 const icon = computed(() => ICONS[props.name] ?? ICONS.info);

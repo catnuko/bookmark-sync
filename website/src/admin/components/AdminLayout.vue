@@ -14,6 +14,7 @@ const nav = [
   { to: '/admin/orders', label: '订单', icon: '🧾' },
   { to: '/admin/subscriptions', label: '订阅', icon: '💳' },
   { to: '/admin/audit', label: '审计', icon: '📋' },
+  { to: '/admin/feedback', label: '反馈', icon: '💬' },
   { to: '/admin/system', label: '系统', icon: '🖥️' },
 ];
 
