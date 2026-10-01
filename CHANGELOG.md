@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.9.0](https://github.com/catnuko/bookmark-sync/compare/v2.8.0...v2.9.0) (2026-10-01)
+
+
+### Features
+
+* **feedback:** 插件内反馈表单 + 后台「反馈/错误上报」双 tab ([371e4a2](https://github.com/catnuko/bookmark-sync/commit/371e4a26cb7c8ceb2332cba72daf56560e62ae65))
+
+
+### Bug Fixes
+
+* **db:** bsync_op_pull 分页游标取错，&gt;1000 条 op 的空间只拉到第一页 ([6276400](https://github.com/catnuko/bookmark-sync/commit/62764009b48aa2c5f42c3e52acfa3e77d28cf4a4))
+* **sync:** 不再捕获/投影浏览器根下的非原生根节点 ([bce4850](https://github.com/catnuko/bookmark-sync/commit/bce485011c7a7ac847054f78be26fb74f954c560))
+* **sync:** 根下内部永久文件夹改为「回退落地」，修复同步成功但书签不出现 ([ef630a6](https://github.com/catnuko/bookmark-sync/commit/ef630a6dece4d8db38384e885e2f8d03c5ec826f))
+
 ## [2.8.0](https://github.com/catnuko/bookmark-sync/compare/v2.7.0...v2.8.0) (2026-09-30)
 
 
