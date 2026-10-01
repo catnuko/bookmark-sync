@@ -12,14 +12,17 @@ import {
   SyncCoordinator,
   IdBridge,
   reverseApply,
+  captureLocalTree,
   type ChromeBookmarksAPI,
   type ChromeTreeNode,
 } from '../../src/sync/index.js';
 import {
   generateKey,
   ROOT_NODE_ID,
+  ROOT_UUID,
   BOOKMARKS_BAR_UUID,
   OTHER_BOOKMARKS_UUID,
+  MOBILE_UUID,
   MENU_UUID,
   TRASH_NODE_ID,
 } from '../../src/crdt/index.js';
@@ -34,8 +37,16 @@ const SPACE = 'bbbbbbbb-0000-4000-8000-111111111111';
  * 真实 Chrome 会按 index 插入，而 reverseApply 的整层顺序完全依赖它。早期
  * 这份 mock 直接 `children.push(node)` 忽略 index，于是「空父节点下批量创建
  * 会整体倒序」这个 bug 在单测里永远测不出来（2026-09-22 用户实测踩到）。
+ *
+ * ⚠ **根保护也必须忠实实现**：Chrome 的 `CanBeModified()` 只对
+ * `node->is_root()` 返回 false，任何以根（"0"）为父的 create/move，或对永久
+ * 节点（根/书签栏/其他书签/移动设备）的 move/update，都返回
+ * `kModifySpecialError` = "Can't modify the root bookmark folders."
+ * （`chrome/browser/extensions/api/bookmarks_core/bookmarks_function.cc`）。
+ * 早期 mock 允许往 "0" 下 create，于是「CRDT 里有 parent=ROOT_UUID 的节点」
+ * 这条线上事故（2026-10-01）在单测里同样测不出来。
  */
-function makeChrome() {
+function makeChrome(extraRootChildren: ChromeTreeNode[] = []) {
   interface N extends ChromeTreeNode {
     parentId?: string;
     index?: number;
@@ -46,19 +57,30 @@ function makeChrome() {
     tree.set(n.id, n);
     for (const c of n.children ?? []) seed(c);
   };
-  const ROOTS: N[] = [
-    {
-      id: '0',
-      title: '',
-      children: [
-        { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
-        { id: '2', title: '其他书签', parentId: '0', index: 1, children: [] },
-        { id: '3', title: '移动设备书签', parentId: '0', index: 2, children: [] },
-      ],
-    },
+  const ROOT_CHILDREN: N[] = [
+    { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
+    { id: '2', title: '其他书签', parentId: '0', index: 1, children: [] },
+    { id: '3', title: '移动设备书签', parentId: '0', index: 2, children: [] },
+    // 浏览器根下的**额外**子节点：Chrome 的账号书签 / 受管书签永久文件夹
+    // （`BookmarkModel::CreateAccountPermanentFolders` 把它们 AddNode 到 root 上，
+    // 非空即可见并出现在 getTree() 里）。id 是动态分配的，不在固定根表内。
+    ...extraRootChildren.map((c, i) => ({ ...c, parentId: '0', index: 3 + i })),
   ];
+  const ROOTS: N[] = [{ id: '0', title: '', children: ROOT_CHILDREN }];
   for (const r of ROOTS) seed(r);
   let seq = 0;
+
+  /** Chrome 的 `is_root()`：只有 "0" 不可作父、不可改。 */
+  const ROOT_ID = '0';
+  /** Chrome 的 `is_permanent_node()`：根 + 三个固定根文件夹。 */
+  const PERMANENT = new Set(['0', '1', '2', '3']);
+  const MODIFY_ROOT_ERROR = "Can't modify the root bookmark folders.";
+  const assertParentModifiable = (parentId: string) => {
+    if (parentId === ROOT_ID) throw new Error(MODIFY_ROOT_ERROR);
+  };
+  const assertNodeModifiable = (id: string) => {
+    if (PERMANENT.has(id)) throw new Error(MODIFY_ROOT_ERROR);
+  };
 
   const api: ChromeBookmarksAPI = {
     getTree: async () => {
@@ -71,6 +93,7 @@ function makeChrome() {
       return (p?.children ?? []).map((c) => ({ ...c }));
     },
     create: async (props: { parentId: string; title?: string; url?: string; index?: number }) => {
+      assertParentModifiable(props.parentId);
       const id = 'n' + ++seq;
       const parent = tree.get(props.parentId)!;
       const kids = (parent.children ??= []);
@@ -89,6 +112,8 @@ function makeChrome() {
       return { ...node, index: idx };
     },
     move: async (id: string, moveProps: { parentId: string; index?: number }) => {
+      assertNodeModifiable(id);
+      assertParentModifiable(moveProps.parentId);
       const node = tree.get(id)!;
       const oldParent = tree.get(node.parentId!)!;
       oldParent.children = oldParent.children!.filter((c) => c.id !== id);
@@ -100,6 +125,7 @@ function makeChrome() {
       return { ...node, parentId: moveProps.parentId, index: idx };
     },
     update: async (id: string, changes: { title?: string; url?: string }) => {
+      assertNodeModifiable(id);
       const node = tree.get(id)!;
       if (changes.title !== undefined) node.title = changes.title;
       if (changes.url !== undefined) node.url = changes.url;
@@ -287,6 +313,57 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     expect(bar.children!.length).toBe(1); // 重新创建而非报错
     expect(bar.children![0].title).toBe('复活');
     expect(bridge.toUuid(bar.children![0].id)).toBe('uu-g'); // 映射更新到新 chromeId
+  });
+
+  /**
+   * 线上事故回归（2026-10-01，app_version=2.7.0 / Chrome 154）：
+   * 老版本 captureLocalTree 会把浏览器根下的**非原生根**子节点也捕获进 CRDT
+   * （Chrome 账号书签 / 受管书签永久文件夹、Firefox tags________），生成
+   * parent=ROOT_UUID 的 op。op 日志 append-only → 永久留在云端 → 之后每台**新
+   * 设备**投影时都会在根下 create，Chrome 返回 kModifySpecialError：
+   *   "Can't modify the root bookmark folders."
+   * 触发它的 profile（捕获方）反而正常：节点已存在且已映射，走不到 create。
+   * 症状 = 「新建 profile → 选默认空间 → 同步失败」。
+   */
+  it('CRDT 里 parent=ROOT_UUID 的节点（历史脏数据）不再让同步崩掉，且根下不建任何东西', async () => {
+    // 模拟旧版本捕获出来的脏节点：直接挂在 ROOT_UUID 下
+    await coordinator.createNodeWithId('uu-account-other', ROOT_UUID, { title: 'Other bookmarks' });
+    await coordinator.createNodeWithId('uu-account-child', 'uu-account-other', {
+      title: '账号书签',
+      url: 'https://account.example',
+    });
+
+    await expect(reverseApply(chrome, coordinator, new IdBridge())).resolves.toBeUndefined();
+
+    // 根（"0"）下仍只有三个固定根文件夹，没被塞进任何东西
+    const root = (await chrome.getTree())[0];
+    expect(root.children!.map((n) => n.id)).toEqual(['1', '2', '3']);
+  });
+
+  it('captureLocalTree 不捕获浏览器根下的非原生根子节点（账号书签 / 受管书签 / Firefox tags）', async () => {
+    // getTree 里根下多出一个动态 id 的永久文件夹（非空 → 可见）
+    const chromeWithAccountRoot = makeChrome([
+      {
+        id: '4',
+        title: 'Other bookmarks',
+        children: [{ id: '4-1', title: '账号书签', url: 'https://account.example' }],
+      },
+    ]);
+    const bridge = new IdBridge();
+    const captured = await captureLocalTree(chromeWithAccountRoot, coordinator, bridge, '0');
+
+    expect(captured).toBe(0); // 整棵子树跳过
+    expect(bridge.toUuid('4')).toBeNull();
+    expect(bridge.toUuid('4-1')).toBeNull();
+    // CRDT 里不得出现任何 parent=ROOT_UUID 的用户节点（脏 op 的源头）
+    const underRoot = coordinator.replica
+      .getVisibleTree()
+      .filter((e) => e.parent === ROOT_UUID)
+      .map((e) => e.child)
+      .sort();
+    expect(underRoot).toEqual(
+      [BOOKMARKS_BAR_UUID, OTHER_BOOKMARKS_UUID, MOBILE_UUID, MENU_UUID].sort(),
+    );
   });
 });
 

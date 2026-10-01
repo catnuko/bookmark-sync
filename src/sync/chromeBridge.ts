@@ -425,6 +425,11 @@ export function captureLocalEvents(
     const b = await getB();
     if (!b) return;
     if (fixedRootUuid(id)) return; // never track chrome's own roots
+    // 浏览器根下的非原生根节点（Chrome 账号书签 / 受管书签永久文件夹、Firefox
+    // tags________）一律不入 CRDT：它们不是本扩展的固定根拓扑，且 parent 一旦
+    // 落成 ROOT_UUID，别的设备投影时会在根下 create → "Can't modify the root
+    // bookmark folders."。判据与 captureLocalTree 的同名守卫一致。
+    if (node.parentId && BROWSER_ROOT_IDS.has(node.parentId)) return;
     // 已映射 = 重复事件，或与本轮 runSync 的重扫描（captureLocalTree）竞态：
     // captureLocalTree 的树遍历相对事件处理器是原子的（遍历期间无 await，
     // 事件回调排在其后的宏任务里），谁先映射成功另一方都会在这里看到映射
@@ -553,6 +558,17 @@ const PROTECTED_UUIDS = new Set([
   MOBILE_UUID,
   MENU_UUID,
 ]);
+
+/**
+ * 浏览器**根节点**的 chromeId（Chrome "0" / Firefox `root________`）。
+ *
+ * 根节点是唯一「不能增删条目」的节点：Chrome 的 `CanBeModified()` 只对
+ * `node->is_root()` 返回 false（`bookmarks_function.cc`），任何以它为父的
+ * create/move 都会得到 `kModifySpecialError` = "Can't modify the root bookmark
+ * folders."。书签栏/其他书签/移动设备（"1"/"2"/"3"）都是**永久节点但不是根**，
+ * 在它们下面增删条目完全合法——两者必须区分开。
+ */
+export const BROWSER_ROOT_IDS: ReadonlySet<string> = new Set([CHROME_ROOT_ID, 'root________']);
 
 interface ChromeNodeInfo {
   chromeId: string;
@@ -741,6 +757,19 @@ async function ensureReachableNodes(
     for (let i = 0; i < kids.length; i++) {
       const { child: childUuid, meta } = kids[i];
       if (!reachable.has(childUuid)) continue;
+
+      // 根节点下只有本环境原生根是「我们的」节点；其余（Chrome 账号书签 /
+      // 受管书签永久文件夹等浏览器内部节点）整棵子树跳过。理由有两条：
+      //   1. 根下**不能** create —— Chrome 只对 `is_root()` 报
+      //      "Can't modify the root bookmark folders."，一条这样的 op 就能让
+      //      每台新设备的同步直接失败（2026-10-01 实测：新 profile 选默认空间
+      //      报错，error_reports 里 app_version=2.7.0 / platform=Chrome 154）；
+      //   2. 它们是浏览器自己管理的（Chrome 账号同步 / 企业策略），不是本空间
+      //      的内容，投影进来只会重复一份。
+      // 历史 op 里已经落成 parent=ROOT_UUID 的节点（append-only，删不掉）由这条
+      // 守卫兜住：跳过而非抛错，同步照常收敛。
+      if (parentUuid === ROOT_UUID && !bridge.isLandingRoot(childUuid)) continue;
+
       queue.push(childUuid);
 
       if (bridge.isLandingRoot(childUuid)) {
@@ -866,6 +895,10 @@ async function ensureReachableNodes(
  * 遍历相对 chrome 事件处理器是原子的：getTree 之后整个 walk 无外部 await，
  * 事件回调（宏任务）不会插进遍历中间；onCreated 侧的「已映射即让路」守卫
  * 保证先后到达都不会产生重复节点。
+ *
+ * **浏览器根下的非原生根节点整棵跳过**（见 walk 内守卫）：Chrome 账号书签 /
+ * 受管书签永久文件夹、Firefox `tags________` 都不是本扩展的固定根拓扑，捕获
+ * 它们会生成 parent=ROOT_UUID 的 op，而根下不允许 create。
  */
 export async function captureLocalTree(
   chrome: ChromeBookmarksAPI,
@@ -884,6 +917,18 @@ export async function captureLocalTree(
   }
   let captured = 0;
   const walk = async (node: ChromeTreeNode, parentUuid: string): Promise<void> => {
+    // 浏览器根（"0" / `root________`）下只有本环境的原生根是「我们的」节点
+    // ——它们在 IdBridge 构造期就已预置映射，走下面的 existing 分支续走子树。
+    // 其余根子节点是浏览器内部永久文件夹，**不映射、不捕获、不下钻**：
+    //   - Chrome：账号书签（account bookmarks）与受管书签（managed）永久文件夹
+    //     （`BookmarkModel::CreateAccountPermanentFolders` 把它们 AddNode 到 root
+    //     上）。`DetermineIfNodeShouldBeVisible` 规定「有子节点即可见」，所以只要
+    //     用户往 Google 账号存过一条书签，它们就会出现在 getTree() 里；
+    //   - Firefox：`tags________`（标签根，不在 fixedRootUuid 表里）。
+    // 一旦被捕获就会生成 parent=ROOT_UUID 的 CRDT 节点 —— op 日志 append-only，
+    // 那条 op 永久留在云端，之后**每台新设备**投影时都会在根下 create，Chrome
+    // 直接报 "Can't modify the root bookmark folders."（2026-10-01 线上事故）。
+    if (parentUuid === ROOT_UUID && fixedRootUuid(node.id) === null) return;
     const existing = bridge.toUuid(node.id);
     if (existing) {
       // 固定根（Chrome "0".."3" / Firefox 根）与已映射用户节点直接续走
@@ -934,6 +979,12 @@ async function removeTrashedNodes(
   const toDelete: ChromeNodeInfo[] = [];
   for (const info of chromeNodes.values()) {
     if (PROTECTED_CHROME_IDS.has(info.chromeId)) continue;
+    // 根的直接子节点恒为永久节点（书签栏/其他书签/移动设备，以及 Chrome 的账号
+    // 书签 / 受管书签永久文件夹——后者 id 动态分配，不在 PROTECTED_CHROME_IDS
+    // 里）。Chrome 的 `RemoveNode()` 对永久节点返回 kModifySpecialError，与
+    // create 撞的是同一句 "Can't modify the root bookmark folders."，所以根子
+    // 节点一律不删（与 capture/ensure 的根守卫同一条不变式）。
+    if (info.parentId && BROWSER_ROOT_IDS.has(info.parentId)) continue;
     const uuid = bridge.toUuid(info.chromeId);
     if (uuid === null) continue; // unmapped: leave alone
     if (!reachable.has(uuid)) toDelete.push(info);

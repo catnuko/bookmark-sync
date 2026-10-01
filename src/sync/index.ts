@@ -24,6 +24,7 @@ export {
   computePosition,
   nativeRootPairs,
   LANDING_ROOT_UUIDS,
+  BROWSER_ROOT_IDS,
 } from './chromeBridge.js';
 export type { ChromeBookmarksAPI, ChromeTreeNode, IdBridgeOptions } from './chromeBridge.js';
 
