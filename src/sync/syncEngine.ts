@@ -145,7 +145,7 @@ export class SyncCoordinator {
     // Cold-start guard: never let a fresh replica reuse seqs this device
     // already pushed (ON CONFLICT DO NOTHING would silently drop the op).
     // This is deliberately applied AFTER ensureRoots() so the roots' fixed
-    // timestamps (1..5) stay untouched.
+    // timestamps (1..8) stay untouched.
     if (opts.initialCounter != null && opts.initialCounter > 0) {
       this.replica.counter = Math.max(this.replica.counter, opts.initialCounter);
     }

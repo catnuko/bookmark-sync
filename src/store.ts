@@ -70,6 +70,8 @@ interface SyncSummary {
   push: boolean;
   pull: boolean;
   dec: number;
+  /** 本机无处落地的书签条数（runSync 的 unplaced；0 = 无）。 */
+  unplaced: number;
 }
 
 /** 首绑门禁在同步中收到 bind_needed 时传入的空间列表项。 */
@@ -953,6 +955,7 @@ function summarize(r: Extract<SyncRunResult, { ok: true }>): SyncSummary {
     push: (r.pushed || 0) > 0,
     pull: (r.pulled || 0) > 0,
     dec: r.decryptFailed || 0,
+    unplaced: r.unplaced || 0,
   };
 }
 
@@ -965,7 +968,11 @@ function summaryText(sum: SyncSummary | null): string {
   else if (sum.push) body = t('status_pushed');
   else if (sum.pull) body = t('status_pulled');
   else body = t('status_uptodate');
-  return sum.dec > 0 ? body + ` · ${t('status_decryptWarn', sum.dec)}` : body;
+  if (sum.dec > 0) body += ` · ${t('status_decryptWarn', sum.dec)}`;
+  // 「本机看不到的本地书签」和方向摘要一样是**结果**的一部分，跟着一起展示
+  // （旧版本持久化的摘要没有 unplaced 字段 → undefined > 0 为 false，天然兼容）。
+  if (sum.unplaced > 0) body += ` · ${t('status_unplacedWarn', sum.unplaced)}`;
+  return body;
 }
 
 function parseSummary(raw: string | null): SyncSummary | null {
@@ -1510,6 +1517,10 @@ export const syncSub = computed(() => {
   const decrypt = state.lastDecryptErrors?.errors?.length;
   if (decrypt) return t('status_decryptLine', decrypt);
   const sum = parseSummary(state.lastSyncSummary);
+  // 「本机无处落地」**不单列一行**：它和方向摘要一样是「本轮结果」的一部分，由
+  // summaryText 以 `· ⚠️ N 条本地书签本机看不到` 的小尾巴跟在后面（与 decryptWarn 同款）。
+  // （曾单列一行并顶掉「已是最新」，但该情况在「已登录 + 本地为空」的设备上**每轮都会
+  // 出现**，长期顶掉常规状态反而让人看不出同步本身有没有问题。）
   if (sum) return summaryText(sum);
   // 兼容旧版本持久化的中文摘要文案
   if (st && st !== 'ok') return st;

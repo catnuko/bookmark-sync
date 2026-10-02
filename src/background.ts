@@ -54,9 +54,42 @@ async function autoSyncEnabled(): Promise<boolean> {
   return s[AUTO_SYNC_KEY] !== false;
 }
 
+// ---- 登录态切换：真账号根出现 → 静默去抖后收敛 ----
+// Chrome 登录后从 Google 拉回账号子树时，真账号根作为 syncing 子树出现。若本机
+// 此前由「回退文件夹」代表该根（登出期），必须尽快收敛：退休回退 + 内容认领
+// （把「最长 30 分钟的本地重复窗口」压到「拉取完成后几秒」）。
+//
+// ⚠ 绝不能一出现真根就立刻同步：拉取途中 reverseApply 会给「Chrome 尚未拉回的
+// 内容」在本机造出节点，随后被 onCreated 当新节点捕获 → 永久 CRDT 重复。故等
+// 书签事件静默若干秒再跑一次完整同步（复用 runSync 的认领 / 退休 / 反向应用）。
+const ROOT_RECONCILE_SETTLE_MS = 5000;
+let rootReconcileArmed = false;
+let rootReconcileTimer: ReturnType<typeof setTimeout> | null = null;
+function resetRootReconcileTimer(): void {
+  if (!rootReconcileArmed) return;
+  if (rootReconcileTimer) clearTimeout(rootReconcileTimer);
+  rootReconcileTimer = setTimeout(() => {
+    rootReconcileTimer = null;
+    rootReconcileArmed = false;
+    void (async () => {
+      if (!(await autoSyncEnabled())) return;
+      console.log('[bsync] 真账号根出现后静默收敛：开始同步');
+      await sync();
+    })();
+  }, ROOT_RECONCILE_SETTLE_MS);
+}
+
 // MV3：chrome.* 持久事件监听必须在 SW 顶层注册（SW 每次被唤醒都会重跑本文件）。
 // 事件桥在 coordinator 未就绪（未登录/无空间）时安全跳过，由 runSync 播种兜底。
-registerLocalEventBridge();
+registerLocalEventBridge({
+  // 每个书签事件重置静默计时器（登录拉取期间事件密集 → 拉取结束才收敛）。
+  onAnyEvent: () => resetRootReconcileTimer(),
+  onRealRootAppeared: (landingUuid, chromeId) => {
+    console.log(`[bsync] 检测到真账号根出现: landing=${landingUuid} chromeId=${chromeId}`);
+    rootReconcileArmed = true;
+    resetRootReconcileTimer();
+  },
+});
 // 测试通道（仅 Firefox E2E；生产无测试桥扩展，通道天然不可达）
 registerTestChannel();
 
@@ -78,6 +111,7 @@ async function sync(): Promise<SyncRunResult> {
           push: p > 0,
           pull: q > 0,
           dec: r.decryptFailed || 0,
+          unplaced: r.unplaced || 0,
         }),
       });
     } else {

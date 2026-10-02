@@ -71,6 +71,7 @@ state.lastSyncSummary = JSON.stringify({
   push: false,
   pull: true,
   dec: 0,
+  unplaced: 0,
 });
 state.lastDecryptErrors = null;
 state.hasKeyNow = true;

@@ -89,6 +89,14 @@
   "status_uptodate": {
     "message": "Already up to date"
   },
+  "status_unplacedWarn": {
+    "message": "⚠️ $COUNT$ local bookmarks not shown here",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
   "status_decryptWarn": {
     "message": "⚠️ $COUNT$ cloud entries failed to decrypt (key mismatch — check your sync key/passphrase)",
     "placeholders": {

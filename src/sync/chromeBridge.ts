@@ -5,15 +5,21 @@
  *   local chrome events            -> coordinator.create/move/delete
  *   remote CRDT state (after pull)  -> reverse-applied to chrome.bookmarks
  *
- * Root topology (identical on every device, fixed UUIDs):
+ * Root topology (fixed UUIDs; chromeId 由 rootResolver 每轮解析):
  *   __root__
  *     └─ ROOT_UUID                    (chrome root id "0")
  *          ├─ BOOKMARKS_BAR_UUID      (chrome "1", folderType 'bookmarks-bar')
  *          ├─ OTHER_BOOKMARKS_UUID    (chrome "2", folderType 'other')
  *          ├─ MOBILE_UUID             (chrome "3", folderType 'mobile')
- *          └─ MENU_UUID               (Firefox "menu________" 书签菜单；
- *                                      Chromium 端 = bsync 自动管理的
- *                                      「书签菜单」文件夹，动态 chromeId)
+ *          ├─ MENU_UUID               (Firefox "menu________" 书签菜单；
+ *          │                           Chromium 端 = bsync 自动管理的
+ *          │                           「书签菜单」文件夹，动态 chromeId)
+ *          ├─ ACCOUNT_BOOKMARKS_BAR_UUID    (账号书签栏, syncing=true)
+ *          ├─ ACCOUNT_OTHER_BOOKMARKS_UUID  (账号其他书签, syncing=true)
+ *          └─ ACCOUNT_MOBILE_UUID           (账号移动设备书签, syncing=true)
+ *
+ * 后三个是 Chrome 2025-06 双子树引入的账号（syncing）子树，与本地根**并列**
+ * （不是 alias），chromeId 动态：见 src/sync/rootResolver.ts。
  *
  * We never create/delete the special roots; only ordinary nodes are mapped.
  * MENU_UUID 在 Chromium 端是动态容器（sync.js 按需创建/移除：菜单有内容才
@@ -31,10 +37,14 @@ import {
   OTHER_BOOKMARKS_UUID,
   MOBILE_UUID,
   MENU_UUID,
+  ACCOUNT_BOOKMARKS_BAR_UUID,
+  ACCOUNT_OTHER_BOOKMARKS_UUID,
+  ACCOUNT_MOBILE_UUID,
   CHROME_ROOT_ID,
   positionBetween,
 } from '../crdt/index.js';
 import type { SyncCoordinator } from './syncEngine.js';
+import { contentKey } from './contentFingerprint.js';
 
 /** Minimal chrome.bookmarks surface we depend on (ease of testing). */
 export interface ChromeBookmarksAPI {
@@ -72,6 +82,12 @@ export interface ChromeTreeNode {
   url?: string;
   children?: ChromeTreeNode[];
   folderType?: string;
+  /**
+   * Chrome 2025-06 双子树标记：true = 同步（账号）子树，false = 非同步（本地）
+   * 子树。官方文档：https://developer.chrome.com/blog/bookmarks-sync-changes
+   * Chrome < 134 / Firefox 上为 undefined。
+   */
+  syncing?: boolean;
 }
 
 /**
@@ -79,8 +95,12 @@ export interface ChromeTreeNode {
  * 跨浏览器根 id：Chrome 用数字 "0"/"1"/"2"/"3"，Firefox 用 guid
  * （root________ / menu________ / toolbar_____ / unfiled_____ / mobile______）。
  * Firefox 的 menu________（书签菜单）映射 MENU_UUID（P3 后参与同步）。
+ *
+ * ⚠ 这是**静态回退表**，只在节点没有 `folderType` 时使用（Chrome < 134 /
+ * Firefox）。Chrome 134+ 必须走 src/sync/rootResolver.ts 按 folderType 认根
+ * —— 官方明说 id 不固定，且双子树下账号根与本地根同名不同 id。
  */
-function fixedRootUuid(chromeId: string): string | null {
+export function fixedRootUuid(chromeId: string): string | null {
   switch (chromeId) {
     case CHROME_ROOT_ID:
       return ROOT_UUID; // Chrome "0"
@@ -108,17 +128,47 @@ function fixedRootUuid(chromeId: string): string | null {
 /** 运行环境是否为 Firefox（根 id 体系不同：guid vs 数字）。 */
 export const IS_FIREFOX = typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent);
 
-/** 所有固定根 UUID（ROOT 之外 4 个）。 */
+/**
+ * 所有固定根 UUID：本地 4 个（含 ROOT）+ 账号（syncing）子树 3 个。
+ *
+ * 账号根是 Chrome 2025-06 双子树引入的第二棵树，chromeId 动态、由
+ * src/sync/rootResolver.ts 解析。它们在 CRDT 里与本地根**并列**，因此
+ * 「不是落地根」= 「浏览器内部永久文件夹（受管书签 / Firefox tags）」。
+ */
 export const LANDING_ROOT_UUIDS: ReadonlySet<string> = new Set([
   ROOT_UUID,
   BOOKMARKS_BAR_UUID,
   OTHER_BOOKMARKS_UUID,
   MOBILE_UUID,
   MENU_UUID,
+  ACCOUNT_BOOKMARKS_BAR_UUID,
+  ACCOUNT_OTHER_BOOKMARKS_UUID,
+  ACCOUNT_MOBILE_UUID,
 ]);
 
 /**
- * 本环境原生根（[chromeId, uuid]，首项是根 id）。
+ * folderType → 本地（非同步）子树固定根。rootResolver 按 `syncing:false` 认根。
+ * 放在这里（而非 rootResolver）是为了让事件桥也能用同一张表识别「真账号根出现」
+ * —— 事件桥不能 import rootResolver（后者反过来 import 本文件，会成环）。
+ */
+export const LOCAL_ROOT_BY_FOLDER_TYPE: Readonly<Record<string, string>> = {
+  'bookmarks-bar': BOOKMARKS_BAR_UUID,
+  other: OTHER_BOOKMARKS_UUID,
+  mobile: MOBILE_UUID,
+};
+
+/** folderType → 账号（syncing）子树固定根。rootResolver 按 `syncing:true` 认根。 */
+export const ACCOUNT_ROOT_BY_FOLDER_TYPE: Readonly<Record<string, string>> = {
+  'bookmarks-bar': ACCOUNT_BOOKMARKS_BAR_UUID,
+  other: ACCOUNT_OTHER_BOOKMARKS_UUID,
+  mobile: ACCOUNT_MOBILE_UUID,
+};
+
+/**
+ * 本环境**本地（非同步）**原生根（[chromeId, uuid]，首项是根 id）。
+ *
+ * ⚠ 只含本地根。账号（syncing）子树的根 chromeId 是动态的，由
+ * src/sync/rootResolver.ts 每轮从 getTree() 解析，**不能**写进静态表。
  *
  * 设备绑定空间方案下，本机书签树 ≡ 绑定空间，落地区恒为这一组
  * （`IdBridgeOptions.roots` 仅测试用；Chromium 缺失的「书签菜单」容器由
@@ -162,6 +212,18 @@ const FF_ROOT_IDS = new Set([
   'mobile______',
 ]);
 /**
+ * 本环境的**原生根** chromeId（本地根 / Firefox 原生根）。
+ *
+ * 双子树下，登录且本地子树为空时本地根会被 Chrome 隐藏 —— 于是它不在
+ * `getTree()`、不在 rootResolver 的 pairs 里、也不在 `protectedIds` 里。
+ * 但「原生根被隐藏」≠「回退占位」：前者是浏览器的真实根，后者才是 bsync
+ * 在「其他书签」下建的占位文件夹（动态 chromeId）。凡是本集合里的 chromeId
+ * 都**不能**被登记为回退，否则 `captureLocalTree` 的 walk 会按
+ * `isFallbackChromeId` 把整棵本地子树跳过（2026-10-02 真机实测：登录后
+ * 本地根被隐藏 → load 把 '1'/'2' 记成回退 → 登出后本地书签永不捕获）。
+ */
+const NATIVE_ROOT_IDS: ReadonlySet<string> = IS_FIREFOX ? FF_ROOT_IDS : CHROME_ROOT_IDS;
+/**
  * In-memory chromeId <-> uuid map. Persistence (chrome.storage.local
  * `crdt.idmap.<spaceId>`，见 sync.js) owns the durable layer; this cache is
  * warmed at start and written-through.
@@ -187,6 +249,16 @@ export class IdBridge {
   private backward = new Map<string, string>(); // uuid -> chromeId
   /** 本空间落地根：固定不可被 map() 改写（固定根不是用户节点）。 */
   private protectedIds = new Set<string>();
+  /**
+   * 本空间**回退文件夹**记录：落地根 uuid -> bsync 建的占位文件夹 chromeId。
+   *
+   * 未登录（或账号根被隐藏）时账号子树没有真实落地根，`ensureRootFallback`
+   * 会在「其他书签」下建一个同名文件夹承载它。登录后真账号根出现 → 这份回退
+   * 必须退休（否则同一 CRDT 子树在本机有两份 chrome 表示 → 重复捕获）。
+   * 记录让「回退」从结构上可识别，不靠标题 / 位置猜测。
+   */
+  private fallbacks = new Map<string, string>(); // landing uuid -> fallback chromeId
+  private fallbackChromeIds = new Set<string>();
   /** 该映射表所属的空间（未指定时视为单空间模式）。 */
   readonly spaceId?: string;
 
@@ -217,9 +289,81 @@ export class IdBridge {
     return this.backward.get(uuid) ?? null;
   }
 
-  /** 该 uuid 是否是固定根（ROOT / 书签栏 / 其他书签 / 移动设备 / 书签菜单）。 */
+  /** 该 uuid 是否是固定根（本地根 / 账号根 / 书签菜单）。 */
   isLandingRoot(uuid: string): boolean {
     return LANDING_ROOT_UUIDS.has(uuid);
+  }
+
+  /**
+   * 该 chromeId 是否是本环境的固定根（含账号根与动态菜单容器）。
+   *
+   * 事件层用它代替旧的 `fixedRootUuid(id)` 判断 —— 账号根的 chromeId 是动态
+   * 的，静态表认不出来；而构造期解析出的 roots 里已经包含它们。
+   */
+  isProtectedChromeId(chromeId: string): boolean {
+    return this.protectedIds.has(chromeId);
+  }
+
+  /** 该 chromeId 是否是本空间某个落地根的**回退文件夹**（bsync 建的占位）。 */
+  isFallbackChromeId(chromeId: string): boolean {
+    return this.fallbackChromeIds.has(chromeId);
+  }
+
+  /** 回退文件夹代表的落地根 uuid（不是回退则 null）。 */
+  fallbackRootOf(chromeId: string): string | null {
+    for (const [u, cid] of this.fallbacks) if (cid === chromeId) return u;
+    return null;
+  }
+
+  /** 落地根 uuid 当前的回退文件夹 chromeId（无则 null）。 */
+  fallbackFor(uuid: string): string | null {
+    return this.fallbacks.get(uuid) ?? null;
+  }
+
+  /** 全部回退记录（退休流程用）。 */
+  fallbackEntries(): Array<[string, string]> {
+    return [...this.fallbacks.entries()];
+  }
+
+  /** 登记一条回退记录（同一落地根只保留最新一个）。 */
+  markFallback(uuid: string, chromeId: string): void {
+    // 原生根不是回退占位（见 NATIVE_ROOT_IDS 注释）：拒绝登记，避免污染
+    // fallbackChromeIds 让 walk 跳过整棵本地子树。
+    if (NATIVE_ROOT_IDS.has(chromeId)) return;
+    const prev = this.fallbacks.get(uuid);
+    if (prev === chromeId) return;
+    if (prev) this.fallbackChromeIds.delete(prev);
+    this.fallbacks.set(uuid, chromeId);
+    this.fallbackChromeIds.add(chromeId);
+    this.onChange?.();
+  }
+
+  /** 清除一条回退记录（回退文件夹已退休 / 消失）。 */
+  clearFallback(uuid: string): void {
+    const prev = this.fallbacks.get(uuid);
+    if (!prev) return;
+    this.fallbackChromeIds.delete(prev);
+    this.fallbacks.delete(uuid);
+    this.onChange?.();
+  }
+
+  /** 从持久化快照恢复回退记录（构造后调用）。 */
+  loadFallbacks(map: Record<string, string>): void {
+    for (const [u, cid] of Object.entries(map)) {
+      // 原生根 chromeId 不可能是 bsync 建的回退占位；旧版本在「登录后本地根
+      // 被隐藏」时会把 '1'/'2'/'3' 误记进来，这里过滤以自愈已污染的持久化记录。
+      if (NATIVE_ROOT_IDS.has(cid)) continue;
+      if (this.fallbacks.get(u) === cid) continue;
+      const prev = this.fallbacks.get(u);
+      if (prev) this.fallbackChromeIds.delete(prev);
+      this.fallbacks.set(u, cid);
+      this.fallbackChromeIds.add(cid);
+    }
+  }
+
+  /** 持久化回退记录（landing uuid -> chromeId）。 */
+  fallbackSnapshot(): Record<string, string> {
+    return Object.fromEntries(this.fallbacks);
   }
 
   /**
@@ -259,6 +403,11 @@ export class IdBridge {
     const uuid = this.forward.get(chromeId);
     this.forward.delete(chromeId);
     if (uuid && this.backward.get(uuid) === chromeId) this.backward.delete(uuid);
+    // 该 chromeId 若是某落地根的回退文件夹，记录一并清除（文件夹已不存在）。
+    if (this.fallbackChromeIds.has(chromeId)) {
+      for (const [u, cid] of this.fallbacks) if (cid === chromeId) this.fallbacks.delete(u);
+      this.fallbackChromeIds.delete(chromeId);
+    }
     this.onChange?.();
   }
 
@@ -267,6 +416,11 @@ export class IdBridge {
     const cid = this.backward.get(uuid);
     this.backward.delete(uuid);
     if (cid && this.forward.get(cid) === uuid) this.forward.delete(cid);
+    const fb = this.fallbacks.get(uuid);
+    if (fb) {
+      this.fallbackChromeIds.delete(fb);
+      this.fallbacks.delete(uuid);
+    }
     this.onChange?.();
   }
 
@@ -282,6 +436,27 @@ export class IdBridge {
       if (IS_FIREFOX ? CHROME_ROOT_IDS.has(cid) : FF_ROOT_IDS.has(cid)) continue;
       // 落地根本身由构造期 seed 决定，不接受持久化覆盖
       if (this.protectedIds.has(cid)) continue;
+      // 落地根：本轮从 getTree() 解析出的 seed 才是权威。
+      //   - 已 seed（真根在）→ 丢弃这条持久化映射（陈旧回退），记为回退待退休；
+      //   - 未 seed（真根缺席）→ 这条就是「回退落地」，**保留**它并记为回退，
+      //     否则每轮重建都会在「其他书签」下再建一个新的回退文件夹
+      //     （2026-10-01 真机实测：升级后账号根缺席时凭空多出一套空账号文件夹，
+      //      旧回退被重新捕获成两个新 CRDT 节点 → 云端多出两个空文件夹）。
+      // MENU_UUID 例外：Chromium 端的「书签菜单」容器本来就是动态映射的
+      // （sync.js 按需创建），必须保留。
+      if (LANDING_ROOT_UUIDS.has(uuid) && uuid !== MENU_UUID) {
+        // 原生根（本地根被 Chrome 隐藏时不在 pairs/protectedIds 里）不是回退
+        // 文件夹 —— 只有 bsync 建的占位（动态 chromeId）才是。旧实现把「未
+        // seed 的落地根映射」一律记成回退，于是登录后本地根被隐藏时把
+        // '1'/'2'/'3' 记成回退；登出后本地根重新可见，walk 会因
+        // isFallbackChromeId 跳过整棵本地子树（本地书签永不捕获）。
+        if (NATIVE_ROOT_IDS.has(cid)) continue;
+        const prev = this.fallbacks.get(uuid);
+        if (prev && prev !== cid) this.fallbackChromeIds.delete(prev);
+        this.fallbacks.set(uuid, cid);
+        this.fallbackChromeIds.add(cid);
+        if (this.backward.has(uuid)) continue; // 已 seed：真根胜出，丢弃陈旧回退映射
+      }
       this.forward.set(cid, uuid);
       this.backward.set(uuid, cid);
     }
@@ -352,11 +527,27 @@ export function computePosition(
  * 「当前活动空间」的那一份（否则会把 A 空间书签的 uuid 用到 B 空间，产生幽灵
  * 节点或漏掉删除墓碑）。
  */
+/**
+ * 事件桥的可选钩子（由 sync.js 接线）。
+ *
+ * - `onAnyEvent`：每个 chrome 书签事件到达即触发（含被抑制的回写事件）。用于
+ *   「静默去抖」—— 登录态切换时 Chrome 会连续灌入账号子树，等事件静默后再收敛，
+ *   避免在拉取中途 reverseApply 造出重复节点。
+ * - `onRealRootAppeared`：真账号根（syncing 子树）出现、且该落地根当前仍由回退
+ *   文件夹代表时触发，参数是该落地根 uuid 与真根 chromeId。官方建议用生命周期
+ *   事件处理双子树变化：https://developer.chrome.com/blog/bookmarks-sync-changes
+ */
+export interface CaptureEventHooks {
+  onAnyEvent?: () => void;
+  onRealRootAppeared?: (landingUuid: string, chromeId: string) => void;
+}
+
 export function captureLocalEvents(
   chrome: ChromeBookmarksAPI,
   coordinator: SyncCoordinator | (() => SyncCoordinator | null | Promise<SyncCoordinator | null>),
   bridge: IdBridge | (() => IdBridge | null | Promise<IdBridge | null>),
   onLocalOp?: () => void,
+  hooks?: CaptureEventHooks,
 ): { suppressed: { value: boolean } } {
   let suppressedValue = false;
   // reverseApply 运行期间（suppressed=true）到达的删除事件不能直接丢弃：
@@ -408,6 +599,7 @@ export function captureLocalEvents(
     console.log(
       `[bsync] 事件 onRemoved: id=${id} title="${info?.removedNode?.title ?? ''}" url=${info?.removedNode?.url ?? ''} suppressed=${suppressedValue}`,
     );
+    hooks?.onAnyEvent?.();
     if (suppressedValue) {
       pendingRemoved.push(id);
       return;
@@ -419,15 +611,34 @@ export function captureLocalEvents(
     console.log(
       `[bsync] 事件 onCreated: id=${id} title="${node.title}" url=${node.url ?? ''} parent=${node.parentId} index=${node.index} suppressed=${suppressed.value}`,
     );
+    hooks?.onAnyEvent?.();
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
     const b = await getB();
     if (!b) return;
-    if (fixedRootUuid(id)) return; // never track chrome's own roots
-    // 浏览器根下的非原生根节点（Chrome 账号书签 / 受管书签永久文件夹、Firefox
-    // tags________）一律不入 CRDT：它们不是本扩展的固定根拓扑，且 parent 一旦
-    // 落成 ROOT_UUID，别的设备投影时会在根下 create → "Can't modify the root
+    // 真账号根出现（登录态切换）：Chrome 从 Google 拉回账号子树时，账号根作为
+    // 浏览器根的直接子节点被创建。若该落地根当前仍由回退文件夹代表，说明这是
+    // 「回退 → 真根」的切换，需要尽快收敛（退休回退 + 内容认领）。此处**只上报**，
+    // 由 sync.js 安排一次静默去抖后的同步 —— 绝不能在此刻直接同步：拉取中途
+    // reverseApply 会给「Chrome 尚未拉回的内容」在本机造出节点，随后被 onCreated
+    // 当新节点捕获 → 永久 CRDT 重复。
+    // ⚠ 必须放在 getC()/getB() 之后：SW 冷启动时 _activeBridge 还是 null，
+    // getC() 才会 boot coordinator 并建桥（bootCoordinatorForEvent →
+    // ensureActiveBridge）；若先取桥，账号根出现这一个事件会被漏掉（它只出现一次）。
+    // 判据用 node.syncing + 浏览器根的直接子节点（官方建议按 folderType +
+    // syncing 认根，id 不固定）。
+    if (node?.syncing === true && node.parentId && BROWSER_ROOT_IDS.has(node.parentId)) {
+      const landing = ACCOUNT_ROOT_BY_FOLDER_TYPE[node.folderType ?? ''];
+      if (landing && b.fallbackFor(landing)) hooks?.onRealRootAppeared?.(landing, id);
+    }
+    // 固定根本身（本地根 / 账号根 / Firefox guid / 动态菜单容器）不建 CRDT 节点
+    // ——它们在构造期已预置映射。用 isProtectedChromeId 而非静态 fixedRootUuid：
+    // 账号根的 chromeId 是动态的，静态表认不出来。
+    if (b.isProtectedChromeId(id)) return;
+    // 浏览器根下的**未识别**子节点（受管书签永久文件夹、Firefox tags________）
+    // 一律不入 CRDT：它们不是本扩展的固定根拓扑，且 parent 一旦落成
+    // ROOT_UUID，别的设备投影时会在根下 create → "Can't modify the root
     // bookmark folders."。判据与 captureLocalTree 的同名守卫一致。
     if (node.parentId && BROWSER_ROOT_IDS.has(node.parentId)) return;
     // 已映射 = 重复事件，或与本轮 runSync 的重扫描（captureLocalTree）竞态：
@@ -453,6 +664,7 @@ export function captureLocalEvents(
     console.log(
       `[bsync] 事件 onChanged: id=${id} title="${change.title}" url=${change.url ?? ''} suppressed=${suppressed.value}`,
     );
+    hooks?.onAnyEvent?.();
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
@@ -474,6 +686,7 @@ export function captureLocalEvents(
     console.log(
       `[bsync] 事件 onMoved: id=${id} parent=${move.parentId} oldParent=${move.oldParentId} index=${move.index} oldIndex=${move.oldIndex} suppressed=${suppressed.value}`,
     );
+    hooks?.onAnyEvent?.();
     if (suppressed.value) return;
     const c = await getC();
     if (!c) return;
@@ -557,6 +770,9 @@ const PROTECTED_UUIDS = new Set([
   OTHER_BOOKMARKS_UUID,
   MOBILE_UUID,
   MENU_UUID,
+  ACCOUNT_BOOKMARKS_BAR_UUID,
+  ACCOUNT_OTHER_BOOKMARKS_UUID,
+  ACCOUNT_MOBILE_UUID,
 ]);
 
 /**
@@ -571,7 +787,7 @@ const PROTECTED_UUIDS = new Set([
 export const BROWSER_ROOT_IDS: ReadonlySet<string> = new Set([CHROME_ROOT_ID, 'root________']);
 
 /**
- * 根下浏览器内部永久文件夹（历史脏 op）的**回退落地根**。
+ * 回退文件夹的宿主根：**恒为本地「其他书签」**。
  *
  * 选「其他书签」而不是「书签栏」：回退是补救路径，落在一个「杂物筐」里既不
  * 打断用户对书签栏的心智，也不会盖住源设备上真正的书签栏内容；用户拖动一次
@@ -579,6 +795,23 @@ export const BROWSER_ROOT_IDS: ReadonlySet<string> = new Set([CHROME_ROOT_ID, 'r
  * （Chromium 的 `BookmarkNode::Type` 里账号根与本地根同型、只靠
  * `is_account_node_` 区分，扩展 API 的 `folderType` 也因此分不出来），
  * 这正是这个设计不需要任何外部信息的原因。
+ *
+ * ★★ 恒为**本地**根、绝不退到账号（syncing）根 —— 这是硬约束，不是偏好。
+ * 2026-10-02 真机 + 官方文档核实（一度想退到账号「其他书签」，查证后否掉）：
+ *   1. **隐私**：账号子树由 Chrome 自动同步。本地内容落到账号「其他书签」下会被
+ *      Chrome **上传到用户的 Google 账号**，而本地书签本该只留本机（官方原文：
+ *      *"stored locally on a device will remain local upon sign-in"*）。
+ *   2. **翻倍死循环**：上传后其他登录同账号的设备会在**账号子树**里看到它，而
+ *      `contentKey` 含 `parentUuid`（contentFingerprint.ts）→ 永远认领不回原
+ *      uuid → 被当新节点捕获 → 云端同一书签两份，每台设备都重复显示。
+ *   3. 反向（账号内容 → 本地「其他书签」）**没有**这两个问题：本地子树不参与
+ *      Chrome 同步，回退文件夹不会被上传，其他设备也看不到它。
+ *
+ * 「已登录 + 本地为空」时 Chrome **根本不创建**本地根（2026-10-02 真机核实：
+ * `get('1'/'2'/'3')` 全部抛 "Can't find bookmark for id."，`getTree()` 只剩账号
+ * 根），此时没有宿主根 → 本轮跳过，并把情况报给调用方（见 `onUnplaceableRoot`）。
+ * 用户想在本机看到这些本地书签，只需让本地子树非空（登出 Chrome 后新建一个本地
+ * 书签）—— 本地根随即出现，下一轮同步就会把内容投影进去。
  */
 const FALLBACK_ROOT_UUID: string = OTHER_BOOKMARKS_UUID;
 
@@ -590,6 +823,22 @@ interface ChromeNodeInfo {
   depth: number;
 }
 
+export interface ReverseApplyOptions {
+  /** 回退文件夹的标题（i18n，由调用方传）。 */
+  fallbackRootTitle?: string;
+  /**
+   * 某个落地根在本机**既没有真根、又没有可用的回退宿主根**时回调。
+   *
+   * 典型且目前唯一的场景：「已登录 + 本地子树为空」—— Chrome 不创建本地根
+   * （真机核实 `get('1'/'2'/'3')` 全抛 "Can't find bookmark for id."），于是空间里
+   * 挂在本地根下的书签在本机无法落地。调用方据此提示用户（**不要静默**）。
+   *
+   * @param bookmarkCount 该落地根下**本机看不到的书签条数**（可达子树里带 url 的
+   *   节点，文件夹不计 —— 与 used_count 同口径），用于给用户一个具体数字。
+   */
+  onUnplaceableRoot?: (landingUuid: string, bookmarkCount: number) => void;
+}
+
 /**
  * Best-effort reverse-apply: reconcile the visible CRDT tree onto chrome.
  * Idempotent; safe to run after every pull.
@@ -598,7 +847,7 @@ export async function reverseApply(
   chrome: ChromeBookmarksAPI,
   coordinator: SyncCoordinator,
   bridge: IdBridge,
-  opts: { fallbackRootTitle?: string } = {},
+  opts: ReverseApplyOptions = {},
 ): Promise<void> {
   // 1. Reachability set + children map from the visible CRDT tree.
   const { reachable, childrenByParent } = buildReachable(coordinator);
@@ -618,6 +867,7 @@ export async function reverseApply(
     // 回退文件夹的名字走 i18n（调用方传），拿不到就用空标题——Chrome 允许，
     // 但调用方（sync.js）一定会传，见 reverseApplyIntoChrome。
     opts.fallbackRootTitle ?? '',
+    opts.onUnplaceableRoot,
   );
 
   // 4. Remove Chrome nodes whose CRDT uuid is unreachable (and mapped).
@@ -699,6 +949,7 @@ async function ensureReachableNodes(
   chromeNodes: Map<string, ChromeNodeInfo>,
   chromeChildren: Map<string, ChromeTreeNode[]>,
   fallbackRootTitle: string,
+  onUnplaceableRoot?: (landingUuid: string, bookmarkCount: number) => void,
 ): Promise<void> {
   const queue: string[] = [ROOT_UUID];
   const visited = new Set<string>();
@@ -726,6 +977,30 @@ async function ensureReachableNodes(
     }
     return arr;
   };
+  /** uuid → 该节点的 meta（由 childrenByParent 的边反查；用于数书签条数）。 */
+  const metaByUuid = new Map<string, Metadata>();
+  for (const arr of childrenByParent.values()) {
+    for (const e of arr) metaByUuid.set(e.child, e.meta);
+  }
+  /**
+   * 某个落地根下**本机看不到的书签条数**（可达子树里带 url 的节点）。
+   * 文件夹不计 —— 与 sync.js 上报 used_count 的口径一致，用户看到的数字才是「书签数」。
+   */
+  const countBookmarksUnder = (rootUuid: string): number => {
+    let n = 0;
+    const stack = [rootUuid];
+    const seen = new Set<string>();
+    while (stack.length > 0) {
+      const u = stack.pop()!;
+      if (seen.has(u) || !reachable.has(u)) continue;
+      seen.add(u);
+      const m = metaByUuid.get(u);
+      if (!bridge.isLandingRoot(u) && typeof m?.url === 'string' && m.url) n++;
+      for (const c of childrenByParent.get(u) ?? []) stack.push(c.child);
+    }
+    return n;
+  };
+
   /**
    * 目标绝对 index：把节点放到父下第 i 位。
    * 参考列表是**排除自身**后的列表（chrome.move 的 index 是移动后的位置）。
@@ -783,11 +1058,26 @@ async function ensureReachableNodes(
    */
   const ensureRootFallback = async (uuid: string, meta: Metadata): Promise<void> => {
     const existing = bridge.toChromeId(uuid);
-    if (existing && chromeIds.has(existing)) return; // 路径 1：沿用，不动
+    if (existing && chromeIds.has(existing)) {
+      // 路径 1：沿用。若这是落地根，确保回退记录在（跨 SW 重建 / 迁移场景）。
+      if (bridge.isLandingRoot(uuid) && bridge.fallbackFor(uuid) !== existing) {
+        bridge.markFallback(uuid, existing);
+      }
+      return;
+    }
     if (existing) bridge.removeByChromeId(existing); // 映射陈旧（节点已被删）
 
+    // 宿主根必须在**本机 chrome 树里**。只看 toChromeId 非空不够 —— 「已登录 +
+    // 本地为空」时 Chrome 不创建本地根，而映射可能还指着那个已不存在的节点，
+    // 拿它当父会直接抛 "Can't find bookmark for id."。
     const parentChromeId = bridge.toChromeId(FALLBACK_ROOT_UUID);
-    if (!parentChromeId) return; // 回退根没落地（浏览器异常）：本轮跳过，下轮再试
+    if (!parentChromeId || !chromeIds.has(parentChromeId)) {
+      // 没有宿主根 → 这个落地根下的内容在本机无处落地（见 FALLBACK_ROOT_UUID
+      // 注释：不能退到账号子树）。**报给调用方，别静默吞掉** —— 2026-10-02 真机
+      // 的症状正是「日志报同步成功、书签却不出现」。
+      onUnplaceableRoot?.(uuid, countBookmarksUnder(uuid));
+      return;
+    }
 
     const siblings = siblingsOf(parentChromeId);
     const title = ((meta.title as string) ?? '') || fallbackRootTitle;
@@ -806,6 +1096,9 @@ async function ensureReachableNodes(
     });
     chromeIds.add(created.id);
     bridge.map(created.id, uuid);
+    // 落地根的回退文件夹必须被记录：登录后真账号根出现时按记录退休它，
+    // 否则同一 CRDT 子树在本机留下两份 chrome 表示（回退 + 真根）→ 重复捕获。
+    if (bridge.isLandingRoot(uuid)) bridge.markFallback(uuid, created.id);
   };
 
   while (queue.length > 0) {
@@ -825,12 +1118,11 @@ async function ensureReachableNodes(
       const { child: childUuid, meta } = kids[i];
       if (!reachable.has(childUuid)) continue;
 
-      // 根节点下只有本环境原生根是「我们的」节点；其余是浏览器内部永久文件夹
-      // （Chrome 账号书签 / 受管书签，Firefox tags________）。根下**不能**
-      // create —— Chrome 只对 `is_root()` 报 "Can't modify the root bookmark
-      // folders."，一条这样的 op 就能让每台新设备的同步直接失败（2026-10-01
-      // 实测：新 profile 选默认空间报错，error_reports 里 app_version=2.7.0 /
-      // platform=Chrome 154）。
+      // 根节点下**不是**固定根的，只剩浏览器内部永久文件夹（受管书签、
+      // Firefox tags________）。根下**不能** create —— Chrome 只对
+      // `is_root()` 报 "Can't modify the root bookmark folders."，一条这样的
+      // op 就能让每台新设备的同步直接失败（2026-10-01 实测：新 profile 选默认
+      // 空间报错，error_reports 里 app_version=2.7.0 / platform=Chrome 154）。
       // 但**也不能整棵跳过** —— 那会把挂在其下的整棵子树永久藏起来（同一事故的
       // 第二阶段：报错消失后，新设备「同步成功但书签不出现」）。走回退落地：
       // 本机有映射就沿用，没有就在回退固定根下建一个同名文件夹。
@@ -845,6 +1137,26 @@ async function ensureReachableNodes(
       if (bridge.isLandingRoot(childUuid)) {
         // 固定根本身不是用户节点，永不 create/move/update。原生根恒已落地；
         // Chromium 缺失的「书签菜单」容器由 sync.js 按需创建。
+        //
+        // ★ 本机**没有**这个根时走回退落地（典型：未登录 Chrome → 账号根不在
+        //   getTree() 里，rootResolver 解析不出来）。不处理的话挂在其下的整棵
+        //   账号子树会永久投影不出来 —— 和 2026-10-01 那次「同步成功但书签不
+        //   出现」是同一类问题。
+        //   仅在该根**确有可见子节点**时才建回退文件夹，否则未登录的每台设备
+        //   都会在「其他书签」下凭空多出 3 个空账号文件夹。
+        //   MENU_UUID 除外：它由 sync.js 管理（容器在书签栏下），不能塞进
+        //   「其他书签」。
+        // 本机没有这个根（真根缺席 / 映射指向已不存在的节点）且有可见子节点时，
+        // 才建回退文件夹。`!landingCid` 不够：登出后旧映射可能指向一个已被 Chrome
+        // 删掉的 chromeId，此时也应当重新落地（ensureRootFallback 会先清掉死映射）。
+        const landingCid = bridge.toChromeId(childUuid);
+        if (
+          childUuid !== MENU_UUID &&
+          (childrenByParent.get(childUuid)?.length ?? 0) > 0 &&
+          (!landingCid || !chromeIds.has(landingCid))
+        ) {
+          await ensureRootFallback(childUuid, meta);
+        }
         continue;
       }
 
@@ -961,14 +1273,27 @@ async function ensureReachableNodes(
  *     ——否则切空间会把原生书签栏里的内容当「未映射」吸进容器空间。
  * 省略时退回旧行为（遍历整棵树），仅供单空间调用方/测试使用。
  *
- * 已映射节点跳过（继续走子树），未映射节点生成 uuid 并 createNodeWithId。
+ * 已映射节点跳过（继续走子树）；未映射节点**先按内容认领**一个已有 CRDT 节点
+ * （见 contentFingerprint.ts），认领不到才生成随机 uuid 并 createNodeWithId。
+ * 「内容认领」是「内容认领」轮的核心：同一逻辑书签在不同设备 / 不同登录态下
+ * 由各自捕获时，会因内容指纹相同而**共用同一个 uuid**，不再各自新建一份
+ * （跨设备翻倍 / 登录态切换重复的根因）。候选按 uuid 升序消费，多台设备对同一
+ * 组候选给出相同配对（确定性收敛）；合法重复（同父同内容的 N 条）各占一个候选，
+ * 候选耗尽才新建 —— 不误并。
+ *
+ * **回退文件夹整棵跳过**：它只是某个落地根在「本机没有真根」时的临时落地
+ * （内容真身在 CRDT，父节点 = 该落地根 uuid）。真根出现后由
+ * retireFallbackFolders() 退休；捕获阶段跳过可避免「回退侧子节点被当成未映射
+ * 节点重复捕获」。
+ *
  * 遍历相对 chrome 事件处理器是原子的：getTree 之后整个 walk 无外部 await，
  * 事件回调（宏任务）不会插进遍历中间；onCreated 侧的「已映射即让路」守卫
  * 保证先后到达都不会产生重复节点。
  *
- * **浏览器根下的非原生根节点整棵跳过**（见 walk 内守卫）：Chrome 账号书签 /
- * 受管书签永久文件夹、Firefox `tags________` 都不是本扩展的固定根拓扑，捕获
- * 它们会生成 parent=ROOT_UUID 的 op，而根下不允许 create。
+ * **浏览器根下的「未识别」子节点整棵跳过**（见 walk 内守卫）：Chrome 受管书签
+ * 永久文件夹、Firefox `tags________` 都不是本扩展的固定根拓扑，捕获它们会生成
+ * parent=ROOT_UUID 的 op，而根下不允许 create。识别判据是「是否已在桥里预置
+ * 映射」——本地根与账号（syncing）根都预置，因此都会被正常捕获。
  */
 export async function captureLocalTree(
   chrome: ChromeBookmarksAPI,
@@ -985,20 +1310,66 @@ export async function captureLocalTree(
   } else {
     roots.push(...tree);
   }
+
+  // chromeId -> 节点 / 父节点：用于「回退文件夹祖先」判定。
+  const nodeById = new Map<string, ChromeTreeNode>();
+  const parentOf = new Map<string, string>();
+  const seedTree = (n: ChromeTreeNode, parentId?: string): void => {
+    nodeById.set(n.id, n);
+    if (parentId !== undefined) parentOf.set(n.id, parentId);
+    for (const c of n.children ?? []) seedTree(c, n.id);
+  };
+  for (const r of tree) seedTree(r);
+
+  // 内容索引：同一父节点下、同类型同标题同 URL 的可见 CRDT 节点 uuid 列表。
+  const index = new Map<string, string[]>();
+  for (const edge of coordinator.replica.getVisibleTree()) {
+    if (bridge.isLandingRoot(edge.child)) continue; // 固定根不是用户节点
+    const key = contentKey(edge.parent, edge.meta);
+    const arr = index.get(key);
+    if (arr) arr.push(edge.child);
+    else index.set(key, [edge.child]);
+  }
+  // 候选按 uuid 升序：多台设备对同一组候选给出相同配对（确定性收敛）。
+  for (const arr of index.values()) arr.sort();
+
+  const underFallback = (chromeId: string): boolean => {
+    const seen = new Set<string>();
+    let cur: string | undefined = chromeId;
+    while (cur && !seen.has(cur)) {
+      if (bridge.isFallbackChromeId(cur)) return true;
+      seen.add(cur);
+      cur = parentOf.get(cur);
+    }
+    return false;
+  };
+  // 可认领 = 本机未映射 / 映射指向本机已不存在的节点 / 仅由回退文件夹表示。
+  // 本机已映射到真实节点的 uuid 不认领 —— 那是用户在本机真实存在的书签，
+  // 静默合并会丢东西。
+  const claimable = (uuid: string): boolean => {
+    const cid = bridge.toChromeId(uuid);
+    if (cid === null) return true;
+    if (!nodeById.has(cid)) return true;
+    return underFallback(cid);
+  };
+
   let captured = 0;
   const walk = async (node: ChromeTreeNode, parentUuid: string): Promise<void> => {
-    // 浏览器根（"0" / `root________`）下只有本环境的原生根是「我们的」节点
+    // 回退文件夹整棵跳过（见函数注释）。
+    if (bridge.isFallbackChromeId(node.id)) return;
+
+    // 浏览器根（"0" / `root________`）下只有**已解析出的固定根**是「我们的」节点
     // ——它们在 IdBridge 构造期就已预置映射，走下面的 existing 分支续走子树。
-    // 其余根子节点是浏览器内部永久文件夹，**不映射、不捕获、不下钻**：
-    //   - Chrome：账号书签（account bookmarks）与受管书签（managed）永久文件夹
-    //     （`BookmarkModel::CreateAccountPermanentFolders` 把它们 AddNode 到 root
-    //     上）。`DetermineIfNodeShouldBeVisible` 规定「有子节点即可见」，所以只要
-    //     用户往 Google 账号存过一条书签，它们就会出现在 getTree() 里；
-    //   - Firefox：`tags________`（标签根，不在 fixedRootUuid 表里）。
+    // 这既包含本地根，也包含账号（syncing）根：后者 chromeId 动态，由
+    // src/sync/rootResolver.ts 按 folderType + syncing 解析后 seed 进桥。
+    // 其余根子节点是浏览器内部永久文件夹（受管书签 / Firefox `tags________`），
+    // **不映射、不捕获、不下钻**。
     // 一旦被捕获就会生成 parent=ROOT_UUID 的 CRDT 节点 —— op 日志 append-only，
     // 那条 op 永久留在云端，之后**每台新设备**投影时都会在根下 create，Chrome
     // 直接报 "Can't modify the root bookmark folders."（2026-10-01 线上事故）。
-    if (parentUuid === ROOT_UUID && fixedRootUuid(node.id) === null) return;
+    // ⚠ 必须保留 `parentUuid === ROOT_UUID &&` 前缀：写成裸的
+    //   `bridge.toUuid(node.id) === null` 会跳过所有未映射节点，捕获全废。
+    if (parentUuid === ROOT_UUID && bridge.toUuid(node.id) === null) return;
     const existing = bridge.toUuid(node.id);
     if (existing) {
       // 固定根（Chrome "0".."3" / Firefox 根）与已映射用户节点直接续走
@@ -1006,6 +1377,24 @@ export async function captureLocalTree(
       for (const child of node.children ?? []) await walk(child, existing);
       return;
     }
+
+    // 未映射：先按内容认领一个已有 CRDT 节点，认领不到才新建。
+    const candidates = index.get(contentKey(parentUuid, node));
+    let claimed: string | null = null;
+    while (candidates && candidates.length > 0) {
+      const cand = candidates.shift()!;
+      if (claimable(cand)) {
+        claimed = cand;
+        break;
+      }
+    }
+    if (claimed) {
+      // 抢绑：map() 会解掉该 uuid 在回退侧的旧向映射（不产生 op）。
+      bridge.map(node.id, claimed);
+      for (const child of node.children ?? []) await walk(child, claimed);
+      return;
+    }
+
     const uuid = globalThis.crypto.randomUUID();
     bridge.map(node.id, uuid);
     const meta: Metadata = { title: node.title, ...(node.url ? { url: node.url } : {}) };
@@ -1019,6 +1408,71 @@ export async function captureLocalTree(
   };
   for (const root of roots) await walk(root, ROOT_UUID);
   return captured;
+}
+
+/**
+ * 退休「回退文件夹」：登录态切换（或账号根重新出现）后的收尾。
+ *
+ * 未登录时账号子树落在 `ensureRootFallback` 建的回退文件夹里；登录后真账号根
+ * 出现，同一 CRDT 子树在本机就有了两份 chrome 表示。本函数把回退整棵退休：
+ *   1. 先**丢弃回退子树里所有 chromeId→uuid 映射**（不产生任何 op）；
+ *   2. 再 `removeTree` 回退文件夹 —— 此时其下已无映射，`onRemoved` 找不到
+ *      uuid，**不会误发墓碑**；
+ *   3. 清除回退记录。
+ * 退休后：被认领的节点已绑到真根的子节点上；未被认领的（真根里还没有的）由
+ * 紧随其后的 reverseApply 在真根下重新落地 —— 内容一条不丢。
+ *
+ * 仅在「该落地根已解析到真根」（backward[U] ≠ 回退文件夹）时退休；仍由回退
+ * 代表的根保持原样。返回退休的回退文件夹数。
+ */
+export async function retireFallbackFolders(
+  chrome: ChromeBookmarksAPI,
+  bridge: IdBridge,
+): Promise<number> {
+  const entries = bridge.fallbackEntries();
+  if (entries.length === 0) return 0;
+  const tree = (await chrome.getTree()) ?? [];
+  const childrenOf = new Map<string, string[]>();
+  const exists = new Set<string>();
+  const seed = (n: ChromeTreeNode): void => {
+    exists.add(n.id);
+    childrenOf.set(
+      n.id,
+      (n.children ?? []).map((c) => c.id),
+    );
+    for (const c of n.children ?? []) seed(c);
+  };
+  for (const r of tree) seed(r);
+
+  let retired = 0;
+  for (const [uuid, folderId] of entries) {
+    // 仍由回退文件夹代表这个根（真根不在本机）→ 保留。
+    if (bridge.toChromeId(uuid) === folderId) continue;
+    if (!exists.has(folderId)) {
+      bridge.clearFallback(uuid); // 文件夹已不在：清掉陈旧记录即可
+      continue;
+    }
+    // 1) 丢弃回退子树里的全部映射（先丢映射，避免 removeTree 触发墓碑）。
+    const stack = [folderId];
+    const seen = new Set<string>();
+    while (stack.length > 0) {
+      const cid = stack.pop()!;
+      if (seen.has(cid)) continue;
+      seen.add(cid);
+      if (bridge.toUuid(cid) !== null) bridge.removeByChromeId(cid);
+      for (const ch of childrenOf.get(cid) ?? []) stack.push(ch);
+    }
+    // 2) 删除回退文件夹（其下已无映射 → 不产生墓碑）。
+    try {
+      await chrome.removeTree(folderId);
+    } catch {
+      // 已不存在 / 浏览器拒绝：忽略，记录照样清掉。
+    }
+    // 3) 清记录。
+    bridge.clearFallback(uuid);
+    retired++;
+  }
+  return retired;
 }
 
 /** 在 chrome 树里按 id 找节点（含子树）。 */
@@ -1057,6 +1511,9 @@ async function removeTrashedNodes(
     if (info.parentId && BROWSER_ROOT_IDS.has(info.parentId)) continue;
     const uuid = bridge.toUuid(info.chromeId);
     if (uuid === null) continue; // unmapped: leave alone
+    // 映射到固定根的 chromeId 一律不删（本地根 / 账号根 / 菜单容器）。账号根的
+    // chromeId 是动态的，PROTECTED_CHROME_IDS 认不出来，靠这条兜住。
+    if (bridge.isLandingRoot(uuid)) continue;
     if (!reachable.has(uuid)) toDelete.push(info);
   }
   toDelete.sort((a, b) => b.depth - a.depth); // deepest first
