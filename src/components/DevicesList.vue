@@ -49,6 +49,7 @@
           <ArmedButton
             v-if="d.device_id !== state.myDeviceId"
             :label="t('devices_disconnect')"
+            :confirm-label="t('devices_disconnectConfirm')"
             :armed="state.armed === `device:${d.device_id}`"
             :countdown="state.armed === `device:${d.device_id}` ? state.armedLeft : 0"
             @press="doRemoveDevice(d)"

@@ -28,6 +28,28 @@
             {{ t('common_upgrade') }}
           </button>
         </div>
+        <!-- 二级入口：只在 popup 抽屉里出现（bare）。设置页有自己的左侧导航，
+             且 openDrawer 只驱动 popup 的抽屉，在那里点了不会有反应。 -->
+        <button v-if="bare" type="button" class="inset-row clickable" @click="openDrawer('spaces')">
+          <span class="lede"><Icon name="monitor" /></span>
+          <span class="r-main"
+            ><span class="r-title">{{ t('spaces_title') }}</span></span
+          >
+          <span class="sc-tail">{{
+            t('popup_spacesDevices', state.spaces.length, state.devices.length)
+          }}</span>
+          <Icon class="chev" name="chevron-right" />
+        </button>
+        <button v-if="bare" type="button" class="inset-row clickable" @click="openDrawer('key')">
+          <span class="lede"><Icon name="lock" /></span>
+          <span class="r-main"
+            ><span class="r-title">{{ t('popup_keyRow') }}</span></span
+          >
+          <span class="badge" :class="state.hasKeyNow ? 'badge-success' : 'badge-warning'">{{
+            state.hasKeyNow ? t('popup_keyReady') : t('popup_keyTodo')
+          }}</span>
+          <Icon class="chev" name="chevron-right" />
+        </button>
       </div>
       <p class="foot">{{ t('account_foot') }}</p>
     </div>
@@ -43,6 +65,7 @@ import {
   planLabel,
   logout,
   openUpgrade,
+  openDrawer,
   quotaCount,
   usedCount,
 } from '../store.js';

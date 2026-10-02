@@ -844,7 +844,8 @@ svg {
   line-height: var(--lh-secondary);
   overflow-wrap: anywhere;
 }
-.chev {
+.chev,
+.ext {
   color: var(--text-quaternary);
   width: 16px;
   height: 16px;

@@ -8,7 +8,7 @@
     </span>
     <div class="sc-main">
       <div class="sc-t">{{ syncTitle }}</div>
-      <div class="sc-s">{{ syncSub }}</div>
+      <div class="sc-s" :title="syncHint || undefined">{{ syncSub }}</div>
     </div>
     <template v-if="syncState === 'error'">
       <button class="btn btn-ghost btn-sm retry" @click="syncNow()">{{ t('common_retry') }}</button>
@@ -21,7 +21,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { state, syncNow, syncState, syncTitle, syncSub, syncTail } from '../store.js';
+import { state, syncNow, syncState, syncTitle, syncSub, syncHint, syncTail } from '../store.js';
 import { t } from '../lib/i18n.js';
 import Icon from './ui/Icon.vue';
 

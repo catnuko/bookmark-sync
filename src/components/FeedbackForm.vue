@@ -1,6 +1,6 @@
 <template>
   <div class="grp">
-    <h4>{{ t('feedback_title') }}</h4>
+    <h4 v-if="!bare">{{ t('feedback_title') }}</h4>
     <p class="pane-sub">{{ t('feedback_sub') }}</p>
     <p class="feedback-thanks">{{ t('feedback_thanks') }}</p>
 
@@ -60,6 +60,9 @@ import { t } from '../lib/i18n.js';
 import { submitFeedback } from '../lib/feedback.js';
 import SegTabs from './ui/SegTabs.vue';
 import Icon from './ui/Icon.vue';
+
+// bare：嵌在抽屉里时抽屉标题已显示「反馈」，隐藏自身的 h4，避免标题重复。
+defineProps({ bare: { type: Boolean, default: false } });
 
 const kind = ref('bug');
 const body = ref('');

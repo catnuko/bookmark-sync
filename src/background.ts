@@ -28,7 +28,6 @@ console.log('[bsync] Build time:', __BUILD_TIME__);
 console.log('[bsync] Boot time: ', new Date().toISOString());
 
 const ALARM_NAME = 'bsync-periodic-pull';
-const AUTO_SYNC_KEY = 'crdt.autoSync';
 
 // 真实「崩溃」入口：SW 里未捕获的异常 / rejection 在 MV3 下只会静默死掉
 // （事件处理器的 Promise reject 不写任何日志），必须显式挂全局钩子 —— 这也是
@@ -46,14 +45,8 @@ globalHooks.addEventListener?.('unhandledrejection', (ev) => {
   void reportError('rejection', 'unhandled', ev?.reason ?? ev);
 });
 
-// 自动同步开关（默认开）：关闭时 onInstalled / onStartup / 周期 alarm 不再
-// 自动同步；popup/options 的「立即同步」消息与事件桥 flush 的推送不受影响
-// （事件桥的 flushSoon 在 sync.js 内单独检查该开关）。
-async function autoSyncEnabled(): Promise<boolean> {
-  const s = await api.storage.local.get(AUTO_SYNC_KEY);
-  return s[AUTO_SYNC_KEY] !== false;
-}
-
+// 自动同步**始终开启**（2026-10-02 起不再提供用户开关）：onInstalled / onStartup /
+// 周期 alarm 都会直接同步，无需再查任何开关。
 // ---- 登录态切换：真账号根出现 → 静默去抖后收敛 ----
 // Chrome 登录后从 Google 拉回账号子树时，真账号根作为 syncing 子树出现。若本机
 // 此前由「回退文件夹」代表该根（登出期），必须尽快收敛：退休回退 + 内容认领
@@ -72,7 +65,6 @@ function resetRootReconcileTimer(): void {
     rootReconcileTimer = null;
     rootReconcileArmed = false;
     void (async () => {
-      if (!(await autoSyncEnabled())) return;
       console.log('[bsync] 真账号根出现后静默收敛：开始同步');
       await sync();
     })();
@@ -208,12 +200,12 @@ function scheduleAlarms(): void {
 
 api.runtime.onInstalled.addListener(async () => {
   scheduleAlarms();
-  if (await autoSyncEnabled()) await sync();
+  await sync();
 });
 api.runtime.onStartup.addListener(async () => {
   scheduleAlarms();
-  if (await autoSyncEnabled()) await sync();
+  await sync();
 });
 api.alarms?.onAlarm?.addListener(async (alarm) => {
-  if (alarm.name === ALARM_NAME && (await autoSyncEnabled())) sync();
+  if (alarm.name === ALARM_NAME) sync();
 });

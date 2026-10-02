@@ -77,7 +77,6 @@ state.lastDecryptErrors = null;
 state.hasKeyNow = true;
 state.keyStateLoaded = true;
 state.keyValue = KEY;
-state.autoSync = true;
 state.myDeviceId = 'd1';
 
 // 让设置页「加密」面板也能显示密钥（模拟本机已生成密钥；KeyPanel 挂载时会 loadKeyPanel 读取它）

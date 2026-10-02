@@ -6,12 +6,7 @@ import { api, type ExtensionMessage } from './lib/ext.js';
 import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
 import { readUiCache, writeUiCache, clearUiCache, type UiCache } from './lib/uiCache.js';
-import {
-  reportError,
-  loadErrorReportPref,
-  setErrorReportEnabled,
-  ERROR_REPORT_KEY,
-} from './lib/telemetry.js';
+import { reportError } from './lib/telemetry.js';
 import type { AuthError, Session } from '@supabase/supabase-js';
 import {
   getProfile,
@@ -42,9 +37,6 @@ import {
   ensureLocalKey,
 } from './crypto.js';
 import { t } from './lib/i18n.js';
-
-// ---- 常量 ----
-export const AUTO_SYNC_KEY = 'crdt.autoSync';
 
 // ---- 类型 ----
 /** toast 级别（样式类在 App.vue 按 level 映射）。 */
@@ -169,19 +161,10 @@ export const state = reactive({
   bindLocalCount: 0, // 本机现有书签条数（门禁说明用）
 
   // 弹窗二级面板（抽屉）
-  drawer: '', // '' | 'spaces' | 'key' | 'advanced' | 'help'
+  drawer: '', // '' | 'account' | 'spaces' | 'key' | 'help' | 'feedback' | 'system'
 
   // 设置页导航
-  navPane: 'account', // 'account' | 'sync' | 'spaces' | 'crypto' | 'advanced' | 'help'
-
-  // 自动同步开关
-  autoSync: true,
-
-  // 错误诊断上报开关（默认开；只上报元数据，不含书签内容）
-  errorReport: true,
-
-  // 共存与存储（GC）
-  lastGcAt: null as number | null,
+  navPane: 'account', // 'account' | 'sync' | 'spaces' | 'crypto' | 'help' | 'feedback' | 'system'
 
   // toast 队列
   toasts: [] as Toast[],
@@ -1119,46 +1102,6 @@ export async function syncNow(opts: boolean | { force?: boolean } = {}): Promise
   }
 }
 
-// ---- 自动同步开关 ----
-export async function loadAutoSync(): Promise<void> {
-  const s = await api.storage.local.get(AUTO_SYNC_KEY);
-  state.autoSync = s[AUTO_SYNC_KEY] !== false;
-}
-
-export async function toggleAutoSync(): Promise<void> {
-  state.autoSync = !state.autoSync;
-  await api.storage.local.set({ [AUTO_SYNC_KEY]: state.autoSync });
-  showToast(
-    'info',
-    state.autoSync ? t('autosync_onTitle') : t('autosync_offTitle'),
-    state.autoSync ? t('autosync_onSub') : t('autosync_offSub'),
-  );
-}
-
-// ---- 错误上报开关（与自动同步同款：默认开，显式 false 才关） ----
-export async function loadErrorReport(): Promise<void> {
-  await loadErrorReportPref();
-  const s = await api.storage.local.get(ERROR_REPORT_KEY);
-  state.errorReport = s[ERROR_REPORT_KEY] !== false;
-}
-
-export async function toggleErrorReport(): Promise<void> {
-  state.errorReport = !state.errorReport;
-  await api.storage.local.set({ [ERROR_REPORT_KEY]: state.errorReport });
-  setErrorReportEnabled(state.errorReport);
-  showToast(
-    'info',
-    state.errorReport ? t('errreport_onTitle') : t('errreport_offTitle'),
-    state.errorReport ? t('errreport_onSub') : t('errreport_offSub'),
-  );
-}
-
-// ---- 共存与存储（GC 由服务端托管，客户端仅展示最近一次压缩时间） ----
-export async function loadCoexistPanel(): Promise<void> {
-  const s = await api.storage.local.get(['lastGcAt']);
-  state.lastGcAt = (s['lastGcAt'] as number | undefined) ?? null;
-}
-
 // ---- 登录 / 注册 / 登出 ----
 export async function submit(): Promise<void> {
   state.busy = true;
@@ -1233,12 +1176,22 @@ export async function logout(): Promise<void> {
 }
 
 // ---- 弹窗抽屉 / 设置页导航 ----
+// 抽屉二级导航：从「账户」进入「空间与设备 / 同步密钥」时记住来路，返回键回到
+// 账户而不是直接回主屏（否则嵌套进去就回不来了）。
+let drawerBack = '';
 export function openDrawer(name: string): void {
+  if (name !== state.drawer) drawerBack = state.drawer || '';
   state.drawer = name;
   if (name === 'spaces') refreshSpacesDevices();
   if (name === 'key') loadKeyPanel();
 }
 export function closeDrawer(): void {
+  if (drawerBack) {
+    const back = drawerBack;
+    drawerBack = '';
+    state.drawer = back;
+    return;
+  }
   state.drawer = '';
 }
 
@@ -1269,13 +1222,7 @@ export function openHelp(): void {
 async function bootstrapLocal(userId: string): Promise<void> {
   try {
     applyUiCache(await readUiCache(userId));
-    await Promise.all([
-      refreshStatus(),
-      refreshKeyState(),
-      loadAutoSync(),
-      loadErrorReport(),
-      loadCoexistPanel(),
-    ]);
+    await Promise.all([refreshStatus(), refreshKeyState()]);
   } catch (e) {
     // 这一段只读 storage，理论上不会失败；真失败了也必须放行首屏——否则
     // gateChecked 永远为 false，popup 会永远停在启动占位上（旧版的病根）。
@@ -1525,6 +1472,16 @@ export const syncSub = computed(() => {
   // 兼容旧版本持久化的中文摘要文案
   if (st && st !== 'ok') return st;
   return t('status_okSub', usedCount.value ?? 0);
+});
+
+// 「本机看不到的本地书签」的**可操作提示** —— 只作为状态行的 tooltip（悬停可见），
+// 不做成常驻行：该情况在「已登录 + 本地为空」的设备上**每轮都会出现**，常驻会顶掉常规状态。
+// 但也不能只留 `⚠️ N 条本地书签本机看不到` 让用户无从下手，所以悬停给出「为什么 + 怎么办」。
+// 空串 → 调用方用 `|| undefined` 让 Vue 不渲染 title 属性（不显示空 tooltip）。
+export const syncHint = computed(() => {
+  if (syncState.value !== 'ok') return '';
+  const sum = parseSummary(state.lastSyncSummary);
+  return sum && sum.unplaced > 0 ? t('status_unplacedHint') : '';
 });
 
 export const syncTail = computed(() => {

@@ -30,8 +30,9 @@
         <PaneSync v-else-if="state.navPane === 'sync'" />
         <PaneSpaces v-else-if="state.navPane === 'spaces'" />
         <PaneCrypto v-else-if="state.navPane === 'crypto'" />
-        <PaneAdvanced v-else-if="state.navPane === 'advanced'" />
         <PaneHelp v-else-if="state.navPane === 'help'" />
+        <PaneFeedback v-else-if="state.navPane === 'feedback'" />
+        <PaneSystem v-else-if="state.navPane === 'system'" />
       </div>
     </div>
   </template>
@@ -45,8 +46,9 @@ import PaneAccount from './PaneAccount.vue';
 import PaneSync from './PaneSync.vue';
 import PaneSpaces from './PaneSpaces.vue';
 import PaneCrypto from './PaneCrypto.vue';
-import PaneAdvanced from './PaneAdvanced.vue';
 import PaneHelp from './PaneHelp.vue';
+import PaneFeedback from './PaneFeedback.vue';
+import PaneSystem from './PaneSystem.vue';
 import Icon from './ui/Icon.vue';
 
 const panes = [
@@ -54,7 +56,8 @@ const panes = [
   { id: 'sync', label: () => t('sync_title'), icon: 'sync' },
   { id: 'spaces', label: () => t('spaces_title'), icon: 'monitor' },
   { id: 'crypto', label: () => t('crypto_title'), icon: 'shield' },
-  { id: 'advanced', label: () => t('adv_title'), icon: 'gear' },
   { id: 'help', label: () => t('common_help'), icon: 'help' },
+  { id: 'feedback', label: () => t('feedback_title'), icon: 'mail' },
+  { id: 'system', label: () => t('sys_title'), icon: 'info' },
 ];
 </script>
