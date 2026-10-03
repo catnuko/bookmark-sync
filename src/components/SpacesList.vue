@@ -60,6 +60,7 @@
             <ArmedButton
               v-if="!s.is_default"
               :label="t('spaceslist_delete')"
+              :confirm-label="t('spaceslist_deleteConfirm')"
               :armed="state.armed === `space:${s.id}`"
               :countdown="state.armed === `space:${s.id}` ? state.armedLeft : 0"
               @press="doDeleteSpace(s)"

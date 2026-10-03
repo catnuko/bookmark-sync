@@ -4,17 +4,27 @@ import {
   ROOT_NODE_ID,
   ROOT_UUID,
   MENU_UUID,
+  ACCOUNT_BOOKMARKS_BAR_UUID,
+  ACCOUNT_OTHER_BOOKMARKS_UUID,
+  ACCOUNT_MOBILE_UUID,
   TRASH_NODE_ID,
 } from '../../src/crdt/index.js';
 
 describe('Replica wrapper', () => {
-  it('builds the fixed roots including MENU_UUID (书签菜单)', () => {
+  it('builds the fixed roots including MENU_UUID (书签菜单) 与账号子树三个根', () => {
     const r = new Replica('R1');
     r.ensureRoots();
     expect(r.getParent(MENU_UUID)).toBe(ROOT_UUID);
+    // 账号（syncing）子树的三个根与本地根并列，parent 都是 ROOT_UUID
+    expect(r.getParent(ACCOUNT_BOOKMARKS_BAR_UUID)).toBe(ROOT_UUID);
+    expect(r.getParent(ACCOUNT_OTHER_BOOKMARKS_UUID)).toBe(ROOT_UUID);
+    expect(r.getParent(ACCOUNT_MOBILE_UUID)).toBe(ROOT_UUID);
     // 菜单根之下可正常创建用户节点
     const m = r.createNode(MENU_UUID, { title: '菜单书签' });
     expect(r.getParent(m)).toBe(MENU_UUID);
+    // 账号根之下同样可正常创建用户节点
+    const a = r.createNode(ACCOUNT_BOOKMARKS_BAR_UUID, { title: '账号书签', url: 'https://a' });
+    expect(r.getParent(a)).toBe(ACCOUNT_BOOKMARKS_BAR_UUID);
     // 只有固定根时仍视为 bare（冷启动保护语义不变）
     const r2 = new Replica('R2');
     expect(r2.isBare()).toBe(true);
@@ -114,6 +124,30 @@ describe('Replica wrapper', () => {
     expect(r2.getParent(c1)).toBe(ROOT_NODE_ID);
     expect(r2.getNodeMeta(c1)?.title).toBe('one');
     expect(r2.getNodeMeta(c1)?.url).toBe('https://x');
+  });
+
+  /**
+   * 回归（2026-10-01）：旧 GC 快照只含 5 个固定根（账号根出现前生成）。
+   * ensureRoots 若用「ROOT_UUID 在不在」做整体早退，账号根会**永远补不上**
+   * → 账号子树静默不同步。必须逐个根判断。
+   */
+  it('applySnapshot 补建账号固定根（旧快照只含 5 个根）', () => {
+    const r = new Replica('R1');
+    r.ensureRoots();
+    const snap = r.exportSnapshot();
+    // 模拟旧快照：抹掉 3 个账号根
+    delete snap.nodes[ACCOUNT_BOOKMARKS_BAR_UUID];
+    delete snap.nodes[ACCOUNT_OTHER_BOOKMARKS_UUID];
+    delete snap.nodes[ACCOUNT_MOBILE_UUID];
+
+    const r2 = new Replica('R2');
+    r2.applySnapshot(snap);
+    expect(r2.getParent(ACCOUNT_BOOKMARKS_BAR_UUID)).toBe(ROOT_UUID);
+    expect(r2.getParent(ACCOUNT_OTHER_BOOKMARKS_UUID)).toBe(ROOT_UUID);
+    expect(r2.getParent(ACCOUNT_MOBILE_UUID)).toBe(ROOT_UUID);
+    // 补建后的账号根可正常挂用户节点
+    const n = r2.createNode(ACCOUNT_BOOKMARKS_BAR_UUID, { title: '账号书签', url: 'https://a' });
+    expect(r2.getParent(n)).toBe(ACCOUNT_BOOKMARKS_BAR_UUID);
   });
 
   it('applySnapshot sets gcWatermark so old ops are skipped', () => {

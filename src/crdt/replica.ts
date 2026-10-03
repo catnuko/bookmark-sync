@@ -14,6 +14,9 @@ import {
   OTHER_BOOKMARKS_UUID,
   MOBILE_UUID,
   MENU_UUID,
+  ACCOUNT_BOOKMARKS_BAR_UUID,
+  ACCOUNT_OTHER_BOOKMARKS_UUID,
+  ACCOUNT_MOBILE_UUID,
 } from './storage/index.js';
 
 /**
@@ -70,8 +73,20 @@ export class Replica {
   }
 
   /**
-   * Build the fixed root structure (ROOT_NODE_ID → ROOT_UUID → bar/other/mobile/menu)
-   * with deterministic timestamps. Idempotent; called once per replica.
+   * Build the fixed root structure with deterministic timestamps:
+   *
+   *   ROOT_NODE_ID → ROOT_UUID → { BOOKMARKS_BAR_UUID, OTHER_BOOKMARKS_UUID,
+   *                                MOBILE_UUID, MENU_UUID,
+   *                                ACCOUNT_BOOKMARKS_BAR_UUID,
+   *                                ACCOUNT_OTHER_BOOKMARKS_UUID,
+   *                                ACCOUNT_MOBILE_UUID }
+   *
+   * The ACCOUNT_* trio is the syncing subtree Chrome introduced in 2025-06
+   * (see https://developer.chrome.com/blog/bookmarks-sync-changes) — a second
+   * parallel tree that used to be skipped entirely.
+   *
+   * Idempotent **per root**: safe to call again after applySnapshot() restored
+   * an older tree that predates the ACCOUNT_* roots.
    *
    * These ops are intentionally NOT pushed to the server: every device
    * constructs the same roots locally (same ids, same timestamps), so they
@@ -79,7 +94,6 @@ export class Replica {
    * which makes getVisibleTree() (BFS from ROOT_NODE_ID) see the whole tree.
    */
   ensureRoots(): void {
-    if (this.state.tree.has(ROOT_UUID)) return;
     const ts = (counter: number): Timestamp => ({ counter, replicaId: ROOT_REPLICA_ID });
     const roots: Array<[string, string, Metadata]> = [
       [ROOT_UUID, ROOT_NODE_ID, { title: '__root__' }],
@@ -87,12 +101,24 @@ export class Replica {
       [OTHER_BOOKMARKS_UUID, ROOT_UUID, { title: '其他书签' }],
       [MOBILE_UUID, ROOT_UUID, { title: '移动设备书签' }],
       [MENU_UUID, ROOT_UUID, { title: '书签菜单' }],
+      // 账号（syncing）子树：Chrome 2025-06 起与本地子树并列的第二棵树。
+      [ACCOUNT_BOOKMARKS_BAR_UUID, ROOT_UUID, { title: '账号书签栏' }],
+      [ACCOUNT_OTHER_BOOKMARKS_UUID, ROOT_UUID, { title: '账号其他书签' }],
+      [ACCOUNT_MOBILE_UUID, ROOT_UUID, { title: '账号移动设备书签' }],
     ];
+    // 逐个根判断是否已存在，**不能**用「ROOT_UUID 在不在」做整体早退：
+    // applySnapshot() 会把 GC 快照的树直接灌进 state，而 2026-10 之前产生的
+    // 快照只含 5 个根 —— 整体早退会让账号根**永远补不上**，账号子树静默不同步。
+    // 每个根的 op 用固定 ts(i+1)，各设备逐字节一致，因此补建结果可收敛。
+    let added = false;
     roots.forEach(([id, parent, meta], i) => {
+      if (this.state.tree.has(id)) return;
       const op: MoveOp = { t: ts(i + 1), p: parent, m: meta, c: id };
       this.state = apply_op(op, this.state);
+      added = true;
     });
-    // Roots occupy counters 1..5; keep local counters above them.
+    if (!added) return;
+    // Roots occupy counters 1..8; keep local counters above them.
     this.counter = Math.max(this.counter, roots.length);
     this.bumpVersion();
   }
@@ -321,6 +347,9 @@ export class Replica {
       OTHER_BOOKMARKS_UUID,
       MOBILE_UUID,
       MENU_UUID,
+      ACCOUNT_BOOKMARKS_BAR_UUID,
+      ACCOUNT_OTHER_BOOKMARKS_UUID,
+      ACCOUNT_MOBILE_UUID,
     ]);
     return this.getVisibleTree().every((e) => PROTECTED.has(e.child));
   }

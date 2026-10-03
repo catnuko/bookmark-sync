@@ -11,11 +11,7 @@
             <div class="r-title">{{ t('sync_auto') }}</div>
             <div class="r-sub">{{ t('sync_autoSub') }}</div>
           </div>
-          <SwitchToggle
-            :model-value="state.autoSync"
-            :aria-label="t('sync_auto')"
-            @update:model-value="toggleAutoSync"
-          />
+          <span class="badge badge-success badge-sub">{{ t('common_enabled') }}</span>
         </div>
         <div class="inset-row">
           <span class="lede"><Icon name="list" /></span>
@@ -47,8 +43,7 @@
 </template>
 
 <script setup>
-import { state, syncNow, toggleAutoSync, fmtRelative, usedCount } from '../store.js';
+import { state, syncNow, fmtRelative, usedCount } from '../store.js';
 import { t } from '../lib/i18n.js';
-import SwitchToggle from './ui/SwitchToggle.vue';
 import Icon from './ui/Icon.vue';
 </script>

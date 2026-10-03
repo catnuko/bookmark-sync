@@ -5,8 +5,6 @@
       <p class="pane-sub">{{ t('help_sub') }}</p>
     </template>
 
-    <FeedbackForm />
-
     <div class="grp">
       <div class="acc">
         <div v-for="(item, i) in items" :key="i" class="acc-item" :class="{ open: openIdx === i }">
@@ -27,7 +25,6 @@
 import { ref, computed } from 'vue';
 import { t } from '../lib/i18n.js';
 import Icon from './ui/Icon.vue';
-import FeedbackForm from './FeedbackForm.vue';
 
 defineProps({ bare: { type: Boolean, default: false } });
 

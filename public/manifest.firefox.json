@@ -29,10 +29,13 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "bookmark-sync@bookmarksync.app",
-      "strict_min_version": "109.0",
+      "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["authenticationInfo", "bookmarksInfo", "personallyIdentifyingInfo"]
       }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
     }
   }
 }

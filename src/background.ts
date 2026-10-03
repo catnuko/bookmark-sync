@@ -28,7 +28,6 @@ console.log('[bsync] Build time:', __BUILD_TIME__);
 console.log('[bsync] Boot time: ', new Date().toISOString());
 
 const ALARM_NAME = 'bsync-periodic-pull';
-const AUTO_SYNC_KEY = 'crdt.autoSync';
 
 // 真实「崩溃」入口：SW 里未捕获的异常 / rejection 在 MV3 下只会静默死掉
 // （事件处理器的 Promise reject 不写任何日志），必须显式挂全局钩子 —— 这也是
@@ -46,17 +45,43 @@ globalHooks.addEventListener?.('unhandledrejection', (ev) => {
   void reportError('rejection', 'unhandled', ev?.reason ?? ev);
 });
 
-// 自动同步开关（默认开）：关闭时 onInstalled / onStartup / 周期 alarm 不再
-// 自动同步；popup/options 的「立即同步」消息与事件桥 flush 的推送不受影响
-// （事件桥的 flushSoon 在 sync.js 内单独检查该开关）。
-async function autoSyncEnabled(): Promise<boolean> {
-  const s = await api.storage.local.get(AUTO_SYNC_KEY);
-  return s[AUTO_SYNC_KEY] !== false;
+// 自动同步**始终开启**（2026-10-02 起不再提供用户开关）：onInstalled / onStartup /
+// 周期 alarm 都会直接同步，无需再查任何开关。
+// ---- 登录态切换：真账号根出现 → 静默去抖后收敛 ----
+// Chrome 登录后从 Google 拉回账号子树时，真账号根作为 syncing 子树出现。若本机
+// 此前由「回退文件夹」代表该根（登出期），必须尽快收敛：退休回退 + 内容认领
+// （把「最长 30 分钟的本地重复窗口」压到「拉取完成后几秒」）。
+//
+// ⚠ 绝不能一出现真根就立刻同步：拉取途中 reverseApply 会给「Chrome 尚未拉回的
+// 内容」在本机造出节点，随后被 onCreated 当新节点捕获 → 永久 CRDT 重复。故等
+// 书签事件静默若干秒再跑一次完整同步（复用 runSync 的认领 / 退休 / 反向应用）。
+const ROOT_RECONCILE_SETTLE_MS = 5000;
+let rootReconcileArmed = false;
+let rootReconcileTimer: ReturnType<typeof setTimeout> | null = null;
+function resetRootReconcileTimer(): void {
+  if (!rootReconcileArmed) return;
+  if (rootReconcileTimer) clearTimeout(rootReconcileTimer);
+  rootReconcileTimer = setTimeout(() => {
+    rootReconcileTimer = null;
+    rootReconcileArmed = false;
+    void (async () => {
+      console.log('[bsync] 真账号根出现后静默收敛：开始同步');
+      await sync();
+    })();
+  }, ROOT_RECONCILE_SETTLE_MS);
 }
 
 // MV3：chrome.* 持久事件监听必须在 SW 顶层注册（SW 每次被唤醒都会重跑本文件）。
 // 事件桥在 coordinator 未就绪（未登录/无空间）时安全跳过，由 runSync 播种兜底。
-registerLocalEventBridge();
+registerLocalEventBridge({
+  // 每个书签事件重置静默计时器（登录拉取期间事件密集 → 拉取结束才收敛）。
+  onAnyEvent: () => resetRootReconcileTimer(),
+  onRealRootAppeared: (landingUuid, chromeId) => {
+    console.log(`[bsync] 检测到真账号根出现: landing=${landingUuid} chromeId=${chromeId}`);
+    rootReconcileArmed = true;
+    resetRootReconcileTimer();
+  },
+});
 // 测试通道（仅 Firefox E2E；生产无测试桥扩展，通道天然不可达）
 registerTestChannel();
 
@@ -78,6 +103,7 @@ async function sync(): Promise<SyncRunResult> {
           push: p > 0,
           pull: q > 0,
           dec: r.decryptFailed || 0,
+          unplaced: r.unplaced || 0,
         }),
       });
     } else {
@@ -174,12 +200,12 @@ function scheduleAlarms(): void {
 
 api.runtime.onInstalled.addListener(async () => {
   scheduleAlarms();
-  if (await autoSyncEnabled()) await sync();
+  await sync();
 });
 api.runtime.onStartup.addListener(async () => {
   scheduleAlarms();
-  if (await autoSyncEnabled()) await sync();
+  await sync();
 });
 api.alarms?.onAlarm?.addListener(async (alarm) => {
-  if (alarm.name === ALARM_NAME && (await autoSyncEnabled())) sync();
+  if (alarm.name === ALARM_NAME) sync();
 });

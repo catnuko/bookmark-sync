@@ -334,7 +334,17 @@ describe('captureLocalTree (rescan)', () => {
 
     // 双向收敛：A 拉到 B 的本地书签，B 持有 A 的云端书签 + 自己的本地书签
     await a.pull();
-    const ROOT_TITLES = new Set(['__root__', '书签栏', '其他书签', '移动设备书签', '书签菜单', '']);
+    const ROOT_TITLES = new Set([
+      '__root__',
+      '书签栏',
+      '其他书签',
+      '移动设备书签',
+      '书签菜单',
+      '账号书签栏',
+      '账号其他书签',
+      '账号移动设备书签',
+      '',
+    ]);
     const titles = (r: typeof a) =>
       r.replica
         .getVisibleTree()

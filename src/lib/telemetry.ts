@@ -30,9 +30,6 @@ import { describeError } from './errors.js';
 
 declare const __BUILD_TIME__: string;
 
-/** 上报开关的 storage 键（默认开；显式 false 才关闭）。选项页「高级」可切。 */
-export const ERROR_REPORT_KEY = 'crdt.errorReport';
-
 /** 同一 phase + reason 的前端节流窗口。与服务端限流是两层，不互相替代。 */
 const MIN_INTERVAL_MS = 30_000;
 
@@ -56,17 +53,7 @@ export function getLastErrorPhase(): string {
   return lastErrorPhase;
 }
 
-/** 读开关。与 `loadAutoSync()` 同款：storage 里没有该键时视为开启。 */
-export async function loadErrorReportPref(): Promise<void> {
-  try {
-    const s = await api.storage.local.get(ERROR_REPORT_KEY);
-    enabled = s[ERROR_REPORT_KEY] !== false;
-  } catch {
-    enabled = true; // storage 读失败不改变默认值
-  }
-}
-
-/** 供 store 的开关切换、以及 preview / 测试环境显式关闭。 */
+/** 供 preview / 测试环境显式关闭。生产环境**始终开启**（不再提供用户开关）。 */
 export function setErrorReportEnabled(v: boolean): void {
   enabled = v;
 }

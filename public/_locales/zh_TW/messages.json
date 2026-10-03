@@ -20,6 +20,18 @@
   "common_help": {
     "message": "帮助"
   },
+  "sys_version": {
+    "message": "版本"
+  },
+  "sys_title": {
+    "message": "系统"
+  },
+  "common_enabled": {
+    "message": "已开启"
+  },
+  "common_opensInNewTab": {
+    "message": "在新标签页打开"
+  },
   "common_back": {
     "message": "返回"
   },
@@ -88,6 +100,14 @@
   },
   "status_uptodate": {
     "message": "已是最新"
+  },
+  "status_unplacedWarn": {
+    "message": "⚠️ $COUNT$ 条本地书签本机看不到",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
   "status_decryptWarn": {
     "message": "⚠️ $COUNT$ 条云端数据解密失败（密钥不匹配，请检查同步密钥/口令）",
@@ -195,14 +215,14 @@
   "popup_keyTodo": {
     "message": "待设置"
   },
-  "popup_advTail": {
-    "message": "共存策略 · GC · 自动同步"
-  },
   "popup_helpTail": {
     "message": "常见问题与说明"
   },
   "popup_rateRow": {
     "message": "给个好评"
+  },
+  "popup_accountRow": {
+    "message": "账户"
   },
   "quota_loading": {
     "message": "额度加载中…"
@@ -303,6 +323,12 @@
   },
   "key_copy": {
     "message": "复制口令"
+  },
+  "key_reveal": {
+    "message": "显示口令"
+  },
+  "key_hide": {
+    "message": "隐藏口令"
   },
   "key_foot": {
     "message": "口令仅保存在本机，不上传云端。换设备时输入同一口令即可同步。口令一旦设置不可更改，忘记后将无法解密书签。"
@@ -548,6 +574,9 @@
   "spaceslist_delete": {
     "message": "删除"
   },
+  "spaceslist_deleteConfirm": {
+    "message": "确认删除"
+  },
   "spaceslist_newPh": {
     "message": "新空间名称"
   },
@@ -663,6 +692,9 @@
   },
   "devices_disconnect": {
     "message": "解除"
+  },
+  "devices_disconnectConfirm": {
+    "message": "确认解除"
   },
   "devices_empty": {
     "message": "尚无记录，完成一次同步后自动登记。"
@@ -857,7 +889,7 @@
     "message": "同步"
   },
   "sync_sub": {
-    "message": "控制自动同步行为。"
+    "message": "自动同步始终开启，无需设置。"
   },
   "sync_auto": {
     "message": "自动同步"
@@ -906,101 +938,11 @@
   "crypto_sub": {
     "message": "端到端加密（AES-256-GCM）强制开启，不可关闭。同步密钥是解密云端数据的唯一凭证。"
   },
-  "adv_title": {
-    "message": "高级"
-  },
-  "adv_sub": {
-    "message": "与浏览器原生同步的共存策略，以及操作日志存储维护。"
-  },
-  "adv_coexist": {
-    "message": "与浏览器自带同步共存"
-  },
-  "adv_row1Title": {
-    "message": "不接管 Chrome Sync"
-  },
-  "adv_row1Sub": {
-    "message": "通过 chrome.bookmarks 接口同步本机书签树，不接管 Chrome 原生「同步」功能"
-  },
-  "adv_independent": {
-    "message": "独立"
-  },
-  "adv_row2Title": {
-    "message": "两者同开不丢数据"
-  },
-  "adv_row2Sub": {
-    "message": "本机任何书签变化（无论来自哪个来源）都会进入同步日志，Move-CRDT 合并后收敛为同一棵树"
-  },
-  "adv_safe": {
-    "message": "安全"
-  },
-  "adv_row3Title": {
-    "message": "建议二选一"
-  },
-  "adv_row3Sub": {
-    "message": "两套云端各自保存书签状态，删除/合并语义叠加后可能难以判断「哪个是权威」"
-  },
-  "adv_advice": {
-    "message": "建议"
-  },
-  "adv_maintain": {
-    "message": "数据维护"
-  },
-  "adv_gcTitle": {
-    "message": "最近一次日志压缩"
-  },
-  "adv_gcSub": {
-    "message": "云端自动合并历史操作记录并压缩存储，无需手动维护"
-  },
-  "adv_gcDone": {
-    "message": "已压缩"
-  },
-  "adv_gcNone": {
-    "message": "未触发"
-  },
-  "adv_gcFoot": {
-    "message": "日志压缩仅合并历史操作记录，不删除任何书签。由云端按需自动执行。"
-  },
-  "adv_local": {
-    "message": "本机设置"
-  },
-  "adv_logoutSub": {
-    "message": "退出当前账号，本机密钥与同步口令保留，重新登录后可直接继续同步"
-  },
   "opts_navAria": {
     "message": "设置分区"
   },
   "opts_note": {
     "message": "设置已整合进插件弹窗，点击浏览器工具栏图标即可使用。"
-  },
-  "autosync_onTitle": {
-    "message": "已开启自动同步"
-  },
-  "autosync_onSub": {
-    "message": "检测到变更后自动在后台同步"
-  },
-  "autosync_offTitle": {
-    "message": "已关闭自动同步"
-  },
-  "autosync_offSub": {
-    "message": "本地变更将不再自动上传，可随时手动「立即同步」"
-  },
-  "errreport_title": {
-    "message": "错误诊断上报"
-  },
-  "errreport_sub": {
-    "message": "同步失败时上报错误类型与所在阶段，用于定位高频故障。只含错误信息与版本号，不上传书签内容、网址或同步口令"
-  },
-  "errreport_onTitle": {
-    "message": "已开启错误诊断上报"
-  },
-  "errreport_onSub": {
-    "message": "感谢——线上出问题时，这是我们唯一的线索来源"
-  },
-  "errreport_offTitle": {
-    "message": "已关闭错误诊断上报"
-  },
-  "errreport_offSub": {
-    "message": "我们只能等你主动反馈才知道出了问题"
   },
   "toast_syncDone": {
     "message": "同步完成"
@@ -1150,12 +1092,15 @@
     "message": "📡 同步完成提示怎么看？"
   },
   "help_7_body": {
-    "message": "<p>同步后的提示按结果方向描述，不再显示「推送 / 拉取几条」——那个数字是内部同步操作数，和你实际的书签数对不上，容易误导。对照如下：</p><table class=\"help-tbl\"><thead><tr><th>你看到的提示</th><th>含义</th></tr></thead><tbody><tr><td>首次同步完成，书签已加密上传</td><td>本机第一次把本地书签整体上传到云端（云端原本是空的）</td></tr><tr><td>首次同步完成，已从云端恢复书签</td><td>新设备 / 重装后，把云端已有书签拉到本机</td></tr><tr><td>双向同步完成</td><td>本机和其他设备都有改动，已互相同步</td></tr><tr><td>已上传本地变更</td><td>只把本机新增 / 修改的书签传到了云端</td></tr><tr><td>已同步其他设备的变更</td><td>收到了别的设备新加的书签</td></tr><tr><td>已是最新</td><td>没有新变更，无需操作</td></tr></tbody></table><p>状态卡上的「N 条书签」是真实书签总数，是准确的。看到「⚠️ N 条云端数据解密失败」说明同步密钥和云端数据不匹配，请检查密钥或口令。</p>"
+    "message": "<p>同步后的提示按结果方向描述，不再显示「推送 / 拉取几条」——那个数字是内部同步操作数，和你实际的书签数对不上，容易误导。对照如下：</p><table class=\"help-tbl\"><thead><tr><th>你看到的提示</th><th>含义</th></tr></thead><tbody><tr><td>首次同步完成，书签已加密上传</td><td>本机第一次把本地书签整体上传到云端（云端原本是空的）</td></tr><tr><td>首次同步完成，已从云端恢复书签</td><td>新设备 / 重装后，把云端已有书签拉到本机</td></tr><tr><td>双向同步完成</td><td>本机和其他设备都有改动，已互相同步</td></tr><tr><td>已上传本地变更</td><td>只把本机新增 / 修改的书签传到了云端</td></tr><tr><td>已同步其他设备的变更</td><td>收到了别的设备新加的书签</td></tr><tr><td>已是最新</td><td>没有新变更，无需操作</td></tr><tr><td>⚠️ N 条本地书签本机看不到</td><td>空间里有「只属于本机」的书签，但本机 Chrome 没有本地书签栏可放 —— 已登录且本地为空时，Chrome 不创建本地书签栏</td></tr></tbody></table><p>状态卡上的「N 条书签」是真实书签总数，是准确的。看到「⚠️ N 条云端数据解密失败」说明同步密钥和云端数据不匹配，请检查密钥或口令。</p><p>想让这些书签在本机显示：<strong>登出 Chrome</strong> 后<strong>新建一个本地书签</strong>（未登录时只有本地书签栏），本地书签栏出现后再同步一次即可。它们只留在本机，不会上传到你的 Google 账号。</p>"
   },
   "gate_hintSetup": {
     "message": "请设置一个同步口令——它是解密书签的唯一凭证，一旦设置不可更改，忘记将无法找回。"
   },
   "gate_hintVerify": {
     "message": "云端书签已加密，请输入与其他设备相同的同步口令。"
+  },
+  "status_unplacedHint": {
+    "message": "这些书签只属于本机，本机 Chrome 没有「本地书签栏」可放。登出 Chrome 后新建一个本地书签，再同步一次即可显示（不会上传到 Google 账号）。详见「帮助」。"
   }
 }

@@ -145,7 +145,7 @@ describe('删除事件 × SW 冷启动', () => {
   it('修复后：事件懒启动 + 计数器恢复 → 删除墓碑不丢、全量重放不复活', async () => {
     const key = await generateKey();
 
-    // 第一阶段：热设备创建文件夹并推送；模拟持久化 afterId=1、counter=6
+    // 第一阶段：热设备创建文件夹并推送；模拟持久化 afterId=1、counter=实际值
     const A = new SyncCoordinator({ spaceId: SPACE, deviceId: DEVICE, transport, key });
     const bridgeA = new IdBridge();
     captureLocalEvents(chrome.api, A, bridgeA);
@@ -153,17 +153,20 @@ describe('删除事件 × SW 冷启动', () => {
     await tick();
     expect(await A.flushPush()).toBe(1);
     const uuid = bridgeA.toUuid('f1')!;
-    expect(A.replica.counter).toBe(6);
+    // 固定根占 counter 1..8（3 本地 + 1 菜单 + 3 账号 + __root__），用户 op 续到 9
+    const persistedCounter = A.replica.counter;
+    expect(persistedCounter).toBe(9);
 
     // 第二阶段：SW 冷启动。修复后的 getCoordinator 从 storage 恢复 afterId=1、
-    // counter=6 → 新 replica 计数器续 6，首个本地 op 的 seq=7（不与已推送的 6 冲突）。
+    // counter=persistedCounter → 新 replica 计数器续上，首个本地 op 的 seq
+    // = persistedCounter+1（不与已推送的 seq 冲突）。
     const cold = new SyncCoordinator({
       spaceId: SPACE,
       deviceId: DEVICE,
       transport,
       key,
       afterId: 1,
-      initialCounter: 6,
+      initialCounter: persistedCounter,
     });
     const bridgeCold = new IdBridge();
     bridgeCold.load(bridgeA.snapshot());
@@ -173,7 +176,7 @@ describe('删除事件 × SW 冷启动', () => {
     chrome.emit('removed', 'f1');
     await tick();
     expect(cold.replica.getParent(uuid)).toBe(TRASH_NODE_ID);
-    expect(await cold.flushPush()).toBe(1); // seq=7，不与 6 冲突 → 成功入库
+    expect(await cold.flushPush()).toBe(1); // seq 续在 persistedCounter 之后 → 不与已推送的冲突
     expect(transport.size).toBe(2);
 
     // 第三阶段：点击「立即同步」→ 冷启动全量重放 → 墓碑仍胜 → 不复活

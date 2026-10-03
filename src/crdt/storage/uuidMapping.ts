@@ -52,6 +52,26 @@ export const MOBILE_UUID = '00000000-0000-4000-8000-000000000003';
 export const MENU_UUID = '00000000-0000-4000-8000-000000000004';
 
 /**
+ * 账号（syncing）子树的三个固定根（Chrome 2025-06 起把书签树拆成
+ * syncing / non-syncing 两棵平行子树，见
+ * https://developer.chrome.com/blog/bookmarks-sync-changes ）。
+ *
+ * 与本地根一一对应、各自独立：
+ *   本地 `folderType='bookmarks-bar'`  ↔ BOOKMARKS_BAR_UUID
+ *   账号 `folderType='bookmarks-bar'`  ↔ ACCOUNT_BOOKMARKS_BAR_UUID
+ *
+ * 与本地根是**并列**的固定根（不是 alias）：两棵子树在 CRDT 里各占一个节点，
+ * 因此 chromeId ↔ uuid 仍是 1:1，IdBridge 不需要任何别名机制。
+ *
+ * 账号根的 chromeId 是**动态分配**的（官方明说 id 不固定），所以它们不进
+ * `SPECIAL_ROOT_ROWS` —— 由 src/sync/rootResolver.ts 在每轮同步时按
+ * `folderType` + `syncing` 从 getTree() 结果里解析出来。
+ */
+export const ACCOUNT_BOOKMARKS_BAR_UUID = '00000000-0000-4000-8000-000000000005';
+export const ACCOUNT_OTHER_BOOKMARKS_UUID = '00000000-0000-4000-8000-000000000006';
+export const ACCOUNT_MOBILE_UUID = '00000000-0000-4000-8000-000000000007';
+
+/**
  * chromeId of Chrome's root and its three standard children.
  * These ids are stable across Chrome installations (see chrome.bookmarks API).
  * TODO(real-chrome): verify on a real profile that ids "1"/"2"/"3" really map
@@ -70,6 +90,10 @@ export const CHROME_MOBILE_ID = '3';
  *
  * 不含 spaceId：同一张表对每个空间各自播种一次（默认空间 = 原生根；容器空间
  * 由 spaceRoots 解析出容器内落地根后传入 IdBridge）。
+ *
+ * ⚠ **只含本地根**。账号根（ACCOUNT_*_UUID）的 chromeId 是动态的（官方明说
+ * id 不固定），无法写进静态表 —— 它们由 src/sync/rootResolver.ts 在每轮同步
+ * 时按 `folderType` + `syncing` 从 getTree() 解析后传给 IdBridge。
  */
 export interface SpecialRootRow {
   chromeId: string;

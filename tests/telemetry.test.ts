@@ -4,13 +4,7 @@
 // 同一错误风暴不放大。所以测试重点不是「发了什么」，而是**边界条件**：
 // 未登录 / 已关闭 / 节流中 / rpc 抛错 —— 四种情况下都不能发出请求、不能抛错。
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  reportError,
-  setErrorReportEnabled,
-  loadErrorReportPref,
-  isErrorReportEnabled,
-  ERROR_REPORT_KEY,
-} from '../src/lib/telemetry.js';
+import { reportError, setErrorReportEnabled } from '../src/lib/telemetry.js';
 
 const h = vi.hoisted(() => ({
   rpcCalls: [] as Array<{ name: string; args: Record<string, unknown> }>,
@@ -159,18 +153,5 @@ describe('context 白名单化（防误传整个 state）', () => {
     expect(ctx).not.toHaveProperty('undef');
     expect((ctx.long ?? '').length).toBeLessThanOrEqual(120);
     expect(Object.keys(ctx).length).toBeLessThanOrEqual(10);
-  });
-});
-
-describe('loadErrorReportPref', () => {
-  it('storage 中没有该键 → 默认开启', async () => {
-    await loadErrorReportPref();
-    expect(isErrorReportEnabled()).toBe(true);
-  });
-
-  it('storage 显式 false → 关闭', async () => {
-    h.storage = { [ERROR_REPORT_KEY]: false };
-    await loadErrorReportPref();
-    expect(isErrorReportEnabled()).toBe(false);
   });
 });

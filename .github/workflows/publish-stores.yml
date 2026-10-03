@@ -162,10 +162,9 @@ jobs:
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
           CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
           CHROME_ZIP: dist/bookmark-sync-chromium-${{ steps.resolve.outputs.version }}.zip
-          # ★ 首次接入的临时安全阀：提交审核但**不自动上架**，需在 CWS 后台点发布。
-          #   链路验证无误后删掉这一行即恢复「审核通过即全量发布」。
-          #   （不设 CHROME_CANCEL_PENDING：不动正在审核的提交。）
-          CHROME_PUBLISH_TYPE: STAGED_PUBLISH
+          # 不设 CHROME_CANCEL_PENDING：不动正在审核的提交。
+          # ★ STAGED_PUBLISH 安全阀已于 2026-10-03 拆除（v2.9.0 走完 staged → 放行 →
+          #   stores.json 采到 2.9.0），恢复「审核通过即全量发布」。
         run: $PUBLISH_CMD
 
       - name: Submit to Edge Add-ons
@@ -208,7 +207,6 @@ jobs:
             echo ""
             echo "> 本工作流只提交商店，不影响任何已发布产物（tag / Release / 官网下载）。"
             echo "> 重试：Actions → Publish to stores → Run workflow（tag 填 ${TAG}）。"
-            echo "> Chrome 首轮为 STAGED_PUBLISH：审核通过后需在 CWS 后台手动点发布。"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # 各提交步骤 continue-on-error 保证三家都尝试；这里统一把失败炸出来

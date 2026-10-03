@@ -22,9 +22,11 @@ import {
   MemoryOpLogTransport,
   captureLocalEvents,
   captureLocalTree as captureUnmappedTree,
+  retireFallbackFolders,
   IdBridge,
   IS_FIREFOX,
   nativeRootPairs,
+  resolveRoots,
   reverseApply,
   firstBindAction,
   isPaidPlan,
@@ -32,9 +34,22 @@ import {
   parseBinding,
 } from './sync/index.js';
 import { KeyManager } from './sync/index.js';
-import type { BindMode, ChromeBookmarksAPI, ChromeTreeNode, PullOutcome } from './sync/index.js';
+import type {
+  BindMode,
+  CaptureEventHooks,
+  ChromeBookmarksAPI,
+  ChromeTreeNode,
+  PullOutcome,
+  RootResolution,
+} from './sync/index.js';
 import type { Session } from '@supabase/supabase-js';
-import { MENU_UUID, MOBILE_UUID, openBookmarkDb, OutboxStore } from './crdt/index.js';
+import {
+  BOOKMARKS_BAR_UUID,
+  MENU_UUID,
+  MOBILE_UUID,
+  openBookmarkDb,
+  OutboxStore,
+} from './crdt/index.js';
 
 const DEVICE_ID_KEY = 'crdt.deviceId';
 /**
@@ -45,6 +60,15 @@ const DEVICE_ID_KEY = 'crdt.deviceId';
 const AFTER_ID_PREFIX = 'crdt.afterId.';
 const COUNTER_PREFIX = 'crdt.counter.';
 const IDMAP_PREFIX = 'crdt.idmap.';
+/**
+ * 落地根的「回退文件夹」记录（landing uuid -> 占位文件夹 chromeId），按空间分区。
+ *
+ * 未登录时账号子树落在「其他书签」下的回退文件夹里；登录后真账号根出现必须
+ * 退休它。记录与 idmap 分开存：idmap 里的落地根映射以本轮解析出的 seed 为权威
+ * （见 IdBridge.load），回退身份只能靠这份记录识别。
+ * 见 chromeBridge.retireFallbackFolders。
+ */
+const FALLBACK_PREFIX = 'crdt.fallbackRoots.';
 /** 历史（全局）键：仅 resetSyncState 清理用。 */
 const LEGACY_KEYS = ['crdt.afterId', 'crdt.counter', 'crdt.idmap'];
 /**
@@ -76,6 +100,7 @@ const MENU_FOLDER_TITLE = '书签菜单';
 const afterIdKey = (spaceId: string): string => AFTER_ID_PREFIX + spaceId;
 const counterKey = (spaceId: string): string => COUNTER_PREFIX + spaceId;
 const idmapKey = (spaceId: string): string => IDMAP_PREFIX + spaceId;
+const fallbackKey = (spaceId: string): string => FALLBACK_PREFIX + spaceId;
 
 /** 取 chrome.bookmarks（MV3 声明了 bookmarks 权限，扩展上下文内恒存在）。 */
 function nativeBookmarks(): ChromeBookmarksAPI | undefined {
@@ -156,6 +181,12 @@ export type SyncRunResult =
       seeded?: boolean;
       restored?: boolean;
       decryptFailed?: number;
+      /**
+       * 本机无处落地的书签条数（「已登录 + 本地为空」→ Chrome 不创建本地根，
+       * 空间里挂在本地根下的书签在本机看不到）。用于给用户一条可见提示，
+       * 详见 chromeBridge 的 `FALLBACK_ROOT_UUID` 注释。
+       */
+      unplaced?: number;
       /** 同步途中空间被换绑/密钥被重置：本轮投影放弃，但数据不丢。 */
       superseded?: boolean;
     }
@@ -317,6 +348,14 @@ async function migrateFromMultiSpaceOnce(): Promise<void> {
     dropBridgeCache();
     if (registry && typeof registry === 'object' && chrome) {
       const nativeIds = new Set(nativeRootPairs(IS_FIREFOX).map(([cid]) => cid));
+      // 账号（syncing）根也是永久节点、chromeId 动态，静态表认不出来 —— 从
+      // getTree() 解析后补进来，避免 registry 里的 id 恰好撞上账号根时误删。
+      try {
+        const tree = (await chrome.getTree()) ?? [];
+        for (const cid of resolveRoots(tree, IS_FIREFOX).rootIds) nativeIds.add(cid);
+      } catch {
+        /* 取不到树：只用静态本地根集合兜底 */
+      }
       for (const row of Object.values(registry)) {
         const cid = (row && typeof row === 'object' && (row as { rootId?: unknown }).rootId) || '';
         if (!cid || typeof cid !== 'string' || nativeIds.has(cid)) continue;
@@ -687,6 +726,9 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
 
     // 绑定空间的映射桥 / 水位按空间分区：先确立活动桥（落地区恒为本环境原生
     // 根），事件处理器与 capture/reverseApply 后续都取它。
+    // 每轮同步重新解析根集合（登录 / 登出会改变 Chrome 双子树形状）；本轮内
+    // 后续的 ensureActiveBridge 调用复用这一次 getTree 的结果。
+    _activeRootResolution = null;
     await ensureActiveBridge(active);
 
     const coordinator = await getCoordinator(active.id, deviceId, key);
@@ -800,7 +842,7 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     const visTree = coordinator.replica.getVisibleTree();
     console.log(`[bsync] CRDT 可见树 (${visTree.length} 个节点)`);
     console.log(`[bsync] 开始反向应用 (decryptErrors=${allDecryptErrors.length})...`);
-    await reverseApplyIntoChrome(coordinator, active);
+    const unplaced = await reverseApplyIntoChrome(coordinator, active);
     console.log('[bsync] 反向应用完成');
 
     // 5) op-log GC：服务端托管——push/pull 响应带 gc_needed（行数超过用户
@@ -894,6 +936,7 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
       seeded: didSeedThisRun,
       restored,
       decryptFailed: allDecryptErrors.length,
+      unplaced,
     };
   } catch (e) {
     // 服务端语义码直接作为 reason（push/pull 抛出的 PostgREST 错误 message
@@ -928,7 +971,7 @@ let _coordinator: SyncCoordinator | null = null; // 惰性单例（按 spaceId �
 let _coordinatorGen = 0; // 递增世代：resetCoordinator 后旧 boot 不再覆盖单例
 let _eventGuard: { suppressed: { value: boolean } } = { suppressed: { value: false } }; // captureLocalEvents 返回的 suppressed 标志
 
-export function registerLocalEventBridge(): void {
+export function registerLocalEventBridge(hooks?: CaptureEventHooks): void {
   if (bridgeRegistered) return;
   bridgeRegistered = true;
   // 映射桥按空间多变，事件处理器经 getter 取「当前活动空间」的映射表
@@ -943,6 +986,7 @@ export function registerLocalEventBridge(): void {
     () => getCoordinatorCached() ?? bootCoordinatorForEvent(),
     bridgeGetter,
     flushSoon,
+    hooks,
   );
 }
 
@@ -995,15 +1039,21 @@ function bootCoordinatorForEvent(): SyncCoordinator | null | Promise<SyncCoordin
 async function reverseApplyIntoChrome(
   coordinator: SyncCoordinator,
   space: SpaceInfo,
-): Promise<void> {
+): Promise<number> {
   const chrome = nativeBookmarks();
-  if (!chrome) return;
+  if (!chrome) return 0;
   const bridge = await ensureActiveBridge(space);
   const guard = _eventGuard ?? { suppressed: { value: false } };
   // 注意：事件闭包读的是 guard.suppressed.value（captureLocalEvents 返回
   // { suppressed: {value} }），直接设 guard.value 会静默失效——这正是
   // reverseApply 回环（每次同步复制一批书签）的根因。
+  // 登录态切换收尾：真账号根出现后，退休本机旧的「回退文件夹」（先丢映射再删，
+  // 不产生墓碑）。放在 reverseApply 之前：回退子树里未被认领的节点会由紧随的
+  // reverseApply 在真根下重新落地，内容一条不丢。
+  await retireFallbackFolders(chrome, bridge);
   guard.suppressed.value = true; // 抑制事件回环（create/move/update 会触发 onCreated 等）
+  /** 本机无处落地的书签条数（见 SyncRunResult.unplaced）。 */
+  let unplaced = 0;
   try {
     if (!IS_FIREFOX) {
       // Chromium：MENU_UUID 容器按需存在（原生根里没有「书签菜单」这个位置，
@@ -1013,24 +1063,82 @@ async function reverseApplyIntoChrome(
         .getVisibleTree()
         .some((e) => e.parent === MENU_UUID);
       if (menuHasChildren) {
-        await ensureMenuFolder(coordinator, bridge);
+        const placed = await ensureMenuFolder(bridge);
+        if (!placed) {
+          // 容器只能挂在**本地**书签栏下（落到账号子树会被 Chrome 上传到 Google
+          // 账号并造成云端翻倍，见 chromeBridge 的 FALLBACK_ROOT_UUID 注释）。
+          // 本机没有本地书签栏 → 跳过创建（而不是像以前那样抛
+          // "Can't find bookmark for id." 把整轮 reverseApply 打断）。
+          unplaced += countVisibleBookmarks(coordinator, MENU_UUID);
+          console.warn(
+            '[bsync] 「书签菜单」容器无处落地（本机没有本地书签栏）：菜单书签本机看不到',
+          );
+        }
       }
     }
     // 回退文件夹名走 i18n：根下浏览器内部永久文件夹（历史脏 op）在本机没有
     // 映射时，会在「其他书签」下建一个同名文件夹承载它的整棵子树
     // （见 chromeBridge.ensureRootFallback）。名字跟着界面语言走。
+    //
+    // unplaceable：本机既没有这个落地根的真根、也没有可用的回退宿主根 → 该
+    // 落地根下的内容在本机无处落地。目前唯一的场景是「已登录 + 本地子树为空」
+    // （Chrome 不创建本地根 —— 2026-10-02 真机核实 `get('1'/'2'/'3')` 全抛
+    // "Can't find bookmark for id."）。**不能**退到账号子树：会把本地书签上传到
+    // Google 账号，且因 contentKey 含 parentUuid 造成云端翻倍（见 chromeBridge 的
+    // FALLBACK_ROOT_UUID 注释）。所以只能跳过 —— 但**必须说出来**，否则就是
+    // 「同步成功、书签却不出现」的静默失败（正是 2026-10-02 那次真机症状）。
+    const unplaceable = new Map<string, number>();
     await reverseApply(chrome, coordinator, bridge, {
       fallbackRootTitle: t('sync_recoveredRoot'),
+      onUnplaceableRoot: (uuid, bookmarks) => unplaceable.set(uuid, bookmarks),
     });
+    if (unplaceable.size > 0) {
+      unplaced += [...unplaceable.values()].reduce((a, b) => a + b, 0);
+      console.warn(
+        `[bsync] ${unplaceable.size} 个落地根在本机无处落地（Chrome 未创建本地根：已登录且本地子树为空）` +
+          `→ 挂在它们下面的书签本机看不到：${[...unplaceable.keys()].join(', ')}。` +
+          `让本地子树非空即可显示（例如登出 Chrome 后新建一个本地书签）。`,
+      );
+    }
     if (!IS_FIREFOX) {
       // 同步收敛后：若「书签菜单」容器已空，移除容器，让 Chrome 端只在
       // Firefox 菜单有书签时显示它。
       await cleanupEmptyMenuContainer(bridge);
     }
-    await api.storage.local.set({ [idmapKey(space.id)]: bridge.snapshot() });
+    await api.storage.local.set({
+      [idmapKey(space.id)]: bridge.snapshot(),
+      [fallbackKey(space.id)]: bridge.fallbackSnapshot(),
+    });
   } finally {
     guard.suppressed.value = false;
   }
+  return unplaced;
+}
+
+/**
+ * 某个落地根下、CRDT 可见树里带 url 的节点数（文件夹不计，与 used_count 同口径）。
+ * 用于「无处落地」提示里的条数（菜单容器走这条，落地根那条由 chromeBridge 现算）。
+ */
+function countVisibleBookmarks(coordinator: SyncCoordinator, rootUuid: string): number {
+  const children = new Map<string, string[]>();
+  for (const e of coordinator.replica.getVisibleTree()) {
+    const arr = children.get(e.parent);
+    if (arr) arr.push(e.child);
+    else children.set(e.parent, [e.child]);
+  }
+  let n = 0;
+  const stack = [rootUuid];
+  const seen = new Set<string>();
+  const url = new Map<string, unknown>();
+  for (const e of coordinator.replica.getVisibleTree()) url.set(e.child, e.meta?.url);
+  while (stack.length > 0) {
+    const u = stack.pop()!;
+    if (seen.has(u)) continue;
+    seen.add(u);
+    if (typeof url.get(u) === 'string' && url.get(u)) n++;
+    for (const c of children.get(u) ?? []) stack.push(c);
+  }
+  return n;
 }
 
 /**
@@ -1039,23 +1147,32 @@ async function reverseApplyIntoChrome(
  * MENU_UUID；容器被删/重装后在此补建。菜单内容清空后由
  * cleanupEmptyMenuContainer 移除容器。
  */
-async function ensureMenuFolder(coordinator: SyncCoordinator, bridge: IdBridge): Promise<void> {
-  if (IS_FIREFOX) return; // Firefox 端 menu________ 是原生根，无需容器
+// 导出仅供单测（tests/sync/menuFolder.test.ts）：本函数不碰 coordinator，只依据
+// bridge 的映射决定父节点，是最容易回归「硬编码 parentId」的那一段。
+export async function ensureMenuFolder(bridge: IdBridge): Promise<boolean> {
+  if (IS_FIREFOX) return true; // Firefox 端 menu________ 是原生根，无需容器
   const chrome = nativeBookmarks();
-  if (!chrome) return;
+  if (!chrome) return true;
   const saved = await api.storage.local.get(MENU_FOLDER_KEY);
   const savedId = saved[MENU_FOLDER_KEY] as string | undefined;
   if (savedId) {
     try {
       const nodes = await chrome.get(savedId);
-      if (nodes && nodes[0] && nodes[0].id === savedId) return; // 仍在
+      if (nodes && nodes[0] && nodes[0].id === savedId) return true; // 仍在
     } catch {
       /* 已被删除 → 重建 */
     }
   }
-  const created = await chrome.create({ parentId: '1', title: MENU_FOLDER_TITLE });
+  // 父必须是**本地**书签栏，不能用账号书签栏兜底：落到账号子树会被 Chrome 上传到
+  // Google 账号，且因 contentKey 含 parentUuid 造成云端翻倍（见 chromeBridge 的
+  // FALLBACK_ROOT_UUID 注释）。「已登录 + 本地为空」时 Chrome 不创建本地根
+  // （2026-10-02 真机核实）→ 没有可挂的父 → 返回 false，由调用方提示用户。
+  const parentId = bridge.toChromeId(BOOKMARKS_BAR_UUID);
+  if (!parentId) return false;
+  const created = await chrome.create({ parentId, title: MENU_FOLDER_TITLE });
   bridge.map(created.id, MENU_UUID);
   await api.storage.local.set({ [MENU_FOLDER_KEY]: created.id });
+  return true;
 }
 
 /**
@@ -1188,6 +1305,7 @@ async function flushPersist(): Promise<void> {
     const entry = _bridges.get(c.spaceId);
     await api.storage.local.set({
       [idmapKey(c.spaceId)]: entry ? entry.bridge.snapshot() : {},
+      [fallbackKey(c.spaceId)]: entry ? entry.bridge.fallbackSnapshot() : {},
       [counterKey(c.spaceId)]: c.replica.counter,
     });
   } catch {
@@ -1213,23 +1331,69 @@ const _bridges = new Map<string, { bridge: IdBridge; sig: string }>();
 let _activeBridge: IdBridge | null = null;
 
 /**
+ * 本环境**实际**的根集合（含 Chrome 2025-06 双子树下的账号根）。
+ *
+ * 每轮同步解析一次（getTree 一次），本轮内 ensureActiveBridge 会被调用多次
+ * （runSync 本身 / captureLocalTree / reverseApplyIntoChrome），共用这次结果，
+ * 避免每轮 3 次 getTree 往返。换绑 / 换密钥（世代变化）或显式重置后重新解析。
+ */
+let _activeRootResolution: RootResolution | null = null;
+let _activeRootSpaceId: string | null = null;
+let _activeRootGen = -1;
+
+/**
+ * 解析本环境的根集合（chromeId → 固定根 UUID），失败时退回静态根集合。
+ *
+ * 账号根与本地根**并列**（不是 alias），chromeId 动态（官方明确「id is not
+ * fixed」），所以必须每轮按 folderType + syncing 重新认根 —— 见
+ * src/sync/rootResolver.ts。
+ */
+async function resolveActiveRoots(spaceId: string): Promise<RootResolution> {
+  if (
+    _activeRootResolution &&
+    _activeRootSpaceId === spaceId &&
+    _activeRootGen === _coordinatorGen
+  ) {
+    return _activeRootResolution;
+  }
+  let tree: ChromeTreeNode[] = [];
+  const chrome = nativeBookmarks();
+  if (chrome) {
+    try {
+      tree = (await chrome.getTree()) ?? [];
+    } catch {
+      /* 取不到树：resolveRoots 退回静态根集合（保持旧行为，不把桥建成空的） */
+    }
+  }
+  const res = resolveRoots(tree, IS_FIREFOX);
+  _activeRootResolution = res;
+  _activeRootSpaceId = spaceId;
+  _activeRootGen = _coordinatorGen;
+  return res;
+}
+
+/**
  * 建立（或复用）绑定空间的映射桥。
  *
  * 同一空间复用内存中的桥（保留映射）；换绑 / 重置后由 dropBridgeCache 清掉，
- * 下次按新空间重建并重新载入持久化映射。
+ * 下次按新空间重建并重新载入持久化映射。落地区 = 本环境实际根集合
+ * （每轮解析：登录 / 登出会改变根集合 → sig 变化 → 桥自动重建）。
  */
 async function ensureActiveBridge(space: SpaceInfo): Promise<IdBridge> {
-  const pairs = nativeRootPairs(IS_FIREFOX);
+  const { pairs } = await resolveActiveRoots(space.id);
   const sig = JSON.stringify(pairs);
   const cached = _bridges.get(space.id);
   if (cached && cached.sig === sig) {
     _activeBridge = cached.bridge;
     return cached.bridge;
   }
-  // 重建前先把旧桥的映射落盘，避免重建丢映射（下次 capture 会重复建节点）。
+  // 重建前先把旧桥的映射 + 回退记录落盘，避免重建丢映射（下次 capture 会重复建节点）。
   if (cached) {
     try {
-      await api.storage.local.set({ [idmapKey(space.id)]: cached.bridge.snapshot() });
+      await api.storage.local.set({
+        [idmapKey(space.id)]: cached.bridge.snapshot(),
+        [fallbackKey(space.id)]: cached.bridge.fallbackSnapshot(),
+      });
     } catch {
       /* 落盘失败：重建后由 capture 兜底（最坏是重复节点，不会丢数据） */
     }
@@ -1242,9 +1406,23 @@ async function ensureActiveBridge(space: SpaceInfo): Promise<IdBridge> {
   // capture，否则映射缺失会让 reverseApply 把「已存在的书签」当「缺失」重复
   // 创建（SW 每次冷启动/回收后同步都复制一批书签）。
   try {
-    const res = await api.storage.local.get(idmapKey(space.id));
+    const res = await api.storage.local.get([idmapKey(space.id), fallbackKey(space.id)]);
     const map = res[idmapKey(space.id)] as Record<string, string> | undefined;
     if (map) bridge.load(map);
+    // 回退记录：landing uuid -> 占位文件夹。idmap 里的落地根映射被 load 忽略
+    // （seed 才是权威），所以「账号根缺席时由回退文件夹代表它」只能靠这份记录
+    // 恢复 —— 否则每轮重建都会在「其他书签」下再建一个回退文件夹。
+    const fb = res[fallbackKey(space.id)] as Record<string, string> | undefined;
+    if (fb) {
+      bridge.loadFallbacks(fb);
+      // 用 loadFallbacks 过滤后的记录（原生根会被剔除），避免把 '1'/'2' 之类
+      // 原生根当成回退文件夹映射回来。
+      for (const [u, f] of bridge.fallbackEntries()) {
+        // 该根本轮没解析到真根 → 回退文件夹仍是它的落地，恢复 F→U 映射。
+        // 解析到真根时不映射（真根 seed 已占 backward[U]），交由退休流程处理。
+        if (!bridge.toChromeId(u)) bridge.map(f, u);
+      }
+    }
   } catch {
     /* storage 不可用：本轮按空映射处理 */
   }
@@ -1262,6 +1440,9 @@ function dropBridgeCache(spaceId?: string): void {
   if (spaceId) _bridges.delete(spaceId);
   else _bridges.clear();
   _activeBridge = null;
+  // 根集合缓存一并作废：换绑后要按新空间重新解析（账号根可能已变）。
+  _activeRootResolution = null;
+  _activeRootSpaceId = null;
 }
 
 /**
@@ -1280,19 +1461,14 @@ export async function captureLocalTree(
   const bridge = await ensureActiveBridge(space);
   const bookmarks = nativeBookmarks();
   if (!bookmarks) return 0;
-  const captured = await captureUnmappedTree(
-    bookmarks,
-    coordinator,
-    bridge,
-    nativeRootPairs(IS_FIREFOX)[0][0],
-  );
+  const { rootChromeId } = await resolveActiveRoots(space.id);
+  const captured = await captureUnmappedTree(bookmarks, coordinator, bridge, rootChromeId);
   if (captured > 0) await flushPersist();
   return captured;
 }
 
 /** 事件入队后去抖 flush（2s），实现「自动无感同步」。 */
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
-const AUTO_SYNC_KEY = 'crdt.autoSync';
 export function flushSoon(): void {
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = setTimeout(async () => {
@@ -1300,10 +1476,6 @@ export function flushSoon(): void {
     try {
       const c = getCoordinatorCached();
       if (!c) return;
-      // 自动同步开关：关闭时本地变更继续入队，但不自动推送；
-      // 手动 runSync / syncNow 不受此开关限制。
-      const { [AUTO_SYNC_KEY]: auto } = await api.storage.local.get(AUTO_SYNC_KEY);
-      if (auto === false) return;
       // 推送前先落盘计数器：即使推送后 SW 立刻被回收，下次冷启动恢复的
       // 计数器也覆盖了这批 op 的 seq（防与历史 seq 冲突被服务端静默丢弃）。
       await api.storage.local.set({ [counterKey(c.spaceId)]: c.replica.counter });
@@ -1402,6 +1574,7 @@ export async function resetSyncState(): Promise<void> {
   await removeAllScoped(AFTER_ID_PREFIX);
   await removeAllScoped(COUNTER_PREFIX);
   await removeAllScoped(IDMAP_PREFIX);
+  await removeAllScoped(FALLBACK_PREFIX);
   // 清除 IndexedDB 中的 CRDT 持久化状态（ops/snapshot/uuidMapping/meta）
   try {
     await new Promise<void>((resolve, reject) => {

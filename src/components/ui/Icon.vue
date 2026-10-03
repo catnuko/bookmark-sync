@@ -187,6 +187,18 @@ const ICONS = {
     ],
     d: ['M4 7l8 5.5L20 7'],
   },
+  // 「会在新标签页打开网页」的行尾标（与 chevron-right 区分）
+  'external-link': {
+    d: ['M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6', 'M15 3h6v6', 'M10 14L21 3'],
+  },
+  // 口令的「显示 / 隐藏」切换（KeyPanel）
+  eye: {
+    c: [{ cx: 12, cy: 12, r: 3, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.75 }],
+    d: ['M2 12s3.7-6.5 10-6.5S22 12 22 12s-3.7 6.5-10 6.5S2 12 2 12Z'],
+  },
+  'eye-off': {
+    d: ['M2 12s3.7-6.5 10-6.5S22 12 22 12s-3.7 6.5-10 6.5S2 12 2 12Z', 'M4 4l16 16'],
+  },
 };
 
 const icon = computed(() => ICONS[props.name] ?? ICONS.info);

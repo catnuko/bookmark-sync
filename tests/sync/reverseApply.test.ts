@@ -13,6 +13,7 @@ import {
   IdBridge,
   reverseApply,
   captureLocalTree,
+  resolveRoots,
   type ChromeBookmarksAPI,
   type ChromeTreeNode,
 } from '../../src/sync/index.js';
@@ -24,6 +25,9 @@ import {
   OTHER_BOOKMARKS_UUID,
   MOBILE_UUID,
   MENU_UUID,
+  ACCOUNT_BOOKMARKS_BAR_UUID,
+  ACCOUNT_OTHER_BOOKMARKS_UUID,
+  ACCOUNT_MOBILE_UUID,
   TRASH_NODE_ID,
 } from '../../src/crdt/index.js';
 
@@ -46,7 +50,7 @@ const SPACE = 'bbbbbbbb-0000-4000-8000-111111111111';
  * 早期 mock 允许往 "0" 下 create，于是「CRDT 里有 parent=ROOT_UUID 的节点」
  * 这条线上事故（2026-10-01）在单测里同样测不出来。
  */
-function makeChrome(extraRootChildren: ChromeTreeNode[] = []) {
+function makeChrome(extraRootChildren: ChromeTreeNode[] = [], opts: { localRoots?: boolean } = {}) {
   interface N extends ChromeTreeNode {
     parentId?: string;
     index?: number;
@@ -61,10 +65,16 @@ function makeChrome(extraRootChildren: ChromeTreeNode[] = []) {
     tree.set(n.id, n);
     for (const c of n.children ?? []) seed(c, n.id);
   };
+  // localRoots:false 模拟「已登录 + 本地子树为空」——Chrome 隐藏整棵本地子树
+  // （rootResolver 顶部注释的三种树形之一），getTree() 里只有账号根。
   const ROOT_CHILDREN: N[] = [
-    { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
-    { id: '2', title: '其他书签', parentId: '0', index: 1, children: [] },
-    { id: '3', title: '移动设备书签', parentId: '0', index: 2, children: [] },
+    ...(opts.localRoots === false
+      ? []
+      : ([
+          { id: '1', title: '书签栏', parentId: '0', index: 0, children: [] },
+          { id: '2', title: '其他书签', parentId: '0', index: 1, children: [] },
+          { id: '3', title: '移动设备书签', parentId: '0', index: 2, children: [] },
+        ] as N[])),
     // 浏览器根下的**额外**子节点：Chrome 的账号书签 / 受管书签永久文件夹
     // （`BookmarkModel::CreateAccountPermanentFolders` 把它们 AddNode 到 root 上，
     // 非空即可见并出现在 getTree() 里）。id 是动态分配的，不在固定根表内。
@@ -402,13 +412,14 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
     expect(root.children!.find((n) => n.id === '2')!.children!.length).toBe(0);
   });
 
-  it('captureLocalTree 不捕获浏览器根下的非原生根子节点（账号书签 / 受管书签 / Firefox tags）', async () => {
-    // getTree 里根下多出一个动态 id 的永久文件夹（非空 → 可见）
+  it('captureLocalTree 不捕获浏览器根下的**未识别**子节点（受管书签 / Firefox tags）', async () => {
+    // getTree 里根下多出一个动态 id 的永久文件夹（非空 → 可见）。
+    // 它没有 folderType → 认不出是固定根 → 整棵跳过。
     const chromeWithAccountRoot = makeChrome([
       {
         id: '4',
         title: 'Other bookmarks',
-        children: [{ id: '4-1', title: '账号书签', url: 'https://account.example' }],
+        children: [{ id: '4-1', title: '受管书签', url: 'https://managed.example' }],
       },
     ]);
     const bridge = new IdBridge();
@@ -424,8 +435,135 @@ describe('reverseApply (远端 → 本机 chrome 写回)', () => {
       .map((e) => e.child)
       .sort();
     expect(underRoot).toEqual(
-      [BOOKMARKS_BAR_UUID, OTHER_BOOKMARKS_UUID, MOBILE_UUID, MENU_UUID].sort(),
+      [
+        BOOKMARKS_BAR_UUID,
+        OTHER_BOOKMARKS_UUID,
+        MOBILE_UUID,
+        MENU_UUID,
+        ACCOUNT_BOOKMARKS_BAR_UUID,
+        ACCOUNT_OTHER_BOOKMARKS_UUID,
+        ACCOUNT_MOBILE_UUID,
+      ].sort(),
     );
+  });
+
+  /**
+   * 2026-10 双子树修复：账号（syncing）子树不再是「未识别」节点 —— 它的根由
+   * src/sync/rootResolver.ts 按 folderType + syncing 解析后 seed 进桥，因此
+   * captureLocalTree 必须**捕获**它（以前整棵跳过 → 账号书签静默不同步）。
+   */
+  it('captureLocalTree 捕获账号（syncing）子树，且不产生 parent=ROOT_UUID 的 op', async () => {
+    const chromeWithAccountRoot = makeChrome([
+      {
+        id: 'X',
+        title: '书签栏',
+        folderType: 'bookmarks-bar',
+        syncing: true,
+        children: [{ id: 'X1', title: '账号书签', url: 'https://account.example' }],
+      },
+    ]);
+    // 桥由 rootResolver 的**真实**解析结果播种（而不是手写 roots）——这样这条
+    // 用例同时锁住「resolver 产出的 pairs 正是 IdBridge 需要的形状」这一契约。
+    const { pairs } = resolveRoots(await chromeWithAccountRoot.getTree(), false);
+    const bridge = new IdBridge(undefined, { roots: pairs });
+    expect(bridge.toUuid('X')).toBe(ACCOUNT_BOOKMARKS_BAR_UUID); // 账号根是固定根
+
+    const captured = await captureLocalTree(chromeWithAccountRoot, coordinator, bridge, '0');
+
+    expect(captured).toBe(1);
+    const child = bridge.toUuid('X1');
+    expect(child).toBeTruthy();
+    expect(coordinator.replica.getParent(child!)).toBe(ACCOUNT_BOOKMARKS_BAR_UUID);
+
+    // 硬约束：CRDT 里永远不能有 parent=ROOT_UUID 的**用户**节点
+    const underRoot = coordinator.replica
+      .getVisibleTree()
+      .filter((e) => e.parent === ROOT_UUID)
+      .map((e) => e.child);
+    expect(underRoot).not.toContain(child);
+    expect(underRoot).toContain(ACCOUNT_BOOKMARKS_BAR_UUID);
+  });
+
+  /**
+   * 反向：远端账号子树 → 本机账号（syncing）根（而不是落到本地书签栏）。
+   * 这是双子树修复的「写回」半边——以前账号根的 chromeId 认不出来，整棵子树
+   * 只能回退落到「其他书签」，用户看到的账号书签位置是错的。
+   */
+  it('reverseApply 把远端账号子树写回本机账号（syncing）根', async () => {
+    chrome = makeChrome([
+      { id: 'X', title: '书签栏', folderType: 'bookmarks-bar', syncing: true, children: [] },
+    ]);
+    const { pairs } = resolveRoots(await chrome.getTree(), false);
+    const bridge = new IdBridge(undefined, { roots: pairs });
+
+    await receiveRemote('zzz-remote', (c) => {
+      c.createNodeWithId('uu-acc', ACCOUNT_BOOKMARKS_BAR_UUID, {
+        title: '账号书签',
+        url: 'https://account.example',
+      });
+    });
+    await reverseApply(chrome, coordinator, bridge);
+
+    // 落在账号根（'X'）下，且本地书签栏（'1'）未被污染
+    expect(await titlesUnder('X')).toEqual(['账号书签']);
+    expect(await titlesUnder('1')).toEqual([]);
+  });
+
+  /**
+   * ★ 硬不变式（2026-10-02 真机核实后固化）：回退宿主根**恒为本地「其他书签」**，
+   * 绝不退到账号（syncing）子树。
+   *
+   * 场景：新设备「已登录 + 本地子树为空」。真机核实（Windows，2026-10-02）：
+   * Chrome 此时**根本不创建**本地根 —— `get('1'/'2'/'3')` 全部抛
+   * "Can't find bookmark for id."，`getTree()` 只剩账号根 `5`/`6`。
+   * 于是空间里挂在本地根下的内容在本机没有落脚点。
+   *
+   * **不能**退到账号「其他书签」：
+   *   1. 账号子树由 Chrome 自动同步 → 本地书签会被**上传到用户的 Google 账号**；
+   *   2. 上传后其他登录同账号的设备会在账号子树里捕获到同内容节点，而
+   *      `contentKey` 含 `parentUuid` → 认领不回原 uuid → 云端翻倍、每台设备重复。
+   * 正确行为 = 跳过 + 报给调用方（`onUnplaceableRoot`）：不静默、也不越界落地。
+   *
+   * （本条曾是「退到账号其他书签即可落地」的修法，查证上面两点后**故意反向**固化。）
+   */
+  it('新设备本地子树不存在：本地根下的内容不得落到账号子树，且要报给调用方', async () => {
+    chrome = makeChrome(
+      [
+        { id: 'X', title: '书签栏', folderType: 'bookmarks-bar', syncing: true, children: [] },
+        { id: 'Y', title: '其他书签', folderType: 'other', syncing: true, children: [] },
+      ],
+      { localRoots: false },
+    );
+    // 桥由真实解析结果播种（契约：本地根没有映射，本地回退宿主根也没有）
+    const { pairs } = resolveRoots(await chrome.getTree(), false);
+    const bridge = new IdBridge(undefined, { roots: pairs });
+    expect(bridge.toChromeId(BOOKMARKS_BAR_UUID)).toBeNull();
+    expect(bridge.toChromeId(OTHER_BOOKMARKS_UUID)).toBeNull();
+    expect(bridge.toChromeId(ACCOUNT_OTHER_BOOKMARKS_UUID)).toBe('Y');
+
+    // 远端（Mac）捕获的**本地**书签栏书签
+    await receiveRemote('zzz-remote', (c) => {
+      c.createNodeWithId('uu-local-bar', BOOKMARKS_BAR_UUID, {
+        title: '本地书签',
+        url: 'https://local.example',
+      });
+    });
+
+    const unplaceable: string[] = [];
+    await expect(
+      reverseApply(chrome, coordinator, bridge, {
+        fallbackRootTitle: '同步恢复的书签',
+        onUnplaceableRoot: (u) => unplaceable.push(u),
+      }),
+    ).resolves.toBeUndefined();
+
+    // ① 没有落到账号子树（否则会被 Chrome 上传 Google + 云端翻倍）
+    expect(await titlesUnder('Y')).toEqual([]);
+    expect(await titlesUnder('X')).toEqual([]);
+    // ② 也没有凭空登记回退记录
+    expect(bridge.fallbackFor(BOOKMARKS_BAR_UUID)).toBeNull();
+    // ③ 情况被报出来（不静默）
+    expect(unplaceable).toEqual([BOOKMARKS_BAR_UUID]);
   });
 });
 
