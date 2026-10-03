@@ -26,7 +26,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 必须 22+：@supabase/realtime-js 要求原生 WebSocket（Node 20 无全局 WebSocket），
+          # 单测在 import 阶段构造 supabase client 时会直接抛错。与 publish-stores / store-versions 一致。
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
