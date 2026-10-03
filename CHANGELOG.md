@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.10.0](https://github.com/catnuko/bookmark-sync/compare/v2.9.0...v2.10.0) (2026-10-03)
+
+
+### Features
+
+* **sync:** 支持 Chrome 双子树（6 固定根）+ 跨设备内容认领 + 无处落地提示 ([e50cda7](https://github.com/catnuko/bookmark-sync/commit/e50cda700452005f0f7a9103e39c6b083222bd23))
+* **ui:** 弹窗菜单重构（账户置顶 / 新增系统 / 移除高级）+ 反馈独立菜单 + 口令掩码等易用性修复 ([eb2a28f](https://github.com/catnuko/bookmark-sync/commit/eb2a28f898ee2e56809eabcbde2b282acb1164e5))
+
+
+### Bug Fixes
+
+* **firefox:** strict_min_version 109→140（Android 142） ([04919b3](https://github.com/catnuko/bookmark-sync/commit/04919b3699fb44111eea9b837bfc950f5f0dceb3))
+
 ## [2.9.0](https://github.com/catnuko/bookmark-sync/compare/v2.8.0...v2.9.0) (2026-10-01)
 
 
