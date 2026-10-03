@@ -10,7 +10,9 @@
  * 三家来源（彼此独立，单个失败不影响其他）：
  *   - Chrome Web Store API v2：SA JWT → access token → items/<id>:fetchStatus
  *       · 在架   = publishedItemRevisionStatus.distributionChannels[0].crxVersion
- *       · 审核中 = submittedItemRevisionStatus.distributionChannels[0].crxVersion
+ *         （+ state，如 PUBLISHED）
+ *       · 提交中 = submittedItemRevisionStatus.distributionChannels[0].crxVersion
+ *         （+ state，如 PENDING_REVIEW / STAGED —— 用来区分「还在审」还是「过审待人工放行」）
  *   - Edge：官方 Partner Center API **没有**读取已发布版本的端点（文档穷举），
  *     改用店面端点 getproductdetailsbycrxid/<crxId>（非官方，实测 200）。
  *   - Firefox AMO：公开 API v5，无需凭证。
@@ -155,6 +157,10 @@ async function fetchChrome() {
   const pendingVer = crxVersion(submitted);
   if (pendingVer && VERSION_RE.test(pendingVer) && pendingVer !== out.version) {
     out.pending = pendingVer;
+    // 提交侧状态（与在架侧 state 同名不同义，故叫 pendingState）：
+    //   PENDING_REVIEW = 还在审；STAGED = 过审但未自动上架、需去 CWS 后台点「发布」。
+    // 这两者对外都表现为「已提交、未上架」，但下一步动作不同（等 vs 人工放行）。
+    if (submitted.state) out.pendingState = submitted.state;
   }
   if (!out.version && !out.pending) throw new Error('fetchStatus 未返回任何版本号');
   return out;
@@ -286,7 +292,9 @@ async function writeSummary(merged, failures, dryRun) {
   const row = (name) => {
     const r = merged[name];
     if (!r?.version) return '—';
-    const pending = r.pending ? `（审核中 ${r.pending}）` : '';
+    const pending = r.pending
+      ? `（提交中 ${r.pending}${r.pendingState ? ` · ${r.pendingState}` : ''}）`
+      : '';
     return `${r.version}${pending}`;
   };
   const lines = [
