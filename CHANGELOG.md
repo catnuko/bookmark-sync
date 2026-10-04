@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.10.1](https://github.com/catnuko/bookmark-sync/compare/v2.10.0...v2.10.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **sync:** replica 缺行时禁止盲建，修复重复书签（Fix C） ([8886bc1](https://github.com/catnuko/bookmark-sync/commit/8886bc14c4f01b9c4be2aa9002ee2b6fb901ee29))
+* **sync:** 修复删除路径缺失完整性护栏导致的全量书签丢失（P0） ([00e9b4f](https://github.com/catnuko/bookmark-sync/commit/00e9b4f4117bc276ea601c7e7e41d315ff059929))
+* **sync:** 捕获回退文件夹内容 + 排除 Firefox 内置默认书签 ([feaa0ec](https://github.com/catnuko/bookmark-sync/commit/feaa0ec1ee599a5ce046f30fe8aac4f0de1d37f6))
+
 ## [2.10.0](https://github.com/catnuko/bookmark-sync/compare/v2.9.0...v2.10.0) (2026-10-03)
 
 
