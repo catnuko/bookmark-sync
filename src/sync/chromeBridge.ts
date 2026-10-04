@@ -1259,6 +1259,43 @@ async function ensureReachableNodes(
 }
 
 /**
+ * Firefox 内置默认书签文件夹的内容指纹。
+ *
+ * Firefox 首次运行会在「其他书签」（`unfiled_____` → OTHER_BOOKMARKS_UUID）下
+ * 建一个标题**恰为** "Mozilla Firefox" 的文件夹，内含 4 条固定 Mozilla 链接。
+ * 该文件夹的 GUID 每个 profile 随机（无法按 GUID 过滤），标题在所有语言都是
+ * 字面量 "Mozilla Firefox"，URL 取自 Firefox 的 default-bookmarks.html。
+ *
+ * 它不属于用户数据，不应进入共享空间（否则每台 Firefox 设备首次同步都会把
+ * 这份模板灌进云端）。用「标题 + 位置 + 全部叶子 URL ⊆ 默认集」三重指纹识别：
+ * 用户一旦往里加了自己的书签，URL 不再全属默认集 → 不再跳过（用户改过就别动）。
+ */
+const FF_DEFAULT_BOOKMARK_URLS: ReadonlySet<string> = new Set([
+  'https://support.mozilla.org/products/firefox',
+  'https://support.mozilla.org/kb/customize-firefox-controls-buttons-and-toolbars',
+  'https://www.mozilla.org/about/',
+  'https://www.mozilla.org/contribute/',
+]);
+const normalizeBookmarkUrl = (url: string): string =>
+  url.toLowerCase().split('?')[0].replace(/\/+$/, '');
+const FF_DEFAULT_BOOKMARK_URLS_NORM: ReadonlySet<string> = new Set(
+  [...FF_DEFAULT_BOOKMARK_URLS].map(normalizeBookmarkUrl),
+);
+function isFirefoxDefaultBookmarksFolder(node: ChromeTreeNode, parentUuid: string): boolean {
+  if (parentUuid !== OTHER_BOOKMARKS_UUID || node.url) return false;
+  if (node.title !== 'Mozilla Firefox') return false;
+  const urls: string[] = [];
+  const collect = (n: ChromeTreeNode): void => {
+    if (n.url) urls.push(n.url);
+    for (const c of n.children ?? []) collect(c);
+  };
+  collect(node);
+  return (
+    urls.length > 0 && urls.every((u) => FF_DEFAULT_BOOKMARK_URLS_NORM.has(normalizeBookmarkUrl(u)))
+  );
+}
+
+/**
  * 重扫描本机 chrome 书签树：为所有未映射节点补建 MoveOp（幂等，返回补建数）。
  *
  * 由 sync.js 在每轮 runSync 的 pull 之后调用（替代旧「仅云端为空时播种」）。
@@ -1281,10 +1318,12 @@ async function ensureReachableNodes(
  * 组候选给出相同配对（确定性收敛）；合法重复（同父同内容的 N 条）各占一个候选，
  * 候选耗尽才新建 —— 不误并。
  *
- * **回退文件夹整棵跳过**：它只是某个落地根在「本机没有真根」时的临时落地
- * （内容真身在 CRDT，父节点 = 该落地根 uuid）。真根出现后由
- * retireFallbackFolders() 退休；捕获阶段跳过可避免「回退侧子节点被当成未映射
- * 节点重复捕获」。
+ * **回退文件夹：不建自身节点，但递归其子树到落地根 uuid**：它只是某个落地根在
+ * 「本机没有真根」时的临时落地（内容真身在 CRDT，父节点 = 该落地根 uuid）。
+ * 真根出现后由 retireFallbackFolders() 退休。已投影的子节点命中 existing 分支
+ * （无 op），不会重复捕获；而用户**新加**进回退文件夹的未映射节点才能被捕获
+ * —— 旧实现整棵跳过 → Firefox/Edge 上永久回退文件夹里的书签静默不同步，退休
+ * 时还会永久丢失。
  *
  * 遍历相对 chrome 事件处理器是原子的：getTree 之后整个 walk 无外部 await，
  * 事件回调（宏任务）不会插进遍历中间；onCreated 侧的「已映射即让路」守卫
@@ -1355,8 +1394,18 @@ export async function captureLocalTree(
 
   let captured = 0;
   const walk = async (node: ChromeTreeNode, parentUuid: string): Promise<void> => {
-    // 回退文件夹整棵跳过（见函数注释）。
-    if (bridge.isFallbackChromeId(node.id)) return;
+    // Firefox 内置默认书签文件夹（见 isFirefoxDefaultBookmarksFolder）：整棵跳过。
+    if (isFirefoxDefaultBookmarksFolder(node, parentUuid)) return;
+
+    // 回退文件夹：不建自身节点，但把子树递归到它代表的落地根 uuid 下
+    // （见函数注释）。已投影子节点命中 existing（无 op）；用户新加的未映射
+    // 节点按内容认领/新建，正确落在落地根下。
+    if (bridge.isFallbackChromeId(node.id)) {
+      const fbRoot = bridge.fallbackRootOf(node.id);
+      if (fbRoot === null) return; // 记录不一致：保持整棵跳过（安全兜底）
+      for (const child of node.children ?? []) await walk(child, fbRoot);
+      return;
+    }
 
     // 浏览器根（"0" / `root________`）下只有**已解析出的固定根**是「我们的」节点
     // ——它们在 IdBridge 构造期就已预置映射，走下面的 existing 分支续走子树。
