@@ -865,7 +865,7 @@ export interface ReverseApplyOptions {
    */
   onUnplaceableRoot?: (landingUuid: string, bookmarkCount: number) => void;
   /**
-   * ★ 数据安全护栏（**删��路径专用**，与创建路径的 `isReplicaIncomplete` 同源）。
+   * ★ 数据安全护栏（**删除路径专用**，与创建路径的 `isReplicaIncomplete` 同源）。
    *
    * 本轮同步期间 replica 缺行（跳过了任何解不开的 op 行）时置位。此时
    * `getVisibleTree()` 只反映**已拉到的部分**，`buildReachable()` 的 BFS 结果
