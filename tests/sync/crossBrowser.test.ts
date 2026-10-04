@@ -15,8 +15,10 @@
  *     uuid** —— 已投影的内容不重复捕获，用户在回退文件夹里新加的书签则正常同步
  *     出去。Firefox/Edge 上这个回退文件夹是**永久**的（账号根永远不会出现），
  *     所以这条比 Chrome 更容易被踩到（旧实现整棵跳过 → 静默不同步）。
- *   - Firefox 首次运行的内置默认书签（`unfiled_____` 下标题恰为 `Mozilla Firefox`
- *     的文件夹 + 4 条固定 Mozilla 链接）**不入 CRDT**（按内容指纹识别）。
+ *   - Firefox 首次运行的内置默认书签（**书签菜单 `menu________` 下**标题恰为
+ *     `Mozilla Firefox` 的文件夹 + 4 条固定 Mozilla 链接）**不入 CRDT**（按内容
+ *     指纹识别）。★ 真机实测（2026-10-04，Firefox 157 `places.sqlite`：folder
+ *     `id=7 parent=2`，`id=2` = `menu` 根）确认在**书签菜单**下，不是「其他书签」。
  *
  * 这些是纯逻辑，用 mock 书签树验证，不需要真浏览器。
  */
@@ -312,7 +314,7 @@ const FF_DEFAULT_URLS = [
 ];
 
 describe('Firefox 内置默认书签：不入 CRDT', () => {
-  /** 用真实 create 造出「其他书签」下的内置默认书签文件夹（模拟首次运行）。 */
+  /** 造出内置默认书签文件夹（模拟首次运行）。 */
   async function seedDefaultFolder(chrome: ChromeBookmarksAPI, parentId: string) {
     const folder = await chrome.create({ parentId, title: 'Mozilla Firefox' });
     for (const url of FF_DEFAULT_URLS) {
@@ -321,7 +323,19 @@ describe('Firefox 内置默认书签：不入 CRDT', () => {
     return folder;
   }
 
-  it('unfiled_____ 下的「Mozilla Firefox」文件夹整棵不被捕获', async () => {
+  // ★ 真机位置：书签菜单（menu________）。2026-10-04 E2E 实测此前只认「其他书签」
+  // → 真机永不命中 → 默认书签泄漏进空间（Firefox 首次 sync 报 `pushed:5`）。
+  it('书签菜单（menu________）下的「Mozilla Firefox」文件夹整棵不被捕获（真机位置）', async () => {
+    const chrome = makeFirefoxChrome();
+    const bridge = await bridgeFor(chrome, true);
+    const folder = await seedDefaultFolder(chrome, 'menu________');
+
+    const captured = await captureLocalTree(chrome, coordinator, bridge, 'root________');
+    expect(captured).toBe(0);
+    expect(bridge.toUuid(folder.id)).toBeNull();
+  });
+
+  it('「其他书签」（unfiled_____）下的同名默认文件夹也不被捕获（历史位置）', async () => {
     const chrome = makeFirefoxChrome();
     const bridge = await bridgeFor(chrome, true);
     const folder = await seedDefaultFolder(chrome, 'unfiled_____');
@@ -334,7 +348,7 @@ describe('Firefox 内置默认书签：不入 CRDT', () => {
   it('同名文件夹但含自定义 URL → 正常捕获（用户改过就别动）', async () => {
     const chrome = makeFirefoxChrome();
     const bridge = await bridgeFor(chrome, true);
-    const folder = await chrome.create({ parentId: 'unfiled_____', title: 'Mozilla Firefox' });
+    const folder = await chrome.create({ parentId: 'menu________', title: 'Mozilla Firefox' });
     await chrome.create({
       parentId: folder.id,
       title: '自定义',
@@ -346,7 +360,7 @@ describe('Firefox 内置默认书签：不入 CRDT', () => {
     expect(bridge.toUuid(folder.id)).toBeTruthy();
   });
 
-  it('同名同 URL 但不在「其他书签」下 → 不误跳（父约束生效）', async () => {
+  it('同名同 URL 但在书签工具栏下 → 不误跳（父约束生效）', async () => {
     const chrome = makeFirefoxChrome();
     const bridge = await bridgeFor(chrome, true);
     const folder = await seedDefaultFolder(chrome, 'toolbar_____');

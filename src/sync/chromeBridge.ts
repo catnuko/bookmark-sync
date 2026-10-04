@@ -649,6 +649,11 @@ export function captureLocalEvents(
     if (mapped) return;
     const parentUuid = node.parentId ? b.toUuid(node.parentId) : null;
     if (!parentUuid) return; // parent not yet mapped; skip（重扫描兜底补建）
+    // Fix C：replica 缺行时（见 captureLocalTree 同名守卫），本机可能只是没拉到
+    // 云端既有内容。此时盲建 = 永久重复；推迟到 replica 补齐后的下一轮
+    // captureLocalTree 再认领/新建。新建书签不会丢：本地 Chrome 节点仍在，
+    // 下一轮同步（replica 通常已补齐）会捕获它。
+    if (c.isReplicaIncomplete) return;
     const uuid = globalThis.crypto.randomUUID();
     b.map(id, uuid);
     const meta: Metadata = { title: node.title, ...(node.url ? { url: node.url } : {}) };
@@ -1261,8 +1266,12 @@ async function ensureReachableNodes(
 /**
  * Firefox 内置默认书签文件夹的内容指纹。
  *
- * Firefox 首次运行会在「其他书签」（`unfiled_____` → OTHER_BOOKMARKS_UUID）下
- * 建一个标题**恰为** "Mozilla Firefox" 的文件夹，内含 4 条固定 Mozilla 链接。
+ * Firefox 首次运行会在**书签菜单**（`menu________` → MENU_UUID）下建一个标题
+ * **恰为** "Mozilla Firefox" 的文件夹，内含 4 条固定 Mozilla 链接。
+ * ⚠ 2026-10-04 真机实测（Firefox 157，`places.sqlite`：folder `id=7 parent=2`，
+ * `id=2` = `menu` 根）确认它挂在**书签菜单**下 —— 此前按「其他书签」过滤导致
+ * 真机永不命中、默认书签照旧泄漏（E2E 报 `pushed:5`）。历史/个别版本也可能放在
+ * 「其他书签」，两个固定根都认。
  * 该文件夹的 GUID 每个 profile 随机（无法按 GUID 过滤），标题在所有语言都是
  * 字面量 "Mozilla Firefox"，URL 取自 Firefox 的 default-bookmarks.html。
  *
@@ -1282,7 +1291,9 @@ const FF_DEFAULT_BOOKMARK_URLS_NORM: ReadonlySet<string> = new Set(
   [...FF_DEFAULT_BOOKMARK_URLS].map(normalizeBookmarkUrl),
 );
 function isFirefoxDefaultBookmarksFolder(node: ChromeTreeNode, parentUuid: string): boolean {
-  if (parentUuid !== OTHER_BOOKMARKS_UUID || node.url) return false;
+  // 真机在「书签菜单」下；「其他书签」是历史/个别版本的位置，一并认。
+  if (parentUuid !== MENU_UUID && parentUuid !== OTHER_BOOKMARKS_UUID) return false;
+  if (node.url) return false;
   if (node.title !== 'Mozilla Firefox') return false;
   const urls: string[] = [];
   const collect = (n: ChromeTreeNode): void => {
@@ -1441,6 +1452,14 @@ export async function captureLocalTree(
       // 抢绑：map() 会解掉该 uuid 在回退侧的旧向映射（不产生 op）。
       bridge.map(node.id, claimed);
       for (const child of node.children ?? []) await walk(child, claimed);
+      return;
+    }
+
+    // Fix C：replica 缺行时内容索引不全，未认领可能是「云端已有、本机 replica
+    // 没拉到」的存量节点。此时盲建 = 永久 CRDT 重复（2026-10-04 事故）。安全做法：
+    // 推迟——本节点及其未映射子树整体留给 replica 补齐后的下一轮同步再认领/新建，
+    // 绝不在此刻造新 uuid。（replica 完整时该分支不触发，正常新建不受影响。）
+    if (coordinator.isReplicaIncomplete) {
       return;
     }
 
