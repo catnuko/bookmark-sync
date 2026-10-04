@@ -46,8 +46,13 @@ interface N extends ChromeTreeNode {
 /**
  * 有状态 chrome.bookmarks mock：支持嵌套子树、动态 id 的账号根、回退文件夹，
  * 并忠实实现「根不可作父 / 永久节点不可改」与 `removeTree` 递归删除。
+ *
+ * 额外暴露 `addRootChild`：运行时往浏览器根下挂一个子节点，用于模拟
+ * 「真账号根出现」这一登录态切换（构造后再出现，不能走 create —— 根不可作父）。
  */
-function makeChrome(rootChildren: ChromeTreeNode[]): ChromeBookmarksAPI {
+function makeChrome(rootChildren: ChromeTreeNode[]): ChromeBookmarksAPI & {
+  addRootChild(node: ChromeTreeNode): void;
+} {
   const tree = new Map<string, N>();
   const seed = (n: N, parentId?: string): void => {
     if (parentId !== undefined && n.parentId === undefined) n.parentId = parentId;
@@ -98,7 +103,7 @@ function makeChrome(rootChildren: ChromeTreeNode[]): ChromeBookmarksAPI {
     if (PERMANENT.has(id)) throw new Error(MODIFY_ROOT);
   };
 
-  return {
+  const api: ChromeBookmarksAPI = {
     getTree: async () => {
       const clone = (n: N): N => ({ ...n, children: (n.children ?? []).map(clone) });
       return ROOTS.map(clone);
@@ -171,6 +176,13 @@ function makeChrome(rootChildren: ChromeTreeNode[]): ChromeBookmarksAPI {
     onMoved: { addListener: () => {} },
     onRemoved: { addListener: () => {} },
   };
+  return Object.assign(api, {
+    addRootChild(node: ChromeTreeNode): void {
+      const n = { ...(node as N), parentId: '0', index: ROOT_CHILDREN.length };
+      ROOT_CHILDREN.push(n);
+      seed(n, '0');
+    },
+  });
 }
 
 /** 造一个「账号书签栏」根子节点（Chrome 双子树：folderType + syncing=true）。 */
@@ -362,6 +374,72 @@ describe('内容认领：登录态切换重复', () => {
     bridge.map(F.id, ACCOUNT_BOOKMARKS_BAR_UUID); // 回退代表该根
     expect(await retireFallbackFolders(chrome, bridge)).toBe(0);
     expect(bridge.fallbackFor(ACCOUNT_BOOKMARKS_BAR_UUID)).toBe(F.id);
+  });
+});
+
+describe('退休链路：用户新加到回退文件夹的内容不丢', () => {
+  /**
+   * Firefox / Edge 上账号根**永不出现**，回退文件夹长期存在。用户往里新加一条
+   * 书签时必须被捕获到落地根下（Fix B，见 chromeBridge.captureLocalTree 的 walk）；
+   * 否则这条书签永远进不了 CRDT，等真根出现触发 retireFallbackFolders 时随
+   * `removeTree` 一起永久丢失。
+   *
+   * 本用例把整条链路串起来：用户新加 → 捕获 → 真根出现 → 退休 → reverseApply 重建，
+   * 断言内容一条不丢、且退休不产生墓碑。
+   */
+  it('用户新加 → 捕获 → 真根出现 → retireFallbackFolders → reverseApply 重建，书签存活', async () => {
+    const coord = await newCoord('dev-retire-chain');
+
+    // ① 登出态：无真账号根，回退文件夹 F 挂在「其他书签」下；用户往里新加一条书签。
+    const chrome = makeChrome([]);
+    const F = await chrome.create({ parentId: '2', title: '账号书签栏' });
+    const added = await chrome.create({
+      parentId: F.id,
+      title: '用户新加的',
+      url: 'https://user-added',
+    });
+
+    // 登出态桥：只 seed 本地根 + 浏览器根；F 代表账号书签栏这个落地根。
+    const roots: ReadonlyArray<readonly [string, string]> = [
+      ['0', ROOT_UUID],
+      ['1', BOOKMARKS_BAR_UUID],
+      ['2', OTHER_BOOKMARKS_UUID],
+      ['3', MOBILE_UUID],
+    ];
+    const bridge = new IdBridge(undefined, { roots: [...roots] });
+    bridge.markFallback(ACCOUNT_BOOKMARKS_BAR_UUID, F.id);
+    bridge.map(F.id, ACCOUNT_BOOKMARKS_BAR_UUID);
+
+    // 捕获：回退文件夹不建自身节点，但用户新加的子节点落到账号书签栏根下
+    //（Fix B 之前这里整棵跳过 → captured 0、书签静默不同步）。
+    expect(await captureLocalTree(chrome, coord, bridge, '0')).toBe(1);
+    const uuid = bridge.toUuid(added.id);
+    expect(uuid).toBeTruthy();
+    expect(coord.replica.getParent(uuid!)).toBe(ACCOUNT_BOOKMARKS_BAR_UUID);
+
+    // ② 真账号根 '5' 出现：下一轮 sync 用 resolveRoots 重建桥并 load 持久化 idmap
+    //（F 的映射转为「回退待退休」，真根 '5' 胜出）。
+    chrome.addRootChild(accountBar('5', []));
+    const bridge2 = new IdBridge(undefined, {
+      roots: [...roots, ['5', ACCOUNT_BOOKMARKS_BAR_UUID]],
+    });
+    bridge2.load(bridge.snapshot());
+    expect(bridge2.toChromeId(ACCOUNT_BOOKMARKS_BAR_UUID)).toBe('5'); // 真根胜出
+    expect(bridge2.fallbackFor(ACCOUNT_BOOKMARKS_BAR_UUID)).toBe(F.id); // 回退待退休
+
+    // ③ 退休回退文件夹（先丢映射再删 → 不产生墓碑）。
+    expect(await retireFallbackFolders(chrome, bridge2)).toBe(1);
+    expect(bridge2.fallbackFor(ACCOUNT_BOOKMARKS_BAR_UUID)).toBeNull();
+    const two = (await chrome.getTree())[0].children!.find((n) => n.id === '2')!;
+    expect(two.children!.some((n) => n.id === F.id)).toBe(false); // 回退已删
+
+    // ④ reverseApply 把刚捕获的节点重新落地到真根 '5' 下 —— 内容一条不丢。
+    await reverseApply(chrome, coord, bridge2);
+    const accountRoot = (await chrome.getTree())[0].children!.find((n) => n.id === '5')!;
+    expect(accountRoot.children!.map((n) => n.title)).toEqual(['用户新加的']);
+    expect(accountRoot.children![0].url).toBe('https://user-added');
+    expect(coord.replica.getChildren(ACCOUNT_BOOKMARKS_BAR_UUID).length).toBe(1);
+    expect(coord.replica.getChildren(TRASH_NODE_ID).length).toBe(0); // 退休未产生墓碑
   });
 });
 

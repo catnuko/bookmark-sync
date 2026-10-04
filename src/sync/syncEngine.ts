@@ -115,6 +115,19 @@ export class SyncCoordinator {
    */
   private replicaIncomplete = false;
 
+  /**
+   * replica 是否缺行（拉取时跳过了任何解不开的 op 行）。
+   *
+   * 除 GC 守卫（下方 `gcNeeded` 相关逻辑）外，`captureLocalTree` 与
+   * `onCreated` 也读它：replica 缺行时 `getVisibleTree()` 的内容索引不全，
+   * 把「云端已有、只是本机 replica 没拉到」的存量节点当成新节点 `randomUUID()`
+   * 重建 → 永久 CRDT 重复（2026-10-04 真机 664-op 事故）。因此缺行期间禁止
+   * 新建 CRDT 节点，未认领的本地内容推迟到 replica 补齐后的下一轮同步再认领/新建。
+   */
+  get isReplicaIncomplete(): boolean {
+    return this.replicaIncomplete;
+  }
+
   /** 服务端要求配合 GC 的标志（本次同步中 push/pull 任一返回 true 即成立）。 */
   get gcNeeded(): boolean {
     return this.gcNeededFlag;
