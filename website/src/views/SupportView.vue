@@ -13,6 +13,7 @@ const faqKeys = [
   'passphrase',
   'conflict',
   'gc',
+  'accountBar',
 ];
 
 const resourceLinks = [

@@ -43,4 +43,8 @@ website/public/downloads/
 
 # 商店提交凭证（publish-extension init 生成；CLI 会自动加载 cwd 下的它）
 .env.submit
+
+# 本地开发用的登录凭据（vite.config.js 的 define 注入，绝不入 git / 不进商店包）
+.dev-creds.json
+
 .codebuddy

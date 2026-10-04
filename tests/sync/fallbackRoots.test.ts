@@ -10,7 +10,9 @@
  *
  * 本文件固化两条不变量：
  *   1. 原生根 chromeId 永远不是回退占位（load / loadFallbacks / markFallback）；
- *   2. 真正的回退占位（动态 chromeId）仍被识别、walk 仍跳过（避免重复捕获）。
+ *   2. 真正的回退占位（动态 chromeId）被识别：captureLocalTree **不建它自身的
+ *      节点**，但递归其子树到落地根 uuid —— 已映射子节点不重复捕获，未映射
+ *      （用户新加）子节点被捕获。
  */
 
 import { describe, it, expect } from 'vitest';
@@ -144,7 +146,7 @@ describe('回退文件夹记录不得污染原生根', () => {
     expect(coord.replica.getParent(uuid!)).toBe(BOOKMARKS_BAR_UUID);
   });
 
-  it('真正的回退占位仍被识别：captureLocalTree 跳过它（避免重复捕获）', async () => {
+  it('回退占位：已映射子节点不被重复捕获（递归进落地根，无新 op）', async () => {
     const tree: ChromeTreeNode[] = [
       {
         id: '0',
@@ -169,8 +171,93 @@ describe('回退文件夹记录不得污染原生根', () => {
     bridge.markFallback(ACCOUNT_BOOKMARKS_BAR_UUID, 'F');
     bridge.map('F', ACCOUNT_BOOKMARKS_BAR_UUID);
     const coord = await makeCoord();
+    // 模拟 reverseApply 已把账号内容投影进回退文件夹：a1 已映射到 CRDT 节点
+    coord.createNodeWithId('acc-a1', ACCOUNT_BOOKMARKS_BAR_UUID, {
+      title: '账号书签',
+      url: 'https://acct',
+    });
+    bridge.map('a1', 'acc-a1');
+
     const captured = await captureLocalTree(makeChrome(tree), coord, bridge);
-    expect(captured).toBe(0); // 回退文件夹整棵跳过
-    expect(bridge.toUuid('a1')).toBeNull();
+    expect(captured).toBe(0); // 已映射 → existing 分支，不产生新 op
+    expect(bridge.toUuid('a1')).toBe('acc-a1');
+  });
+
+  it('回退占位：用户新加的未映射子节点被捕获到落地根下', async () => {
+    const tree: ChromeTreeNode[] = [
+      {
+        id: '0',
+        title: '',
+        children: [
+          { id: '2', title: '其他书签', parentId: '0', folderType: 'other', syncing: false },
+          {
+            id: 'F',
+            title: '账号书签栏',
+            parentId: '2',
+            children: [{ id: 'u1', title: '用户新加的', url: 'https://user-added', parentId: 'F' }],
+          },
+        ],
+      },
+    ];
+    const bridge = new IdBridge(undefined, {
+      roots: [
+        ['0', ROOT_UUID],
+        ['2', OTHER_BOOKMARKS_UUID],
+      ],
+    });
+    bridge.markFallback(ACCOUNT_BOOKMARKS_BAR_UUID, 'F');
+    bridge.map('F', ACCOUNT_BOOKMARKS_BAR_UUID);
+    const coord = await makeCoord();
+
+    const captured = await captureLocalTree(makeChrome(tree), coord, bridge);
+    expect(captured).toBe(1); // 旧实现整棵跳过 → 0（书签静默不同步）
+    const uuid = bridge.toUuid('u1');
+    expect(uuid).toBeTruthy();
+    expect(coord.replica.getParent(uuid!)).toBe(ACCOUNT_BOOKMARKS_BAR_UUID);
+  });
+
+  it('回退占位：映射丢失但内容命中存量节点时应认领，不新建（防重复书签）', async () => {
+    // 真机症状（2026-10-04）：回退文件夹子树被递归后，本机映射缺失（SW 冷启动 /
+    // 落盘窗口）→ 若按内容认领失败就会给存量节点造出重复副本。
+    const tree: ChromeTreeNode[] = [
+      {
+        id: '0',
+        title: '',
+        children: [
+          { id: '2', title: '其他书签', parentId: '0', folderType: 'other', syncing: false },
+          {
+            id: 'F',
+            title: '账号书签栏',
+            parentId: '2',
+            children: [
+              {
+                id: 'b1',
+                title: 'jquery插件',
+                parentId: 'F',
+                children: [{ id: 'a1', title: '某书签', url: 'https://x', parentId: 'b1' }],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const bridge = new IdBridge(undefined, {
+      roots: [
+        ['0', ROOT_UUID],
+        ['2', OTHER_BOOKMARKS_UUID],
+      ],
+    });
+    bridge.markFallback(ACCOUNT_BOOKMARKS_BAR_UUID, 'F');
+    bridge.map('F', ACCOUNT_BOOKMARKS_BAR_UUID);
+    const coord = await makeCoord();
+    // 存量 CRDT：账号根 → 文件夹 b1 → 书签 a1（与本地同内容）
+    coord.createNodeWithId('b1-uuid', ACCOUNT_BOOKMARKS_BAR_UUID, { title: 'jquery插件' });
+    coord.createNodeWithId('acc-a1', 'b1-uuid', { title: '某书签', url: 'https://x' });
+    // ⚠ 故意不给 b1 / a1 任何映射：模拟 idmap 丢失
+
+    const captured = await captureLocalTree(makeChrome(tree), coord, bridge);
+    expect(captured).toBe(0); // 应认领存量节点，而非新建重复
+    expect(bridge.toUuid('b1')).toBe('b1-uuid');
+    expect(bridge.toUuid('a1')).toBe('acc-a1');
   });
 });

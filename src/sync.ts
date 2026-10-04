@@ -759,6 +759,15 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
       console.log(
         `[bsync] 冷启动重放: applied=${replay.applied} decryptErrors=${replay.decryptErrors?.length ?? 0} afterId=${coordinator.afterId}`,
       );
+      // ★ 重放后若仍有解密失败，replica 依旧缺行 → reverseApply 必须跳过删除
+      // （护栏在 reverseApplyIntoChrome 的 skipDeletions）。这里显式告警，
+      // 避免再出现「同步成功、书签却少了」且无迹可寻（2026-10-04 真机事故）。
+      if (replay.decryptErrors?.length) {
+        console.warn(
+          `[bsync] ⚠ 冷启动重放仍有 ${replay.decryptErrors.length} 条解密失败 → replica 不完整，` +
+            `本轮将跳过删除（不清理本机节点），待密钥可用后重拉补齐。`,
+        );
+      }
     }
 
     // 1) 拉远端 → 本地 CRDT（快照优先：快照新于本地水位时重建 + 增量）
@@ -842,7 +851,7 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     const visTree = coordinator.replica.getVisibleTree();
     console.log(`[bsync] CRDT 可见树 (${visTree.length} 个节点)`);
     console.log(`[bsync] 开始反向应用 (decryptErrors=${allDecryptErrors.length})...`);
-    const unplaced = await reverseApplyIntoChrome(coordinator, active);
+    const unplaced = await reverseApplyIntoChrome(coordinator, active, allDecryptErrors.length);
     console.log('[bsync] 反向应用完成');
 
     // 5) op-log GC：服务端托管——push/pull 响应带 gc_needed（行数超过用户
@@ -1039,6 +1048,11 @@ function bootCoordinatorForEvent(): SyncCoordinator | null | Promise<SyncCoordin
 async function reverseApplyIntoChrome(
   coordinator: SyncCoordinator,
   space: SpaceInfo,
+  /**
+   * 本轮同步累计的解密失败条数（冷启动重放 + 主 pull）。
+   * >0 表示 replica 可能缺行 → reverseApply 必须跳过删除（见调用处说明）。
+   */
+  decryptErrorCount = 0,
 ): Promise<number> {
   const chrome = nativeBookmarks();
   if (!chrome) return 0;
@@ -1091,6 +1105,12 @@ async function reverseApplyIntoChrome(
     await reverseApply(chrome, coordinator, bridge, {
       fallbackRootTitle: t('sync_recoveredRoot'),
       onUnplaceableRoot: (uuid, bookmarks) => unplaceable.set(uuid, bookmarks),
+      // ★ 数据安全护栏：本轮存在解密失败（replica 缺行）时禁止删除。
+      // 缺行下 reachable 严重不全，删除会把「云端有、只是没拉到」误判成
+      // 「已删除」并真删本机节点 → 全量书签丢失（2026-10-04 真机事故：
+      // Firefox 侧账号文件夹内容被清空 → Chrome 侧全部消失）。
+      // 创建路径早就用 isReplicaIncomplete 做了同一道保护，删除路径当时漏了。
+      skipDeletions: coordinator.isReplicaIncomplete || decryptErrorCount > 0,
     });
     if (unplaceable.size > 0) {
       unplaced += [...unplaceable.values()].reduce((a, b) => a + b, 0);

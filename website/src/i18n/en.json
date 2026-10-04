@@ -454,6 +454,14 @@
           {
             "q": "Can I turn off automatic sync?",
             "a": "Yes. Turn off the auto-sync toggle under Advanced in the options page; sync then only runs when you tap Sync Now."
+          },
+          {
+            "q": "Why is there an extra \"Account Bookmarks Bar\" folder under Other Bookmarks in Firefox / Edge?",
+            "a": "When Chrome is signed into a Google account, it has a separate \"account bookmarks bar\" distinct from your local bar. Firefox and Edge have no native place for it, so the extension collects those bookmarks into a same-named \"Account Bookmarks Bar\" folder under Other Bookmarks, so you can still see and edit them there. This is by design—not a duplicate and not a bug. The bookmarks inside match exactly what you see in Chrome, and editing on any device syncs everywhere. On Firefox / Edge it stays as a folder permanently; it works the same."
+          },
+          {
+            "q": "How do bookmarks merge across the three browsers? Will the layout drift?",
+            "a": "Each browser lays out its bookmarks bar / other bookmarks / bookmarks menu differently. The extension maps them onto one consistent set of standard locations: a bookmark you put in Chrome's bookmarks bar lands in Firefox's toolbar and Edge's bar too. Deletes sync as \"tombstones\"—remove it on one device and it stays gone everywhere. If two devices change things at the same time, both sets of additions are kept; nothing overwrites the other. The only small difference is the one above: Chrome's account bookmarks bar has no matching root in Firefox / Edge, so it shows up as a folder under Other Bookmarks. Apart from that, structure and order stay consistent across devices."
           }
         ]
       },
@@ -641,6 +649,10 @@
         "gc": {
           "q": "Is cloud data cleaned up automatically?",
           "a": "Yes. Server-managed GC automatically compacts stale operation logs with a dynamic threshold — no manual setup needed."
+        },
+        "accountBar": {
+          "q": "Why is there an extra \"Account Bookmarks Bar\" folder under Other Bookmarks in Firefox / Edge?",
+          "a": "When Chrome is signed into a Google account, it has a separate \"account bookmarks bar\" distinct from your local bar. Firefox and Edge have no native place for it, so the extension collects those bookmarks into a same-named \"Account Bookmarks Bar\" folder under Other Bookmarks, so you can still see and edit them there. This is by design—not a duplicate and not a bug. The bookmarks inside match exactly what you see in Chrome, and editing on any device syncs everywhere. On Firefox / Edge it stays as a folder permanently; it works the same."
         }
       }
     },
