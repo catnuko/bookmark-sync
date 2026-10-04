@@ -74,11 +74,24 @@ interface BindSpaceOption {
 }
 
 // ---- 状态 ----
+
+/**
+ * 本地开发用的默认登录凭据（**仅本地构建注入，见下方 declare**）。
+ *
+ * 真实值由 `vite.config.js` 从 `.dev-creds.json`（gitignored）读入，经
+ * `define` 编译进产物。**CI 构建与正式发版拿不到这个值** —— 文件不在仓库里，
+ * `define` 拿不到就退化成空串，所以商店包不受影响。
+ *
+ * ⚠ 别把凭据写进 `src/`：src 会进 git、被 CI 打包、最终进商店。
+ */
+declare const __DEV_CREDS__: { email: string; password: string; passphrase: string };
+const devCreds = typeof __DEV_CREDS__ !== 'undefined' ? __DEV_CREDS__ : null;
+
 export const state = reactive({
   // auth
   session: null as Session | null,
-  email: '',
-  password: '',
+  email: devCreds?.email ?? '',
+  password: devCreds?.password ?? '',
   mode: 'login' as 'login' | 'register',
   busy: false,
   authError: '',
@@ -404,7 +417,9 @@ export async function initPhraseGate(): Promise<void> {
   // 写全是为了把「null ≠ 首设备」摆在调用点，免得日后 isFirstDevice 改成别的三态值
   // （比如字符串状态码）时这里被悄悄带偏。
   state.phraseGateMode = (await isFirstDevice()) === true ? 'setup' : 'verify';
-  state.phraseGateInput = '';
+  // 本地开发便利：注入的口令自动填好（仅本地构建有值，见 devCreds 注释）。
+  // 正式发版拿不到 __DEV_CREDS__ → 这里就是空串，行为与从前完全一致。
+  state.phraseGateInput = devCreds?.passphrase ?? '';
   state.phraseGateMsg = '';
   state.phraseGateBusy = false;
   state.phraseGateVisible = true;
