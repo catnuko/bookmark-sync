@@ -591,6 +591,11 @@ export function captureLocalEvents(
       return;
     }
     if (PROTECTED_UUIDS.has(uuid)) return; // 原生根与落地区根删不掉
+    // ★ 本次删除是**插件自己**发起的（removeTrashedNodes 删不可达节点）。
+    // 不发墓碑：这类删除反映的是「本机这轮没看到云端内容」，把它固化成墓碑
+    // 会在同账号其他设备上真的删掉用户书签 —— 从本机丢数据升级成云端污染
+    // （2026-10-04 实测 3562 条 trash op 上云）。消费即出队。
+    if (pluginRemovedIds.delete(id)) return;
     c.deleteNode(uuid);
     onLocalOp?.();
   };
@@ -820,6 +825,23 @@ export const BROWSER_ROOT_IDS: ReadonlySet<string> = new Set([CHROME_ROOT_ID, 'r
  */
 const FALLBACK_ROOT_UUID: string = OTHER_BOOKMARKS_UUID;
 
+/**
+ * 本轮由**插件自己**删掉的 chromeId（`removeTrashedNodes` 登记）。
+ *
+ * 存在的理由：`onRemoved` 分不清「用户删的」和「插件删的」，而两者后果完全
+ * 不同 —— 用户删 → 该发墓碑并 push（跨设备一致删除）；插件删 → **绝不能发**，
+ * 否则「本机显示不全」会被固化成云端墓碑，同账号其他设备登录后跟着互删
+ * （2026-10-04 实测：某空间 3562 条 trash op 上云、可见树归零）。
+ *
+ * 为什么不能像 `retireFallbackFolders` 那样「先摘映射再删」：那个函数删的是
+ * 回退文件夹（删了本就该消失），而 `removeTrashedNodes` 的删除判据**就是映射**
+ * （要靠 `bridge.toUuid` 知道删的是谁），必须留映射到最后一刻。
+ *
+ * 生命周期：`onRemoved` 消费即 delete；另由 `reverseApply` 入口清理上一轮残留
+ * （异常路径可能没走到删除循环）。条目是 chromeId，一轮内的数量级 = 本轮删除数。
+ */
+const pluginRemovedIds = new Set<string>();
+
 interface ChromeNodeInfo {
   chromeId: string;
   parentId: string | null;
@@ -842,6 +864,25 @@ export interface ReverseApplyOptions {
    *   节点，文件夹不计 —— 与 used_count 同口径），用于给用户一个具体数字。
    */
   onUnplaceableRoot?: (landingUuid: string, bookmarkCount: number) => void;
+  /**
+   * ★ 数据安全护栏（**删��路径专用**，与创建路径的 `isReplicaIncomplete` 同源）。
+   *
+   * 本轮同步期间 replica 缺行（跳过了任何解不开的 op 行）时置位。此时
+   * `getVisibleTree()` 只反映**已拉到的部分**，`buildReachable()` 的 BFS 结果
+   * 会把「云端有、但本机这轮没拉到」的存量节点误判成「已删除」。
+   *
+   * 漏这道护栏的后果是**全量数据丢失**：`removeTrashedNodes` 判据只有
+   * `!reachable.has(uuid)` 一条，满足就 `chrome.removeTree()` 真删本机节点。
+   * 回退文件夹与固定根被 `isLandingRoot` / `PROTECTED_CHROME_IDS` 豁免 →
+   * 症状正是「**文件夹还在、内容空了**」（2026-10-04 真机，测试账号）。
+   * 下一轮该设备的同类误算会把整棵子树删掉 → Chrome 上「所有书签都没了」。
+   *
+   * ★ 同一份代码里 `captureLocalTree` / `onCreated` 早就写了
+   * `if (coordinator.isReplicaIncomplete) return;`（2026-10-04 的 664-op 重复
+   * 事故）。**删除路径当时漏了同一个判断 —— 这是「同族问题只修一半」。**
+   * 缺行期间一律**跳过删除**（宁可留脏节点等下一轮收敛，绝不丢数据）。
+   */
+  skipDeletions?: boolean;
 }
 
 /**
@@ -854,6 +895,12 @@ export async function reverseApply(
   bridge: IdBridge,
   opts: ReverseApplyOptions = {},
 ): Promise<void> {
+  // 0. 上一轮 `pluginRemovedIds` 残留清理：正常路径每条都被 onRemoved 消费，
+  //    但若上一轮在删除循环前抛错（或事件没来），残留会让**下一次**真正的
+  //    用户删除被误豁免 → 该发的墓碑不发 → 删除不同步。
+  //    只在删除阶段打开的窗口内才有条目，清空时机安全。
+  pluginRemovedIds.clear();
+
   // 1. Reachability set + children map from the visible CRDT tree.
   const { reachable, childrenByParent } = buildReachable(coordinator);
 
@@ -876,6 +923,15 @@ export async function reverseApply(
   );
 
   // 4. Remove Chrome nodes whose CRDT uuid is unreachable (and mapped).
+  //    ★ 数据安全护栏：replica 缺行时 reachable 严重不全，此时「不可达」=
+  //    「没拉到」而非「云端已删除」→ 删除会造成全量丢失（2026-10-04 真机事故）。
+  //    缺行一律跳过删除，等下一轮 replica 补齐后再收敛。
+  if (opts.skipDeletions) {
+    console.warn(
+      '[bsync] reverseApply: replica 不完整，跳过删除（避免把「没拉到」误判成「已删除」）',
+    );
+    return;
+  }
   await removeTrashedNodes(chrome, bridge, reachable, chromeNodes);
 }
 
@@ -1561,6 +1617,11 @@ function findChromeNode(nodes: ChromeTreeNode[], id: string): ChromeTreeNode | n
  *
  * 护栏：映射按空间隔离（bridge per space）——不属于本空间的节点在本空间
  * 「无映射」，自然落进 `uuid === null → leave alone`，不会被误删。
+ *
+ * ★ 墓碑护栏：删节点时**保留映射**（判据就是映射），`removeTree` 触发的
+ * `onRemoved` 会查到 uuid。若不豁免，它在抑制解除后被 `pendingRemoved` 补调
+ * 成墓碑 push 上云 → 跨设备互删（2026-10-04 实测 3562 条 trash op 上云）。
+ * 用 `pluginRemovedIds` 登记来源，`handleRemoved` 见之直接放行。
  */
 async function removeTrashedNodes(
   chrome: ChromeBookmarksAPI,
@@ -1587,6 +1648,14 @@ async function removeTrashedNodes(
   toDelete.sort((a, b) => b.depth - a.depth); // deepest first
   for (const info of toDelete) {
     if (!chromeNodes.has(info.chromeId)) continue; // already removed via ancestor
+    // ★ 登记「本次是插件删的」。removeTree 会触发 onRemoved，而本函数刻意
+    // **保留映射**（删除判据就是映射），于是 handleRemoved 能查到 uuid →
+    // 若不登记，它会在抑制解除后被 `pendingRemoved` 补调当成「用户删书签」
+    // → `deleteNode` 墓碑 → **push 上云**，把本机丢数据升级成跨设备云端污染
+    // （实测某空间 3562 条 trash op 上云、可见树归零，2026-10-04）。
+    // 对照 `retireFallbackFolders`：它先丢映射再删，所以不发墓碑 —— 那是
+    // 「先摘映射」路线；本函数必须留映射，只能走「标记豁免」路线。
+    pluginRemovedIds.add(info.chromeId);
     await chrome.removeTree(info.chromeId);
     chromeNodes.delete(info.chromeId);
   }
