@@ -1102,5 +1102,107 @@
   },
   "status_unplacedHint": {
     "message": "这些书签只属于本机，本机 Chrome 没有「本地书签栏」可放。登出 Chrome 后新建一个本地书签，再同步一次即可显示（不会上传到 Google 账号）。详见「帮助」。"
+  },
+  "ai_title": {
+    "message": "AI"
+  },
+  "ai_sub": {
+    "message": "用你自己的 AI 服务整理书签。密钥不会离开这台设备。"
+  },
+  "ai_enable": {
+    "message": "启用 AI 功能"
+  },
+  "ai_enableDesc": {
+    "message": "默认关闭 —— 开启后书签数据才允许发送。"
+  },
+  "ai_provider": {
+    "message": "服务商"
+  },
+  "ai_baseUrl": {
+    "message": "接口地址"
+  },
+  "ai_baseUrlHint": {
+    "message": "也支持自建端点（Ollama、中转等）。若对方返回 CORS 头，无需申请站点权限。"
+  },
+  "ai_model": {
+    "message": "模型"
+  },
+  "ai_apiKey": {
+    "message": "API 密钥"
+  },
+  "ai_apiKeyPlaceholder": {
+    "message": "sk-…"
+  },
+  "ai_apiKeyHint": {
+    "message": "只存在这台设备的这个浏览器配置里。不参与同步，也不会发给我们。"
+  },
+  "ai_revealKey": {
+    "message": "显示密钥"
+  },
+  "ai_hideKey": {
+    "message": "隐藏密钥"
+  },
+  "ai_test": {
+    "message": "测试连接"
+  },
+  "ai_testing": {
+    "message": "测试中…"
+  },
+  "ai_testOk": {
+    "message": "连接成功，模型已响应。"
+  },
+  "ai_testOkTitle": {
+    "message": "连接正常"
+  },
+  "ai_testFailTitle": {
+    "message": "连接失败"
+  },
+  "ai_needHost": {
+    "message": "该端点阻止了浏览器请求。授权访问后可重试。"
+  },
+  "ai_needHostTitle": {
+    "message": "需要站点权限"
+  },
+  "ai_corsBlocked": {
+    "message": "请求被阻止。请检查接口地址与其 CORS 配置。"
+  },
+  "ai_corsBlockedTitle": {
+    "message": "请求被阻止"
+  },
+  "ai_grantHost": {
+    "message": "授权访问"
+  },
+  "ai_hostGranted": {
+    "message": "已授权访问 $1。"
+  },
+  "ai_hostDenied": {
+    "message": "未获授权。该端点可能无法使用。"
+  },
+  "ai_badUrl": {
+    "message": "接口地址格式无效。"
+  },
+  "ai_save": {
+    "message": "保存"
+  },
+  "ai_saved": {
+    "message": "已保存。"
+  },
+  "ai_savedTitle": {
+    "message": "AI 设置已保存"
+  },
+  "ai_saveFailTitle": {
+    "message": "保存失败"
+  },
+  "ai_clear": {
+    "message": "清除"
+  },
+  "ai_cleared": {
+    "message": "已从这台设备移除 AI 设置与密钥。"
+  },
+  "ai_clearedTitle": {
+    "message": "AI 设置已清除"
+  },
+  "ai_privacy": {
+    "message": "书签始终保持端到端加密。AI 请求由这台设备直接发给你选择的服务商，我们的服务器看不到内容。请使用你信任的服务商。"
   }
 }

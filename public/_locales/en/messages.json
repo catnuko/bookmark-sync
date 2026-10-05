@@ -1102,5 +1102,107 @@
   },
   "status_unplacedHint": {
     "message": "These bookmarks are device-local, and this Chrome has no local Bookmarks bar to hold them. Sign out of Chrome, create one local bookmark, then sync again to show them (they are never uploaded to your Google account). See Help for details."
+  },
+  "ai_title": {
+    "message": "AI"
+  },
+  "ai_sub": {
+    "message": "Organize bookmarks with your own AI provider. Your key never leaves this device."
+  },
+  "ai_enable": {
+    "message": "Enable AI features"
+  },
+  "ai_enableDesc": {
+    "message": "Off by default — turning this on is what allows bookmark data to be sent."
+  },
+  "ai_provider": {
+    "message": "Provider"
+  },
+  "ai_baseUrl": {
+    "message": "Endpoint"
+  },
+  "ai_baseUrlHint": {
+    "message": "Self-hosted endpoints (Ollama, proxies) work too. No host permission is needed if they send CORS headers."
+  },
+  "ai_model": {
+    "message": "Model"
+  },
+  "ai_apiKey": {
+    "message": "API key"
+  },
+  "ai_apiKeyPlaceholder": {
+    "message": "sk-…"
+  },
+  "ai_apiKeyHint": {
+    "message": "Stored only in this browser profile, on this device. Never synced, never sent to us."
+  },
+  "ai_revealKey": {
+    "message": "Reveal key"
+  },
+  "ai_hideKey": {
+    "message": "Hide key"
+  },
+  "ai_test": {
+    "message": "Test connection"
+  },
+  "ai_testing": {
+    "message": "Testing…"
+  },
+  "ai_testOk": {
+    "message": "Connected. The model replied."
+  },
+  "ai_testOkTitle": {
+    "message": "Connection OK"
+  },
+  "ai_testFailTitle": {
+    "message": "Connection failed"
+  },
+  "ai_needHost": {
+    "message": "This endpoint blocked the browser request. Grant access to retry."
+  },
+  "ai_needHostTitle": {
+    "message": "Host access needed"
+  },
+  "ai_corsBlocked": {
+    "message": "The request was blocked. Check the endpoint and its CORS configuration."
+  },
+  "ai_corsBlockedTitle": {
+    "message": "Request blocked"
+  },
+  "ai_grantHost": {
+    "message": "Grant access"
+  },
+  "ai_hostGranted": {
+    "message": "Access granted for $1."
+  },
+  "ai_hostDenied": {
+    "message": "Access denied. The endpoint may not work without it."
+  },
+  "ai_badUrl": {
+    "message": "That endpoint URL is not valid."
+  },
+  "ai_save": {
+    "message": "Save"
+  },
+  "ai_saved": {
+    "message": "Saved."
+  },
+  "ai_savedTitle": {
+    "message": "AI settings saved"
+  },
+  "ai_saveFailTitle": {
+    "message": "Could not save"
+  },
+  "ai_clear": {
+    "message": "Clear"
+  },
+  "ai_cleared": {
+    "message": "AI settings and key removed from this device."
+  },
+  "ai_clearedTitle": {
+    "message": "AI settings cleared"
+  },
+  "ai_privacy": {
+    "message": "Bookmarks stay end-to-end encrypted. AI requests are sent directly from this device to the provider you chose — our servers never see them. Use a provider you trust."
   }
 }

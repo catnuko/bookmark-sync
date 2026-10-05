@@ -177,7 +177,7 @@ export const state = reactive({
   drawer: '', // '' | 'account' | 'spaces' | 'key' | 'help' | 'feedback' | 'system'
 
   // 设置页导航
-  navPane: 'account', // 'account' | 'sync' | 'spaces' | 'crypto' | 'help' | 'feedback' | 'system'
+  navPane: 'account', // 'account' | 'sync' | 'spaces' | 'crypto' | 'ai' | 'help' | 'feedback' | 'system'
 
   // toast 队列
   toasts: [] as Toast[],
