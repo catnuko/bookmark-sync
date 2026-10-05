@@ -224,6 +224,9 @@
   "popup_accountRow": {
     "message": "Account"
   },
+  "popup_settingsRow": {
+    "message": "Organize bookmarks"
+  },
   "quota_loading": {
     "message": "Loading quota…"
   },
@@ -941,9 +944,6 @@
   "opts_navAria": {
     "message": "Settings sections"
   },
-  "opts_note": {
-    "message": "Settings have moved into the extension popup — click the toolbar icon."
-  },
   "toast_syncDone": {
     "message": "Sync complete"
   },
@@ -1204,5 +1204,66 @@
   },
   "ai_privacy": {
     "message": "Bookmarks stay end-to-end encrypted. AI requests are sent directly from this device to the provider you chose — our servers never see them. Use a provider you trust."
+  },
+  "qa_title": {
+    "message": "Bookmark Q&A"
+  },
+  "qa_sub": {
+    "message": "Ask about your bookmarks using your own AI. Only candidates matched on this device are sent."
+  },
+  "qa_emptyTitle": {
+    "message": "Ask something"
+  },
+  "qa_emptySub": {
+    "message": "For example: “where did I save that React tutorial”. Answers use only bookmarks matched on this device."
+  },
+  "qa_placeholder": {
+    "message": "e.g. Where did I save that React tutorial?"
+  },
+  "qa_send": {
+    "message": "Send"
+  },
+  "qa_stop": {
+    "message": "Stop"
+  },
+  "qa_searching": {
+    "message": "Searching your bookmarks locally…"
+  },
+  "qa_gateDisabled": {
+    "message": "AI is turned off. Enable it in AI settings first."
+  },
+  "qa_gateNoKey": {
+    "message": "No API key yet. Add one in AI settings first."
+  },
+  "qa_note": {
+    "message": "Searched $TOTAL$ bookmarks, matched $FOUND$ candidates",
+    "placeholders": {
+      "total": {
+        "content": "$1"
+      },
+      "found": {
+        "content": "$2"
+      }
+    }
+  },
+  "qa_noteNone": {
+    "message": "Searched $TOTAL$ bookmarks, no matches",
+    "placeholders": {
+      "total": {
+        "content": "$1"
+      }
+    }
+  },
+  "qa_clear": {
+    "message": "Clear chat"
+  },
+  "qa_footHint": {
+    "message": "Answers come from the provider you chose and may be wrong — please verify."
+  },
+  "qa_errorTitle": {
+    "message": "Request failed"
+  },
+  "qa_emptyReply": {
+    "message": "The model returned nothing. Check that the model name in AI settings is correct."
   }
 }

@@ -23,11 +23,20 @@
  * 自建 / 中转端点若不回 CORS 头，才需要用户授权 host 权限：见 ensureHostAccess()，
  * 它走 optional_host_permissions + 运行时申请，且**必须在用户手势内调用**。
  *
+ * ## 两种调用方式
+ *
+ * - `complete()`  一次性返回。**归类（classify.ts）用这个** —— 输出是几十字的 JSON，
+ *   流式没有收益，而且 `extractJson` 需要完整文本才能解析。
+ * - `streamComplete()` 逐块产出文本。**书签问答用这个** —— 回答是自然语言，可能几百字，
+ *   等全量返回要几秒；逐字输出是这类交互的体验底线。
+ *
+ * 两者共用同一套 headers / 错误解析 / CORS 判定，差异只在请求体的 `stream` 标志与
+ * 响应解析（JSON 对象 vs SSE 行流）。
+ *
  * ## 不做的事
  *
  * - 不做任何重试 / 退避：AI 是用户主动触发的，失败就如实报错，重试只会掩盖问题。
  * - 不打任何遥测：明文和 key 都不出本机，没什么可统计的。
- * - 不做流式：书签打标签/归类这类任务的输出都是几十字的 JSON，流式的复杂度换不来收益。
  */
 
 /** 支持的服务商。`wire` 决定请求体与响应解析的形状。 */
@@ -82,6 +91,13 @@ export interface AiRequest {
   maxTokens?: number;
   temperature?: number;
   signal?: AbortSignal;
+  /**
+   * 覆盖默认 system 指令。
+   *
+   * 默认那份是给**归类**写的（「你负责把书签归进文件夹」），问答场景下不适用 ——
+   * 与其把两套意图塞进一段 prompt，不如让调用方整段替换。不传则用默认。
+   */
+  system?: string;
 }
 
 /** 归一化后的文本结果。 */
@@ -156,6 +172,56 @@ function systemPrompt(cfg: AiConfig, wantJson: boolean): string {
     : base;
 }
 
+/** 请求的 url / headers / body 三元组，供 complete 与 streamComplete 共用。 */
+interface BuiltRequest {
+  url: string;
+  headers: Record<string, string>;
+  payload: Record<string, unknown>;
+}
+
+/**
+ * 拼出请求三元组。
+ *
+ * complete() 与 streamComplete() **必须**共用这一份 —— 两家协议的字段名差异
+ * （system 位置、max_tokens 命名）只该有一处实现，否则迟早漂移出「流式能用、
+ * 非流式不能」这种只有一端正确的 bug。
+ *
+ * @param opts.stream 请求 SSE 流式响应
+ * @param opts.json   要求模型返回纯 JSON（仅非流式场景用；流式下无法解析）
+ */
+function buildRequest(
+  cfg: AiConfig,
+  apiKey: string,
+  req: AiRequest,
+  opts: { stream: boolean; json: boolean },
+): BuiltRequest {
+  const base = trimBase(cfg.baseUrl);
+  const sys = req.system ?? systemPrompt(cfg, opts.json);
+  const msgs = req.messages.filter((m) => m.content.trim() !== '');
+  if (msgs.length === 0) throw new AiError('empty prompt');
+
+  const temperature = req.temperature ?? (opts.json ? 0 : 0.3);
+  const maxTokens = req.maxTokens ?? (opts.json ? 1024 : 512);
+
+  const url = cfg.provider === 'anthropic' ? `${base}/v1/messages` : `${base}/v1/chat/completions`;
+  const headers = cfg.provider === 'anthropic' ? anthropicHeaders(apiKey) : openAiHeaders(apiKey);
+
+  const body: Record<string, unknown> = {
+    model: cfg.model,
+    max_tokens: maxTokens,
+    temperature,
+  };
+  if (opts.stream) body.stream = true;
+
+  // OpenAI 兼容家：system 作为首条消息；Anthropic：走顶层 system 字段。
+  const payload =
+    cfg.provider === 'anthropic'
+      ? { ...body, system: sys, messages: msgs }
+      : { ...body, messages: [{ role: 'system', content: sys }, ...msgs] };
+
+  return { url, headers, payload };
+}
+
 /**
  * 发一次请求并返回归一化结果。
  *
@@ -165,28 +231,10 @@ function systemPrompt(cfg: AiConfig, wantJson: boolean): string {
  */
 export async function complete(cfg: AiConfig, apiKey: string, req: AiRequest): Promise<AiResult> {
   if (!apiKey) throw new AiError('missing API key');
-  const base = trimBase(cfg.baseUrl);
-  const wantJson = req.json === true;
-  const sys = systemPrompt(cfg, wantJson);
-  const msgs = req.messages.filter((m) => m.content.trim() !== '');
-  if (msgs.length === 0) throw new AiError('empty prompt');
-
-  const temperature = req.temperature ?? (wantJson ? 0 : 0.3);
-  const maxTokens = req.maxTokens ?? (wantJson ? 1024 : 512);
-
-  const url = cfg.provider === 'anthropic' ? `${base}/v1/messages` : `${base}/v1/chat/completions`;
-  const headers = cfg.provider === 'anthropic' ? anthropicHeaders(apiKey) : openAiHeaders(apiKey);
-
-  // OpenAI 兼容家：system 作为首条消息；Anthropic：走顶层 system 字段。
-  const payload =
-    cfg.provider === 'anthropic'
-      ? { model: cfg.model, max_tokens: maxTokens, temperature, system: sys, messages: msgs }
-      : {
-          model: cfg.model,
-          max_tokens: maxTokens,
-          temperature,
-          messages: [{ role: 'system', content: sys }, ...msgs],
-        };
+  const { url, headers, payload } = buildRequest(cfg, apiKey, req, {
+    stream: false,
+    json: req.json === true,
+  });
 
   let res: Response;
   try {
@@ -319,5 +367,133 @@ function tryParse(s: string): unknown {
     return JSON.parse(s);
   } catch {
     return undefined;
+  }
+}
+
+/** SSE 里代表「流结束」的哨兵（OpenAI 的 `[DONE]`、Anthropic 的 `message_stop`）。 */
+const SSE_DONE = Symbol('sse-done');
+
+/**
+ * 解析一行 SSE，返回本次要产出的文本、结束标记，或 null（该行无内容）。
+ *
+ * 只认 `data:` 行：`event:` / `id:` / `retry:` 与以 `:` 开头的注释（部分端点的保活
+ * 心跳）一律忽略 —— 我们靠 payload 里的 `type` 字段区分事件，不依赖 `event:` 行。
+ *
+ * 半截 JSON 直接丢弃而不是抛错：极少数端点会在非事件边界切块，丢一行总好过
+ * 让整次回答失败。
+ */
+function parseSseLine(cfg: AiConfig, line: string): string | typeof SSE_DONE | null {
+  const t = line.trim();
+  if (!t || t.startsWith(':') || !t.startsWith('data:')) return null;
+  const data = t.slice(5).trim();
+  if (!data) return null;
+  if (data === '[DONE]') return SSE_DONE;
+
+  let json: unknown;
+  try {
+    json = JSON.parse(data);
+  } catch {
+    return null;
+  }
+
+  if (cfg.provider === 'anthropic') {
+    const d = json as {
+      type?: string;
+      delta?: { type?: string; text?: string };
+      error?: { message?: string };
+    };
+    // 流中途的错误走 event: error，HTTP 状态码此时已经是 200，只能靠 payload 识别
+    if (d.type === 'error') throw new AiError(d.error?.message ?? 'stream error');
+    if (d.type === 'message_stop') return SSE_DONE;
+    // content_block_delta 才带文本；message_start / content_block_start / ping 不带
+    if (d.type === 'content_block_delta' && d.delta?.type === 'text_delta') {
+      return d.delta.text || null;
+    }
+    return null;
+  }
+
+  const d = json as {
+    choices?: Array<{ delta?: { content?: unknown } }>;
+    error?: { message?: string };
+  };
+  if (d.error?.message) throw new AiError(d.error.message);
+  const c = d.choices?.[0]?.delta?.content;
+  // 部分网关会返回数组形式的内容块，与 parseOpenAi 保持一致地压平
+  if (typeof c === 'string') return c || null;
+  if (Array.isArray(c)) {
+    const text = c
+      .map((p) =>
+        typeof (p as { text?: unknown })?.text === 'string' ? (p as { text: string }).text : '',
+      )
+      .join('');
+    return text || null;
+  }
+  return null;
+}
+
+/**
+ * 流式请求：逐块产出新增的文本（不是累计文本，调用方自己拼）。
+ *
+ * @throws {AiError} HTTP 非 2xx、流中途的 error 事件、或响应没有 body
+ *
+ * 用户点「停止」时应通过 `req.signal` 中断：此时 `reader.read()` 抛 AbortError，
+ * 调用方据此区分「用户主动取消」与「真的失败」，不要当成错误提示。
+ */
+export async function* streamComplete(
+  cfg: AiConfig,
+  apiKey: string,
+  req: AiRequest,
+): AsyncGenerator<string, void, undefined> {
+  if (!apiKey) throw new AiError('missing API key');
+  const { url, headers, payload } = buildRequest(cfg, apiKey, req, { stream: true, json: false });
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: req.signal,
+    });
+  } catch (e) {
+    if (isCorsBlocked(e)) {
+      throw new AiError(
+        'blocked by CORS or unreachable — if this is a self-hosted endpoint, grant host access',
+      );
+    }
+    throw new AiError(e instanceof Error ? e.message : String(e));
+  }
+
+  if (!res.ok) throw new AiError(await readErrorBody(res), res.status);
+  if (!res.body) throw new AiError('endpoint returned no stream body');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // 一个网络块里可能有多行，也可能只有半行 —— 只消费完整的行，
+      // 残行留在 buffer 里等下一块，否则跨块的长 JSON 会被截断。
+      let nl = buffer.indexOf('\n');
+      while (nl >= 0) {
+        const line = buffer.slice(0, nl).replace(/\r$/, '');
+        buffer = buffer.slice(nl + 1);
+        const out = parseSseLine(cfg, line);
+        if (out === SSE_DONE) return;
+        if (out) yield out;
+        nl = buffer.indexOf('\n');
+      }
+    }
+    // 收尾：最后一行可能没有换行符
+    const tail = parseSseLine(cfg, buffer.replace(/\r$/, ''));
+    if (tail && tail !== SSE_DONE) yield tail;
+  } finally {
+    // 提前 return（拿到 [DONE]）或抛错时都要释放底层连接
+    reader.cancel().catch(() => {});
   }
 }

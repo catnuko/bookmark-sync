@@ -224,6 +224,9 @@
   "popup_accountRow": {
     "message": "账户"
   },
+  "popup_settingsRow": {
+    "message": "整理书签"
+  },
   "quota_loading": {
     "message": "额度加载中…"
   },
@@ -941,9 +944,6 @@
   "opts_navAria": {
     "message": "设置分区"
   },
-  "opts_note": {
-    "message": "设置已整合进插件弹窗，点击浏览器工具栏图标即可使用。"
-  },
   "toast_syncDone": {
     "message": "同步完成"
   },
@@ -1204,5 +1204,66 @@
   },
   "ai_privacy": {
     "message": "书签始终保持端到端加密。AI 请求由这台设备直接发给你选择的服务商，我们的服务器看不到内容。请使用你信任的服务商。"
+  },
+  "qa_title": {
+    "message": "书签问答"
+  },
+  "qa_sub": {
+    "message": "用你自己的 AI 问关于书签的问题。只有本机检索到的候选书签会被发送。"
+  },
+  "qa_emptyTitle": {
+    "message": "问点什么吧"
+  },
+  "qa_emptySub": {
+    "message": "例如「我上次存的那个 React 教程在哪」。回答只基于本机检索到的候选书签。"
+  },
+  "qa_placeholder": {
+    "message": "例如：我上次存的那个 React 教程在哪？"
+  },
+  "qa_send": {
+    "message": "发送"
+  },
+  "qa_stop": {
+    "message": "停止"
+  },
+  "qa_searching": {
+    "message": "正在本机检索书签…"
+  },
+  "qa_gateDisabled": {
+    "message": "AI 功能未启用。请先到「AI 设置」里打开开关。"
+  },
+  "qa_gateNoKey": {
+    "message": "还没有填 API 密钥。请先到「AI 设置」里填写。"
+  },
+  "qa_note": {
+    "message": "已在 $TOTAL$ 条书签中检索，命中 $FOUND$ 条候选",
+    "placeholders": {
+      "total": {
+        "content": "$1"
+      },
+      "found": {
+        "content": "$2"
+      }
+    }
+  },
+  "qa_noteNone": {
+    "message": "已在 $TOTAL$ 条书签中检索，没有匹配项",
+    "placeholders": {
+      "total": {
+        "content": "$1"
+      }
+    }
+  },
+  "qa_clear": {
+    "message": "清空对话"
+  },
+  "qa_footHint": {
+    "message": "回答由你选择的服务商生成，可能存在偏差，请自行核对。"
+  },
+  "qa_errorTitle": {
+    "message": "提问失败"
+  },
+  "qa_emptyReply": {
+    "message": "模型没有返回内容。请检查「AI 设置」里的模型名是否正确。"
   }
 }

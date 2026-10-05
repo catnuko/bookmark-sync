@@ -125,10 +125,11 @@
 
 <script setup>
 /**
- * PaneAI.vue — AI 面板（BYOK 配置）。
+ * PaneAI.vue — AI 面板（BYOK 配置），挂在设置页，是设置页目前唯一的 pane。
  *
- * 只做配置，不跑功能 —— 实际动作（归类等）在 popup 侧触发。理由：配置是低频操作，
- * 放设置页合适；批量归类要看到结果再确认，放 popup 更顺手。
+ * 只做配置，不跑归类 —— 理由：配置是低频的宽表单，popup 窄屏塞不下；
+ * 而批量归类要看到结果再确认，将来放 popup 更顺手（`ai/classify.ts` 已就绪但
+ * 尚未接 UI，接的时候应落在 popup 侧，不要加到这个面板里）。
  *
  * 关键约束（见 ai/provider.ts 与 ai/hostAccess.ts）：
  *   - API Key 只存 chrome.storage.local，不进同步存储（不漫游到其它设备）。

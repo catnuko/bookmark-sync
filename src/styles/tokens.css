@@ -1254,13 +1254,13 @@ svg {
   padding: 16px 12px;
   border-right: 1px solid var(--border);
 }
-.opt-nav .nav-title {
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-semibold);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 6px 10px;
+/* 品牌区：图标与文字复用 popup 标题栏的 .ext-ico / .ext-name（唯一真源），
+   这里只管在侧栏里的排布与间距 —— 不在此处覆盖字号/圆角，否则两边会漂移。 */
+.opt-nav .nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 12px;
 }
 .opt-nav button {
   display: flex;

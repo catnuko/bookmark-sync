@@ -176,8 +176,9 @@ export const state = reactive({
   // 弹窗二级面板（抽屉）
   drawer: '', // '' | 'account' | 'spaces' | 'key' | 'help' | 'feedback' | 'system'
 
-  // 设置页导航
-  navPane: 'account', // 'account' | 'sync' | 'spaces' | 'crypto' | 'ai' | 'help' | 'feedback' | 'system'
+  // 设置页导航。设置页只承载 popup 塞不下的宽表单（当前仅 AI），
+  // pane 清单真源在 OptionsView.vue 的panes 数组；这里给个存在的默认值兜底。
+  navPane: 'ai', // 见 OptionsView.vue → panes
 
   // toast 队列
   toasts: [] as Toast[],

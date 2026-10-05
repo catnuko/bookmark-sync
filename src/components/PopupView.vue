@@ -82,6 +82,29 @@
           <span class="sc-tail">v{{ version }}</span>
           <Icon class="chev" name="chevron-right" />
         </button>
+        <!--
+          AI 功能入口（设置页）。设置页只承载 popup 塞不下的宽表单与对话区，
+          所以必须从这里进去 —— 否则它就是个没人能找到的死页。
+
+          行名叫**功能名**（整理书签）而不是「更多设置」：用户找的是功能，
+          不是「设置」这个抽象概念。因此也不需要右侧的 tail —— 名字本身已经说清了，
+          再加一句「AI 整理书签」就是重复。
+
+          落点是设置页的默认 pane（AI 配置）：用户选的就是「先让配 Key」这条路径。
+          点击会新开标签页（不是抽屉），故用外链图标而非 chevron。
+        -->
+        <button
+          type="button"
+          class="inset-row clickable"
+          :title="t('common_opensInNewTab')"
+          @click="openSettingsPage()"
+        >
+          <span class="lede"><Icon name="gear" /></span>
+          <span class="r-main"
+            ><span class="r-title">{{ t('popup_settingsRow') }}</span></span
+          >
+          <Icon class="ext" name="external-link" />
+        </button>
       </div>
     </div>
   </div>
@@ -133,4 +156,15 @@ const drawerTitles = {
 const drawerTitle = computed(() => drawerTitles[state.drawer]?.() ?? '');
 
 const version = appVersion();
+
+/**
+ * 打开设置页（options.html）。
+ *
+ * 用 openOptionsPage() 而不是 window.open('options.html')：前者由浏览器托管，
+ * 会在正确的标签页里打开、遵守用户的扩展页设置；后者在 popup 里会被当作相对路径，
+ * 且在 Firefox 上行为不一致。
+ */
+function openSettingsPage() {
+  chrome.runtime.openOptionsPage();
+}
 </script>

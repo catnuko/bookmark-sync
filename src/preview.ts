@@ -1,6 +1,6 @@
 // 开发用视觉预览入口（不参与扩展构建；vite.config.js 只把 options/popup/background 作为入口）。
 // 用途：在普通浏览器里直接渲染真实 Vue 组件 + 真实 tokens.css，便于对照设计稿做视觉验收。
-// 用法：pnpm dev 后打开 /preview.html?view=popup|key|spaces|auth|options&pane=sync
+// 用法：pnpm dev 后打开 /preview.html?view=popup|key|spaces|auth|options&pane=ai
 import { createApp, h } from 'vue';
 import './styles/tokens.css';
 import zhMessages from '../public/_locales/zh_CN/messages.json';
@@ -50,7 +50,7 @@ import PhraseGate from './components/PhraseGate.vue';
 
 const q = new URLSearchParams(location.search);
 const view = q.get('view') || 'popup';
-const pane = q.get('pane') || 'sync';
+const pane = q.get('pane') || 'ai';
 
 // ---- 演示数据（真实观感，避免空态） ----
 const KEY = '7Kd93mQvZp2xR8nLwT4hYb6sVc1aJfEoNuG5iB0rXzMdQp';
@@ -79,10 +79,10 @@ state.keyStateLoaded = true;
 state.keyValue = KEY;
 state.myDeviceId = 'd1';
 
-// 让设置页「加密」面板也能显示密钥（模拟本机已生成密钥；KeyPanel 挂载时会 loadKeyPanel 读取它）
-// 本文件顶部已把 globalThis.chrome 替换成只有 i18n 的 mock（api 在模块加载时捕获的是
-// preview.html 注入的完整 mock，不受影响）；这里直接访问 storage 原 JS 会抛 TypeError
-// 被 catch 吞掉，用可选链等价地静默跳过。
+// 让 KeyPanel（popup 密钥抽屉）/ PaneAI 也能显示已存值（模拟本机已生成密钥；
+// 面板挂载时会经config.ts / keyPanel 读它）。本文件顶部已把 globalThis.chrome 换成只有
+// i18n 的 mock（api 在模块加载时捕获的是 preview.html 注入的完整 mock，不受影响）；
+// 这里直接访问 storage 原 JS 会抛 TypeError，被catch 吞掉，用可选链等价地静默跳过。
 try {
   const g = globalThis as typeof globalThis & {
     chrome?: { storage?: { local?: { set: (v: Record<string, unknown>) => void } } };
