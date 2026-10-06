@@ -1265,5 +1265,135 @@
   },
   "qa_emptyReply": {
     "message": "The model returned nothing. Check that the model name in AI settings is correct."
+  },
+  "org_title": {
+    "message": "Organize bookmarks"
+  },
+  "org_sub": {
+    "message": "AI suggests the grouping; nothing moves until you confirm. You can also just find duplicates (fully local)."
+  },
+  "org_pickScope": {
+    "message": "Which folder should be organized?"
+  },
+  "org_pickScopePlaceholder": {
+    "message": "Choose a folder"
+  },
+  "org_pickScopeHint": {
+    "message": "Only loose bookmarks directly in the chosen folder are considered; anything already in a subfolder is left alone."
+  },
+  "org_start": {
+    "message": "Build a plan"
+  },
+  "org_planning": {
+    "message": "Thinking…"
+  },
+  "org_changeScope": {
+    "message": "Change folder"
+  },
+  "org_planStat": {
+    "message": "$1 groups covering $2 bookmarks",
+    "placeholders": {
+      "groups": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "org_noGroups": {
+    "message": "No loose bookmarks in this folder."
+  },
+  "org_reuse": {
+    "message": "Reuse folder"
+  },
+  "org_create": {
+    "message": "New folder"
+  },
+  "org_moreItems": {
+    "message": "$N more…"
+  },
+  "org_unclassified": {
+    "message": "$N bookmarks could not be classified and will stay put."
+  },
+  "org_usage": {
+    "message": "Used: about $1 input and $2 output tokens.",
+    "placeholders": {
+      "in": {
+        "content": "$1"
+      },
+      "out": {
+        "content": "$2"
+      }
+    }
+  },
+  "org_safetyNote": {
+    "message": "Only moves bookmarks and creates folders — nothing is ever deleted. Moves sync to your other devices."
+  },
+  "org_apply": {
+    "message": "Apply (move $1)",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "org_cancel": {
+    "message": "Cancel"
+  },
+  "org_progress": {
+    "message": "Moving $1 / $2…",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "org_applied": {
+    "message": "Moved $N bookmarks"
+  },
+  "org_partialFail": {
+    "message": "$N items failed; see the console for details."
+  },
+  "org_createdFolders": {
+    "message": "Created $N folders."
+  },
+  "org_revert": {
+    "message": "Undo moves"
+  },
+  "org_reverting": {
+    "message": "Undoing…"
+  },
+  "org_reverted": {
+    "message": "Moved $N bookmarks back."
+  },
+  "org_done": {
+    "message": "Done"
+  },
+  "dpe_title": {
+    "message": "Find duplicates"
+  },
+  "dpe_sub": {
+    "message": "Compares URLs after stripping tracking parameters. Fully local — no network, nothing uploaded."
+  },
+  "dpe_safetyNote": {
+    "message": "Duplicates are only listed, never deleted for you. Deleting is your call."
+  },
+  "dpe_group": {
+    "message": "Group $1 · $N items",
+    "placeholders": {
+      "i": {
+        "content": "$1"
+      }
+    }
+  },
+  "dpe_keep": {
+    "message": "keep this one"
+  },
+  "dpe_none": {
+    "message": "No duplicates found."
   }
 }

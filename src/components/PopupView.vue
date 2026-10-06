@@ -158,13 +158,30 @@ const drawerTitle = computed(() => drawerTitles[state.drawer]?.() ?? '');
 const version = appVersion();
 
 /**
- * 打开设置页（options.html）。
+ * 打开设置页（options.html）并直达「整理书签」pane。
  *
  * 用 openOptionsPage() 而不是 window.open('options.html')：前者由浏览器托管，
  * 会在正确的标签页里打开、遵守用户的扩展页设置；后者在 popup 里会被当作相对路径，
  * 且在 Firefox 上行为不一致。
+ *
+ * ★ 为什么用 storage.session 传 pane 而不用 hash：
+ *   1. popup 与 options 是**两个独立的 JS 上下文**，`state.navPane` 不共享 ——
+ *      直接写 store 只在本页有效，options 照样落到自己的默认值。
+ *   2. session 而非 local：这是「本次跳转想看哪一页」的临时意图，不该留到下次
+ *      启动（local 会漫游到别的设备，用户会莫名其妙落在整理书签页）。
+ *      session 只活在当前浏览器会话内，且不进 sync。
+ *   3. 读侧用完即删（见 OptionsView.vue），避免「下次手动打开设置页也落在
+ *      整理书签」——那会让用户找不到 AI 配置入口。
  */
+const PANE_KEY = 'options.pane';
+
 function openSettingsPage() {
-  chrome.runtime.openOptionsPage();
+  void chrome.storage?.session
+    ?.set({ [PANE_KEY]: 'organize' })
+    .then(() => chrome.runtime.openOptionsPage())
+    .catch(() => {
+      // session 不可用（老 Firefox）时退化成默认 pane，不要因此打不开设置页
+      chrome.runtime.openOptionsPage();
+    });
 }
 </script>

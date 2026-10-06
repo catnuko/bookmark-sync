@@ -1265,5 +1265,168 @@
   },
   "qa_emptyReply": {
     "message": "模型没有返回内容。请检查「AI 设置」里的模型名是否正确。"
+  },
+  "org_title": {
+    "message": "整理書籤"
+  },
+  "org_sub": {
+    "message": "AI 建議怎麼分組，你確認後才動。也可以只查重複書籤（本地完成，不連網）。"
+  },
+  "org_pickScope": {
+    "message": "要整理哪個資料夾？"
+  },
+  "org_pickScopePlaceholder": {
+    "message": "選擇一個資料夾"
+  },
+  "org_pickScopeHint": {
+    "message": "只整理所選資料夾下直接散著的書籤，已在子資料夾裡的不動。"
+  },
+  "org_start": {
+    "message": "產生整理方案"
+  },
+  "org_planning": {
+    "message": "模型正在想…"
+  },
+  "org_changeScope": {
+    "message": "換個資料夾"
+  },
+  "org_planStat": {
+    "message": "建議 $1 組，涵蓋 $2 條書籤",
+    "placeholders": {
+      "groups": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "org_noGroups": {
+    "message": "這個資料夾下沒有可整理的書籤。"
+  },
+  "org_reuse": {
+    "message": "沿用現有資料夾"
+  },
+  "org_create": {
+    "message": "新增資料夾"
+  },
+  "org_moreItems": {
+    "message": "還有 $1 條…",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "org_unclassified": {
+    "message": "有 $1 條沒能歸類，會保持原位不動。",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "org_usage": {
+    "message": "本次消耗：輸入約 $1 tokens，輸出約 $2 tokens。",
+    "placeholders": {
+      "in": {
+        "content": "$1"
+      },
+      "out": {
+        "content": "$2"
+      }
+    }
+  },
+  "org_safetyNote": {
+    "message": "只會移動和新增資料夾，不會刪除任何書籤。移動後同步到你的其他裝置。"
+  },
+  "org_apply": {
+    "message": "套用（移動 $1 條）",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "org_cancel": {
+    "message": "取消"
+  },
+  "org_progress": {
+    "message": "正在移動 $1 / $2…",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "org_applied": {
+    "message": "已移動 $1 條書籤",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "org_partialFail": {
+    "message": "有 $1 項沒成功，詳情見主控台。",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "org_createdFolders": {
+    "message": "新增了 $1 個資料夾。",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "org_revert": {
+    "message": "復原移動"
+  },
+  "org_reverting": {
+    "message": "復原中…"
+  },
+  "org_reverted": {
+    "message": "已移回 $1 條。",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "org_done": {
+    "message": "完成"
+  },
+  "dpe_title": {
+    "message": "尋找重複書籤"
+  },
+  "dpe_sub": {
+    "message": "去掉追蹤參數後比對網址。純本地，不連網、不上傳。"
+  },
+  "dpe_safetyNote": {
+    "message": "只列出重複項，不會替你刪除。刪不刪由你決定。"
+  },
+  "dpe_group": {
+    "message": "第 $1 組 · $2 條",
+    "placeholders": {
+      "i": {
+        "content": "$1"
+      },
+      "n": {
+        "content": "$2"
+      }
+    }
+  },
+  "dpe_keep": {
+    "message": "建議保留"
+  },
+  "dpe_none": {
+    "message": "沒有發現重複書籤。"
   }
 }

@@ -32,11 +32,14 @@
         全部由 popup 承载（账户与密钥是 popup 内的二级抽屉），在此重复一遍等于两处维护
         同一功能 —— 已于 2026-10-05 全部移除。加新 pane 前先确认 popup 真的放不下。
 
-        当前两个 pane 是同一功能的两半：ai = 配置（一次性，宽表单），
-        aiChat = 书签问答（问答框在 400px 的 popup 里塞不下）。
+        三个 pane 的分工：
+          ai       = AI 配置（一次性，宽表单）
+          aiChat   = 书签问答（问答框在 400px 的 popup 里塞不下）
+          organize = 整理书签（归类方案要逐组勾选 + diff 预览，popup 装不下）
       -->
       <PaneAI v-if="state.navPane === 'ai'" />
       <PaneAIChat v-else-if="state.navPane === 'aiChat'" />
+      <PaneOrganize v-else-if="state.navPane === 'organize'" />
     </div>
   </div>
 </template>
@@ -56,16 +59,37 @@ import { state } from '../store.js';
 import { t } from '../lib/i18n.js';
 import PaneAI from './PaneAI.vue';
 import PaneAIChat from './PaneAIChat.vue';
+import PaneOrganize from './PaneOrganize.vue';
 import Icon from './ui/Icon.vue';
 
 const panes = [
   { id: 'ai', label: () => t('ai_title'), icon: 'star' },
   { id: 'aiChat', label: () => t('qa_title'), icon: 'chat' },
+  { id: 'organize', label: () => t('org_title'), icon: 'folder' },
 ];
 
-// state.navPane 的历史默认值是 'account'（那是 PaneAccount 还在设置页时的第一项）。
-// 设置页已无该 pane，不兜底就会渲染成空白页 —— 挂载后校正到第一个真实 pane。
-onMounted(() => {
-  if (!panes.some((p) => p.id === state.navPane)) state.navPane = panes[0].id;
+/** popup 传来的「本次想看哪一页」。见 PopupView.vue → openSettingsPage。 */
+const PANE_KEY = 'options.pane';
+
+function isPaneId(v) {
+  return panes.some((p) => p.id === v);
+}
+
+// 挂载后校正到真实 pane。三条来源，优先级从低到高：
+//   1. state.navPane —— 同页内切过 pane 时保留用户的选择
+//   2. 非法值（历史默认 'account' 已不存在）→ 兜底到第一项，否则空白页
+//   3. storage.session 里 popup 传来的目标 pane（跨页专用，用完即删）
+onMounted(async () => {
+  if (isPaneId(state.navPane)) return;
+  state.navPane = panes[0].id;
+  try {
+    const got = await chrome.storage?.session?.get(PANE_KEY);
+    const want = got?.[PANE_KEY];
+    if (isPaneId(want)) state.navPane = want;
+    // 用完即删：不删的话，下次手动打开设置页也会落在这一页
+    if (want !== undefined) await chrome.storage?.session?.remove(PANE_KEY);
+  } catch {
+    // session 不可用：用默认 pane，不影响打开
+  }
 });
 </script>
