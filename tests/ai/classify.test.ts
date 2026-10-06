@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { classifyBookmarks } from '../../src/ai/classify.js';
+import { classifyBookmarks, hostOf } from '../../src/ai/classify.js';
 import type { AiConfig } from '../../src/ai/provider.js';
 
 const CFG: AiConfig = { provider: 'openai', baseUrl: 'https://x.dev', model: 'm' };
@@ -185,5 +185,109 @@ describe('classifyBookmarks · 容错', () => {
     expect(seen.length).toBe(3);
     // 每批各归 1 条，映射回全局 id（0 / 60 / 120）
     expect(r.groups.flatMap((g) => g.ids)).toEqual(['id0', 'id60', 'id120']);
+  });
+});
+
+describe('classify prompt 的信息量', () => {
+  /** 抓取每次请求的 prompt 文本。 */
+  function capturePrompts(): string[] {
+    const seen: string[] = [];
+    globalThis.fetch = vi.fn(async (_u: unknown, o: any) => {
+      const body = JSON.parse(o.body);
+      // messages[0] 是本模块发的 user prompt（Anthropic 分支下会映射到 system/user，
+      // 这里取「含书签列表的那一条」，避免绑死协议细节）。
+      for (const m of body.messages ?? []) {
+        const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+        if (c.includes('Classify these')) seen.push(c);
+      }
+      if (body.system) seen.push(String(body.system));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [
+            { message: { content: JSON.stringify({ groups: [{ folder: 'A', ids: [0] }] }) } },
+          ],
+        }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return seen;
+  }
+
+  it('★ 每条带域名（分类最强的信号）', async () => {
+    const seen = capturePrompts();
+    await classifyBookmarks(CFG, 'k', [
+      { id: 'a', title: '官方文档', url: 'https://docs.python.org/3/tutorial' },
+      { id: 'b', title: '某新闻', url: 'https://news.ycombinator.com/item?id=1' },
+    ]);
+    expect(seen[0]).toContain('docs.python.org');
+    expect(seen[0]).toContain('news.ycombinator.com');
+  });
+
+  it('★ 域名去 www.，标题保留', async () => {
+    const seen = capturePrompts();
+    await classifyBookmarks(CFG, 'k', [
+      { id: 'a', title: 'Vue 3 文档', url: 'https://www.vuejs.org/guide' },
+    ]);
+    expect(seen[0]).toContain('vuejs.org');
+    expect(seen[0]).not.toContain('www.vuejs.org');
+    expect(seen[0]).toContain('Vue 3 文档');
+  });
+
+  it('★ 不把整条 URL 塞进 prompt（路径是噪音、token 会翻几倍）', async () => {
+    const seen = capturePrompts();
+    await classifyBookmarks(CFG, 'k', [
+      { id: 'a', title: '长文', url: 'https://example.com/2024/03/some-very-long-slug-here' },
+    ]);
+    expect(seen[0]).not.toContain('some-very-long-slug-here');
+  });
+
+  it('★ 明确指示「命名跟随现有文件夹的语言」', async () => {
+    const seen = capturePrompts();
+    await classifyBookmarks(
+      CFG,
+      'k',
+      [{ id: 'a', title: 'x', url: 'https://e.dev/a' }],
+      ['前端', '后端'],
+    );
+    expect(seen[0]).toMatch(/same language as the existing folder names/i);
+    // 没有现有文件夹时也要有兜底规则
+    const noReuse = capturePrompts();
+    await classifyBookmarks(CFG, 'k', [{ id: 'a', title: 'x', url: 'https://e.dev/a' }]);
+    expect(noReuse[0]).toMatch(/dominant language of the bookmark titles/i);
+  });
+
+  it('★ 域名作为强先验写进 rules（而不只是出现在数据里）', async () => {
+    const seen = capturePrompts();
+    await classifyBookmarks(CFG, 'k', [{ id: 'a', title: 'x', url: 'https://e.dev/a' }]);
+    expect(seen[0]).toMatch(/use it as a strong hint/i);
+  });
+
+  it('标题为空时退化成 URL 而不是留空', async () => {
+    const seen = capturePrompts();
+    await classifyBookmarks(CFG, 'k', [{ id: 'a', title: '', url: 'https://e.dev/page' }]);
+    expect(seen[0]).toContain('e.dev/page');
+  });
+
+  it('非法 URL 不产生括号残渣', async () => {
+    const seen = capturePrompts();
+    await classifyBookmarks(CFG, 'k', [{ id: 'a', title: 'x', url: 'not a url' }]);
+    // 应是「0. x」而不是「0. x ()」
+    expect(seen[0]).toContain('0. x\n');
+    expect(seen[0]).not.toContain('()');
+  });
+});
+
+describe('hostOf', () => {
+  it('去 www.、转小写', () => {
+    expect(hostOf('https://WWW.VueJS.org/guide')).toBe('vuejs.org');
+  });
+
+  it('非法 URL 返回空串（不是 undefined）', () => {
+    expect(hostOf('nonsense')).toBe('');
+  });
+
+  it('非 http(s) 协议返回空串', () => {
+    expect(hostOf('chrome://extensions')).toBe('');
   });
 });

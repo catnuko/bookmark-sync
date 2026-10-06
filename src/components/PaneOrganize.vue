@@ -69,7 +69,7 @@
             <ul class="org-items">
               <li v-for="it in g.items.slice(0, 6)" :key="it.id">
                 <span class="org-item-title">{{ it.title || it.url }}</span>
-                <span class="org-item-url">{{ hostOf(it.url) }}</span>
+                <span class="org-item-url">{{ siteOf(it.url) }}</span>
               </li>
               <li v-if="g.items.length > 6" class="org-more">
                 {{ t('org_moreItems', String(g.items.length - 6)) }}
@@ -163,7 +163,7 @@
                   <Icon name="copy" />
                   {{ t('dpe_group', String(i + 1), String(g.dupIds.length + 1)) }}
                 </span>
-                <span class="badge badge-warning">{{ hostOf(g.key) }}</span>
+                <span class="badge badge-warning">{{ siteOf(g.key) }}</span>
               </div>
               <ul class="org-items">
                 <li
@@ -213,7 +213,7 @@ import { describeError } from '../lib/errors.js';
 import { api } from '../lib/ext.js';
 import { showToast } from '../store.js';
 import { readAiConfig, readApiKey } from '../ai/config.js';
-import { applyPlan, listFolders, planOrganize, revertApply } from '../ai/organize.js';
+import { applyPlan, hostOf, listFolders, planOrganize, revertApply } from '../ai/organize.js';
 import { collectBookmarks, findDuplicates } from '../ai/dedupe.js';
 import Icon from './ui/Icon.vue';
 
@@ -364,12 +364,16 @@ function titleOf(id) {
   return titleMap.get(id) || id;
 }
 
-function hostOf(url) {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url.slice(0, 40);
-  }
+/**
+ * ★ 从 classify.ts 复用，不在这里另写一份。
+ * 归类时模型看到的是去 www 的 hostname，预览里必须显示同一个 —— 两处算法
+ * 不同会让用户以为「归错了」（其实只是显示差异）。
+ *
+ * 非 http(s) 的书签（少见但存在）hostOf 返回空串，这时退回到短 URL，
+ * 否则预览里会出现一个空标签。
+ */
+function siteOf(url) {
+  return hostOf(url) || shortUrl(url);
 }
 
 function shortUrl(url) {

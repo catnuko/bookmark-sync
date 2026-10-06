@@ -4,8 +4,26 @@
  * ## 为什么不每次只问一个
  *
  * 逐条问 = N 次网络往返 × N 份 token。1000 条书签要跑十几分钟且烧掉大量额度。
- * 这里改成**一次请求处理一批**：把 (title, url) 列表塞进 prompt，让模型返回
+ * 这里改成**一次请求处理一批**：把 (title, domain) 列表塞进 prompt，让模型返回
  * 「分组名 → 书签下标数组」的映射。一次往返，成本降一到两个数量级。
+ *
+ * ## 为什么给域名而不只给标题
+ *
+ * 早期版本每条只发 `title || url`，模型等于在盲猜 —— 大量书签的标题是
+ * 「未命名」「知乎」或一串被截断的英文，对「归到哪个文件夹」几乎没有信息量。
+ * 而域名是**极强的先验**：`doc.rust-lang.org` → 编程，`news.ycombinator.com`
+ * → 科技资讯，`developer.mozilla.org` → 前端。给域名后分类质量明显不同，
+ * 代价只有每条 1~2 个 token。
+ *
+ * 只取 host、不取整条 URL：路径里是 slug 和 id（`/post/12345`），对分类是噪音，
+ * 还会让 prompt 膨胀 3~5 倍。首段路径偶尔有信号（`/pricing`、`/docs`），
+ * 但收益不稳定，先不加 —— 保持 prompt 短小。
+ *
+ * ## 命名语言跟随用户
+ *
+ * 强制中文会违背习惯英文命名的用户；强制英文则让中文用户看到一堆
+ * `Frontend/Backend`。所以规则是**跟随现有文件夹名的语言**，没有现有文件夹时
+ * 跟随书签标题的主导语言。这条写进 prompt 的 rules，由模型判断。
  *
  * ## 分批
  *
@@ -29,6 +47,27 @@ export interface ClassifyItem {
   id: string;
   title: string;
   url: string;
+}
+
+/**
+ * 取 URL 的 host（去 `www.`），失败或非 http(s) 返回空串。
+ *
+ * ★ 为什么要显式卡 http(s)：`new URL('chrome://extensions').hostname` 在
+ * Chromium 上返回 `'extensions'`（把协议当 host），会把扩展页书签变成
+ * 「域名是 extensions」的垃圾线索塞给模型。非 http(s) 一律视为「没有域名」。
+ *
+ * 为什么单独导出：UI 层预览 diff 时也要显示「这条来自哪个站」，两处必须同源 ——
+ * 如果归类时看的是 host、预览时显示的是完整 URL，用户会觉得「归错了吧」。
+ */
+export function hostOf(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    const h = u.hostname.toLowerCase();
+    return h.startsWith('www.') ? h.slice(4) : h;
+  } catch {
+    return '';
+  }
 }
 
 /** 一个建议的文件夹及其成员。 */
@@ -119,7 +158,16 @@ async function classifyOneBatch(
   unclassified: string[];
   usage?: { input: number; output: number };
 }> {
-  const list = batch.map((b, i) => `${i}. ${truncate(b.title || b.url, TITLE_MAX)}`).join('\n');
+  // 每条形如 `12. 标题 (domain.com)`。标题为空时退化成 URL（有些书签没标题，
+  // 但 URL 至少能看出站点）。域名对分类帮助很大，见文件头说明。
+  const list = batch
+    .map((b, i) => {
+      const label = truncate(b.title.trim() || b.url, TITLE_MAX);
+      const host = hostOf(b.url);
+      return host ? `${i}. ${label} (${host})` : `${i}. ${label}`;
+    })
+    .join('\n');
+
   const reuse =
     existingFolders.length > 0
       ? `\n\nReuse these existing folder names when they fit (do not invent near-duplicates):\n${existingFolders
@@ -130,9 +178,13 @@ async function classifyOneBatch(
   const prompt =
     `Classify these ${batch.length} bookmarks into folders.\n\n${list}${reuse}\n\n` +
     `Rules:\n` +
+    `- Each line is "index. title (site)". The site in parentheses is the domain — ` +
+    `use it as a strong hint: docs.python.org is reference, news.ycombinator.com is tech news.\n` +
     `- Use at most 8 folders. Fewer is better.\n` +
     `- Every bookmark must appear in exactly one folder.\n` +
-    `- Use the numeric index, not the title.\n\n` +
+    `- Use the numeric index, not the title.\n` +
+    `- Name each folder in the same language as the existing folder names above; ` +
+    `if there are none, use the dominant language of the bookmark titles.\n\n` +
     `Return JSON: {"groups":[{"folder":"name","ids":[0,3,7]}]}`;
 
   const res = await complete(cfg, apiKey, {

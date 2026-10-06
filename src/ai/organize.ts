@@ -35,7 +35,7 @@
  */
 
 import type { AiConfig } from './provider.js';
-import { classifyBookmarks, fetchExistingFolders, type ClassifyGroup } from './classify.js';
+import { classifyBookmarks, fetchExistingFolders, hostOf, type ClassifyGroup } from './classify.js';
 import { collectBookmarks } from './dedupe.js';
 import { resolveRoots } from '../sync/rootResolver.js';
 import type { ChromeBookmarksAPI, ChromeTreeNode } from '../sync/index.js';
@@ -368,6 +368,6 @@ function describe(e: unknown): string {
   }
 }
 
-/** 供 UI 复用的类型别名，避免组件里重复 import 路径。 */
+/** 供 UI 复用的类型别名与工具，避免组件里重复 import 路径。 */
 export type { ClassifyGroup };
-export { collectBookmarks };
+export { collectBookmarks, hostOf };
