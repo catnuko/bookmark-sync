@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.11.0](https://github.com/catnuko/bookmark-sync/compare/v2.10.1...v2.11.0) (2026-10-06)
+
+
+### Features
+
+* **store:** add premium store screenshots (zh/en) ([ed8db14](https://github.com/catnuko/bookmark-sync/commit/ed8db14cd008e2ff170123d4ca4ac4f9ac08b240))
+* **website:** markdown 内容管道 + 10 篇长尾内容（问题解决/迁移/原理） ([1d9b334](https://github.com/catnuko/bookmark-sync/commit/1d9b334dd0a149ea672fbcb2970ce7fe1f67c562))
+* **website:** SSG 预渲染 16 页 + 双语独立 URL，SEO 从 CSR 空壳改为可索引 ([b667cca](https://github.com/catnuko/bookmark-sync/commit/b667cca6c79677da804dc18070e0b372ed533bec))
+
+
+### Bug Fixes
+
+* **store:** remove duplicated bottom content in premium store screenshots (zh/en) ([d795db9](https://github.com/catnuko/bookmark-sync/commit/d795db939a55d517c8fc650290c8d46d79b91e03))
+* **website:** hydration 检查改动态导入 playwright，修复 Vercel 构建失败 ([2e5f8c5](https://github.com/catnuko/bookmark-sync/commit/2e5f8c52759e7bca0b4416f3cf8cb438faeec0d4))
+
 ## [2.10.1](https://github.com/catnuko/bookmark-sync/compare/v2.10.0...v2.10.1) (2026-10-04)
 
 
