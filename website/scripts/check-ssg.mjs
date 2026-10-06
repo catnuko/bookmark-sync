@@ -185,7 +185,8 @@ export function runChecks({ quiet = false } = {}) {
     const t = titles(head);
     if (t.length !== 1) fail(`${tag} <title> 数量 = ${t.length}（应为 1）: ${JSON.stringify(t)}`);
     else if (!t[0]) fail(`${tag} <title> 为空`);
-    else if (t[0].includes('undefined') || t[0].includes('[object')) fail(`${tag} title 含未渲染插值: ${t[0]}`);
+    else if (t[0].includes('undefined') || t[0].includes('[object'))
+      fail(`${tag} title 含未渲染插值: ${t[0]}`);
 
     // 2. description 恰好一个且非空
     const desc = metas(head, 'description');
@@ -205,8 +206,10 @@ export function runChecks({ quiet = false } = {}) {
     // 4. robots
     const robots = metas(head, 'robots');
     if (robots.length !== 1) fail(`${tag} robots 数量 = ${robots.length}（应为 1）`);
-    else if (p.notFound && !robots[0].includes('noindex')) fail(`${tag} 404 页 robots 缺 noindex: ${robots[0]}`);
-    else if (!p.notFound && robots[0].includes('noindex')) fail(`${tag} 公开页被标了 noindex: ${robots[0]}`);
+    else if (p.notFound && !robots[0].includes('noindex'))
+      fail(`${tag} 404 页 robots 缺 noindex: ${robots[0]}`);
+    else if (!p.notFound && robots[0].includes('noindex'))
+      fail(`${tag} 公开页被标了 noindex: ${robots[0]}`);
 
     // 5. html lang 与 locale 一致
     const htmlLang = html.match(/<html[^>]*\blang="([^"]*)"/)?.[1];
@@ -232,12 +235,16 @@ export function runChecks({ quiet = false } = {}) {
       }
       // 页内链接不得跨语言（英文页里链到中文页会断掉 hreflang cluster）
       const enLinks = [...html.matchAll(/<a[^>]*href="(\/[^"#]*)"/g)].map((m) => m[1]);
-      const badLink = enLinks.find((h) => p.locale === 'en' !== (h === '/en' || h.startsWith('/en/')));
+      const badLink = enLinks.find(
+        (h) => (p.locale === 'en') !== (h === '/en' || h.startsWith('/en/')),
+      );
       if (badLink) fail(`${tag} 页内链接语言不一致: ${badLink}`);
     }
 
     // 7. JSON-LD 可解析 + 至少 Organization
-    const ld = [...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    const ld = [...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(
+      (m) => m[1],
+    );
     if (ld.length === 0) fail(`${tag} 无 JSON-LD`);
     for (const raw of ld) {
       try {
@@ -259,7 +266,8 @@ export function runChecks({ quiet = false } = {}) {
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-    if (text.length < minText) fail(`${tag} 正文文本仅 ${text.length} 字符（阈值 ${minText}，SSG 未生效？）`);
+    if (text.length < minText)
+      fail(`${tag} 正文文本仅 ${text.length} 字符（阈值 ${minText}，SSG 未生效？）`);
 
     // 9. og:image / twitter:image 必填（社交卡片）
     if (!metasProp(head, 'og:image').length) fail(`${tag} 缺 og:image`);
@@ -316,8 +324,8 @@ export function runChecks({ quiet = false } = {}) {
     }
 
     // 内容页必须内链到其它内容页（否则是孤岛页，权重传不出去）
-    const linksOut = hrefsOf(html, 'a').filter(
-      (h) => /^\/(?:en\/)?(?:fix|migrate|explain)\/[^"#]+$/.test(h),
+    const linksOut = hrefsOf(html, 'a').filter((h) =>
+      /^\/(?:en\/)?(?:fix|migrate|explain)\/[^"#]+$/.test(h),
     );
     if (linksOut.length === 0 && !p.onlyContent) {
       fail(`${tag} 内容页无任何指向其它内容页的内链（孤岛页）`);
@@ -341,7 +349,8 @@ export function runChecks({ quiet = false } = {}) {
     }
     for (const b of sm.split('<url>').slice(1)) {
       const hrefs = [...b.matchAll(/hreflang="[^"]*" href="([^"]*)"/g)].map((m) => m[1]);
-      if (hrefs.length < 3) fail(`sitemap 某条 URL 的 hreflang 少于 3 个（zh/en/x-default）: ${b.slice(0, 80)}`);
+      if (hrefs.length < 3)
+        fail(`sitemap 某条 URL 的 hreflang 少于 3 个（zh/en/x-default）: ${b.slice(0, 80)}`);
       if (new Set(hrefs).size < 2) fail(`sitemap 某条 URL 的 hreflang 全指向同一 URL: ${hrefs[0]}`);
     }
     // 期望 URL 数 = PAGES 里非 404 的条目数。
@@ -380,9 +389,7 @@ export function runChecks({ quiet = false } = {}) {
         const w = metasProp(head, 'og:image:width')[0];
         const h = metasProp(head, 'og:image:height')[0];
         if (String(real.w) !== String(w) || String(real.h) !== String(h)) {
-          fail(
-            `[${p.file}] og:image 声明 ${w}x${h}，实际 ${real.w}x${real.h} —— 必须一致`,
-          );
+          fail(`[${p.file}] og:image 声明 ${w}x${h}，实际 ${real.w}x${real.h} —— 必须一致`);
         }
       }
     }

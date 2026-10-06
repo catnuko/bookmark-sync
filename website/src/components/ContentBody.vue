@@ -16,34 +16,69 @@ defineProps({
     <template v-for="(b, i) in blocks" :key="i">
       <!-- h2 / h3 -->
       <h2 v-if="b.type === 'heading' && b.level === 2" :id="slugOf(b.text)" class="cb-h2">
-        <a v-for="(n, j) in b.inline" :key="j" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+        <a
+          v-for="(n, j) in b.inline"
+          :key="j"
+          v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+          >{{ n.value }}</a
+        >
       </h2>
       <h3 v-else-if="b.type === 'heading' && b.level === 3" :id="slugOf(b.text)" class="cb-h3">
-        <a v-for="(n, j) in b.inline" :key="j" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+        <a
+          v-for="(n, j) in b.inline"
+          :key="j"
+          v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+          >{{ n.value }}</a
+        >
       </h3>
       <h4 v-else-if="b.type === 'heading'" :id="slugOf(b.text)" class="cb-h4">
-        <a v-for="(n, j) in b.inline" :key="j" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+        <a
+          v-for="(n, j) in b.inline"
+          :key="j"
+          v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+          >{{ n.value }}</a
+        >
       </h4>
 
       <!-- 段落 -->
       <p v-else-if="b.type === 'paragraph'" class="cb-p">
-        <a v-for="(n, j) in b.inline" :key="j" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+        <a
+          v-for="(n, j) in b.inline"
+          :key="j"
+          v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+          >{{ n.value }}</a
+        >
       </p>
 
       <!-- 引用（用于「注意/警告」） -->
       <blockquote v-else-if="b.type === 'quote'" class="cb-quote">
-        <a v-for="(n, j) in b.inline" :key="j" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+        <a
+          v-for="(n, j) in b.inline"
+          :key="j"
+          v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+          >{{ n.value }}</a
+        >
       </blockquote>
 
       <!-- 列表 -->
       <ul v-else-if="b.type === 'list' && !b.ordered" class="cb-ul">
         <li v-for="(it, k) in b.items" :key="k" class="cb-li">
-          <a v-for="(n, j) in it.inline" :key="j" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+          <a
+            v-for="(n, j) in it.inline"
+            :key="j"
+            v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+            >{{ n.value }}</a
+          >
         </li>
       </ul>
       <ol v-else-if="b.type === 'list'" class="cb-ol">
         <li v-for="(it, k) in b.items" :key="k" class="cb-li">
-          <a v-for="(n, j) in it.inline" :key="j" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+          <a
+            v-for="(n, j) in it.inline"
+            :key="j"
+            v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+            >{{ n.value }}</a
+          >
         </li>
       </ol>
 
@@ -56,14 +91,24 @@ defineProps({
           <thead>
             <tr>
               <th v-for="(h, k) in b.header" :key="k">
-                <a v-for="(n, j) in h.inline" :key="j" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+                <a
+                  v-for="(n, j) in h.inline"
+                  :key="j"
+                  v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+                  >{{ n.value }}</a
+                >
               </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(row, k) in b.rows" :key="k">
               <td v-for="(c, j) in row" :key="j">
-                <a v-for="(n, m) in c.inline" :key="m" v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }">{{ n.value }}</a>
+                <a
+                  v-for="(n, m) in c.inline"
+                  :key="m"
+                  v-bind="n.type === 'text' ? {} : { class: 'cb-' + n.type }"
+                  >{{ n.value }}</a
+                >
               </td>
             </tr>
           </tbody>

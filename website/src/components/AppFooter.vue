@@ -28,15 +28,17 @@ const resourceLinks = [
  */
 const contentColumns = computed(() => {
   const cur = locale.value === 'en' ? 'en' : 'zh';
-  return Object.entries(CONTENT_CATEGORIES)
-    .map(([key, cat]) => {
-      const links = CONTENT_ROUTES.filter((r) => r.category === key && r.locale === cur)
-        .slice(0, 3)
-        .map((r) => ({ label: r.title, to: `/${r.prefix}/${r.slug}` }));
-      return { label: cat.label[cur], desc: cat.description[cur], links };
-    })
-    // 内容还没写时不要出现空栏目（会留一个只有标题的空列）
-    .filter((c) => c.links.length > 0);
+  return (
+    Object.entries(CONTENT_CATEGORIES)
+      .map(([key, cat]) => {
+        const links = CONTENT_ROUTES.filter((r) => r.category === key && r.locale === cur)
+          .slice(0, 3)
+          .map((r) => ({ label: r.title, to: `/${r.prefix}/${r.slug}` }));
+        return { label: cat.label[cur], desc: cat.description[cur], links };
+      })
+      // 内容还没写时不要出现空栏目（会留一个只有标题的空列）
+      .filter((c) => c.links.length > 0)
+  );
 });
 
 const legalLinks = [
@@ -96,7 +98,12 @@ const legalLinks = [
       <div class="footer-bottom-left">
         <p class="copyright">{{ t('footer.copyright') }}</p>
         <nav class="legal-links" aria-label="Legal">
-          <LocalizedLink v-for="link in legalLinks" :key="link.label" :to="link.to" class="legal-link">
+          <LocalizedLink
+            v-for="link in legalLinks"
+            :key="link.label"
+            :to="link.to"
+            class="legal-link"
+          >
             {{ t(link.label) }}
           </LocalizedLink>
         </nav>

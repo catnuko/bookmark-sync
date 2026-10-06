@@ -64,9 +64,10 @@ export function renderHeadTags(tags = []) {
       case 'script':
       case 'style': {
         const content = t.innerHTML ?? t.textContent ?? '';
-        const safe = t.tag === 'script' && t.props?.type === 'application/ld+json'
-          ? escapeScript(content)
-          : content;
+        const safe =
+          t.tag === 'script' && t.props?.type === 'application/ld+json'
+            ? escapeScript(content)
+            : content;
         out.push(`<${t.tag}${renderAttrs(t.props)}>${safe}</${t.tag}>`);
         break;
       }
@@ -74,7 +75,9 @@ export function renderHeadTags(tags = []) {
         if (VOID_TAGS.has(t.tag)) {
           out.push(`<${t.tag}${renderAttrs(t.props)}>`);
         } else {
-          out.push(`<${t.tag}${renderAttrs(t.props)}>${escapeText(t.textContent ?? '')}</${t.tag}>`);
+          out.push(
+            `<${t.tag}${renderAttrs(t.props)}>${escapeText(t.textContent ?? '')}</${t.tag}>`,
+          );
         }
     }
   }

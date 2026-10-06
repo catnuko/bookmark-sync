@@ -176,11 +176,15 @@ export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) 
       if (!title) errors.push(`[${p}] title 为空`);
 
       // 4. 正文必须真的被 hydrate（不是空壳）
-      const mainLen = await page.evaluate(() => document.querySelector('#app')?.innerText.length || 0);
+      const mainLen = await page.evaluate(
+        () => document.querySelector('#app')?.innerText.length || 0,
+      );
       if (mainLen < 100) errors.push(`[${p}] hydrate 后正文仅 ${mainLen} 字符`);
 
       // 5. 其他控制台错误（不含 404 资源类噪声）
-      const real = msgs.filter((m) => !/favicon|404 \(Not Found\)|Failed to load resource/i.test(m));
+      const real = msgs.filter(
+        (m) => !/favicon|404 \(Not Found\)|Failed to load resource/i.test(m),
+      );
       if (real.length) errors.push(`[${p}] 控制台报错:\n      ${real.join('\n      ')}`);
 
       await page.close();

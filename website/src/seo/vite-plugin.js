@@ -261,8 +261,14 @@ export function seoStaticPlugin() {
         const sitemapRoutes = [
           ...PUBLIC_ROUTES.map((r) => ({
             basePath: r.path,
-            priority: r.path === '/' ? '1.0' : ['pricing', 'download'].includes(r.seoKey) ? '0.8' : '0.5',
-            changefreq: r.path === '/' ? 'weekly' : ['pricing', 'download'].includes(r.seoKey) ? 'monthly' : 'yearly',
+            priority:
+              r.path === '/' ? '1.0' : ['pricing', 'download'].includes(r.seoKey) ? '0.8' : '0.5',
+            changefreq:
+              r.path === '/'
+                ? 'weekly'
+                : ['pricing', 'download'].includes(r.seoKey)
+                  ? 'monthly'
+                  : 'yearly',
           })),
           // 内容页 priority 0.7：它们是长尾落地页，值得被爬但不该压过定价/下载页。
           // ★ basePath 用**中文路径**（articlePath 已按 locale 生成，这里取 zh 版）
@@ -284,7 +290,11 @@ export function seoStaticPlugin() {
             return out;
           }),
         ];
-        writeFileSync(resolve(distDir, 'sitemap.xml'), buildSitemap(sitemapRoutes, pathForLocale, SITE_UPDATED), 'utf8');
+        writeFileSync(
+          resolve(distDir, 'sitemap.xml'),
+          buildSitemap(sitemapRoutes, pathForLocale, SITE_UPDATED),
+          'utf8',
+        );
         writeFileSync(resolve(distDir, 'robots.txt'), buildRobots(), 'utf8');
 
         const messages = i18nMod.messages;
@@ -307,7 +317,12 @@ export function seoStaticPlugin() {
         //   urlPath 是喂给 renderPage 的**路由路径**（'/404'），两者不是一回事。
         //   混用会写出到 dist 之外（EROFS）—— 之前真踩过。
         targets.push({ seoKey: 'notFound', routePath: '/404', outFile: '404.html', locale: 'zh' });
-        targets.push({ seoKey: 'notFound', routePath: '/en/404', outFile: 'en/404.html', locale: 'en' });
+        targets.push({
+          seoKey: 'notFound',
+          routePath: '/en/404',
+          outFile: 'en/404.html',
+          locale: 'en',
+        });
 
         // 内容文章页
         for (const a of content.articles) {
@@ -317,14 +332,11 @@ export function seoStaticPlugin() {
             .filter((x) => x.category === a.category && x.slug !== a.slug)
             .slice(0, 4)
             .map((x) => ({ href: articlePath(x), title: x.frontmatter.title }));
-          const localeMeta = LOCALES.reduce(
-            (acc, l) => {
-              const other = content.bySlug.get(`${l}/${a.slug}`);
-              if (other) acc[l] = articlePath(other);
-              return acc;
-            },
-            {},
-          );
+          const localeMeta = LOCALES.reduce((acc, l) => {
+            const other = content.bySlug.get(`${l}/${a.slug}`);
+            if (other) acc[l] = articlePath(other);
+            return acc;
+          }, {});
 
           targets.push({
             seoKey: 'content',

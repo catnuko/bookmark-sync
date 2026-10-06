@@ -97,8 +97,7 @@ export const ROUTE_SEO = {
       title: 'Documentation · BookmarkSync',
       description:
         'BookmarkSync documentation: quick start, feature deep-dive, FAQ, troubleshooting. Find every answer about the bookmark sync tool here.',
-      keywords:
-        'BookmarkSync docs,bookmark sync tutorial,bookmark sync usage,bookmark sync FAQ',
+      keywords: 'BookmarkSync docs,bookmark sync tutorial,bookmark sync usage,bookmark sync FAQ',
     },
   },
   support: {
@@ -112,8 +111,7 @@ export const ROUTE_SEO = {
       title: 'Support & Help · BookmarkSync',
       description:
         'BookmarkSync support & help: FAQ on sign-up, browser support, free quota, restoring on a new device, data security, sync passphrase and multi-device merge. Contact support@bookmark-sync.top.',
-      keywords:
-        'BookmarkSync help,bookmark sync FAQ,bookmark sync support,bookmark sync contact',
+      keywords: 'BookmarkSync help,bookmark sync FAQ,bookmark sync support,bookmark sync contact',
     },
   },
   privacy: {
@@ -215,9 +213,27 @@ export function getSoftwareAppJsonLd(locale = 'zh') {
       ? '跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox 之间书签自动同步。真树同步，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 500 条书签起步。'
       : 'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — and convergent multi-device merge. Start free with 500 bookmarks.',
     offers: [
-      { '@type': 'Offer', price: '0', priceCurrency: 'USD', name: 'Free', url: `${SITE.url}/pricing` },
-      { '@type': 'Offer', price: '20', priceCurrency: 'USD', name: 'Plus', url: `${SITE.url}/pricing` },
-      { '@type': 'Offer', price: '50', priceCurrency: 'USD', name: 'Pro', url: `${SITE.url}/pricing` },
+      {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+        name: 'Free',
+        url: `${SITE.url}/pricing`,
+      },
+      {
+        '@type': 'Offer',
+        price: '20',
+        priceCurrency: 'USD',
+        name: 'Plus',
+        url: `${SITE.url}/pricing`,
+      },
+      {
+        '@type': 'Offer',
+        price: '50',
+        priceCurrency: 'USD',
+        name: 'Pro',
+        url: `${SITE.url}/pricing`,
+      },
     ],
   };
   if (SITE.twitter) data.sameAs = [`https://twitter.com/${SITE.twitter.replace(/^@/, '')}`];

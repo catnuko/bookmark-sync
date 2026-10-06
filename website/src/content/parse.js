@@ -18,7 +18,8 @@
  */
 
 /** 支持的语法白名单 —— 出错时告诉作者「这个语法不支持」而不是静默渲染错。 */
-const SUPPORTED = '标题(#/##/###)、段落、- 列表、1. 有序列表、> 引用、``` 代码块、| 表格、**粗体**、`行内代码`';
+const SUPPORTED =
+  '标题(#/##/###)、段落、- 列表、1. 有序列表、> 引用、``` 代码块、| 表格、**粗体**、`行内代码`';
 
 /** 解析行内标记：`**粗体**` 与 `` `代码` ``。其余原样转义。 */
 export function parseInline(text) {
@@ -215,7 +216,9 @@ export function slugOfHeading(text) {
  * 声明了页面上不存在的问答属于结构化数据滥用，Google 会忽略甚至处罚。
  */
 function extractFaq(blocks, filePath) {
-  const faqStart = blocks.findIndex((b) => b.type === 'heading' && b.level === 2 && /^faq$/i.test(b.text.trim()));
+  const faqStart = blocks.findIndex(
+    (b) => b.type === 'heading' && b.level === 2 && /^faq$/i.test(b.text.trim()),
+  );
   if (faqStart === -1) return [];
 
   const out = [];

@@ -15,7 +15,14 @@
 import { computed, inject } from 'vue';
 import { useHead } from '@unhead/vue';
 import { useRoute } from 'vue-router';
-import { SITE, LOCALE_TAGS, ROUTE_SEO, getOrganizationJsonLd, getSoftwareAppJsonLd, getBreadcrumbJsonLd } from './config';
+import {
+  SITE,
+  LOCALE_TAGS,
+  ROUTE_SEO,
+  getOrganizationJsonLd,
+  getSoftwareAppJsonLd,
+  getBreadcrumbJsonLd,
+} from './config';
 import { pathForLocale } from '../router/routes';
 
 export function useSEO() {
@@ -66,7 +73,12 @@ export function useSEO() {
       const links = [];
       for (const loc of SITE.locales) {
         const p = override.localePaths[loc];
-        if (p) links.push({ rel: 'alternate', hreflang: LOCALE_TAGS[loc].hreflang, href: `${SITE.url}${p}` });
+        if (p)
+          links.push({
+            rel: 'alternate',
+            hreflang: LOCALE_TAGS[loc].hreflang,
+            href: `${SITE.url}${p}`,
+          });
       }
       const xd = override.localePaths[SITE.defaultLocale];
       if (xd) links.push({ rel: 'alternate', hreflang: 'x-default', href: `${SITE.url}${xd}` });
@@ -134,9 +146,20 @@ export function useSEO() {
       ...alternates.value,
     ],
     script: [
-      { type: 'application/ld+json', innerHTML: JSON.stringify(getOrganizationJsonLd(seoLocale.value)) },
-      { type: 'application/ld+json', innerHTML: JSON.stringify(getSoftwareAppJsonLd(seoLocale.value)) },
-      { type: 'application/ld+json', innerHTML: JSON.stringify(getBreadcrumbJsonLd(seoKey.value, seoLocale.value, override?.breadcrumbLeaf)) },
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify(getOrganizationJsonLd(seoLocale.value)),
+      },
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify(getSoftwareAppJsonLd(seoLocale.value)),
+      },
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify(
+          getBreadcrumbJsonLd(seoKey.value, seoLocale.value, override?.breadcrumbLeaf),
+        ),
+      },
     ],
     htmlAttrs: {
       lang: computed(() => LOCALE_TAGS[seoLocale.value].htmlLang),
