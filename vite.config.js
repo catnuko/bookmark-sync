@@ -7,7 +7,8 @@ import { readFileSync, existsSync } from 'node:fs';
  * 本地开发凭据注入（**只在本地生效**）。
  *
  * 真值放在仓库根的 `.dev-creds.json`（已 gitignore，见 .gitignore）：
- *   { "email": "...", "password": "...", "passphrase": "..." }
+ *   { "email": "...", "password": "...", "passphrase": "...",
+ *     "aiKey": "sk-..." }
  *
  * 为什么走文件而不是环境变量：环境变量会进 shell 历史；而这个文件
  * 既不入 git，也能被 vite.config.js 读到。
@@ -15,6 +16,11 @@ import { readFileSync, existsSync } from 'node:fs';
  * ★ CI 与正式发版拿不到这个值 —— 文件不在仓库里，CI 上不存在 → 空对象 →
  * `__DEV_CREDS__` 编译成空串，**商店包与 GitHub Release 产物不含任何凭据**。
  * 这也是为什么不把凭据写进 src/（src 会进 git、会被 CI 打包）。
+ *
+ * ★★ `aiKey` 与 email/password 的风险等级不同：那两个顶多泄露一个测试账号，
+ * `aiKey` 是**有余额的付费凭证**，泄露 = 别人花你的钱。所以除了 gitignore，
+ * 还有一道「打包闸」兜底：scripts/package-zips.mjs 会在打包前扫产物，
+ * 发现 `sk-` 开头的 key 就**拒绝打包**（见该文件）。
  */
 function readDevCreds() {
   const f = resolve(import.meta.dirname, '.dev-creds.json');
@@ -25,6 +31,9 @@ function readDevCreds() {
       email: String(raw.email ?? ''),
       password: String(raw.password ?? ''),
       passphrase: String(raw.passphrase ?? ''),
+      // ★ 只认 sk- 前缀的 key。写错成别的（内网 token、占位符）时宁可留空，
+      // 也不要让一段「疑似凭据但其实不是」的字符串白白进产物。
+      aiKey: /^sk-/.test(String(raw.aiKey ?? '')) ? String(raw.aiKey).trim() : '',
     };
   } catch (e) {
     console.warn('[vite] .dev-creds.json 解析失败，本次构建不注入凭据：', e.message);

@@ -4,6 +4,7 @@
 import { onMounted } from 'vue';
 import { state, init } from './store.js';
 import { describeError } from './lib/errors.js';
+import { seedDevAiKey } from './ai/config.js';
 import AuthView from './components/AuthView.vue';
 import PopupView from './components/PopupView.vue';
 import OptionsView from './components/OptionsView.vue';
@@ -19,6 +20,10 @@ const props = defineProps({ popup: { type: Boolean, default: false } });
 // `[object Object]`（非 Error 抛出物会被 String()），排障等于没有线索。
 // 这里兜底记一条可读日志；门禁该 fail closed 仍 fail closed，不在这里放行。
 onMounted(() => {
+  // 本地开发用的 API Key 预填（正式构建里 devAiKey 是空串，这句直接返回）。
+  // 放在 init 之前且不 await：预填只影响设置页的显示，与登录/门禁无关，
+  // 不该拖慢首屏。幂等，只第一次会真写。
+  void seedDevAiKey();
   void init(props.popup).catch((e) => {
     console.warn('[app] init failed:', describeError(e));
   });

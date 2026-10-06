@@ -121,3 +121,44 @@ export async function clearAi(): Promise<void> {
   await api.storage.local.remove(SECRET_KEY);
   await api.storage.local.set({ [CONFIG_KEY]: normalize({ enabled: false }) });
 }
+
+// ---- 本地开发便捷：把构建期注入的 key 预填进 storage ----
+
+/**
+ * 构建期注入的开发用 API Key（见 vite.config.js → readDevCreds）。
+ * 正式发版拿不到 → 编译成空串，本函数直接返回。
+ */
+declare const __DEV_CREDS__: { email: string; password: string; passphrase: string; aiKey: string };
+const devAiKey =
+  typeof __DEV_CREDS__ !== 'undefined' && typeof __DEV_CREDS__.aiKey === 'string'
+    ? __DEV_CREDS__.aiKey.trim()
+    : '';
+
+/**
+ * 首次运行时把注入的 key 写进 storage，之后设置页就自带配置。
+ *
+ * ## 三条自律（这是「填了省事」与「泄密」的边界）
+ *
+ * 1. **只在没配过时写**。用户已填的 key、已改的 provider/baseUrl/model 一律不动 ——
+ *    否则每次打开扩展都会把他手动换的 DeepSeek 端点重置回默认值。
+ * 2. **`enabled` 仍然留 false**。装了扩展不等于授权把书签发出去，开关必须由用户点。
+ *    （这一条与 `normalize` 的默认值一致，别为了省一次点击就改成 true。）
+ * 3. **只在本地构建有值**。CI 拿不到 `.dev-creds.json` → `devAiKey` 是空串 →
+ *    直接 return，商店用户拿到的就是正常的「未配置」空态。
+ *
+ * 幂等：每次启动都调，但只有第一次会真的写。
+ */
+export async function seedDevAiKey(): Promise<void> {
+  if (!devAiKey) return;
+  try {
+    const got = await api.storage.local.get([SECRET_KEY, CONFIG_KEY]);
+    if (typeof got[SECRET_KEY] === 'string' && got[SECRET_KEY].trim()) return; // 已有 key，不动
+    if (got[CONFIG_KEY]) return; // 已存过配置（哪怕没 key）也不动，交给用户自己填
+    await api.storage.local.set({
+      [SECRET_KEY]: devAiKey,
+      [CONFIG_KEY]: normalize({ provider: 'deepseek', enabled: false }),
+    });
+  } catch {
+    // 预填失败无所谓：设置页仍可手填，不该因此报错
+  }
+}
