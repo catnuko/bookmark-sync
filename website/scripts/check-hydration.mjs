@@ -10,7 +10,6 @@
 //
 // 需要系统 Chrome/Chromium/Edge（CHROME_BIN 可覆盖）。没装则跳过 —— CI 容器
 // 通常没有浏览器，硬失败只会让所有部署无谓地红。
-import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,6 +96,21 @@ async function waitForServer(port) {
 }
 
 export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) {
+  // ★ playwright 必须**动态导入**，不能顶层 import。
+  //   它是仓库**根**的 devDependency（给 tests/ 用的），不在 website/package.json 里。
+  //   本机因为 pnpm workspace 的提升（hoisting）能解析到，**Vercel 上解析不到** ——
+  //   顶层 import 会让整个 build 以
+  //     Error: Cannot find package 'playwright' imported from .../check-hydration.mjs
+  //   失败。Vercel 日志里真出现过这一条（36 页SSG 全部成功、ssg-check 也过了，
+  //   最后一步挂在 import 上）。
+  //   动态导入 + 找不到就跳过 —— hydration 检查是**加分项**，不该成为部署的硬阻塞。
+  let chromium;
+  try {
+    ({ chromium } = await import('playwright'));
+  } catch {
+    return { errors: [], skipped: 'playwright 未安装（CI 环境，跳过 hydration 检查）' };
+  }
+
   const chromePath = findChrome();
   if (!chromePath) {
     return {
