@@ -1395,5 +1395,50 @@
   },
   "dpe_none": {
     "message": "No duplicates found."
+  },
+  "ai_modelList": {
+    "message": "Models"
+  },
+  "ai_modelListHint": {
+    "message": "Click a row to switch to it. Each model keeps its own key, independent of the others."
+  },
+  "ai_inUse": {
+    "message": "In use"
+  },
+  "ai_addProvider": {
+    "message": "Add model"
+  },
+  "ai_removeProvider": {
+    "message": "Remove this entry"
+  },
+  "ai_noProviders": {
+    "message": "No models yet. Use the button below to add one."
+  },
+  "ai_customProvider": {
+    "message": "Custom model"
+  },
+  "ai_customProviderPlaceholder": {
+    "message": "e.g. Company internal proxy"
+  },
+  "ai_customProviderHint": {
+    "message": "For self-hosted or relay endpoints. Treated as OpenAI-compatible."
+  },
+  "ai_label": {
+    "message": "Display name"
+  },
+  "ai_labelHint": {
+    "message": "Only you see this. Use it to tell apart several endpoints from the same provider."
+  },
+  "ai_providerKind": {
+    "message": "Provider type"
+  },
+  "ai_providerKindHint": {
+    "message": "Selects which API format to speak. Changing it also swaps the endpoint and model name if they are still at their defaults."
+  },
+  "ai_add": {
+    "message": "Add"
+  },
+  "ai_cancel": {
+    "message": "Cancel"
   }
 }

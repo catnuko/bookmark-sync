@@ -1428,5 +1428,50 @@
   },
   "dpe_none": {
     "message": "沒有發現重複書籤。"
+  },
+  "ai_modelList": {
+    "message": "模型"
+  },
+  "ai_modelListHint": {
+    "message": "點一行切換到該模型。每條模型單獨保存自己的 Key，互不影響。"
+  },
+  "ai_inUse": {
+    "message": "使用中"
+  },
+  "ai_addProvider": {
+    "message": "新增模型"
+  },
+  "ai_removeProvider": {
+    "message": "刪除這條"
+  },
+  "ai_noProviders": {
+    "message": "還沒有新增任何模型。點下面的按鈕新增一個。"
+  },
+  "ai_customProvider": {
+    "message": "自訂模型"
+  },
+  "ai_customProviderPlaceholder": {
+    "message": "例如：公司內部代理"
+  },
+  "ai_customProviderHint": {
+    "message": "適合自建端點或中轉服務。協定按 OpenAI 相容處理。"
+  },
+  "ai_label": {
+    "message": "顯示名稱"
+  },
+  "ai_labelHint": {
+    "message": "只給你自己看，用來區分同一家廠商的多個端點。"
+  },
+  "ai_providerKind": {
+    "message": "廠商類型"
+  },
+  "ai_providerKindHint": {
+    "message": "決定用哪套 API 格式。改類型時，端點與模型名若仍是預設值會一起換掉。"
+  },
+  "ai_add": {
+    "message": "新增"
+  },
+  "ai_cancel": {
+    "message": "取消"
   }
 }

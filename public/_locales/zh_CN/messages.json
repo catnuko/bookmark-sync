@@ -1428,5 +1428,50 @@
   },
   "dpe_none": {
     "message": "没有发现重复书签。"
+  },
+  "ai_modelList": {
+    "message": "模型"
+  },
+  "ai_modelListHint": {
+    "message": "点一行切换到该模型。每条模型单独保存自己的 Key，互不影响。"
+  },
+  "ai_inUse": {
+    "message": "使用中"
+  },
+  "ai_addProvider": {
+    "message": "添加模型"
+  },
+  "ai_removeProvider": {
+    "message": "删除这条"
+  },
+  "ai_noProviders": {
+    "message": "还没有添加任何模型。点下面的按钮添加一个。"
+  },
+  "ai_customProvider": {
+    "message": "自定义模型"
+  },
+  "ai_customProviderPlaceholder": {
+    "message": "例如：公司内部代理"
+  },
+  "ai_customProviderHint": {
+    "message": "适合自建端点或中转服务。协议按 OpenAI 兼容处理。"
+  },
+  "ai_label": {
+    "message": "显示名称"
+  },
+  "ai_labelHint": {
+    "message": "只给你自己看，用来区分同一家厂商的多个端点。"
+  },
+  "ai_providerKind": {
+    "message": "厂商类型"
+  },
+  "ai_providerKindHint": {
+    "message": "决定用哪套 API 格式。改类型时，端点与模型名若还是默认值会一起跟着换。"
+  },
+  "ai_add": {
+    "message": "添加"
+  },
+  "ai_cancel": {
+    "message": "取消"
   }
 }

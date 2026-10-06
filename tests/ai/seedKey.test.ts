@@ -63,41 +63,53 @@ afterEach(() => {
 });
 
 describe('seedDevAiKey', () => {
+  // ★ 以下用例的存储形状按 2026-10-06 的多 provider 列表结构写：
+  //   `ai.providers` = ProviderEntry[]，`ai.keys` = {[id]: key}，`ai.activeId` = 当前条目。
+  // 关键判据不变：**用户已有的东西一律不动**，只补全新的空态。
+
   it('★ 正式发版（无注入值）时什么都不写', async () => {
     const { store } = stubStorage();
     const { seedDevAiKey } = await loadWithDevAiKey('');
     await seedDevAiKey();
-    // 商店用户的既有配置必须原样保留，不能被「无注入值」洗掉
-    expect(store['ai.apiKey']).toBeUndefined();
-    expect(store['ai.config']).toBeUndefined();
+    expect(store['ai.providers']).toBeUndefined();
+    expect(store['ai.keys']).toBeUndefined();
+  });
+
+  it('★ 已有 provider 条目时绝不覆盖（哪怕那条没 key）', async () => {
+    const { store } = stubStorage({
+      'ai.providers': [
+        {
+          id: 'p_1',
+          provider: 'openai',
+          label: 'OpenAI',
+          baseUrl: 'https://api.openai.com',
+          model: 'gpt-4.1-mini',
+        },
+      ],
+      'ai.activeId': 'p_1',
+    });
+    const { seedDevAiKey, readApiKey } = await loadWithDevAiKey('sk-dev-injected');
+    await seedDevAiKey();
+    expect(store['ai.keys']).toBeUndefined(); // 绝不该往用户的条目里塞开发 key
+    expect(await readApiKey()).toBe('');
+    expect((store['ai.providers'] as unknown[]).length).toBe(1); // 没新增条目
   });
 
   it('★ 用户已有 key 时绝不覆盖', async () => {
-    const { store } = stubStorage({ 'ai.apiKey': 'sk-user-own-key' });
+    const { store } = stubStorage({
+      'ai.providers': [
+        { id: 'p_1', provider: 'anthropic', label: 'A', baseUrl: 'https://a.dev', model: 'm' },
+      ],
+      'ai.keys': { p_1: 'sk-user-own-key' },
+      'ai.activeId': 'p_1',
+    });
     const { seedDevAiKey, readApiKey } = await loadWithDevAiKey('sk-dev-injected');
     await seedDevAiKey();
     expect(await readApiKey()).toBe('sk-user-own-key');
-    expect(store['ai.config']).toBeUndefined(); // 也不该顺手写配置
+    expect((store['ai.providers'] as unknown[]).length).toBe(1);
   });
 
-  it('★ 用户已有配置（哪怕没 key）时不覆盖', async () => {
-    const { store } = stubStorage({
-      'ai.config': {
-        provider: 'openai',
-        baseUrl: 'https://api.openai.com',
-        model: 'gpt-4.1-mini',
-        enabled: true,
-      },
-    });
-    const { seedDevAiKey, readAiConfig } = await loadWithDevAiKey('sk-dev-injected');
-    await seedDevAiKey();
-    const cfg = await readAiConfig();
-    expect(cfg.provider).toBe('openai');
-    expect(cfg.enabled).toBe(true);
-    expect(store['ai.apiKey']).toBeUndefined();
-  });
-
-  it('空配置时写入注入的 key + deepseek 默认端点', async () => {
+  it('空态时新建一条 DeepSeek 条目并写入注入的 key', async () => {
     const { store } = stubStorage();
     const { seedDevAiKey, readApiKey, readAiConfig } = await loadWithDevAiKey('sk-dev-abc123');
     await seedDevAiKey();
@@ -105,7 +117,8 @@ describe('seedDevAiKey', () => {
     const cfg = await readAiConfig();
     expect(cfg.provider).toBe('deepseek');
     expect(cfg.baseUrl).toBe('https://api.deepseek.com');
-    expect(cfg.model).toBe('deepseek-chat');
+    // 2026-07-24 起 deepseek-chat 已弃用，官方主模型是 v4-flash
+    expect(cfg.model).toBe('deepseek-v4-flash');
   });
 
   it('★ enabled 保持 false —— 预填不等于授权', async () => {
@@ -115,13 +128,13 @@ describe('seedDevAiKey', () => {
     expect((await readAiConfig()).enabled).toBe(false);
   });
 
-  it('幂等：连续调两次结果一致', async () => {
+  it('幂等：连续调两次不会变成两条', async () => {
     const { store } = stubStorage();
     const { seedDevAiKey, readApiKey } = await loadWithDevAiKey('sk-dev-abc123');
     await seedDevAiKey();
     await seedDevAiKey();
+    expect((store['ai.providers'] as unknown[]).length).toBe(1);
     expect(await readApiKey()).toBe('sk-dev-abc123');
-    expect(store['ai.apiKey']).toBe('sk-dev-abc123');
   });
 
   it('key 前后空白被 trim', async () => {

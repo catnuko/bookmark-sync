@@ -4,7 +4,7 @@
 import { onMounted } from 'vue';
 import { state, init } from './store.js';
 import { describeError } from './lib/errors.js';
-import { seedDevAiKey } from './ai/config.js';
+import { migrateLegacy, seedDevAiKey } from './ai/config.js';
 import AuthView from './components/AuthView.vue';
 import PopupView from './components/PopupView.vue';
 import OptionsView from './components/OptionsView.vue';
@@ -19,10 +19,15 @@ const props = defineProps({ popup: { type: Boolean, default: false } });
 // 接住返回的 promise —— 一旦有意外 reject，Chrome 扩展错误列表里只剩一个
 // `[object Object]`（非 Error 抛出物会被 String()），排障等于没有线索。
 // 这里兜底记一条可读日志；门禁该 fail closed 仍 fail closed，不在这里放行。
-onMounted(() => {
+onMounted(async () => {
+  // ★ 顺序有讲究：先迁移旧结构，再预填开发 key。
+  // 反过来的话 seedDevAiKey 会先建出一条列表条目，migrateLegacy 看到「已有列表」
+  // 就跳过了 → 真实用户升级后老配置不会进列表。两条都幂等，但顺序不能反。
+  // 迁移必须 await：ChatPanel 与 PaneOrganize 一挂载就读配置，迁移没跑完
+  // 它们会先看到空列表。
+  await migrateLegacy();
   // 本地开发用的 API Key 预填（正式构建里 devAiKey 是空串，这句直接返回）。
-  // 放在 init 之前且不 await：预填只影响设置页的显示，与登录/门禁无关，
-  // 不该拖慢首屏。幂等，只第一次会真写。
+  // 不 await：只影响设置页显示，与登录/门禁无关，不该拖慢首屏。
   void seedDevAiKey();
   void init(props.popup).catch((e) => {
     console.warn('[app] init failed:', describeError(e));
