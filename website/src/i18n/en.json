@@ -30,7 +30,11 @@
     "backToHome": "Back to home",
     "language": "Language",
     "chinese": "中文",
-    "english": "English"
+    "english": "English",
+    "notFound": {
+      "title": "Page not found",
+      "desc": "The page you visited does not exist or has been moved."
+    }
   },
   "hero": {
     "badge": "Chrome · Edge · Firefox",

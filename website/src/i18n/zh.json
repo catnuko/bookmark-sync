@@ -30,7 +30,11 @@
     "backToHome": "返回首页",
     "language": "语言",
     "chinese": "中文",
-    "english": "English"
+    "english": "English",
+    "notFound": {
+      "title": "页面不存在",
+      "desc": "你访问的页面不存在或已被移动。"
+    }
   },
   "hero": {
     "badge": "Chrome · Edge · Firefox",

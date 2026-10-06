@@ -1,6 +1,7 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
 import { SITE } from '../seo/config.js';
+import LocalizedLink from '../components/LocalizedLink.vue';
 
 const { t } = useI18n();
 
@@ -58,14 +59,14 @@ const resourceLinks = [
         <h2 class="support-h2">{{ t('support.resources.title') }}</h2>
         <p class="support-subtitle">{{ t('support.resources.desc') }}</p>
         <div class="resource-links">
-          <RouterLink
+          <LocalizedLink
             v-for="link in resourceLinks"
             :key="link.key"
             :to="link.to"
             class="resource-link"
           >
             {{ t(`support.resources.items.${link.key}`) }}
-          </RouterLink>
+          </LocalizedLink>
         </div>
       </div>
     </section>

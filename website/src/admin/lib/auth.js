@@ -29,12 +29,21 @@ async function refresh() {
   adminAuth.ready = true;
 }
 
-supabase.auth.onAuthStateChange(async () => {
-  await refresh();
-});
+// ★ 服务端（SSG 预渲染）下短路：模块级就会连 supabase，而在Node 里
+//   supabase-js 依赖 localStorage / fetch，会把预渲染进程拖挂。
+//   预渲染只产出官网页面，后台鉴权一律在客户端发生。
+const isServer = typeof window === 'undefined';
 
-// 启动时拉一次。导出 readyPromise，供 main.js 在 mount 前等待。
-export const adminReady = refresh();
+/** 浏览器侧启动一次鉴权刷新；服务端返回永不 resolve 的占位 promise。 */
+function startAuth() {
+  if (isServer) return { ready: new Promise(() => {}) };
+  supabase.auth.onAuthStateChange(async () => {
+    await refresh();
+  });
+  return { ready: refresh() };
+}
+
+export const { ready: adminReady } = startAuth();
 
 export async function adminSignIn(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({

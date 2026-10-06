@@ -1,6 +1,7 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
 import PricingCard from '../PricingCard.vue';
+import LocalizedLink from '../LocalizedLink.vue';
 
 const { t } = useI18n();
 
@@ -25,7 +26,7 @@ const plans = [
       </div>
 
       <div class="pricing-more">
-        <RouterLink to="/pricing" class="link">
+        <LocalizedLink to="/pricing" class="link">
           {{ t('common.viewAll') }}
           <svg
             width="16"
@@ -42,7 +43,7 @@ const plans = [
               stroke-linejoin="round"
             />
           </svg>
-        </RouterLink>
+        </LocalizedLink>
       </div>
     </div>
   </section>

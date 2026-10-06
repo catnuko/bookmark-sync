@@ -1,5 +1,6 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
+import LocalizedLink from './LocalizedLink.vue';
 
 const { t } = useI18n();
 
@@ -25,36 +26,36 @@ const legalLinks = [
   <footer class="footer">
     <div class="container footer-inner">
       <div class="footer-brand">
-        <RouterLink to="/" class="brand">
+        <LocalizedLink to="/" class="brand">
           <img src="/favicon.svg" alt="BookmarkSync" width="28" height="28" />
           <span class="brand-name">{{ t('brand.name') }}</span>
-        </RouterLink>
+        </LocalizedLink>
         <p class="footer-tagline">{{ t('footer.tagline') }}</p>
       </div>
 
       <div class="footer-cols">
         <div class="footer-col">
           <h4 class="footer-title">{{ t('footer.product') }}</h4>
-          <RouterLink
+          <LocalizedLink
             v-for="link in productLinks"
             :key="link.label"
             :to="link.to"
             class="footer-link"
           >
             {{ t(link.label) }}
-          </RouterLink>
+          </LocalizedLink>
         </div>
 
         <div class="footer-col">
           <h4 class="footer-title">{{ t('footer.resources') }}</h4>
-          <RouterLink
+          <LocalizedLink
             v-for="link in resourceLinks"
             :key="link.label"
             :to="link.to"
             class="footer-link"
           >
             {{ t(link.label) }}
-          </RouterLink>
+          </LocalizedLink>
         </div>
       </div>
     </div>
@@ -63,9 +64,9 @@ const legalLinks = [
       <div class="footer-bottom-left">
         <p class="copyright">{{ t('footer.copyright') }}</p>
         <nav class="legal-links" aria-label="Legal">
-          <RouterLink v-for="link in legalLinks" :key="link.label" :to="link.to" class="legal-link">
+          <LocalizedLink v-for="link in legalLinks" :key="link.label" :to="link.to" class="legal-link">
             {{ t(link.label) }}
-          </RouterLink>
+          </LocalizedLink>
         </nav>
       </div>
       <a :href="`mailto:${t('contact.supportEmail')}`" class="footer-support">

@@ -1,54 +1,83 @@
 /**
- * useSEO composable
+ * useSEO composable —— 路由级 head 管理（唯一 head 写入点）
  *
  * 在 App.vue 顶层调用一次即可。所有响应式由内部处理：
- *   - 路由变化 → route.name / route.path 自动响应 → 重新设置 SEO
- *   - 语言切换 → locale 自动响应 → title/description/og 同步切换
+ *   - 路由变化 → meta.seoKey / route.path 自动响应 → 重新设置 SEO
+ *   - 语言切换 → URL 前缀变化 → locale 自动响应 → title/description/og/canonical 同步切换
  *
  * 输出：
  *   - 当前路由的 title / description / keywords
- *   - canonical / og / twitter card
- *   - Organization + SoftwareApplication + BreadcrumbList JSON-LD
+ *   - canonical（指向当前 locale 的独立 URL）
+ *   - hreflang alternate（zh / en / x-default，指向**不同** URL）
+ *   - robots：公开页 index+follow；404 与后台 noindex
+ *   - Organization + SoftwareApplication + BreadcrumbList（+ FAQPage）JSON-LD
  */
 import { computed } from 'vue';
 import { useHead } from '@unhead/vue';
 import { useRoute } from 'vue-router';
-import { useI18n } from 'vue-i18n';
-import {
-  SITE,
-  ROUTE_SEO,
-  getOrganizationJsonLd,
-  getSoftwareAppJsonLd,
-  getBreadcrumbJsonLd,
-} from './config';
+import { SITE, LOCALE_TAGS, ROUTE_SEO, getOrganizationJsonLd, getSoftwareAppJsonLd, getBreadcrumbJsonLd } from './config';
+import { pathForLocale } from '../router/routes';
 
 export function useSEO() {
   const route = useRoute();
-  const { locale } = useI18n();
 
-  // 当前路由对应的 SEO 文案（按 locale 切换，回退到默认 locale）
+  // ★ 语言以 URL 为准，而不是 i18n 的 locale。
+  // 直接打开 /en/pricing 时用户记忆可能是 zh，i18n 会被设成 zh；
+  // 但 SEO 文案必须跟 canonical 自洽（canonical 是 /en/pricing 就得配英文文案），
+  // 否则爬虫看到「英文 URL + 中文 title」。
+  const seoLocale = computed(() =>
+    route.path === '/en' || route.path.startsWith('/en/') ? 'en' : 'zh',
+  );
+
+  // 当前路由对应的 SEO 文案（按 URL 语言切换，回退到默认语言）
   const seo = computed(() => {
-    const name = route.name || 'home';
-    const config = ROUTE_SEO[name] || ROUTE_SEO.home;
-    return config[locale.value] || config[SITE.defaultLocale];
+    const config = ROUTE_SEO[route.meta.seoKey] || ROUTE_SEO.home;
+    return config[seoLocale.value] || config[SITE.defaultLocale];
   });
 
-  // canonical URL：去除 hash，统一末尾不带斜杠（除根路径）
-  const canonicalUrl = computed(() => {
-    const path = route.path.replace(/\/$/, '') || '/';
-    return `${SITE.url}${path === '/' ? '/' : path}`;
+  const seoKey = computed(() => route.meta.seoKey || 'home');
+  const isNoindex = computed(() => route.meta.noindex === true || route.meta.admin === true);
+
+  // canonical：去掉 hash 与尾斜杠（根路径除外）
+  const canonicalPath = computed(() => {
+    const p = route.path.replace(/#.*$/, '');
+    return p === '/' ? '/' : p.replace(/\/$/, '');
+  });
+  const canonicalUrl = computed(() => `${SITE.url}${canonicalPath.value}`);
+
+  // hreflang：zh / en 各自指向**真实不同的**URL，x-default 指向中文
+  const alternates = computed(() => {
+    const links = SITE.locales.map((loc) => ({
+      rel: 'alternate',
+      hreflang: LOCALE_TAGS[loc].hreflang,
+      href: `${SITE.url}${pathForLocale(canonicalPath.value, loc)}`,
+    }));
+    links.push({
+      rel: 'alternate',
+      hreflang: 'x-default',
+      href: `${SITE.url}${pathForLocale(canonicalPath.value, SITE.defaultLocale)}`,
+    });
+    return links;
   });
 
-  // 当前 locale 的 BCP 47 标签
-  const ogLocale = computed(() => (locale.value === 'zh' ? 'zh_CN' : 'en_US'));
+  const ogLocale = computed(() => LOCALE_TAGS[seoLocale.value].og);
+  const ogLocaleAlternate = computed(() =>
+    seoLocale.value === 'zh' ? LOCALE_TAGS.en.og : LOCALE_TAGS.zh.og,
+  );
+
+  const robots = computed(() =>
+    isNoindex.value
+      ? 'noindex, nofollow'
+      : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+  );
 
   useHead(() => ({
     title: seo.value.title,
     meta: [
       { name: 'description', content: seo.value.description },
-      { name: 'keywords', content: seo.value.keywords },
+      ...(seo.value.keywords ? [{ name: 'keywords', content: seo.value.keywords }] : []),
       { name: 'author', content: SITE.name },
-      { name: 'robots', content: 'index, follow, max-image-preview:large' },
+      { name: 'robots', content: robots.value },
       // Open Graph
       { property: 'og:type', content: 'website' },
       { property: 'og:site_name', content: SITE.name },
@@ -56,35 +85,36 @@ export function useSEO() {
       { property: 'og:description', content: seo.value.description },
       { property: 'og:url', content: canonicalUrl.value },
       { property: 'og:locale', content: ogLocale.value },
-      { property: 'og:locale:alternate', content: locale.value === 'zh' ? 'en_US' : 'zh_CN' },
+      { property: 'og:locale:alternate', content: ogLocaleAlternate.value },
       { property: 'og:image', content: SITE.ogImage },
-      { property: 'og:image:width', content: '1200' },
-      { property: 'og:image:height', content: '630' },
+      // ★ 尺寸必须与 public/og-image.jpg 实际像素一致（当前 2560×1440）。
+      //   声明与实物不符时部分平台（LinkedIn/Slack）会按声明尺寸缩放后再裁剪，
+      //   结果是分享卡片糊掉或主体被切。
+      { property: 'og:image:width', content: '2560' },
+      { property: 'og:image:height', content: '1440' },
+      { property: 'og:image:type', content: 'image/jpeg' },
+      { property: 'og:image:alt', content: `${SITE.name} · ${seo.value.title}` },
       // Twitter Card
       { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:title', content: seo.value.title },
       { name: 'twitter:description', content: seo.value.description },
       { name: 'twitter:image', content: SITE.ogImage },
+      { name: 'twitter:image:alt', content: `${SITE.name} · ${seo.value.title}` },
       ...(SITE.twitter ? [{ name: 'twitter:site', content: SITE.twitter }] : []),
     ],
-    link: [{ rel: 'canonical', href: canonicalUrl.value }],
+    link: [
+      // ★ 404 页不出canonical。它没有对应内容可指，写 canonical 等于告诉 Google
+      //   「把 /404 当成正式页面」，反而可能让它被索引。
+      ...(isNoindex.value ? [] : [{ rel: 'canonical', href: canonicalUrl.value }]),
+      ...alternates.value,
+    ],
     script: [
-      {
-        type: 'application/ld+json',
-        // JSON-LD 必须序列化为字符串
-        innerHTML: JSON.stringify(getOrganizationJsonLd(locale.value)),
-      },
-      {
-        type: 'application/ld+json',
-        innerHTML: JSON.stringify(getSoftwareAppJsonLd(locale.value)),
-      },
-      {
-        type: 'application/ld+json',
-        innerHTML: JSON.stringify(getBreadcrumbJsonLd(route.path, locale.value)),
-      },
+      { type: 'application/ld+json', innerHTML: JSON.stringify(getOrganizationJsonLd(seoLocale.value)) },
+      { type: 'application/ld+json', innerHTML: JSON.stringify(getSoftwareAppJsonLd(seoLocale.value)) },
+      { type: 'application/ld+json', innerHTML: JSON.stringify(getBreadcrumbJsonLd(seoKey.value, seoLocale.value)) },
     ],
     htmlAttrs: {
-      lang: computed(() => (locale.value === 'zh' ? 'zh-CN' : 'en')),
+      lang: computed(() => LOCALE_TAGS[seoLocale.value].htmlLang),
     },
   }));
 }

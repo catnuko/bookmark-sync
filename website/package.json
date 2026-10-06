@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "check:ssg": "node scripts/check-ssg.mjs",
+    "preview": "vite preview",
+    "check:hydr": "node scripts/check-hydration.mjs",
+    "check": "node scripts/check-ssg.mjs && node scripts/check-hydration.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

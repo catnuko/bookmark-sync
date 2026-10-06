@@ -1,5 +1,6 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
+import LocalizedLink from '../LocalizedLink.vue';
 
 const { t } = useI18n();
 </script>
@@ -12,12 +13,12 @@ const { t } = useI18n();
         <h2 class="cta-title">{{ t('hero.title') }}</h2>
         <p class="cta-subtitle">{{ t('hero.subtitle') }}</p>
         <div class="cta-actions">
-          <RouterLink to="/download" class="btn btn-primary btn-lg">
+          <LocalizedLink to="/download" class="btn btn-primary btn-lg">
             {{ t('hero.ctaPrimary') }}
-          </RouterLink>
-          <RouterLink to="/pricing" class="btn btn-outline btn-lg cta-outline">
+          </LocalizedLink>
+          <LocalizedLink to="/pricing" class="btn btn-outline btn-lg cta-outline">
             {{ t('hero.ctaSecondary') }}
-          </RouterLink>
+          </LocalizedLink>
         </div>
       </div>
     </div>
