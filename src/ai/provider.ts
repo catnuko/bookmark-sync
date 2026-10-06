@@ -50,7 +50,16 @@ export interface AiConfig {
   model: string;
 }
 
-/** 只用于「配置是否存在」的判断；真实 key 单独存，见 providerKey.ts。 */
+/**
+ * 各服务商的默认端点与模型。
+ *
+ * ★ model id 有时效性，换厂商前先查官方文档确认没被弃用：
+ *   - DeepSeek 的 `deepseek-chat` / `deepseek-reasoner` 已于 2026-07-24 弃用，
+ *     官方主模型是 `deepseek-v4-flash`（1M 上下文，官方标注适合「分类、打标、
+ *     批量处理」，正是本项目的场景）。填旧名会直接 400。
+ *   - 模型名写错的表现是「AI 不好用」而不是报错，排查起来很费时间 —— 日志里
+ *     记的是 HTTP 400 + 厂商的模糊说明，不看文档很难联想到「模型名过期了」。
+ */
 export const PROVIDER_DEFAULTS: Record<
   AiProvider,
   { baseUrl: string; model: string; label: string }
@@ -67,7 +76,8 @@ export const PROVIDER_DEFAULTS: Record<
   },
   deepseek: {
     baseUrl: 'https://api.deepseek.com',
-    model: 'deepseek-chat',
+    // 2026-07-24 弃用 deepseek-chat；V4-Flash 是官方当前主模型。
+    model: 'deepseek-v4-flash',
     label: 'DeepSeek',
   },
   custom: {
@@ -214,9 +224,22 @@ function buildRequest(
   if (opts.stream) body.stream = true;
 
   // OpenAI 兼容家：system 作为首条消息；Anthropic：走顶层 system 字段。
+  //
+  // ★ system 段开 prompt caching。归类时 system + 「复用现有文件夹名」那段
+  // 每批都完全相同，是最理想的前缀：Anthropic 命中后输入价降约 90%
+  // （claude-haiku 写缓存 1.25×、命中 0.1×），DeepSeek 的前缀缓存命中价更是
+  // 低到 $0.0028/M（不命中 $0.14/M，差 50 倍）。
+  // 17 批的归类任务里，命中缓存后每批只为「新增的书签列表 + 少量变化」付费。
+  // 成本比不缓存低一个数量级，代价只是多两个字段。
+  //
+  // 只能标 system：标到 user 消息上等于每批都是新前缀，永远不命中。
   const payload =
     cfg.provider === 'anthropic'
-      ? { ...body, system: sys, messages: msgs }
+      ? {
+          ...body,
+          system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }],
+          messages: msgs,
+        }
       : { ...body, messages: [{ role: 'system', content: sys }, ...msgs] };
 
   return { url, headers, payload };

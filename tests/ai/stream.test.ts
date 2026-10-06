@@ -84,7 +84,12 @@ describe('streamComplete · 请求构造', () => {
       messages: [{ role: 'user', content: 'hi' }],
     }))
       void _;
-    expect(calls[0].body.system).toBe('QA MODE');
+    // 覆盖后的 system 同样走 [{type:'text',...}] 数组形状（带 cache_control）。
+    // 断言 text 而不是整个对象：数组形状是实现细节（为 prompt caching），
+    // 真正要守住的是「调用方给的 system 整段生效、没被默认那段拼接」。
+    expect(calls[0].body.system).toEqual([
+      expect.objectContaining({ type: 'text', text: 'QA MODE' }),
+    ]);
   });
 
   it('缺 key 在发请求前抛错', async () => {

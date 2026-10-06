@@ -52,9 +52,18 @@ describe('complete · Anthropic 协议', () => {
     // CORS 关键头：少了它浏览器直接挡掉
     expect(calls[0].headers['anthropic-dangerous-direct-browser-access']).toBe('true');
     expect(calls[0].headers['x-api-key']).toBe('k');
-    // Anthropic 的 system 是顶层字段，不是一条消息
-    expect(calls[0].body.system).toContain('bookmark');
+    // Anthropic 的 system 是顶层字段（不是一条消息），且为了 prompt caching
+    // 必须是 [{type:'text',...}] 数组形状 —— 字符串形式带不了 cache_control。
+    // 归类任务分 17 批，system 每批相同，命中缓存后输入价降约一个数量级。
     expect(calls[0].body.messages).toEqual([{ role: 'user', content: 'hi' }]);
+    expect(JSON.stringify(calls[0].body.system)).toContain('bookmark');
+    expect(calls[0].body.system).toEqual([
+      expect.objectContaining({
+        type: 'text',
+        text: expect.stringContaining('bookmark'),
+        cache_control: { type: 'ephemeral' },
+      }),
+    ]);
     expect(res.text).toBe('ok');
     expect(res.usage).toEqual({ input: 3, output: 1 });
   });
