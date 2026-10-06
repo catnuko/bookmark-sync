@@ -28,20 +28,24 @@ async function refreshProfile() {
   account.subscription = sub.data || null;
 }
 
-supabase.auth
-  .getSession()
-  .then(({ data }) => {
-    account.user = data.session?.user ?? null;
-    return refreshProfile();
-  })
-  .finally(() => {
-    account.ready = true;
-  });
+// ★ 服务端（SSG 预渲染）下短路：账号态是纯客户端状态，Node 端拉 session 会
+//   拖挂预渲染进程。SSG 产物一律按「未登录」渲染，客户端 hydrate 后再补真实态。
+if (typeof window !== 'undefined') {
+  supabase.auth
+    .getSession()
+    .then(({ data }) => {
+      account.user = data.session?.user ?? null;
+      return refreshProfile();
+    })
+    .finally(() => {
+      account.ready = true;
+    });
 
-supabase.auth.onAuthStateChange(async (_event, session) => {
-  account.user = session?.user ?? null;
-  await refreshProfile();
-});
+  supabase.auth.onAuthStateChange(async (_event, session) => {
+    account.user = session?.user ?? null;
+    await refreshProfile();
+  });
+}
 
 export async function signIn(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });

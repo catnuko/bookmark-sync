@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n';
 import { computed } from 'vue';
 import PricingCard from '../components/PricingCard.vue';
 import FAQSection from '../components/sections/FAQSection.vue';
+import LocalizedLink from '../components/LocalizedLink.vue';
 
 const { t, tm, rt } = useI18n();
 
@@ -95,9 +96,9 @@ function cellValue(v) {
 
         <p class="pricing-legal-note">
           {{ t('pricing.legalNote') }}
-          <RouterLink to="/terms" class="link">{{ t('nav.terms') }}</RouterLink>
+          <LocalizedLink to="/terms" class="link">{{ t('nav.terms') }}</LocalizedLink>
           ·
-          <RouterLink to="/privacy" class="link">{{ t('nav.privacy') }}</RouterLink>
+          <LocalizedLink to="/privacy" class="link">{{ t('nav.privacy') }}</LocalizedLink>
         </p>
       </div>
     </section>

@@ -5,27 +5,37 @@
  * - JSON-LD 结构化数据
  *
  * 设计意图：把所有 SEO 文案集中在一处，便于维护、便于翻译、便于增量补充。
+ *
+ * ★ URL 即语言权威（2026-10-06 起）
+ *   中文 = 无前缀（/pricing），英文 = /en 前缀（/en/pricing）。locale 不再存
+ *   localStorage 作为权威来源 —— 否则 canonical / hreflang 无法自洽：
+ *   同一个 URL 服务两种语言时，Google 只能二选一，另一版被丢进「重复内容」。
  */
 
 export const SITE = {
-  // 部署上线后改为你的真实域名
   url: 'https://www.bookmark-sync.top',
   name: 'BookmarkSync',
+  /** 无前缀 URL 的语言（也作为 hreflang 的 x-default）。 */
   defaultLocale: 'zh',
   locales: ['zh', 'en'],
-  // 用于面包屑 / og:site_name
   shortName: 'BookmarkSync',
-  // 用于 og:image 和 twitter:image（1200×630 JPEG，已生成在 public/）
   ogImage: 'https://www.bookmark-sync.top/og-image.jpg',
-  // 客服邮箱（与 i18n 的 contact.supportEmail 同步）
   email: 'support@bookmark-sync.top',
-  // 社交账号（可选，留空则不输出）
-  twitter: '@bookmarksync',
+  /**
+   * 社交账号。**留空则不输出 sameAs / twitter:site** —— 填了不存在的账号
+   * 比不填更糟（Google 会当伪造实体）。
+   */
+  twitter: '',
+};
+
+/** 各语言的 BCP 47 / OG locale 标签。 */
+export const LOCALE_TAGS = {
+  zh: { hreflang: 'zh-CN', og: 'zh_CN', htmlLang: 'zh-CN' },
+  en: { hreflang: 'en', og: 'en_US', htmlLang: 'en' },
 };
 
 /**
- * 路由级 SEO 文案
- * 每个路由一份，包含 zh / en 两个 locale 的 title + description + keywords
+ * 路由级 SEO 文案（按 meta.seoKey 查，与路由表一一对应）
  */
 export const ROUTE_SEO = {
   home: {
@@ -90,6 +100,20 @@ export const ROUTE_SEO = {
       keywords: 'BookmarkSync docs,bookmark sync tutorial,bookmark sync usage,bookmark sync FAQ',
     },
   },
+  support: {
+    zh: {
+      title: '支持与帮助 · BookmarkSync',
+      description:
+        'BookmarkSync 支持与帮助：常见问题（注册、浏览器支持、免费额度、新设备恢复、数据安全、同步口令、多设备合并），联系邮箱 support@bookmark-sync.top。',
+      keywords: 'BookmarkSync 帮助,书签同步常见问题,书签同步支持,书签同步联系',
+    },
+    en: {
+      title: 'Support & Help · BookmarkSync',
+      description:
+        'BookmarkSync support & help: FAQ on sign-up, browser support, free quota, restoring on a new device, data security, sync passphrase and multi-device merge. Contact support@bookmark-sync.top.',
+      keywords: 'BookmarkSync help,bookmark sync FAQ,bookmark sync support,bookmark sync contact',
+    },
+  },
   privacy: {
     zh: {
       title: '隐私政策 · BookmarkSync',
@@ -118,28 +142,49 @@ export const ROUTE_SEO = {
       keywords: 'BookmarkSync terms,bookmark sync terms,bookmark sync refund policy',
     },
   },
-  support: {
+  notFound: {
     zh: {
-      title: '支持与帮助 · BookmarkSync',
-      description:
-        'BookmarkSync 支持与帮助：常见问题（注册、浏览器支持、免费额度、新设备恢复、数据安全、同步口令、多设备合并），联系邮箱 support@bookmark-sync.top。',
-      keywords: 'BookmarkSync 帮助,书签同步常见问题,书签同步支持,书签同步联系',
+      title: '页面不存在 · BookmarkSync',
+      description: '你访问的页面不存在或已移动。',
+      keywords: '',
     },
     en: {
-      title: 'Support & Help · BookmarkSync',
-      description:
-        'BookmarkSync support & help: FAQ on sign-up, browser support, free quota, restoring on a new device, data security, sync passphrase and multi-device merge. Contact support@bookmark-sync.top.',
-      keywords: 'BookmarkSync help,bookmark sync FAQ,bookmark sync support,bookmark sync contact',
+      title: 'Page not found · BookmarkSync',
+      description: 'The page you visited does not exist or has moved.',
+      keywords: '',
     },
   },
 };
 
+/** 面包屑各段的中英文标签（key = seoKey）。 */
+const CRUMB_LABELS = {
+  zh: {
+    home: '首页',
+    pricing: '定价',
+    download: '下载',
+    docs: '文档',
+    support: '支持',
+    privacy: '隐私',
+    terms: '条款',
+  },
+  en: {
+    home: 'Home',
+    pricing: 'Pricing',
+    download: 'Download',
+    docs: 'Docs',
+    support: 'Support',
+    privacy: 'Privacy',
+    terms: 'Terms',
+  },
+};
+
 /**
- * Organization JSON-LD：用于品牌知识图谱 / 富搜索结果
+ * Organization JSON-LD：品牌实体（用于知识图谱与品牌词富结果）。
+ * sameAs 只填**真实存在**的官方主页 —— 填不存在的账号等于伪造实体。
  */
 export function getOrganizationJsonLd(locale = 'zh') {
   const isZh = locale === 'zh';
-  return {
+  const data = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: SITE.name,
@@ -147,18 +192,17 @@ export function getOrganizationJsonLd(locale = 'zh') {
     email: SITE.email,
     logo: `${SITE.url}/favicon.svg`,
     description: isZh
-      ? '跨浏览器书签云同步与备份工具。'
-      : 'Cross-browser bookmark cloud sync and backup.',
-    sameAs: [],
+      ? '跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox。'
+      : 'Cross-browser bookmark cloud sync and backup for Chrome, Edge, and Firefox.',
   };
+  if (SITE.twitter) data.sameAs = [`https://twitter.com/${SITE.twitter.replace(/^@/, '')}`];
+  return data;
 }
 
-/**
- * SoftwareApplication JSON-LD：用于在搜索结果中显示产品富片段（评分 / 价格 / 平台）
- */
+/** SoftwareApplication JSON-LD：产品富片段（评分 / 价格 / 平台）。 */
 export function getSoftwareAppJsonLd(locale = 'zh') {
   const isZh = locale === 'zh';
-  return {
+  const data = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: SITE.name,
@@ -192,37 +236,40 @@ export function getSoftwareAppJsonLd(locale = 'zh') {
       },
     ],
   };
+  if (SITE.twitter) data.sameAs = [`https://twitter.com/${SITE.twitter.replace(/^@/, '')}`];
+  return data;
 }
 
 /**
- * BreadcrumbList JSON-LD：面包屑，用于富搜索结果显示路径
+ * BreadcrumbList JSON-LD。
+ *
+ * @param {string} seoKey 当前页 seoKey（首页只有一段）
+ * @param {string} locale 当前语言（决定 URL 带不带 /en 前缀）
+ * @param {string} [leafName] 内容页的标题（seoKey='content' 时用这个当最后一段）
  */
-export function getBreadcrumbJsonLd(path, locale = 'zh') {
-  const isZh = locale === 'zh';
-  const labels = {
-    zh: {
-      home: '首页',
-      pricing: '定价',
-      download: '下载',
-      docs: '文档',
-      privacy: '隐私',
-      terms: '条款',
-      support: '支持',
-    },
-    en: {
-      home: 'Home',
-      pricing: 'Pricing',
-      download: 'Download',
-      docs: 'Docs',
-      privacy: 'Privacy',
-      terms: 'Terms',
-      support: 'Support',
-    },
-  };
-  const seg = path.split('/').filter(Boolean);
-  const items = [{ name: labels[locale].home, path: '/' }];
-  if (seg.length && seg[0] !== '' && labels[locale][seg[0]]) {
-    items.push({ name: labels[locale][seg[0]], path: `/${seg[0]}` });
+export function getBreadcrumbJsonLd(seoKey, locale = 'zh', leafName) {
+  const labels = CRUMB_LABELS[locale] || CRUMB_LABELS.zh;
+  const prefix = locale === 'en' ? '/en' : '';
+  const items = [{ name: labels.home, path: `${prefix || ''}/` }];
+
+  if (leafName) {
+    // 内容页：首页 → 首页（面包屑指的是站点的文档首页，即 /docs）
+    items.push({ name: labels.docs, path: `${prefix}/docs` });
+    items.push({ name: leafName, path: null });
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: items.map((it, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: it.name,
+        ...(it.path ? { item: `${SITE.url}${it.path}` } : {}),
+      })),
+    };
+  }
+
+  if (seoKey && seoKey !== 'home' && labels[seoKey]) {
+    items.push({ name: labels[seoKey], path: `${prefix}/${seoKey}` });
   }
   return {
     '@context': 'https://schema.org',
@@ -233,5 +280,50 @@ export function getBreadcrumbJsonLd(path, locale = 'zh') {
       name: it.name,
       item: `${SITE.url}${it.path}`,
     })),
+  };
+}
+
+/**
+ * Article JSON-LD —— 告诉搜索引擎这是一篇有实质内容的文章（不是营销落地页）。
+ *
+ * ★ 不声明 datePublished：我们没有可信的首次发布日期，编一个比不写更糟
+ *   （Google 会拿它做时效性判断，错的日期会伤排名）。
+ */
+export function getArticleJsonLd({ headline, description, url, dateModified, locale = 'zh' }) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline,
+    description,
+    url,
+    dateModified,
+    inLanguage: LOCALE_TAGS[locale]?.htmlLang || 'zh-CN',
+    author: { '@type': 'Organization', name: SITE.name, url: SITE.url },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE.name,
+      url: SITE.url,
+      logo: { '@type': 'ImageObject', url: `${SITE.url}/favicon.svg` },
+    },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+  };
+}
+
+/**
+ * FAQPage JSON-LD —— 把页面上的 FAQ 变成可被搜索引擎直接引用的问答块。
+ *
+ * @param {{q: string, a: string}[]} items 从 i18n messages 里取的问答对
+ * @param {string} url 该页完整 URL（Google 要求 item 指向页面 URL）
+ */
+export function getFaqJsonLd(items, url) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((it) => ({
+      '@type': 'Question',
+      name: it.q,
+      acceptedAnswer: { '@type': 'Answer', text: it.a },
+    })),
+    url,
   };
 }

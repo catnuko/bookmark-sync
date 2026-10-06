@@ -1,5 +1,6 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
+import LocalizedLink from '../LocalizedLink.vue';
 
 const { t } = useI18n();
 </script>
@@ -23,7 +24,7 @@ const { t } = useI18n();
       <p class="hero-subtitle">{{ t('hero.subtitle') }}</p>
 
       <div class="hero-cta">
-        <RouterLink to="/download" class="btn btn-primary btn-lg">
+        <LocalizedLink to="/download" class="btn btn-primary btn-lg">
           {{ t('hero.ctaPrimary') }}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path
@@ -34,10 +35,10 @@ const { t } = useI18n();
               stroke-linejoin="round"
             />
           </svg>
-        </RouterLink>
-        <RouterLink to="/pricing" class="btn btn-outline btn-lg">
+        </LocalizedLink>
+        <LocalizedLink to="/pricing" class="btn btn-outline btn-lg">
           {{ t('hero.ctaSecondary') }}
-        </RouterLink>
+        </LocalizedLink>
       </div>
 
       <p class="hero-trust">{{ t('hero.trustBadge') }}</p>

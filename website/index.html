@@ -6,45 +6,56 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- 默认 SEO meta（JS 执行后被 useHead 覆盖） -->
-    <title>BookmarkSync · 跨浏览器书签同步</title>
-    <meta
-      name="description"
-      content="跨浏览器书签云同步与备份工具，一次配置，所有设备浏览器书签永不丢失。支持 Chrome / Edge / Firefox / Safari 同步、100 条历史快照回滚、跨设备迁移。"
-    />
-    <meta
-      name="keywords"
-      content="书签同步,书签备份,跨浏览器书签,Chrome 书签同步,Safari 书签同步,Edge 书签同步,Firefox 书签同步,书签云同步,书签历史回滚"
-    />
-    <meta name="author" content="BookmarkSync" />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
-    <link rel="canonical" href="https://www.bookmark-sync.top/" />
+    <!-- 站点验证占位：拿到 token 后把 content 填上（当前为空 = 未配置，不影响爬取）
+         Google: https://search.google.com/search-console → 网址验证 → HTML 标签
+         Bing:   https://www.bing.com/webmasters → 导入 → 标签式 -->
+    <meta name="google-site-verification" content="" />
+    <meta name="msvalidate.01" content="" />
+    <!--
+      ↓ 默认 SEO meta —— 构建时被 SSG 逐页替换（见 src/seo/vite-plugin.js）。
 
-    <!-- Open Graph -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="BookmarkSync" />
-    <meta property="og:title" content="BookmarkSync · 跨浏览器书签同步" />
-    <meta
-      property="og:description"
-      content="跨浏览器书签云同步与备份工具，一次配置，所有设备浏览器书签永不丢失。"
-    />
-    <meta property="og:url" content="https://www.bookmark-sync.top/" />
-    <meta property="og:locale" content="zh_CN" />
-    <meta property="og:locale:alternate" content="en_US" />
-    <meta property="og:image" content="https://www.bookmark-sync.top/og-image.jpg" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+      ★ 为什么包在 <div id="seo-default"> 里而不是用注释标记：
+        vite 构建 HTML 时会**剥离注释**，注释标记在产物里根本不存在，
+        正则匹配不到 → 旧 meta 块会残留在每个页面里，导致重复 title
+        （爬虫取哪个不确定 = SEO 直接失效）。HTML 元素不会被 vite 动，是可靠标记。
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="BookmarkSync · 跨浏览器书签同步" />
-    <meta
-      name="twitter:description"
-      content="跨浏览器书签云同步与备份工具，一次配置，所有设备浏览器书签永不丢失。"
-    />
-    <meta name="twitter:image" content="https://www.bookmark-sync.top/og-image.jpg" />
+      ★ 这个 div 里的内容必须在 <head> 之外吗？—— 不，浏览器会把它当未知元素忽略，
+        title/meta 只有在 head 里才生效，而构建时会整块搬进 head，所以这里合法。
+    -->
+    <div id="seo-default">
+      <title>BookmarkSync · 跨浏览器书签同步与备份工具</title>
+      <meta
+        name="description"
+        content="跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox 之间书签自动同步，跨设备与跨时间保持一致。真树结构，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 500 条书签起步。"
+      />
+      <meta name="author" content="BookmarkSync" />
+      <meta name="robots" content="index, follow, max-image-preview:large" />
+      <link rel="canonical" href="https://www.bookmark-sync.top/" />
 
-    <!-- 预连接关键资源 -->
+      <meta property="og:type" content="website" />
+      <meta property="og:site_name" content="BookmarkSync" />
+      <meta property="og:title" content="BookmarkSync · 跨浏览器书签同步与备份工具" />
+      <meta
+        property="og:description"
+        content="跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox 之间书签自动同步。真树结构，文件夹改名/移动不丢子项；多端并发编辑自动收敛、无覆盖写。"
+      />
+      <meta property="og:url" content="https://www.bookmark-sync.top/" />
+      <meta property="og:locale" content="zh_CN" />
+      <meta property="og:locale:alternate" content="en_US" />
+      <meta property="og:image" content="https://www.bookmark-sync.top/og-image.jpg" />
+      <meta property="og:image:width" content="2560" />
+      <meta property="og:image:height" content="1440" />
+      <meta property="og:image:type" content="image/jpeg" />
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="BookmarkSync · 跨浏览器书签同步与备份工具" />
+      <meta
+        name="twitter:description"
+        content="跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox 之间书签自动同步。真树结构，文件夹改名/移动不丢子项。"
+      />
+      <meta name="twitter:image" content="https://www.bookmark-sync.top/og-image.jpg" />
+    </div>
+
     <link rel="preconnect" href="https://www.bookmark-sync.top" />
   </head>
   <body>

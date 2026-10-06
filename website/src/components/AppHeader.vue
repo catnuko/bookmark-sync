@@ -1,18 +1,21 @@
 <script setup>
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { toggleLocale } from '../i18n';
 import ThemeToggle from './ThemeToggle.vue';
 import LanguageToggle from './LanguageToggle.vue';
+import LocalizedLink from './LocalizedLink.vue';
 
 const { t } = useI18n();
 
-// 隐私/条款入口在页脚，页首导航只放主功能页
+// 隐私/条款入口在页脚，页首导航只放主功能页。
+// ★ 必须包含全部高价值落地页（含 /support）—— 页首导航是爬虫最先看到的内链，
+//   漏掉某个页面等于告诉搜索引擎「这页不重要」。
 const navItems = [
   { key: 'nav.home', to: '/' },
   { key: 'nav.pricing', to: '/pricing' },
   { key: 'nav.download', to: '/download' },
   { key: 'nav.docs', to: '/docs' },
+  { key: 'nav.support', to: '/support' },
 ];
 
 const mobileOpen = ref(false);
@@ -21,13 +24,13 @@ const mobileOpen = ref(false);
 <template>
   <header class="header">
     <div class="container header-inner">
-      <RouterLink to="/" class="brand">
+      <LocalizedLink to="/" class="brand">
         <img src="/favicon.svg" alt="BookmarkSync" width="28" height="28" />
         <span class="brand-name">{{ t('brand.name') }}</span>
-      </RouterLink>
+      </LocalizedLink>
 
       <nav class="nav-desktop">
-        <RouterLink
+        <LocalizedLink
           v-for="item in navItems"
           :key="item.key"
           :to="item.to"
@@ -35,15 +38,15 @@ const mobileOpen = ref(false);
           active-class="active"
         >
           {{ t(item.key) }}
-        </RouterLink>
+        </LocalizedLink>
       </nav>
 
       <div class="header-actions">
         <ThemeToggle />
         <LanguageToggle />
-        <RouterLink to="/download" class="btn btn-primary header-cta">
+        <LocalizedLink to="/download" class="btn btn-primary header-cta">
           {{ t('hero.ctaPrimary') }}
-        </RouterLink>
+        </LocalizedLink>
         <button
           class="menu-toggle"
           :aria-label="t('common.viewAll')"
@@ -64,7 +67,7 @@ const mobileOpen = ref(false);
     <!-- 移动端导航 -->
     <Transition name="fade">
       <nav v-if="mobileOpen" class="nav-mobile">
-        <RouterLink
+        <LocalizedLink
           v-for="item in navItems"
           :key="item.key"
           :to="item.to"
@@ -73,7 +76,7 @@ const mobileOpen = ref(false);
           @click="mobileOpen = false"
         >
           {{ t(item.key) }}
-        </RouterLink>
+        </LocalizedLink>
       </nav>
     </Transition>
   </header>
@@ -180,6 +183,22 @@ const mobileOpen = ref(false);
 .nav-link-mobile.active {
   color: var(--color-text);
   font-weight: 500;
+}
+
+/* 导航 5 项 + logo + 主题/语言/CTA 在窄桌面会挤：先压按钮内边距，
+   再收进汉堡菜单。断点 1024 对应常见笔记本窄屏。 */
+@media (max-width: 1024px) {
+  .nav-link {
+    padding: 0.5rem 0.625rem;
+    font-size: var(--text-xs);
+  }
+  .header-cta {
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-xs);
+  }
+  .header-inner {
+    gap: var(--space-4);
+  }
 }
 
 @media (max-width: 768px) {

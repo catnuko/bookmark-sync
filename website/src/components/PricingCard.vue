@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { account, startCheckout, openPortal, hasActiveSubscription } from '../lib/account.js';
 import AccountDialog from './AccountDialog.vue';
+import LocalizedLink from './LocalizedLink.vue';
 
 const props = defineProps({
   plan: { type: String, required: true }, // free / plus / pro
@@ -74,9 +75,9 @@ async function onPaidCta() {
     </div>
 
     <!-- 免费档：引导装扩展；付费档：登录后直接在官网订阅 / 管理订阅 -->
-    <RouterLink v-if="!isPaid" to="/download" class="btn plan-cta btn-outline">
+    <LocalizedLink v-if="!isPaid" to="/download" class="btn plan-cta btn-outline">
       {{ t(`pricing.plans.${props.plan}.cta`) }}
-    </RouterLink>
+    </LocalizedLink>
     <template v-else>
       <button
         class="btn plan-cta"

@@ -4,8 +4,10 @@
   "buildCommand": "pnpm install --frozen-lockfile && pnpm build",
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
+  "trailingSlash": false,
   "rewrites": [
-    { "source": "/((?!assets/|downloads/|favicon\\.svg).*)", "destination": "/index.html" }
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/admin/:path*", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -15,6 +17,10 @@
     {
       "source": "/favicon.svg",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
     }
   ]
 }
