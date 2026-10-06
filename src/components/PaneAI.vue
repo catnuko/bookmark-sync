@@ -55,6 +55,7 @@
                 </span>
                 <span class="r-desc mono">{{ e.model }}</span>
               </span>
+              <Icon class="chev" name="chevron-right" />
             </button>
             <button
               class="icon-btn"
@@ -70,9 +71,33 @@
         <p class="hint">{{ t('ai_modelListHint') }}</p>
       </div>
 
-      <!-- ============ 加号：预设厂商 / 自定义 ============ -->
-      <div v-if="pickerOpen" class="grp">
-        <h4>{{ t('ai_addProvider') }}</h4>
+      <!--
+        ★ 加号与编辑表单都放进弹窗，不再内联在页面里。
+        原因（2026-10-06 用户反馈）：内联时一进设置页就看到一大片表单，
+        而「添加模型」按钮夹在列表和表单中间 —— 用户以为表单是点加号才出现的，
+        实际它常驻。这里改成两个明确的入口：
+          点加号   → 弹窗（先选厂商，或直接填自定义名）
+          点列表行 → 弹窗（编辑那一条，含端点/模型/Key/测试/保存）
+        页面本身只留「列表 + 一个加号」，干净且意图明确。
+      -->
+      <button class="btn btn-secondary add-row" type="button" @click="openPicker">
+        <Icon name="plus" />
+        {{ t('ai_addProvider') }}
+      </button>
+    </template>
+
+    <!-- 隐私边界：这一段是本功能最需要说清楚的事，不能折叠进 README -->
+    <div class="grp">
+      <div class="banner banner-info">
+        <Icon name="shield" />
+        <span>{{ t('ai_privacy') }}</span>
+      </div>
+    </div>
+
+    <!-- ==================== 添加模型（第一步：选厂商） ==================== -->
+    <div v-if="pickerOpen" class="overlay" @click.self="closePicker">
+      <div class="modal ai-modal">
+        <div class="m-title">{{ t('ai_addProvider') }}</div>
         <div class="preset-grid">
           <button
             v-for="p in providerList"
@@ -92,6 +117,7 @@
             class="input"
             type="text"
             :placeholder="t('ai_customProviderPlaceholder')"
+            @keydown.enter.exact.prevent="addCustom"
           />
           <p class="hint">{{ t('ai_customProviderHint') }}</p>
         </div>
@@ -103,99 +129,80 @@
           <button class="btn btn-ghost" @click="closePicker">{{ t('ai_cancel') }}</button>
         </div>
       </div>
-      <button v-else class="btn btn-secondary add-row" type="button" @click="pickerOpen = true">
-        <Icon name="plus" />
-        {{ t('ai_addProvider') }}
-      </button>
+    </div>
 
-      <!-- ============ 当前条目的编辑表单 ============ -->
-      <template v-if="cur">
-        <div class="grp">
-          <div class="field">
-            <label for="ai-label">{{ t('ai_label') }}</label>
-            <input id="ai-label" v-model="draft.label" class="input" type="text" />
-            <p class="hint">{{ t('ai_labelHint') }}</p>
-          </div>
+    <!-- ==================== 编辑某一条模型 ==================== -->
+    <div v-if="editorOpen" class="overlay" @click.self="closeEditor">
+      <div class="modal ai-modal">
+        <div class="m-title">{{ draft.label || t('ai_editTitle') }}</div>
 
-          <div class="field">
-            <label for="ai-provider-kind">{{ t('ai_providerKind') }}</label>
-            <select
-              id="ai-provider-kind"
-              v-model="draft.provider"
-              class="input"
-              @change="onKindChange"
-            >
-              <option v-for="p in providerList" :key="p.id" :value="p.id">{{ p.label }}</option>
-            </select>
-            <p class="hint">{{ t('ai_providerKindHint') }}</p>
-          </div>
+        <div class="field">
+          <label for="ai-label">{{ t('ai_label') }}</label>
+          <input id="ai-label" v-model="draft.label" class="input" type="text" />
+          <p class="hint">{{ t('ai_labelHint') }}</p>
+        </div>
 
-          <div class="field">
-            <label for="ai-base">{{ t('ai_baseUrl') }}</label>
-            <input
-              id="ai-base"
-              v-model="draft.baseUrl"
-              class="input mono"
-              type="url"
-              spellcheck="false"
-              placeholder="https://api.anthropic.com"
-            />
-            <p class="hint">{{ t('ai_baseUrlHint') }}</p>
-          </div>
+        <div class="field">
+          <label for="ai-provider-kind">{{ t('ai_providerKind') }}</label>
+          <select
+            id="ai-provider-kind"
+            v-model="draft.provider"
+            class="input"
+            @change="onKindChange"
+          >
+            <option v-for="p in providerList" :key="p.id" :value="p.id">{{ p.label }}</option>
+          </select>
+          <p class="hint">{{ t('ai_providerKindHint') }}</p>
+        </div>
 
-          <div class="field">
-            <label for="ai-model">{{ t('ai_model') }}</label>
-            <input
-              id="ai-model"
-              v-model="draft.model"
-              class="input mono"
-              type="text"
-              spellcheck="false"
-            />
-          </div>
+        <div class="field">
+          <label for="ai-base">{{ t('ai_baseUrl') }}</label>
+          <input
+            id="ai-base"
+            v-model="draft.baseUrl"
+            class="input mono"
+            type="url"
+            spellcheck="false"
+            placeholder="https://api.anthropic.com"
+          />
+          <p class="hint">{{ t('ai_baseUrlHint') }}</p>
+        </div>
+
+        <div class="field">
+          <label for="ai-model">{{ t('ai_model') }}</label>
+          <input
+            id="ai-model"
+            v-model="draft.model"
+            class="input mono"
+            type="text"
+            spellcheck="false"
+          />
         </div>
 
         <!-- API Key：默认掩码，同 KeyPanel 的理由（屏幕共享时明文太易被读走） -->
-        <div class="grp">
-          <div class="field">
-            <label for="ai-key">{{ t('ai_apiKey') }}</label>
-            <div class="key-row">
-              <input
-                id="ai-key"
-                v-model="keyInput"
-                class="input mono"
-                :type="keyRevealed ? 'text' : 'password'"
-                spellcheck="false"
-                autocomplete="off"
-                :placeholder="t('ai_apiKeyPlaceholder')"
-              />
-              <button
-                class="icon-btn"
-                :title="keyRevealed ? t('ai_hideKey') : t('ai_revealKey')"
-                :aria-label="keyRevealed ? t('ai_hideKey') : t('ai_revealKey')"
-                :aria-pressed="keyRevealed"
-                @click="keyRevealed = !keyRevealed"
-              >
-                <Icon :name="keyRevealed ? 'eye-off' : 'eye'" />
-              </button>
-            </div>
-            <p class="hint">{{ t('ai_apiKeyHint') }}</p>
-          </div>
-
-          <div class="ai-actions">
-            <button class="btn btn-primary" :disabled="busy || !canTest" @click="testConnection">
-              <Icon name="refresh" />
-              {{ busy === 'test' ? t('ai_testing') : t('ai_test') }}
-            </button>
-            <button class="btn" :disabled="busy || !dirty" @click="save">
-              <Icon name="check" />
-              {{ t('ai_save') }}
-            </button>
-            <button class="btn btn-ghost" :disabled="busy" @click="wipe">
-              <Icon name="trash" />
-              {{ t('ai_clear') }}
+        <div class="field">
+          <label for="ai-key">{{ t('ai_apiKey') }}</label>
+          <div class="key-row">
+            <input
+              id="ai-key"
+              v-model="keyInput"
+              class="input mono"
+              :type="keyRevealed ? 'text' : 'password'"
+              spellcheck="false"
+              autocomplete="off"
+              :placeholder="t('ai_apiKeyPlaceholder')"
+            />
+            <button
+              class="icon-btn"
+              :title="keyRevealed ? t('ai_hideKey') : t('ai_revealKey')"
+              :aria-label="keyRevealed ? t('ai_hideKey') : t('ai_revealKey')"
+              :aria-pressed="keyRevealed"
+              @click="keyRevealed = !keyRevealed"
+            >
+              <Icon :name="keyRevealed ? 'eye-off' : 'eye'" />
             </button>
           </div>
+          <p class="hint">{{ t('ai_apiKeyHint') }}</p>
         </div>
 
         <p v-if="msg" class="foot" :class="msgBad ? 'hint-error' : 'hint-ok'">{{ msg }}</p>
@@ -208,14 +215,24 @@
           <Icon name="shield" />
           {{ t('ai_grantHost') }}
         </button>
-      </template>
-    </template>
 
-    <!-- 隐私边界：这一段是本功能最需要说清楚的事，不能折叠进 README -->
-    <div class="grp">
-      <div class="banner banner-info">
-        <Icon name="shield" />
-        <span>{{ t('ai_privacy') }}</span>
+        <div class="ai-actions">
+          <button class="btn btn-primary" :disabled="busy || !canTest" @click="testConnection">
+            <Icon name="refresh" />
+            {{ busy === 'test' ? t('ai_testing') : t('ai_test') }}
+          </button>
+          <button class="btn" :disabled="busy || !dirty" @click="saveAndClose">
+            <Icon name="check" />
+            {{ t('ai_save') }}
+          </button>
+          <button class="btn btn-ghost" :disabled="busy" @click="closeEditor">
+            {{ t('ai_cancel') }}
+          </button>
+          <button class="btn btn-ghost danger" :disabled="busy" @click="wipe">
+            <Icon name="trash" />
+            {{ t('ai_clear') }}
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -276,6 +293,8 @@ const draft = reactive({ id: '', label: '', provider: 'custom', baseUrl: '', mod
 const keyInput = ref('');
 const keyRevealed = ref(false);
 const pickerOpen = ref(false);
+/** 编辑弹窗是否打开。默认 false —— 页面上一进来不该出现表单（用户反馈）。 */
+const editorOpen = ref(false);
 const newLabel = ref('');
 const busy = ref(''); // '' | 'test' | 'save'
 const msg = ref('');
@@ -360,12 +379,26 @@ function providerLabel(p) {
   return PROVIDER_DEFAULTS[p]?.label ?? p;
 }
 
+/**
+ * 点列表行：切到那条**并打开编辑弹窗**。
+ *
+ * 两个动作合成一次点击：行尾的 chevron 就是在说「进去改」。若只切不弹，用户
+ * 还得再找哪里能编辑（这是 2026-10-06 用户反馈的另一层：入口不明确）。
+ */
 async function pick(id) {
   activeId.value = id;
   await setActiveProvider(id);
   loadDraft(list.value, id, keys.value);
+  setMsg('');
+  needHost.value = false;
+  editorOpen.value = true;
 }
 
+function openPicker() {
+  pickerOpen.value = true;
+}
+
+/** 选完厂商 → 关掉第一步弹窗，直接进第二步（编辑那一条）。 */
 async function addPreset(providerId) {
   const e = await addProvider(providerId);
   closePicker();
@@ -373,6 +406,7 @@ async function addPreset(providerId) {
   await setActiveProvider(e.id);
   loadDraft(list.value, e.id, keys.value);
   setMsg('');
+  editorOpen.value = true;
 }
 
 async function addCustom() {
@@ -386,11 +420,22 @@ async function addCustom() {
   await setActiveProvider(e.id);
   loadDraft(list.value, e.id, keys.value);
   setMsg('');
+  editorOpen.value = true;
 }
 
 function closePicker() {
   pickerOpen.value = false;
   newLabel.value = '';
+}
+
+function closeEditor() {
+  editorOpen.value = false;
+  // 丢弃未保存的草稿：重载一次存储值，下打开时看到的是最后保存的状态。
+  // 不这样做的话，用户点了取消再点另一条，会看到上一条的半截输入。
+  const e = list.value.find((x) => x.id === activeId.value);
+  if (e) loadDraft(list.value, activeId.value, keys.value);
+  msg.value = '';
+  needHost.value = false;
 }
 
 async function remove(id) {
@@ -399,6 +444,8 @@ async function remove(id) {
   const ak = activeId.value === id ? '' : activeId.value;
   await refresh();
   loadDraft(list.value, ak, keys.value);
+  // 删掉的正是正在编辑的那条 → 关掉弹窗，否则弹窗里留着一条已不存在的条目
+  if (!list.value.some((x) => x.id === draft.id)) editorOpen.value = false;
   setMsg('');
 }
 
@@ -407,8 +454,20 @@ async function toggleEnabled() {
   await setEnabled(enabled.value);
 }
 
+/** 保存并关弹窗。保存失败时弹窗留着，用户能立刻看到错误并改。 */
+async function saveAndClose() {
+  const ok = await save();
+  if (ok) editorOpen.value = false;
+}
+
+/**
+ * 保存当前条目。
+ *
+ * @returns 是否成功。`saveAndClose` 靠它决定关不关弹窗 —— 失败时必须留着，
+ *          否则用户刚看到的错误提示会连同弹窗一起消失，等于没提示。
+ */
 async function save() {
-  if (!draft.id) return;
+  if (!draft.id) return false;
   busy.value = 'save';
   try {
     await updateProvider(draft.id, {
@@ -424,9 +483,11 @@ async function save() {
     await refresh();
     setMsg(t('ai_saved'));
     showToast('success', t('ai_savedTitle'), '');
+    return true;
   } catch (e) {
     setMsg(describeError(e), true);
     showToast('danger', t('ai_saveFailTitle'), '');
+    return false;
   } finally {
     busy.value = '';
   }
@@ -527,6 +588,7 @@ async function wipe() {
   keyRevealed.value = false;
   snapCfg = null;
   snapKey = '';
+  editorOpen.value = false; // 列表空了，编辑弹窗留着只会显示一条已删的条目
   setMsg(t('ai_cleared'));
   showToast('success', t('ai_clearedTitle'), '');
 }
@@ -610,5 +672,22 @@ select.input {
 }
 .preset-btn {
   justify-content: center;
+}
+
+/*
+ * 弹窗里的表单比普通确认框宽（tokens.css 的 --modal-width 只有 320px，是给
+ * 「确认/升级」那种两三行文案设计的）。这里覆盖成 440px 并允许自身滚动 ——
+ * 端点 + 模型 + Key + 四个按钮在 320px 下会挤成两列。
+ */
+.ai-modal {
+  width: min(440px, calc(100% - 32px));
+  max-height: min(84vh, 720px);
+  overflow-y: auto;
+}
+.ai-modal .m-title {
+  margin-bottom: 4px;
+}
+.btn-ghost.danger {
+  color: var(--danger-text);
 }
 </style>

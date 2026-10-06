@@ -1473,5 +1473,8 @@
   },
   "ai_cancel": {
     "message": "取消"
+  },
+  "ai_editTitle": {
+    "message": "编辑模型"
   }
 }
