@@ -14,14 +14,53 @@ import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = resolve(root, 'dist');
 const PORT = 8912;
 
-// 必测页面：每种视图类型各一个 + 两种语言（hydration bug 常只在特定页面出现）
-const PATHS = ['/', '/en', '/pricing', '/en/pricing', '/download', '/en/support'];
+// 必测页面：每种视图类型各一个 + 两种语言（hydration bug 常只在特定页面出现）。
+// ★ 内容页（markdown 驱动）**必测**：它靠 SSG 注入 article 数据，
+//   客户端没有那份数据 —— 一旦两端不一致就是 mismatch，而构建期文本分析看不出来。
+const PATHS = [
+  '/',
+  '/en',
+  '/pricing',
+  '/en/pricing',
+  '/download',
+  '/en/support',
+  ...readContentProbePaths(),
+];
+
+/** 从 manifest 抠第一个内容页的两种语言 URL（内容页是新增路径，必须过浏览器）。 */
+function readContentProbePaths() {
+  try {
+    const mf = resolve(root, 'src/content/manifest.js');
+    if (!existsSync(mf)) return [];
+    const src = readFileSync(mf, 'utf8');
+    const block = /export const CONTENT_ROUTES = (\[[\s\S]*?\]);/.exec(src);
+    if (!block) return [];
+    const routes = JSON.parse(block[1]);
+    const seen = new Set();
+    const out = [];
+    for (const r of routes) {
+      if (seen.has(r.slug)) continue;
+      seen.add(r.slug);
+      const base = `/${r.prefix}/${r.slug}`;
+      out.push(base, `/en${base}`);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/** 等页面「静下来」的最大时长。hydration 在挂载后几百 ms 内完成，
+ *  固定 sleep 2500ms×6 页 = 15s 白等。这里改成轮询：正文出现即开始计时，
+ *  再留 400ms 观察窗给迟到的 warning —— 能省 10s 以上，且比固定等待更可靠。 */
+const SETTLE_MS = 400;
+const MAX_WAIT_MS = 4000;
 
 function findChrome() {
   if (process.env.CHROME_BIN && existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
@@ -94,7 +133,18 @@ export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) 
 
       // static server 对 /pricing 会 301 到 /pricing/，跟随后取最终 URL
       await page.goto(`http://127.0.0.1:${PORT}${p}`, { waitUntil: 'load' });
-      await sleep(2500);
+
+      // 轮询等正文出现（hydration 完成），再留观察窗
+      const t0 = Date.now();
+      let hydrated = false;
+      while (Date.now() - t0 < MAX_WAIT_MS) {
+        hydrated = await page
+          .evaluate(() => (document.querySelector('#app')?.innerText.length || 0) > 100)
+          .catch(() => false);
+        if (hydrated) break;
+        await sleep(100);
+      }
+      await sleep(SETTLE_MS);
 
       // 1. 不允许出现 hydration / mismatch 警告
       const hyd = msgs.filter((m) => /hydrat|mismatch/i.test(m));

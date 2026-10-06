@@ -10,29 +10,65 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// ★ 页面清单**从路由表与内容清单自动推导**，不手抄。
+//   手抄的代价已经付过：sitemap 的 /support 就是因为 vite-plugin 里手抄路由表漏掉的。
+//   内容页数量随写作增长，写死更是每加一篇就红一次。
+//
+//   ★ routes.js 顶层 import 了 .vue（NotFoundView / ContentView），Node 直接 import
+//   会报 ERR_UNKNOWN_FILE_EXTENSION。所以只取它的纯数据导出，用正则从源码里抠
+//   PUBLIC_ROUTES —— 比整个 import 稳，也比手抄好。
+import { CONTENT_ROUTES } from '../src/content/manifest.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = resolve(root, 'dist');
 const SITE = 'https://www.bookmark-sync.top';
 
-const PAGES = [
-  { url: '/', file: 'index.html', locale: 'zh' },
-  { url: '/pricing', file: 'pricing/index.html', locale: 'zh' },
-  { url: '/download', file: 'download/index.html', locale: 'zh' },
-  { url: '/docs', file: 'docs/index.html', locale: 'zh' },
-  { url: '/support', file: 'support/index.html', locale: 'zh' },
-  { url: '/privacy', file: 'privacy/index.html', locale: 'zh' },
-  { url: '/terms', file: 'terms/index.html', locale: 'zh' },
-  { url: '/en', file: 'en/index.html', locale: 'en' },
-  { url: '/en/pricing', file: 'en/pricing/index.html', locale: 'en' },
-  { url: '/en/download', file: 'en/download/index.html', locale: 'en' },
-  { url: '/en/docs', file: 'en/docs/index.html', locale: 'en' },
-  { url: '/en/support', file: 'en/support/index.html', locale: 'en' },
-  { url: '/en/privacy', file: 'en/privacy/index.html', locale: 'en' },
-  { url: '/en/terms', file: 'en/terms/index.html', locale: 'en' },
-  { url: null, file: '404.html', locale: 'zh', notFound: true },
-  { url: null, file: 'en/404.html', locale: 'en', notFound: true },
-];
+/** 从 routes.js 源码抠出 PUBLIC_ROUTES 的 { path } 列表（避开 .vue import）。 */
+function readPublicRoutePaths() {
+  const src = readFileSync(resolve(root, 'src/router/routes.js'), 'utf8');
+  const block = /export const PUBLIC_ROUTES = \[([\s\S]*?)\];/.exec(src);
+  if (!block) throw new Error('[check-ssg] 没能从 routes.js 读到 PUBLIC_ROUTES');
+  return [...block[1].matchAll(/path:\s*'([^']+)'/g)].map((m) => m[1]);
+}
+
+const PUBLIC_ROUTE_PATHS = readPublicRoutePaths();
+
+/** URL 路径 → dist 内的文件名。Vercel / Cloudflare Pages 按目录 index 提供无扩展名 URL。 */
+const fileFor = (urlPath) =>
+  urlPath === '/' ? 'index.html' : `${urlPath.replace(/^\//, '')}/index.html`;
+
+function buildPageList() {
+  const pages = [];
+  for (const basePath of PUBLIC_ROUTE_PATHS) {
+    pages.push({ url: basePath, file: fileFor(basePath), locale: 'zh' });
+    const enPath = `/en${basePath === '/' ? '' : basePath}`;
+    pages.push({ url: enPath, file: fileFor(enPath), locale: 'en' });
+  }
+  // ★ CONTENT_ROUTES **已经含每种语言各一条**（zh 一条 + en 一条 = 同一篇的两种语言，
+  //   见 manifest 生成逻辑）。这里直接用它，不要再为每条补 en ——
+  //   补了会让每篇文章在清单里出现两次，进而把期望 URL 数算成 2倍
+  //   （第一版就踩了：sitemap 实际 16 条、期望算出 18）。
+  //   判据：sitemap 的 buildSitemap 也是「按 slug 去重后由它自己生成两种语言」，
+  //   这里的清单必须与之一致。
+  for (const c of CONTENT_ROUTES) {
+    const base = `/${c.prefix}/${c.slug}`;
+    const url = c.locale === 'en' ? `/en${base}` : base;
+    pages.push({ url, file: fileFor(url), locale: c.locale, content: true });
+  }
+  pages.push({ url: null, file: '404.html', locale: 'zh', notFound: true });
+  pages.push({ url: null, file: 'en/404.html', locale: 'en', notFound: true });
+  return pages;
+}
+
+const PAGES = buildPageList();
+// 全站只有**一篇**内容文章时，它没有「同分类其它文章」可链，孤岛检查要放过。
+// ★ CONTENT_ROUTES 是**每语言一条**（zh 一条 + en 一条 = 同一篇的两种语言），
+//   所以要按去重后的 slug 数判断，不能直接用length —— 一篇文章会让 length = 2。
+const distinctSlugs = new Set(CONTENT_ROUTES.map((c) => c.slug));
+const onlyContent = distinctSlugs.size <= 1;
+for (const p of PAGES) {
+  if (p.content && onlyContent) p.onlyContent = true;
+}
 
 /** 取所有 <title>。数量必须恰好为 1 —— 两个 title 爬虫取哪个不可控。 */
 function titles(head) {
@@ -63,6 +99,36 @@ function attrTags(head, kind, key, valAttr, valName) {
     if (vm) out.push(vm[1]);
   }
   return out;
+}
+
+/**
+ * 取某类标签里的所有 href（属性顺序无关）。
+ *
+ * ★ 本文件已经因为「正则假设属性顺序」栽了三次：
+ *   1. links() 写死 rel 在 href 前 → canonical 探针抓不到（假绿）
+ *   2. 目录锚点检查同样写死class 在 href 前 → 抓到 0 条，检查形同虚设
+ *   3. hydrate 检查里的属性正则
+ * Vue 渲染出来的属性顺序由编译器决定，**不可假设**。所以统一走这里：
+ * 先把标签切出来，再逐个属性解析。
+ */
+function hrefsOf(html, tagName, className) {
+  const out = [];
+  for (const m of html.matchAll(new RegExp(`<${tagName}\\b[^>]*>`, 'g'))) {
+    const tag = m[0];
+    if (className) {
+      const cls = tag.match(/\bclass="([^"]*)"/);
+      // class 里可能有多个类名（scoped 会加 data-v-xxx，不影响 class 本身）
+      if (!cls || !cls[1].split(/\s+/).includes(className)) continue;
+    }
+    const href = tag.match(/\bhref="([^"]*)"/);
+    if (href) out.push(href[1]);
+  }
+  return out;
+}
+
+/** 取某类标签的 id 数量（属性顺序无关）。 */
+function headingIdsCount(html) {
+  return [...html.matchAll(/<h[23]\b[^>]*>/g)].filter((m) => /\bid="/.test(m[0])).length;
 }
 
 const metas = (head, name) => attrTags(head, 'meta', 'name', 'content', name);
@@ -200,7 +266,71 @@ export function runChecks({ quiet = false } = {}) {
     if (!metas(head, 'twitter:image').length) fail(`${tag} 缺 twitter:image`);
   }
 
-  // 10. sitemap 必须含全部 14 条公开 URL，且 hreflang 互指不同 URL
+  // ── 内容页（markdown 驱动）额外检查 ───────────────────────────────────
+  // ★ FAQPage 声明的问答必须与页面上肉眼可见的**一致** —— 声明页面上不存在的问答
+  //属于结构化数据滥用，Google 会忽略甚至处罚。只查「有 FAQ 小节就有 FAQPage」不够，
+  //   还要比对**条数**（第一版就只查了存在性）。
+  for (const p of PAGES) {
+    if (!p.content) continue;
+    const html = readFileSync(resolve(dist, p.file), 'utf8');
+    const head = headOf(html);
+    const tag = `[${p.file}]`;
+
+    if (!head.includes('"Article"')) fail(`${tag} 缺 Article JSON-LD`);
+
+    const ldAll = [
+      ...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g),
+    ].map((m) => {
+      try {
+        return JSON.parse(m[1]);
+      } catch {
+        return {};
+      }
+    });
+    const faqLd = ldAll.find((o) => o['@type'] === 'FAQPage');
+    const visibleCount = (html.match(/class="content-details"/g) || []).length;
+    if (visibleCount > 0) {
+      if (!faqLd) {
+        fail(`${tag} 页面有 ${visibleCount} 条 FAQ 但无 FAQPage JSON-LD`);
+      } else if ((faqLd.mainEntity || []).length !== visibleCount) {
+        fail(
+          `${tag} FAQPage 声明 ${(faqLd.mainEntity || []).length} 条，页面可见 ${visibleCount} 条 —— 必须一致`,
+        );
+      }
+    }
+
+    // 目录锚点必须与正文 h2 的 id 严格对应，否则目录点了跳不过去
+    //（两边各自 slugify，一旦实现漂移就是死链，而构建期不报错）。
+    const tocAnchors = hrefsOf(html, 'a', 'toc-link')
+      .filter((h) => h.startsWith('#'))
+      .map((h) => h.slice(1));
+    if (tocAnchors.length === 0 && headingIdsCount(html) >= 3) {
+      fail(`${tag} 有${headingIdsCount(html)} 个小节标题却一个目录项都没抓到 —— 检查逻辑本身失效`);
+    }
+    const headingIds = [...html.matchAll(/<h[23]\b[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
+    if (tocAnchors.length >= 3) {
+      const dead = tocAnchors.filter((a) => !headingIds.includes(a));
+      if (dead.length) {
+        fail(`${tag} 目录有 ${dead.length} 个锚点匹配不到正文标题: ${dead.slice(0, 3).join(', ')}`);
+      }
+    }
+
+    // 内容页必须内链到其它内容页（否则是孤岛页，权重传不出去）
+    const linksOut = hrefsOf(html, 'a').filter(
+      (h) => /^\/(?:en\/)?(?:fix|migrate|explain)\/[^"#]+$/.test(h),
+    );
+    if (linksOut.length === 0 && !p.onlyContent) {
+      fail(`${tag} 内容页无任何指向其它内容页的内链（孤岛页）`);
+    }
+
+    // 内容页 canonical 不能是站点根（那是首页的）
+    const canon = links(head, 'canonical');
+    if (canon.length === 1 && canon[0] === `${SITE}/`) {
+      fail(`${tag} 内容页 canonical 指向站点根，应指向自身`);
+    }
+  }
+
+  // 10. sitemap 必须含全部公开 URL，且 hreflang 互指不同 URL
   const smPath = resolve(dist, 'sitemap.xml');
   if (!existsSync(smPath)) {
     fail('sitemap.xml 不存在');
@@ -214,8 +344,15 @@ export function runChecks({ quiet = false } = {}) {
       if (hrefs.length < 3) fail(`sitemap 某条 URL 的 hreflang 少于 3 个（zh/en/x-default）: ${b.slice(0, 80)}`);
       if (new Set(hrefs).size < 2) fail(`sitemap 某条 URL 的 hreflang 全指向同一 URL: ${hrefs[0]}`);
     }
+    // 期望 URL 数 = PAGES 里非 404 的条目数。
+    // ★ PAGES 已经**每种语言各有一条**（buildPageList 里 zh、en 都push 了），
+    //   所以这里不能再 × 2 —— 写了会翻倍（第一版就踩过：期望值算出 36 而实际 16）。
+    //   数量必须由清单推导、内容页增加时不能忘改（之前这里写死 14）。
+    const expectedUrlCount = PAGES.filter((x) => !x.notFound).length;
     const urlCount = (sm.match(/<loc>/g) || []).length;
-    if (urlCount !== 14) fail(`sitemap 有 ${urlCount} 条 URL（期望 14 = 7 页 × 2 语言）`);
+    if (urlCount !== expectedUrlCount) {
+      fail(`sitemap 有 ${urlCount} 条 URL，期望 ${expectedUrlCount}（页面清单推导）`);
+    }
   }
 
   // 10. robots 必须禁 admin 并指向 sitemap

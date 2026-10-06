@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, createMemoryHistory } from 'vue-router';
 import { adminRoutes, adminGuard } from '../admin/index.js';
 import { buildRoutes, localeFromPath } from './routes';
+import { CONTENT_ROUTES } from '../content/manifest';
 
 const isServer = typeof window === 'undefined';
 
@@ -9,7 +10,7 @@ const isServer = typeof window === 'undefined';
  *
  * 两个必须遵守的约束（改之前先想清楚）：
  *   1. **每页独立实例**。vue-router 的 currentRoute 是实例级可变状态，
- *      SSG 预渲染 16 个页面复用同一个 router 会串页。
+ *      SSG 预渲染十几个页面复用同一个 router 会串页。
  *   2. **服务端用 memory history**。createWebHistory 内部读 window/document，
  *      在 Node 里直接抛 `window is not defined`。
  *
@@ -18,7 +19,8 @@ const isServer = typeof window === 'undefined';
 export function createAppRouter(withAdmin = true) {
   const router = createRouter({
     history: isServer ? createMemoryHistory() : createWebHistory(),
-    routes: buildRoutes(withAdmin ? adminRoutes : []),
+    // 内容路由来自 src/content/manifest.js（构建期生成，两端共用同一份）
+    routes: buildRoutes(withAdmin ? adminRoutes : [], CONTENT_ROUTES),
     scrollBehavior(to, from, savedPosition) {
       if (savedPosition) return savedPosition;
       if (to.hash) return { el: to.hash, behavior: 'smooth' };

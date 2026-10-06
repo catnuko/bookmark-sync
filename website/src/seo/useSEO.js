@@ -12,7 +12,7 @@
  *   - robots：公开页 index+follow；404 与后台 noindex
  *   - Organization + SoftwareApplication + BreadcrumbList（+ FAQPage）JSON-LD
  */
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
 import { useHead } from '@unhead/vue';
 import { useRoute } from 'vue-router';
 import { SITE, LOCALE_TAGS, ROUTE_SEO, getOrganizationJsonLd, getSoftwareAppJsonLd, getBreadcrumbJsonLd } from './config';
@@ -20,6 +20,12 @@ import { pathForLocale } from '../router/routes';
 
 export function useSEO() {
   const route = useRoute();
+
+  // 内容页（markdown 驱动）在 SSG 时注入自己的 SEO 文案。
+  // ★ 为什么走 inject 而不是查表：内容页的 title/description 来自每篇文章的
+  //   frontmatter，没有 key 也不该有 key（它们不属于 ROUTE_SEO 那一套固定文案）。
+  //   inject 在 CSR 下为 undefined → 自然回落到路由 seoKey，dev 直开也能用。
+  const override = inject('contentSeoOverride', null);
 
   // ★ 语言以 URL 为准，而不是 i18n 的 locale。
   // 直接打开 /en/pricing 时用户记忆可能是 zh，i18n 会被设成 zh；
@@ -31,6 +37,13 @@ export function useSEO() {
 
   // 当前路由对应的 SEO 文案（按 URL 语言切换，回退到默认语言）
   const seo = computed(() => {
+    if (override) {
+      return {
+        title: override.title,
+        description: override.description,
+        keywords: override.keywords || '',
+      };
+    }
     const config = ROUTE_SEO[route.meta.seoKey] || ROUTE_SEO.home;
     return config[seoLocale.value] || config[SITE.defaultLocale];
   });
@@ -45,8 +58,20 @@ export function useSEO() {
   });
   const canonicalUrl = computed(() => `${SITE.url}${canonicalPath.value}`);
 
-  // hreflang：zh / en 各自指向**真实不同的**URL，x-default 指向中文
+  // hreflang：zh / en 各自指向**真实不同的**URL，x-default 指向中文。
+  // ★ 内容页优先用注入的 localePaths（同一 slug 的另一语言页）——
+  //   用 pathForLocale 反推在 slug 变化时会指向不存在的 URL。
   const alternates = computed(() => {
+    if (override?.localePaths) {
+      const links = [];
+      for (const loc of SITE.locales) {
+        const p = override.localePaths[loc];
+        if (p) links.push({ rel: 'alternate', hreflang: LOCALE_TAGS[loc].hreflang, href: `${SITE.url}${p}` });
+      }
+      const xd = override.localePaths[SITE.defaultLocale];
+      if (xd) links.push({ rel: 'alternate', hreflang: 'x-default', href: `${SITE.url}${xd}` });
+      return links;
+    }
     const links = SITE.locales.map((loc) => ({
       rel: 'alternate',
       hreflang: LOCALE_TAGS[loc].hreflang,
@@ -111,7 +136,7 @@ export function useSEO() {
     script: [
       { type: 'application/ld+json', innerHTML: JSON.stringify(getOrganizationJsonLd(seoLocale.value)) },
       { type: 'application/ld+json', innerHTML: JSON.stringify(getSoftwareAppJsonLd(seoLocale.value)) },
-      { type: 'application/ld+json', innerHTML: JSON.stringify(getBreadcrumbJsonLd(seoKey.value, seoLocale.value)) },
+      { type: 'application/ld+json', innerHTML: JSON.stringify(getBreadcrumbJsonLd(seoKey.value, seoLocale.value, override?.breadcrumbLeaf)) },
     ],
     htmlAttrs: {
       lang: computed(() => LOCALE_TAGS[seoLocale.value].htmlLang),

@@ -229,11 +229,29 @@ export function getSoftwareAppJsonLd(locale = 'zh') {
  *
  * @param {string} seoKey 当前页 seoKey（首页只有一段）
  * @param {string} locale 当前语言（决定 URL 带不带 /en 前缀）
+ * @param {string} [leafName] 内容页的标题（seoKey='content' 时用这个当最后一段）
  */
-export function getBreadcrumbJsonLd(seoKey, locale = 'zh') {
+export function getBreadcrumbJsonLd(seoKey, locale = 'zh', leafName) {
   const labels = CRUMB_LABELS[locale] || CRUMB_LABELS.zh;
   const prefix = locale === 'en' ? '/en' : '';
   const items = [{ name: labels.home, path: `${prefix || ''}/` }];
+
+  if (leafName) {
+    // 内容页：首页 → 首页（面包屑指的是站点的文档首页，即 /docs）
+    items.push({ name: labels.docs, path: `${prefix}/docs` });
+    items.push({ name: leafName, path: null });
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: items.map((it, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: it.name,
+        ...(it.path ? { item: `${SITE.url}${it.path}` } : {}),
+      })),
+    };
+  }
+
   if (seoKey && seoKey !== 'home' && labels[seoKey]) {
     items.push({ name: labels[seoKey], path: `${prefix}/${seoKey}` });
   }
@@ -246,6 +264,32 @@ export function getBreadcrumbJsonLd(seoKey, locale = 'zh') {
       name: it.name,
       item: `${SITE.url}${it.path}`,
     })),
+  };
+}
+
+/**
+ * Article JSON-LD —— 告诉搜索引擎这是一篇有实质内容的文章（不是营销落地页）。
+ *
+ * ★ 不声明 datePublished：我们没有可信的首次发布日期，编一个比不写更糟
+ *   （Google 会拿它做时效性判断，错的日期会伤排名）。
+ */
+export function getArticleJsonLd({ headline, description, url, dateModified, locale = 'zh' }) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline,
+    description,
+    url,
+    dateModified,
+    inLanguage: LOCALE_TAGS[locale]?.htmlLang || 'zh-CN',
+    author: { '@type': 'Organization', name: SITE.name, url: SITE.url },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE.name,
+      url: SITE.url,
+      logo: { '@type': 'ImageObject', url: `${SITE.url}/favicon.svg` },
+    },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
   };
 }
 
