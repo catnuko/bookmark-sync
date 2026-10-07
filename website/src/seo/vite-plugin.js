@@ -316,6 +316,16 @@ export function seoStaticPlugin() {
         // ★ outPath 是相对 dist 的**文件名**（'404.html' / 'en/404.html'），
         //   urlPath 是喂给 renderPage 的**路由路径**（'/404'），两者不是一回事。
         //   混用会写出到 dist 之外（EROFS）—— 之前真踩过。
+        // ★ /admin 的处理：**不在这里做任何事**，rewrites 直接指 index.html。
+        //   原因：admin 是纯客户端后台（懒加载视图 + 鉴权守卫），从不进 SSG。
+        //   曾经试过生成一份 admin.html（空壳），但要「把 SSG 注入的内容剥回空壳」，
+        //   依赖正则匹配 HTML 结构 —— 模板一改就悄悄失配，且症状极难定位
+        //   （URL 不跳转、无报错、无失败请求，页面停在首页）。
+        //   现在改由main.js 在**运行时**判断：路径以 /admin 开头就
+        //   `el.innerHTML = ''` + `createApp(App)`，与页面里预渲染了什么完全无关。
+        //   判据：**SSG 与 CSR 混用时，客户端必须自己判断「这一页该不该hydrate
+        //   预渲染内容」，而不是依赖产物侧的 HTML 加工。**
+
         targets.push({ seoKey: 'notFound', routePath: '/404', outFile: '404.html', locale: 'zh' });
         targets.push({
           seoKey: 'notFound',
