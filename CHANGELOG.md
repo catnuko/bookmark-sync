@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.13.0](https://github.com/catnuko/bookmark-sync/compare/v2.12.0...v2.13.0) (2026-10-07)
+
+
+### Features
+
+* **store:** add promo video for social media (zh, 9:16) ([819aacf](https://github.com/catnuko/bookmark-sync/commit/819aacf9cd606eced3dd0edfc6606f108c51fdc4))
+* **store:** update promo headline to bookmark structure (zh/en) ([e26ff1d](https://github.com/catnuko/bookmark-sync/commit/e26ff1d368fc84335879252906c5cc57e8b5b093))
+* **website:** add explain article on Chrome dual bookmark trees with image support ([0962497](https://github.com/catnuko/bookmark-sync/commit/096249708acaa959896975e242ef68e3c25818be))
+
 ## [2.12.0](https://github.com/catnuko/bookmark-sync/compare/v2.11.1...v2.12.0) (2026-10-07)
 
 
