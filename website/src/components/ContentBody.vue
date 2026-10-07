@@ -85,6 +85,12 @@ defineProps({
       <!-- 代码块 -->
       <pre v-else-if="b.type === 'code'" class="cb-pre"><code>{{ b.value }}</code></pre>
 
+      <!-- 图片（块级，站内绝对路径） -->
+      <figure v-else-if="b.type === 'image'" class="cb-figure">
+        <img class="cb-img" :src="b.src" :alt="b.alt" loading="lazy" decoding="async" />
+        <figcaption v-if="b.alt" class="cb-figcap">{{ b.alt }}</figcaption>
+      </figure>
+
       <!-- 表格：横向可滚动，避免窄屏把布局撑破 -->
       <div v-else-if="b.type === 'table'" class="cb-table-wrap">
         <table class="cb-table">
@@ -203,6 +209,25 @@ defineProps({
   overflow-x: auto;
   font-size: var(--text-sm);
   line-height: 1.6;
+}
+
+.cb :deep(.cb-figure) {
+  margin: var(--space-7) 0;
+  text-align: center;
+}
+
+.cb :deep(.cb-img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 32px rgba(23, 35, 74, 0.08);
+}
+
+.cb :deep(.cb-figcap) {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .cb :deep(.cb-table-wrap) {

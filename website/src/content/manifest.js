@@ -212,6 +212,26 @@ export const CONTENT_ROUTES = [
     "seoTitle": "Is It Really E2EE? A Checklist · BookmarkSync",
     "description": "\"We support end-to-end encryption\" carries almost no information — plaintext storage can say it too. Here are seven criteria you can verify yourself, starting with the strongest one: whether the vendor can email you a link to reset your master password.",
     "order": 10
+  },
+  {
+    "locale": "zh",
+    "slug": "chrome-dual-bookmark-trees",
+    "prefix": "explain",
+    "category": "explain",
+    "title": "Chrome 双子树时代，「同一棵书签树」到底是什么意思",
+    "seoTitle": "Chrome 双子树书签同步原理 · BookmarkSync",
+    "description": "2025 年起 Chrome 把书签拆成账号与本地两棵子树，登录后书签栏出现两套文件夹。跨设备同步还能叫「同一棵书签树」吗？这篇讲清同步引擎如何把多棵原生根归一化成一棵逻辑树。",
+    "order": 11
+  },
+  {
+    "locale": "en",
+    "slug": "chrome-dual-bookmark-trees",
+    "prefix": "explain",
+    "category": "explain",
+    "title": "\"Chrome's Two Bookmark Trees: What \\\"One Bookmark Tree\\\" Really Means\"",
+    "seoTitle": "\"Chrome's Dual Bookmark Trees Explained · BookmarkSync\"",
+    "description": "Since 2025, Chrome has split bookmarks into an account tree and a local tree, so signed-in users see two sets of top-level folders. Does cross-device sync still mean \\\"one bookmark tree\\\"? This article explains how the sync engine normalizes multiple native roots into a single logical tree.",
+    "order": 11
   }
 ];
 
