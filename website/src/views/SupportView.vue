@@ -5,17 +5,19 @@ import LocalizedLink from '../components/LocalizedLink.vue';
 
 const { t } = useI18n();
 
-const faqKeys = [
-  'account',
-  'browsers',
-  'free',
-  'restore',
-  'security',
-  'passphrase',
-  'conflict',
-  'gc',
-  'accountBar',
-];
+/**
+ * 支持页只留**「要不要 / 会不会 / 安不安全」**这类决策型问题。
+ *
+ * ★ 去掉 restore / passphrase / accountBar 三条：它们与 /docs 的 FAQ
+ *   话题完全相同（换设备恢复、忘口令、账号栏文件夹），措辞不同但问的是一件事。
+ *   两页都放 → 用户在任一页都能看到，SEO 上也是同义内容互相稀释。
+ *   判据：**一条 FAQ 只在最能回答它的那一页出现**；「怎么操作」归 /docs，
+ *   「要不要用它 / 会不会出事」归 /support。
+ *
+ * 保留 conflict 与 gc：它们问的是「会不会冲突 / 会不会被删」，属于决策判断，
+ * 文档页那12 条是「怎么操作」，不冲突。
+ */
+const faqKeys = ['account', 'browsers', 'free', 'security', 'conflict', 'gc'];
 
 const resourceLinks = [
   { key: 'docs', to: '/docs' },

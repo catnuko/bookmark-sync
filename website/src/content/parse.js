@@ -12,6 +12,7 @@
  *   - ``` 代码块（会原样转义，不解析内部）
  *   - 表格（| a | b |，第二行必须是分隔行）
  *   - `**粗体**` 与 `` `行内代码` ``
+ *   - `![alt](路径)` 图片（块级；路径为站内绝对路径，如 /assets/xxx.svg）
  *
  * 产出 AST 而不是 HTML 字符串：SSG 与 CSR 都要渲染，AST 在 Vue 侧可以直接 v-for，
  * 而 HTML 字符串要么 v-html（丢样式作用域），要么二次解析（更绕）。
@@ -19,7 +20,7 @@
 
 /** 支持的语法白名单 —— 出错时告诉作者「这个语法不支持」而不是静默渲染错。 */
 const SUPPORTED =
-  '标题(#/##/###)、段落、- 列表、1. 有序列表、> 引用、``` 代码块、| 表格、**粗体**、`行内代码`';
+  '标题(#/##/###)、段落、- 列表、1. 有序列表、> 引用、``` 代码块、| 表格、**粗体**、`行内代码`、![图片](路径)';
 
 /** 解析行内标记：`**粗体**` 与 `` `代码` ``。其余原样转义。 */
 export function parseInline(text) {
@@ -146,6 +147,14 @@ export function parseMarkdown(src, filePath = '<md>') {
       continue;
     }
 
+    // 图片：`![alt](路径)`（块级；路径为站内绝对路径）
+    const img = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(trimmed);
+    if (img) {
+      blocks.push({ type: 'image', alt: img[1].trim(), src: img[2].trim() });
+      i += 1;
+      continue;
+    }
+
     // 列表（有序 / 无序），支持一层 `- ` 嵌套
     const isUl = /^-\s+/.test(trimmed);
     const isOl = /^\d+\.\s+/.test(trimmed);
@@ -181,7 +190,7 @@ export function parseMarkdown(src, filePath = '<md>') {
     while (
       i < lines.length &&
       lines[i].trim() &&
-      !/^(#{1,4}\s|-\s|\d+\.\s|>\s|```)/.test(lines[i].trim())
+      !/^(#{1,4}\s|-\s|\d+\.\s|>\s|```|!\[)/.test(lines[i].trim())
     ) {
       buf.push(lines[i].trim());
       i += 1;

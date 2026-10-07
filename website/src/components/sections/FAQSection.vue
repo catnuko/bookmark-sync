@@ -4,20 +4,19 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
-const faqKeys = [
-  'upgrade',
-  'order',
-  'refund',
-  'freeLimit',
-  'payment',
-  'subOrOnetime',
-  'passphrase',
-  'newDevice',
-  'devices',
-  'autoSync',
-  'gc',
-  'quotaUnit',
-];
+/**
+ * 定价页只保留**价格与账号**相关的问题。
+ *
+ * ★ 为什么不全放（曾经这里是 12 条，首页也在用同一份）：
+ *   - 「忘记口令」「换设备恢复」「能不能关自动同步」「配额按字节」这类是
+ *     **操作/机制**问题，用户是在文档页或排障时才问的，混在价格页里是噪音；
+ *   - 而且它们本来就会在 docs 与 support 各出现一次，三处重复会让每页都
+ *     有几条不相关的问答。
+ *   判据：**一条 FAQ 只在最能回答它的那一页出现。**
+ *
+ * 有疑问的读者走 /docs 或 /support，那里是它们的归属地。
+ */
+const faqKeys = ['upgrade', 'refund', 'freeLimit', 'payment', 'subOrOnetime', 'quotaUnit'];
 const openIndex = ref(0);
 
 function toggle(i) {

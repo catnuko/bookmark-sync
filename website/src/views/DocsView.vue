@@ -1,9 +1,24 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
+import ContentIndex from '../components/ContentIndex.vue';
 
 const { t, tm } = useI18n();
 
 const sections = ['quickstart', 'features', 'faq', 'troubleshoot'];
+
+/**
+ * FAQ / 排障问答列表 —— 按键名过滤掉属于别页的内容。
+ *
+ * ★「配额按条数还是按字节计算？」只在 /pricing 出现：用户问它是在决策
+ *   「免费档够不够用」，属于价格/额度语境；本页讲的是操作与机制，
+ *   重复列出只是同义内容互相稀释。判据：**一条 FAQ 只在最能回答它的那一页。**
+ */
+const FAQ_SKIP = new Set([4]); // docs.sections.faq.items 里"配额"那条的下标
+
+function qaItems(sec) {
+  const items = tm(`docs.sections.${sec}.items`) || [];
+  return sec === 'faq' ? items.filter((_, i) => !FAQ_SKIP.has(i)) : items;
+}
 </script>
 
 <template>
@@ -47,11 +62,7 @@ const sections = ['quickstart', 'features', 'faq', 'troubleshoot'];
 
           <!-- FAQ / 故障排查：折叠问答 -->
           <div v-else class="docs-qa">
-            <details
-              v-for="(qa, i) in tm(`docs.sections.${sec}.items`)"
-              :key="i"
-              class="docs-details"
-            >
+            <details v-for="(qa, i) in qaItems(sec)" :key="i" class="docs-details">
               <summary class="docs-q">{{ qa.q }}</summary>
               <p class="docs-a">{{ qa.a }}</p>
             </details>
@@ -59,6 +70,10 @@ const sections = ['quickstart', 'features', 'faq', 'troubleshoot'];
         </div>
       </div>
     </section>
+
+    <!-- 文章列表（markdown 驱动的长尾内容）。放文档页而不是页脚：
+         页脚是全局导航，10 篇文章标题会撑成 5 列、长标题折三行。 -->
+    <ContentIndex />
   </div>
 </template>
 
