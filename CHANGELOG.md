@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.11.1](https://github.com/catnuko/bookmark-sync/compare/v2.11.0...v2.11.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **website:** 关掉 cssCodeSplit，修 SSG 页面全部无样式 ([dada9b2](https://github.com/catnuko/bookmark-sync/commit/dada9b270ec473a5fede3b6fdc0ca8df8003f82b))
+* **website:** 关掉 cssCodeSplit，修 SSG 页面全部无样式 ([35cd65f](https://github.com/catnuko/bookmark-sync/commit/35cd65fbf1e932a7bdc7f1546fe70a13bc5d88fd))
+
 ## [2.11.0](https://github.com/catnuko/bookmark-sync/compare/v2.10.1...v2.11.0) (2026-10-06)
 
 
