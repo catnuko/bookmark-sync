@@ -13,6 +13,10 @@
     "terms": "条款",
     "support": "支持"
   },
+  "contentIndex": {
+    "title": "问题解决指南",
+    "subtitle": "{count} 篇讲清楚具体问题的文章 —— 书签为什么丢、怎么恢复、怎么换浏览器。"
+  },
   "contact": {
     "supportEmail": "support{'@'}bookmark-sync.top",
     "supportLabel": "客服邮箱"

@@ -13,6 +13,10 @@
     "terms": "Terms",
     "support": "Support"
   },
+  "contentIndex": {
+    "title": "Troubleshooting guides",
+    "subtitle": "{count} articles on specific problems — why bookmarks disappear, how to recover them, how to move between browsers."
+  },
   "contact": {
     "supportEmail": "support{'@'}bookmark-sync.top",
     "supportLabel": "Support email"

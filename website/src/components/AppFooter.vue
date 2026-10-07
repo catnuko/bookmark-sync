@@ -1,10 +1,8 @@
 <script setup>
-import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import LocalizedLink from './LocalizedLink.vue';
-import { CONTENT_ROUTES, CONTENT_CATEGORIES } from '../content/manifest';
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 
 const productLinks = [
   { label: 'nav.features', to: '/#features' },
@@ -16,30 +14,6 @@ const resourceLinks = [
   { label: 'nav.docs', to: '/docs' },
   { label: 'nav.support', to: '/support' },
 ];
-
-/**
- * 内容栏目（问题解决 / 迁移指南）—— SEO 的主要抓手。
- *
- * ★ 全站页脚是爬虫抓取页面时**必经**的一处内链，权重传递效率最高。
- *   内容页如果只靠「相关阅读」互相链接，会形成孤岛岛群；挂到页脚才能吃到全站权重。
- *
- * 按当前语言过滤，且每类只取前 3 篇 —— 页脚塞满链接会挤垮移动端布局，
- * 而「内容很多」这件事本身对用户没有价值。
- */
-const contentColumns = computed(() => {
-  const cur = locale.value === 'en' ? 'en' : 'zh';
-  return (
-    Object.entries(CONTENT_CATEGORIES)
-      .map(([key, cat]) => {
-        const links = CONTENT_ROUTES.filter((r) => r.category === key && r.locale === cur)
-          .slice(0, 3)
-          .map((r) => ({ label: r.title, to: `/${r.prefix}/${r.slug}` }));
-        return { label: cat.label[cur], desc: cat.description[cur], links };
-      })
-      // 内容还没写时不要出现空栏目（会留一个只有标题的空列）
-      .filter((c) => c.links.length > 0)
-  );
-});
 
 const legalLinks = [
   { label: 'nav.privacy', to: '/privacy' },
@@ -80,15 +54,6 @@ const legalLinks = [
             class="footer-link"
           >
             {{ t(link.label) }}
-          </LocalizedLink>
-        </div>
-
-        <!-- 内容栏目（问题解决 / 迁移指南）。SEO 内链的主要通道：
-             全站每页都经过页脚，内容页从这里拿到的是全站权重而不是孤岛内的循环权重。 -->
-        <div v-for="col in contentColumns" :key="col.label" class="footer-col footer-col-content">
-          <h4 class="footer-title">{{ col.label }}</h4>
-          <LocalizedLink v-for="link in col.links" :key="link.to" :to="link.to" class="footer-link">
-            {{ link.label }}
           </LocalizedLink>
         </div>
       </div>
