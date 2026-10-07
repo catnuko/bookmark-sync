@@ -1476,5 +1476,589 @@
   },
   "ai_editTitle": {
     "message": "編輯模型"
+  },
+  "theme_label": {
+    "message": "主题"
+  },
+  "theme_auto": {
+    "message": "跟随"
+  },
+  "theme_light": {
+    "message": "浅色"
+  },
+  "theme_dark": {
+    "message": "深色"
+  },
+  "org_modeAria": {
+    "message": "整理方式"
+  },
+  "org_tabClassify": {
+    "message": "批量归类"
+  },
+  "org_tabDedupe": {
+    "message": "去重检测"
+  },
+  "sdpe_title": {
+    "message": "内容相似"
+  },
+  "sdpe_badge": {
+    "message": "AI"
+  },
+  "sdpe_offTitle": {
+    "message": "AI 相似判重未开启"
+  },
+  "sdpe_offDesc": {
+    "message": "在下方开启后，模型会比对标题与 URL，找出精确匹配漏掉的近似重复。"
+  },
+  "sdpe_running": {
+    "message": "正在比对候选…"
+  },
+  "sdpe_runningDesc": {
+    "message": "已把 $1 对候选发给模型。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sdpe_startDesc": {
+    "message": "本地先做预筛，只把值得问的候选对发出去 —— 花费取决于疑似重复的数量，而不是书签总量。"
+  },
+  "sdpe_run": {
+    "message": "开始 AI 判重"
+  },
+  "sdpe_none": {
+    "message": "没有发现内容相似的书签。"
+  },
+  "sdpe_group": {
+    "message": "第 $1 组 · $2 条",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "sdpe_confHigh": {
+    "message": "高置信"
+  },
+  "sdpe_confMedium": {
+    "message": "需人工确认"
+  },
+  "sdpe_keep": {
+    "message": "保留"
+  },
+  "sdpe_found": {
+    "message": "发现 $1 组 · 输入约 $2 / 输出约 $3 tokens",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      }
+    }
+  },
+  "sdpe_foundNoUsage": {
+    "message": "发现 $1 组",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sdpe_rescan": {
+    "message": "重新检测"
+  },
+  "sdpe_safetyNote": {
+    "message": "只报告、不删除 —— 是否移除由你决定。"
+  },
+  "sdpe_enableTitle": {
+    "message": "AI 相似判重"
+  },
+  "sdpe_enableDesc": {
+    "message": "会把书签标题与 URL 发给你的 AI 服务商，用于找出近似重复。"
+  },
+  "omb_title": {
+    "message": "地址栏搜索"
+  },
+  "omb_sub": {
+    "message": "在地址栏敲关键词，直接跳到任意书签。"
+  },
+  "omb_usageTitle": {
+    "message": "使用方法"
+  },
+  "omb_step1": {
+    "message": "点地址栏（或按 Ctrl/Cmd+L）。"
+  },
+  "omb_step2": {
+    "message": "输入 bs，然后按 Tab 或空格。"
+  },
+  "omb_step3": {
+    "message": "输入关键词，从建议里选一条。"
+  },
+  "omb_enterHint": {
+    "message": "按回车打开最匹配的一条。"
+  },
+  "omb_mockTitle": {
+    "message": "界面示意"
+  },
+  "omb_mockNote": {
+    "message": "静态示意 —— 真实建议来自你本机的书签，本地生成。"
+  },
+  "omb_typeBookmark": {
+    "message": "书签"
+  },
+  "omb_example": {
+    "message": "rust 所有权"
+  },
+  "omb_ruleTitle": {
+    "message": "排版规则"
+  },
+  "omb_rule1Title": {
+    "message": "每条建议一行"
+  },
+  "omb_rule1Desc": {
+    "message": "命中的部分加粗，让你一眼看出为什么匹配。"
+  },
+  "omb_rule2Title": {
+    "message": "用文件夹做上下文"
+  },
+  "omb_rule2Desc": {
+    "message": "标题后面以浅色显示所在文件夹路径。"
+  },
+  "omb_rule3Title": {
+    "message": "最多 8 条建议"
+  },
+  "omb_rule3Desc": {
+    "message": "按本地相关性排序 —— 标题命中优先。"
+  },
+  "omb_privacyTitle": {
+    "message": "不出本机"
+  },
+  "omb_privacyDesc": {
+    "message": "建议完全由本机书签树计算得出，不会发送到任何地方。"
+  },
+  "lnk_title": {
+    "message": "链接体检"
+  },
+  "lnk_sub": {
+    "message": "扫描书签里的失效链接、重定向与域名迁移。"
+  },
+  "lnk_unauthTitle": {
+    "message": "需要授权才能读到真实状态码"
+  },
+  "lnk_unauthDesc": {
+    "message": "没有 host 权限时，跨域请求返回 opaque 响应 —— 404 和正常页面无法区分，探活会变得毫无意义。"
+  },
+  "lnk_unauthGrantTitle": {
+    "message": "授权以检测链接"
+  },
+  "lnk_unauthBullet1": {
+    "message": "仅用于向每条书签的 URL 发一次请求。"
+  },
+  "lnk_unauthBullet2": {
+    "message": "不读取、不保存任何页面内容。"
+  },
+  "lnk_unauthBullet3": {
+    "message": "随时可在扩展页收回该权限。"
+  },
+  "lnk_unauthGrant": {
+    "message": "授权"
+  },
+  "lnk_deniedTitle": {
+    "message": "未获得授权"
+  },
+  "lnk_deniedDesc": {
+    "message": "浏览器拦截了权限申请。你可以在扩展页手动授予。"
+  },
+  "lnk_deniedOpen": {
+    "message": "打开扩展设置"
+  },
+  "lnk_deniedOpenDesc": {
+    "message": "开启站点访问权限，然后回来重试。"
+  },
+  "lnk_deniedRetry": {
+    "message": "再试一次"
+  },
+  "lnk_scopeLabel": {
+    "message": "检测范围"
+  },
+  "lnk_scopeAll": {
+    "message": "全部书签（$1）",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_start": {
+    "message": "开始检测"
+  },
+  "lnk_startNote": {
+    "message": "检测在本页运行 —— 请保持标签页打开，关掉即中止。"
+  },
+  "lnk_detectingStat": {
+    "message": "已检测 $1 / $2 · 异常 $3",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      }
+    }
+  },
+  "lnk_detectingNote": {
+    "message": "请求按站点限速，避免触发站点风控。"
+  },
+  "lnk_pause": {
+    "message": "暂停"
+  },
+  "lnk_resume": {
+    "message": "继续"
+  },
+  "lnk_aiLoading": {
+    "message": "正在让模型给出修复建议…"
+  },
+  "lnk_aiLoadingDesc": {
+    "message": "已发送 $1 条失效链接。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_aiOff": {
+    "message": "AI 未配置 —— 探活结果照常展示。"
+  },
+  "lnk_aiNoSuggestion": {
+    "message": "模型没有给出有把握的替代地址。"
+  },
+  "lnk_aiFail": {
+    "message": "AI 建议不可用：$1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_groupBroken": {
+    "message": "失效链接"
+  },
+  "lnk_groupRedirect": {
+    "message": "重定向"
+  },
+  "lnk_groupChanged": {
+    "message": "疑似改版"
+  },
+  "lnk_groupUnknown": {
+    "message": "无法确认"
+  },
+  "lnk_statusBroken": {
+    "message": "404"
+  },
+  "lnk_statusRedirect": {
+    "message": "重定向"
+  },
+  "lnk_statusChanged": {
+    "message": "已迁移"
+  },
+  "lnk_statusUnknown": {
+    "message": "未知"
+  },
+  "lnk_aiOriginal": {
+    "message": "当前"
+  },
+  "lnk_aiSuggest": {
+    "message": "建议"
+  },
+  "lnk_aiSource": {
+    "message": "来源：AI 建议"
+  },
+  "lnk_aiNone": {
+    "message": "没有有把握的建议 —— 可能需你手动更新。"
+  },
+  "lnk_redirectNew": {
+    "message": "跳转到"
+  },
+  "lnk_srcProbe": {
+    "message": "来源：探活结果"
+  },
+  "lnk_changedNote": {
+    "message": "这些链接仍可访问，但已迁移到新域名。若希望书签指向新站点，可更新它们。"
+  },
+  "lnk_unknownNote": {
+    "message": "被反爬拦截、超时或返回无法判断的错误。未知 ≠ 失效 —— 请自行确认。"
+  },
+  "lnk_statOk": {
+    "message": "正常"
+  },
+  "lnk_statBroken": {
+    "message": "失效"
+  },
+  "lnk_statRedirect": {
+    "message": "重定向"
+  },
+  "lnk_statChanged": {
+    "message": "迁移"
+  },
+  "lnk_statUnknown": {
+    "message": "未知"
+  },
+  "lnk_healthyRow": {
+    "message": "$1 条链接正常。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_selected": {
+    "message": "已选 $1 条",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_applyNote": {
+    "message": "仅更新 URL，不删除任何书签。"
+  },
+  "lnk_apply": {
+    "message": "采纳并更新"
+  },
+  "lnk_allHealthyTitle": {
+    "message": "全部链接正常"
+  },
+  "lnk_allHealthyDesc": {
+    "message": "已检测 $1 条链接，未发现问题。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_allHealthyCardTitle": {
+    "message": "没有需要处理的问题"
+  },
+  "lnk_allHealthyCardDesc": {
+    "message": "$1 条链接均可正常访问。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_done": {
+    "message": "完成"
+  },
+  "lnk_doneTitle": {
+    "message": "已更新 $1 条链接",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_doneDesc": {
+    "message": "改动会同步到其它设备，可在下方撤销。"
+  },
+  "lnk_revert": {
+    "message": "撤销"
+  },
+  "lnk_revertNote": {
+    "message": "撤销仅在当前页面保持打开时有效 —— 快照不落盘。"
+  },
+  "lnk_reverted": {
+    "message": "已撤销 $1 条链接",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_partialFail": {
+    "message": "$1 条链接更新失败。",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_title": {
+    "message": "健康洞察"
+  },
+  "hlt_sub": {
+    "message": "定期了解书签库状态，AI 给出整理建议。"
+  },
+  "hlt_loading": {
+    "message": "正在分析书签…"
+  },
+  "hlt_permTitle": {
+    "message": "浏览历史（沉睡书签依赖）"
+  },
+  "hlt_permDesc": {
+    "message": "授权后可统计超过 90 天未访问的沉睡书签。"
+  },
+  "hlt_permDenied": {
+    "message": "未获得历史权限。"
+  },
+  "hlt_overview": {
+    "message": "书签概览"
+  },
+  "hlt_cardSleep": {
+    "message": "沉睡书签"
+  },
+  "hlt_cardSleepSub": {
+    "message": ">$1 天未访问",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_cardSleepNeedPerm": {
+    "message": "需历史权限"
+  },
+  "hlt_cardDup": {
+    "message": "重复书签"
+  },
+  "hlt_cardDupSub": {
+    "message": "$1 组 · 冗余 $2 条",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "hlt_cardEmpty": {
+    "message": "空文件夹"
+  },
+  "hlt_cardEmptySub": {
+    "message": "不含任何书签"
+  },
+  "hlt_cardBroken": {
+    "message": "失效链接"
+  },
+  "hlt_cardBrokenSub": {
+    "message": "来自上次链接体检"
+  },
+  "hlt_cardBrokenNotChecked": {
+    "message": "尚未检测"
+  },
+  "hlt_aiSection": {
+    "message": "AI 洞察"
+  },
+  "hlt_aiTitle": {
+    "message": "健康总结"
+  },
+  "hlt_aiIdle": {
+    "message": "根据上面的数字生成一段通俗总结。"
+  },
+  "hlt_aiSent": {
+    "message": "本次发送 $1 条统计数据 · 书签不出本机",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_aiGen": {
+    "message": "生成总结"
+  },
+  "hlt_aiRegen": {
+    "message": "重新生成"
+  },
+  "hlt_aiStop": {
+    "message": "停止"
+  },
+  "hlt_aiEmpty": {
+    "message": "模型返回了空总结。"
+  },
+  "hlt_suggestions": {
+    "message": "整理建议"
+  },
+  "hlt_sugLooseTitle": {
+    "message": "归类散书签"
+  },
+  "hlt_sugLooseDesc": {
+    "message": "$1 条书签未归入任何文件夹",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_sugLooseAction": {
+    "message": "去归类"
+  },
+  "hlt_sugDupTitle": {
+    "message": "处理重复书签"
+  },
+  "hlt_sugDupDesc": {
+    "message": "$1 组重复，冗余 $2 条",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "hlt_sugDupAction": {
+    "message": "去重"
+  },
+  "hlt_sugBrokenTitle": {
+    "message": "修复失效链接"
+  },
+  "hlt_sugBrokenDesc": {
+    "message": "$1 条链接可能已失效",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_sugBrokenAction": {
+    "message": "去检测"
+  },
+  "hlt_sugCheckTitle": {
+    "message": "检查失效链接"
+  },
+  "hlt_sugCheckDesc": {
+    "message": "跑一次链接体检，找出失效书签"
+  },
+  "hlt_sugCheckAction": {
+    "message": "去检测"
+  },
+  "hlt_sugEmptyTitle": {
+    "message": "清理空文件夹"
+  },
+  "hlt_sugEmptyDesc": {
+    "message": "$1 个文件夹不含任何书签",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_sugEmptyAction": {
+    "message": "查看"
+  },
+  "hlt_privacyNote": {
+    "message": "统计在本机完成。AI 总结只发送上面的数字 —— 不会发送任何书签标题或 URL。"
   }
 }

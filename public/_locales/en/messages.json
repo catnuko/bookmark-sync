@@ -1443,5 +1443,589 @@
   },
   "ai_editTitle": {
     "message": "Edit model"
+  },
+  "theme_label": {
+    "message": "Theme"
+  },
+  "theme_auto": {
+    "message": "Auto"
+  },
+  "theme_light": {
+    "message": "Light"
+  },
+  "theme_dark": {
+    "message": "Dark"
+  },
+  "org_modeAria": {
+    "message": "Organize mode"
+  },
+  "org_tabClassify": {
+    "message": "Classify"
+  },
+  "org_tabDedupe": {
+    "message": "Find duplicates"
+  },
+  "sdpe_title": {
+    "message": "Semantically similar"
+  },
+  "sdpe_badge": {
+    "message": "AI"
+  },
+  "sdpe_offTitle": {
+    "message": "AI similarity check is off"
+  },
+  "sdpe_offDesc": {
+    "message": "Turn it on below to have the model compare titles and URLs for near-duplicates that exact matching misses."
+  },
+  "sdpe_running": {
+    "message": "Comparing candidates…"
+  },
+  "sdpe_runningDesc": {
+    "message": "$1 candidate pairs sent to the model.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sdpe_startDesc": {
+    "message": "Local pre-filtering picks only the pairs worth asking about, so cost depends on suspected duplicates, not on your total bookmark count."
+  },
+  "sdpe_run": {
+    "message": "Run AI check"
+  },
+  "sdpe_none": {
+    "message": "No semantically similar bookmarks found."
+  },
+  "sdpe_group": {
+    "message": "Group $1 · $2 items",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "sdpe_confHigh": {
+    "message": "High confidence"
+  },
+  "sdpe_confMedium": {
+    "message": "Review"
+  },
+  "sdpe_keep": {
+    "message": "Keep"
+  },
+  "sdpe_found": {
+    "message": "$1 groups found · about $2 input / $3 output tokens",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      }
+    }
+  },
+  "sdpe_foundNoUsage": {
+    "message": "$1 groups found",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "sdpe_rescan": {
+    "message": "Run again"
+  },
+  "sdpe_safetyNote": {
+    "message": "Only reported, never deleted — you decide what to remove."
+  },
+  "sdpe_enableTitle": {
+    "message": "AI similarity check"
+  },
+  "sdpe_enableDesc": {
+    "message": "Sends bookmark titles and URLs to your AI provider to find near-duplicates."
+  },
+  "omb_title": {
+    "message": "Address bar search"
+  },
+  "omb_sub": {
+    "message": "Type a keyword in the address bar to jump to any bookmark."
+  },
+  "omb_usageTitle": {
+    "message": "How to use"
+  },
+  "omb_step1": {
+    "message": "Click the address bar (or press Ctrl/Cmd+L)."
+  },
+  "omb_step2": {
+    "message": "Type bs, then press Tab or Space."
+  },
+  "omb_step3": {
+    "message": "Type a keyword and pick from the suggestions."
+  },
+  "omb_enterHint": {
+    "message": "Press Enter to open the top match."
+  },
+  "omb_mockTitle": {
+    "message": "What it looks like"
+  },
+  "omb_mockNote": {
+    "message": "Static preview — the real suggestions come from your own bookmarks, locally."
+  },
+  "omb_typeBookmark": {
+    "message": "Bookmark"
+  },
+  "omb_example": {
+    "message": "rust ownership"
+  },
+  "omb_ruleTitle": {
+    "message": "Layout rules"
+  },
+  "omb_rule1Title": {
+    "message": "One line per suggestion"
+  },
+  "omb_rule1Desc": {
+    "message": "The matched part is bolded so you can see why it matched."
+  },
+  "omb_rule2Title": {
+    "message": "Folder shown as context"
+  },
+  "omb_rule2Desc": {
+    "message": "The folder path appears dimmed after the title."
+  },
+  "omb_rule3Title": {
+    "message": "At most 8 suggestions"
+  },
+  "omb_rule3Desc": {
+    "message": "Ranked by local relevance — title matches first."
+  },
+  "omb_privacyTitle": {
+    "message": "Stays on your device"
+  },
+  "omb_privacyDesc": {
+    "message": "Suggestions are computed locally from your bookmark tree. Nothing is sent anywhere."
+  },
+  "lnk_title": {
+    "message": "Link check"
+  },
+  "lnk_sub": {
+    "message": "Scan your bookmarks for dead links, redirects and moved domains."
+  },
+  "lnk_unauthTitle": {
+    "message": "Permission needed to read real status codes"
+  },
+  "lnk_unauthDesc": {
+    "message": "Without host access, cross-origin requests return opaque responses — a 404 is indistinguishable from a working page, so the scan would be meaningless."
+  },
+  "lnk_unauthGrantTitle": {
+    "message": "Grant access to check links"
+  },
+  "lnk_unauthBullet1": {
+    "message": "Only used to send a request to each bookmarked URL."
+  },
+  "lnk_unauthBullet2": {
+    "message": "No page content is read or stored."
+  },
+  "lnk_unauthBullet3": {
+    "message": "You can revoke it anytime from the extensions page."
+  },
+  "lnk_unauthGrant": {
+    "message": "Grant access"
+  },
+  "lnk_deniedTitle": {
+    "message": "Access was not granted"
+  },
+  "lnk_deniedDesc": {
+    "message": "The browser blocked the permission prompt. You can grant it manually from the extensions page."
+  },
+  "lnk_deniedOpen": {
+    "message": "Open extension settings"
+  },
+  "lnk_deniedOpenDesc": {
+    "message": "Enable site access, then come back and retry."
+  },
+  "lnk_deniedRetry": {
+    "message": "Try again"
+  },
+  "lnk_scopeLabel": {
+    "message": "Scope"
+  },
+  "lnk_scopeAll": {
+    "message": "All bookmarks ($1)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_start": {
+    "message": "Start check"
+  },
+  "lnk_startNote": {
+    "message": "Runs in this page — keep the tab open. Closing it stops the check."
+  },
+  "lnk_detectingStat": {
+    "message": "Checked $1 / $2 · $3 abnormal",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      },
+      "p3": {
+        "content": "$3"
+      }
+    }
+  },
+  "lnk_detectingNote": {
+    "message": "Requests are throttled per host to avoid tripping site protections."
+  },
+  "lnk_pause": {
+    "message": "Pause"
+  },
+  "lnk_resume": {
+    "message": "Resume"
+  },
+  "lnk_aiLoading": {
+    "message": "Asking the model for repair suggestions…"
+  },
+  "lnk_aiLoadingDesc": {
+    "message": "$1 broken links sent.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_aiOff": {
+    "message": "AI is not configured — probe results are still shown."
+  },
+  "lnk_aiNoSuggestion": {
+    "message": "The model had no confident replacement URL for these links."
+  },
+  "lnk_aiFail": {
+    "message": "AI suggestions unavailable: $1",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_groupBroken": {
+    "message": "Dead links"
+  },
+  "lnk_groupRedirect": {
+    "message": "Redirected"
+  },
+  "lnk_groupChanged": {
+    "message": "Moved to a new domain"
+  },
+  "lnk_groupUnknown": {
+    "message": "Could not confirm"
+  },
+  "lnk_statusBroken": {
+    "message": "404"
+  },
+  "lnk_statusRedirect": {
+    "message": "Redirect"
+  },
+  "lnk_statusChanged": {
+    "message": "Moved"
+  },
+  "lnk_statusUnknown": {
+    "message": "Unknown"
+  },
+  "lnk_aiOriginal": {
+    "message": "Current"
+  },
+  "lnk_aiSuggest": {
+    "message": "Suggested"
+  },
+  "lnk_aiSource": {
+    "message": "Source: AI suggestion"
+  },
+  "lnk_aiNone": {
+    "message": "No confident suggestion — you may want to update this manually."
+  },
+  "lnk_redirectNew": {
+    "message": "Redirects to"
+  },
+  "lnk_srcProbe": {
+    "message": "Source: probe result"
+  },
+  "lnk_changedNote": {
+    "message": "These links still work but now live on a different domain. Update them if you want the bookmark to point at the new site."
+  },
+  "lnk_unknownNote": {
+    "message": "Blocked by anti-bot, timed out, or returned an error we can't interpret. Unknown is not the same as broken — check these yourself."
+  },
+  "lnk_statOk": {
+    "message": "OK"
+  },
+  "lnk_statBroken": {
+    "message": "Dead"
+  },
+  "lnk_statRedirect": {
+    "message": "Redirect"
+  },
+  "lnk_statChanged": {
+    "message": "Moved"
+  },
+  "lnk_statUnknown": {
+    "message": "Unknown"
+  },
+  "lnk_healthyRow": {
+    "message": "$1 links are healthy.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_selected": {
+    "message": "$1 selected",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_applyNote": {
+    "message": "Only the URL is updated — nothing is deleted."
+  },
+  "lnk_apply": {
+    "message": "Apply changes"
+  },
+  "lnk_allHealthyTitle": {
+    "message": "All links are healthy"
+  },
+  "lnk_allHealthyDesc": {
+    "message": "Checked $1 links, no problems found.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_allHealthyCardTitle": {
+    "message": "Nothing to fix"
+  },
+  "lnk_allHealthyCardDesc": {
+    "message": "$1 links checked and all reachable.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_done": {
+    "message": "Done"
+  },
+  "lnk_doneTitle": {
+    "message": "Updated $1 links",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_doneDesc": {
+    "message": "The changes sync to your other devices. You can revert them below."
+  },
+  "lnk_revert": {
+    "message": "Revert"
+  },
+  "lnk_revertNote": {
+    "message": "Revert only works while this page stays open — the snapshot is not saved."
+  },
+  "lnk_reverted": {
+    "message": "Reverted $1 links",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "lnk_partialFail": {
+    "message": "$1 links could not be updated.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_title": {
+    "message": "Health insights"
+  },
+  "hlt_sub": {
+    "message": "Understand your bookmark library at a glance, with AI suggestions."
+  },
+  "hlt_loading": {
+    "message": "Analyzing your bookmarks…"
+  },
+  "hlt_permTitle": {
+    "message": "Browsing history (for dormant bookmarks)"
+  },
+  "hlt_permDesc": {
+    "message": "Grant history access to count bookmarks you haven't opened in 90+ days."
+  },
+  "hlt_permDenied": {
+    "message": "History access was not granted."
+  },
+  "hlt_overview": {
+    "message": "Overview"
+  },
+  "hlt_cardSleep": {
+    "message": "Dormant"
+  },
+  "hlt_cardSleepSub": {
+    "message": "Not visited in $1 days",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_cardSleepNeedPerm": {
+    "message": "Requires history access"
+  },
+  "hlt_cardDup": {
+    "message": "Duplicates"
+  },
+  "hlt_cardDupSub": {
+    "message": "$1 groups · $2 redundant",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "hlt_cardEmpty": {
+    "message": "Empty folders"
+  },
+  "hlt_cardEmptySub": {
+    "message": "Contain no bookmarks"
+  },
+  "hlt_cardBroken": {
+    "message": "Dead links"
+  },
+  "hlt_cardBrokenSub": {
+    "message": "From the last link check"
+  },
+  "hlt_cardBrokenNotChecked": {
+    "message": "Not checked yet"
+  },
+  "hlt_aiSection": {
+    "message": "AI insight"
+  },
+  "hlt_aiTitle": {
+    "message": "Health summary"
+  },
+  "hlt_aiIdle": {
+    "message": "Generate a plain-language summary of the numbers above."
+  },
+  "hlt_aiSent": {
+    "message": "$1 statistics sent · no bookmarks leave your device",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_aiGen": {
+    "message": "Generate summary"
+  },
+  "hlt_aiRegen": {
+    "message": "Regenerate"
+  },
+  "hlt_aiStop": {
+    "message": "Stop"
+  },
+  "hlt_aiEmpty": {
+    "message": "The model returned an empty summary."
+  },
+  "hlt_suggestions": {
+    "message": "Suggestions"
+  },
+  "hlt_sugLooseTitle": {
+    "message": "File loose bookmarks"
+  },
+  "hlt_sugLooseDesc": {
+    "message": "$1 bookmarks are not in any folder",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_sugLooseAction": {
+    "message": "Organize"
+  },
+  "hlt_sugDupTitle": {
+    "message": "Resolve duplicates"
+  },
+  "hlt_sugDupDesc": {
+    "message": "$1 groups · $2 redundant copies",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "hlt_sugDupAction": {
+    "message": "Dedupe"
+  },
+  "hlt_sugBrokenTitle": {
+    "message": "Fix dead links"
+  },
+  "hlt_sugBrokenDesc": {
+    "message": "$1 links may be broken",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_sugBrokenAction": {
+    "message": "Check"
+  },
+  "hlt_sugCheckTitle": {
+    "message": "Check link health"
+  },
+  "hlt_sugCheckDesc": {
+    "message": "Run a link check to find dead bookmarks"
+  },
+  "hlt_sugCheckAction": {
+    "message": "Check now"
+  },
+  "hlt_sugEmptyTitle": {
+    "message": "Clean up empty folders"
+  },
+  "hlt_sugEmptyDesc": {
+    "message": "$1 folders contain no bookmarks",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "hlt_sugEmptyAction": {
+    "message": "Review"
+  },
+  "hlt_privacyNote": {
+    "message": "Statistics are computed on your device. The AI summary only sends the counts above — never a bookmark title or URL."
   }
 }

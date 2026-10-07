@@ -180,8 +180,12 @@ export function collectBookmarks(roots: ChromeTreeNode[]): Array<{
  *
  * 优先级：标题非空 > 标题更长（信息量更大）> 原始 URL 更短（通常是干净版）
  * > id 字典序（保证确定性，避免同一份树两次跑出不同结果）。
+ *
+ * ★ 导出给 ai/semanticDedupe.ts 复用：精确重复与语义相似是**两套判定**，但
+ * 「留哪一条」的规则必须同一份 —— 否则同一个组在两种视图里显示不同的保留项，
+ * 用户会以为界面出错了。
  */
-function pickKeeper(members: Array<{ id: string; title: string; url: string }>): string {
+export function pickKeeper(members: Array<{ id: string; title: string; url: string }>): string {
   const sorted = [...members].sort((a, b) => {
     if (!a.title && b.title) return 1;
     if (a.title && !b.title) return -1;

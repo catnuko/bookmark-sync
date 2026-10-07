@@ -15,6 +15,7 @@ import {
 } from './sync.js';
 import { registerTestChannel } from './testChannel.js';
 import { installLogBridge } from './logBridge.js';
+import { registerOmnibox } from './omnibox.js';
 
 // vite define 注入的构建时间（见 vite.config.js）
 declare const __BUILD_TIME__: string;
@@ -84,6 +85,10 @@ registerLocalEventBridge({
 });
 // 测试通道（仅 Firefox E2E；生产无测试桥扩展，通道天然不可达）
 registerTestChannel();
+
+// 地址栏搜索（bs + 空格）。omnibox 是 MV3 持久事件：SW 被回收后由事件唤醒重跑本文件，
+// 所以必须在顶层注册（见 omnibox.ts 文件头）。
+registerOmnibox();
 
 async function sync(): Promise<SyncRunResult> {
   try {

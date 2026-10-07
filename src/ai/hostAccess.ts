@@ -25,6 +25,8 @@
  * 声明用 https 通配 + http 通配（而非 `<all_urls>`）：不覆盖 file:// 与
  * ftp:// 等无关协议，权限面小一点，审核时好解释。 */
 
+import type { ExtensionPermissions } from '../lib/ext.js';
+
 /** 与 public/manifest.json 的 optional_host_permissions 保持一致。 */
 export const OPTIONAL_HOST_PATTERNS = ['https://*/*', 'http://*/*'] as const;
 
@@ -46,8 +48,7 @@ export function originOf(baseUrl: string): string | null {
  * 所以要用 `origin + '/*'`；对 `https://a.com` 本身，`https://a.com/*` 才匹配。
  */
 export async function hasHostAccess(origin: string): Promise<boolean> {
-  const perms = (globalThis as { chrome?: { permissions?: ChromePermissions } }).chrome
-    ?.permissions;
+  const perms = permsApi();
   if (!perms) return false; // 非扩展环境（测试）→ 视为无权限，调用方走降级
   try {
     return await perms.contains({ origins: [`${origin}/*`] });
@@ -64,8 +65,7 @@ export async function hasHostAccess(origin: string): Promise<boolean> {
  * @returns 用户是否同意。拒绝 / 抛错都视为不同意，调用方必须能降级。
  */
 export async function requestHostAccess(origin: string): Promise<boolean> {
-  const perms = (globalThis as { chrome?: { permissions?: ChromePermissions } }).chrome
-    ?.permissions;
+  const perms = permsApi();
   if (!perms) return false;
   try {
     return await perms.request({ origins: [`${origin}/*`] });
@@ -77,8 +77,7 @@ export async function requestHostAccess(origin: string): Promise<boolean> {
 
 /** 撤销该 origin 的权限（设置页的「收回访问」用）。 */
 export async function revokeHostAccess(origin: string): Promise<void> {
-  const perms = (globalThis as { chrome?: { permissions?: ChromePermissions } }).chrome
-    ?.permissions;
+  const perms = permsApi();
   if (!perms) return;
   try {
     await perms.remove({ origins: [`${origin}/*`] });
@@ -87,9 +86,47 @@ export async function revokeHostAccess(origin: string): Promise<void> {
   }
 }
 
-/** chrome.permissions 的最小结构类型（项目未装 @types/chrome，见 lib/ext.ts 说明）。 */
-interface ChromePermissions {
-  contains(p: { origins?: string[]; permissions?: string[] }): Promise<boolean>;
-  request(p: { origins?: string[]; permissions?: string[] }): Promise<boolean>;
-  remove(p: { origins?: string[]; permissions?: string[] }): Promise<void>;
+/**
+ * 本模块直连 `globalThis.chrome.permissions`（而不是 lib/ext.ts 的 `api`）：
+ * 非扩展环境（单测）下 `api` 是 undefined，而这里的每个函数都要能安全降级。
+ * 类型复用 lib/ext.ts 的那份，避免两处各写一遍。
+ */
+function permsApi(): ExtensionPermissions | undefined {
+  return (globalThis as { chrome?: { permissions?: ExtensionPermissions } }).chrome?.permissions;
+}
+
+/**
+ * 是否已获得**广域** host 权限（https + http 通配）。
+ *
+ * 与 `hasHostAccess(origin)` 的区别：那个查单个端点（自建 AI 网关用），这个查
+ * 「能不能对任意站点发请求」。链接体检依赖后者 —— 没有广域权限时跨域 fetch 拿到的是
+ * opaque 响应，**读不到 404**，探活等于白跑（见 ai/linkCheck.ts 文件头）。
+ *
+ * `contains` 传的是匹配模式数组，要求**全部**已授予才返回 true；manifest 里
+ * `request()` 是一次性整批授予，所以按整批判断是准确的。
+ */
+export async function hasBroadHostAccess(): Promise<boolean> {
+  const perms = permsApi();
+  if (!perms) return false;
+  try {
+    return await perms.contains({ origins: [...OPTIONAL_HOST_PATTERNS] });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 申请广域 host 权限。
+ *
+ * ⚠ 与 `requestHostAccess` 同一条约束：**必须在用户手势内、且是 handler 第一句**。
+ */
+export async function requestBroadHostAccess(): Promise<boolean> {
+  const perms = permsApi();
+  if (!perms) return false;
+  try {
+    return await perms.request({ origins: [...OPTIONAL_HOST_PATTERNS] });
+  } catch {
+    // 手势已失效 / 非前台上下文 / 用户拒绝 → 一律视为未获批
+    return false;
+  }
 }

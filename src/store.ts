@@ -176,8 +176,10 @@ export const state = reactive({
   // 弹窗二级面板（抽屉）
   drawer: '', // '' | 'account' | 'spaces' | 'key' | 'help' | 'feedback' | 'system'
 
-  // 设置页导航。设置页只承载 popup 塞不下的宽表单（当前仅 AI），
-  // pane 清单真源在 OptionsView.vue 的panes 数组；这里给个存在的默认值兜底。
+  // 设置页导航。设置页只承载 popup 塞不下的功能（AI 配置 / 问答 / 整理 /
+  // 链接体检 / 地址栏搜索 / 健康洞察），pane 清单真源在 OptionsView.vue 的
+  // panes 数组；这里给个存在的默认值兜底。健康洞察的「整理建议」也直接写这个字段
+  // 来跨 pane 跳转。
   navPane: 'ai', // 见 OptionsView.vue → panes
 
   // toast 队列

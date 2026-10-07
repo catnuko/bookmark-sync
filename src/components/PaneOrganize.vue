@@ -3,148 +3,155 @@
     <h2>{{ t('org_title') }}</h2>
     <p class="pane-sub">{{ t('org_sub') }}</p>
 
-    <!-- 前置条件未满足：说清原因而不是让按钮静默失败 -->
-    <div v-if="gate" class="banner banner-warning">
-      <Icon name="alert" />
-      <span>{{ gate }}</span>
+    <!-- 分段：批量归类（走模型）/ 去重检测（本地为主）。两者互不依赖。 -->
+    <div class="grp">
+      <SegTabs v-model="mode" :options="modeOptions" :aria-label="t('org_modeAria')" />
     </div>
 
-    <template v-else>
-      <!-- ============ 步骤 1：选范围 ============ -->
-      <div v-if="stage === 'scope'" class="grp">
-        <div class="field">
-          <label for="org-scope">{{ t('org_pickScope') }}</label>
-          <select id="org-scope" v-model="scopeId" class="input">
-            <option value="" disabled>{{ t('org_pickScopePlaceholder') }}</option>
-            <option v-for="f in eligible" :key="f.id" :value="f.id">
-              {{ '　'.repeat(f.depth) }}{{ f.title }}（{{ f.looseCount }}）
-            </option>
-          </select>
-          <p class="hint">{{ t('org_pickScopeHint') }}</p>
-        </div>
-
-        <div class="org-actions">
-          <button class="btn btn-primary" :disabled="!scopeId || planning" @click="buildPlan">
-            <span v-if="planning" class="spinner" />
-            <Icon v-else name="star" />
-            {{ planning ? t('org_planning') : t('org_start') }}
-          </button>
-        </div>
+    <!-- ==================== 批量归类 ==================== -->
+    <template v-if="mode === 'classify'">
+      <!-- 前置条件未满足：说清原因而不是让按钮静默失败 -->
+      <div v-if="gate" class="banner banner-warning">
+        <Icon name="alert" />
+        <span>{{ gate }}</span>
       </div>
 
-      <!-- ============ 步骤 2：预览方案 + 应用 ============ -->
       <template v-else>
-        <div class="org-summary">
-          <button type="button" class="link-btn" @click="backToScope">
-            {{ t('org_changeScope') }}
-          </button>
-          <span class="org-summary-main">
-            <strong>{{ plan?.scopeTitle }}</strong>
-            · {{ t('org_planStat', String(plan?.groups.length ?? 0), String(plan?.total ?? 0)) }}
-          </span>
-        </div>
+        <!-- ============ 步骤 1：选范围 ============ -->
+        <div v-if="stage === 'scope'" class="grp">
+          <div class="field">
+            <label for="org-scope">{{ t('org_pickScope') }}</label>
+            <select id="org-scope" v-model="scopeId" class="input">
+              <option value="" disabled>{{ t('org_pickScopePlaceholder') }}</option>
+              <option v-for="f in eligible" :key="f.id" :value="f.id">
+                {{ '　'.repeat(f.depth) }}{{ f.title }}（{{ f.looseCount }}）
+              </option>
+            </select>
+            <p class="hint">{{ t('org_pickScopeHint') }}</p>
+          </div>
 
-        <div v-if="!plan || plan.groups.length === 0" class="banner">
-          <Icon name="info" />
-          <span>{{ t('org_noGroups') }}</span>
-        </div>
-
-        <div v-else class="org-groups">
-          <div class="org-group" v-for="g in plan.groups" :key="g.key">
-            <label class="org-group-head">
-              <input
-                type="checkbox"
-                :checked="selected.includes(g.key)"
-                @change="toggleGroup(g.key)"
-              />
-              <span class="org-folder">
-                <Icon :name="g.kind === 'reuse' ? 'folder' : 'folder-plus'" />
-                {{ g.folder }}
-              </span>
-              <span class="badge" :class="g.kind === 'reuse' ? 'badge-info' : 'badge-neutral'">
-                {{ g.kind === 'reuse' ? t('org_reuse') : t('org_create') }}
-              </span>
-              <span class="badge badge-sub">{{ g.items.length }}</span>
-            </label>
-            <ul class="org-items">
-              <li v-for="it in g.items.slice(0, 6)" :key="it.id">
-                <span class="org-item-title">{{ it.title || it.url }}</span>
-                <span class="org-item-url">{{ siteOf(it.url) }}</span>
-              </li>
-              <li v-if="g.items.length > 6" class="org-more">
-                {{ t('org_moreItems', String(g.items.length - 6)) }}
-              </li>
-            </ul>
+          <div class="org-actions">
+            <button class="btn btn-primary" :disabled="!scopeId || planning" @click="buildPlan">
+              <span v-if="planning" class="spinner" />
+              <Icon v-else name="star" />
+              {{ planning ? t('org_planning') : t('org_start') }}
+            </button>
           </div>
         </div>
 
-        <!-- 未归类：只报告，不自动处理 -->
-        <div v-if="plan?.unclassified.length" class="banner banner-warning">
-          <Icon name="alert" />
-          <span>{{ t('org_unclassified', String(plan.unclassified.length)) }}</span>
-        </div>
+        <!-- ============ 步骤 2：预览方案 + 应用 ============ -->
+        <template v-else>
+          <div class="org-summary">
+            <button type="button" class="link-btn" @click="backToScope">
+              {{ t('org_changeScope') }}
+            </button>
+            <span class="org-summary-main">
+              <strong>{{ plan?.scopeTitle }}</strong>
+              · {{ t('org_planStat', String(plan?.groups.length ?? 0), String(plan?.total ?? 0)) }}
+            </span>
+          </div>
 
-        <p v-if="plan?.usage" class="org-usage">
-          {{ t('org_usage', String(plan.usage.input), String(plan.usage.output)) }}
-        </p>
+          <div v-if="!plan || plan.groups.length === 0" class="banner">
+            <Icon name="info" />
+            <span>{{ t('org_noGroups') }}</span>
+          </div>
 
-        <p class="org-safety">
-          <Icon name="shield" />
-          {{ t('org_safetyNote') }}
-        </p>
+          <div v-else class="org-groups">
+            <div class="org-group" v-for="g in plan.groups" :key="g.key">
+              <label class="org-group-head">
+                <input
+                  type="checkbox"
+                  :checked="selected.includes(g.key)"
+                  @change="toggleGroup(g.key)"
+                />
+                <span class="org-folder">
+                  <Icon :name="g.kind === 'reuse' ? 'folder' : 'folder-plus'" />
+                  {{ g.folder }}
+                </span>
+                <span class="badge" :class="g.kind === 'reuse' ? 'badge-info' : 'badge-neutral'">
+                  {{ g.kind === 'reuse' ? t('org_reuse') : t('org_create') }}
+                </span>
+                <span class="badge badge-sub">{{ g.items.length }}</span>
+              </label>
+              <ul class="org-items">
+                <li v-for="it in g.items.slice(0, 6)" :key="it.id">
+                  <span class="org-item-title">{{ it.title || it.url }}</span>
+                  <span class="org-item-url">{{ siteOf(it.url) }}</span>
+                </li>
+                <li v-if="g.items.length > 6" class="org-more">
+                  {{ t('org_moreItems', String(g.items.length - 6)) }}
+                </li>
+              </ul>
+            </div>
+          </div>
 
-        <!-- 应用 / 撤销 / 进度 -->
-        <div v-if="!applied" class="org-actions">
-          <button
-            class="btn btn-primary"
-            :disabled="selected.length === 0 || applying"
-            @click="apply"
-          >
-            <span v-if="applying" class="spinner" />
-            <Icon v-else name="check" />
-            {{ t('org_apply', String(moveCount)) }}
-          </button>
-          <button class="btn btn-ghost" :disabled="!plan" @click="backToScope">
-            {{ t('org_cancel') }}
-          </button>
-        </div>
+          <!-- 未归类：只报告，不自动处理 -->
+          <div v-if="plan?.unclassified.length" class="banner banner-warning">
+            <Icon name="alert" />
+            <span>{{ t('org_unclassified', String(plan.unclassified.length)) }}</span>
+          </div>
 
-        <div v-else class="grp">
-          <div class="inset-group">
-            <div class="inset-row">
-              <span class="lede"><Icon name="check" /></span>
-              <div class="r-main">
-                <div class="r-title">{{ t('org_applied', String(result?.movedCount ?? 0)) }}</div>
-                <div v-if="result && !result.ok" class="r-desc">
-                  {{ t('org_partialFail', String(result.failures.length)) }}
-                </div>
-                <div v-if="result && result.createdCount > 0" class="r-desc">
-                  {{ t('org_createdFolders', String(result.createdCount)) }}
+          <p v-if="plan?.usage" class="org-usage">
+            {{ t('org_usage', String(plan.usage.input), String(plan.usage.output)) }}
+          </p>
+
+          <p class="org-safety">
+            <Icon name="shield" />
+            {{ t('org_safetyNote') }}
+          </p>
+
+          <!-- 应用 / 撤销 / 进度 -->
+          <div v-if="!applied" class="org-actions">
+            <button
+              class="btn btn-primary"
+              :disabled="selected.length === 0 || applying"
+              @click="apply"
+            >
+              <span v-if="applying" class="spinner" />
+              <Icon v-else name="check" />
+              {{ t('org_apply', String(moveCount)) }}
+            </button>
+            <button class="btn btn-ghost" :disabled="!plan" @click="backToScope">
+              {{ t('org_cancel') }}
+            </button>
+          </div>
+
+          <div v-else class="grp">
+            <div class="inset-group">
+              <div class="inset-row">
+                <span class="lede"><Icon name="check" /></span>
+                <div class="r-main">
+                  <div class="r-title">{{ t('org_applied', String(result?.movedCount ?? 0)) }}</div>
+                  <div v-if="result && !result.ok" class="r-sub">
+                    {{ t('org_partialFail', String(result.failures.length)) }}
+                  </div>
+                  <div v-if="result && result.createdCount > 0" class="r-sub">
+                    {{ t('org_createdFolders', String(result.createdCount)) }}
+                  </div>
                 </div>
               </div>
             </div>
+            <div class="org-actions">
+              <button class="btn" :disabled="reverting" @click="revert">
+                {{ reverting ? t('org_reverting') : t('org_revert') }}
+              </button>
+              <button class="btn btn-ghost" @click="reset">{{ t('org_done') }}</button>
+            </div>
           </div>
-          <div class="org-actions">
-            <button class="btn" :disabled="reverting" @click="revert">
-              {{ reverting ? t('org_reverting') : t('org_revert') }}
-            </button>
-            <button class="btn btn-ghost" @click="reset">{{ t('org_done') }}</button>
-          </div>
-        </div>
-
-        <p v-if="statusMsg" class="org-status" :class="{ 'is-error': statusBad }">
-          {{ statusMsg }}
-        </p>
+        </template>
       </template>
+    </template>
 
-      <!-- ============ 去重（纯本地，与归类并列的独立功能）============ -->
-      <div v-if="stage === 'scope' || !applied" class="grp org-dedupe">
+    <!-- ==================== 去重检测 ==================== -->
+    <template v-else>
+      <!-- 精确重复（纯本地，零外发） -->
+      <div class="grp">
         <div class="inset-group">
           <div class="inset-row clickable" @click="scanDup">
             <span class="lede"><Icon name="copy" /></span>
             <div class="r-main">
               <div class="r-title">{{ t('dpe_title') }}</div>
-              <div class="r-desc">{{ t('dpe_sub') }}</div>
+              <div class="r-sub">{{ t('dpe_sub') }}</div>
             </div>
             <span v-if="dupScanning" class="spinner" />
             <Icon v-else class="chev" name="chevron-right" />
@@ -183,22 +190,147 @@
         </template>
         <p v-else-if="dupScanned" class="org-status">{{ t('dpe_none') }}</p>
       </div>
+
+      <!-- 内容相似（AI 判定，需外发标题与 URL） -->
+      <div class="grp">
+        <h4 class="org-h4-row">
+          {{ t('sdpe_title') }}
+          <span class="badge badge-info badge-sub">{{ t('sdpe_badge') }}</span>
+        </h4>
+
+        <!-- 未开启：说清代价，给出开启位置（开关就在下方） -->
+        <div v-if="!simEnabled" class="banner banner-warning">
+          <Icon name="alert" />
+          <div>
+            <strong>{{ t('sdpe_offTitle') }}</strong>
+            <div class="org-banner-sub">{{ t('sdpe_offDesc') }}</div>
+          </div>
+        </div>
+
+        <!-- 未启用 AI：本地精确去重仍可用，这一块单独 gate -->
+        <div v-else-if="gate" class="banner banner-warning">
+          <Icon name="alert" />
+          <span>{{ gate }}</span>
+        </div>
+
+        <div v-else-if="simLoading" class="inset-group">
+          <div class="inset-row">
+            <span class="spinner" />
+            <div class="r-main">
+              <div class="r-title">{{ t('sdpe_running') }}</div>
+              <div class="r-sub">{{ t('sdpe_runningDesc', String(simPairs)) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 已开启但还没跑：给一个明确的入口与成本说明 -->
+        <div v-else-if="!simScanned" class="card org-sim-start">
+          <p class="org-banner-sub">{{ t('sdpe_startDesc') }}</p>
+          <button class="btn btn-primary btn-lg" @click="runSimCheck">
+            <Icon name="star" />
+            {{ t('sdpe_run') }}
+          </button>
+        </div>
+
+        <template v-else>
+          <div v-if="simGroups.length === 0" class="banner banner-success">
+            <Icon name="check-circle" />
+            <span>{{ t('sdpe_none') }}</span>
+          </div>
+
+          <div v-else class="org-groups">
+            <div class="org-group" v-for="(g, i) in simGroups" :key="i">
+              <div class="org-group-head">
+                <span class="org-folder">
+                  <Icon name="copy" />
+                  {{ t('sdpe_group', String(i + 1), String(g.dupIds.length + 1)) }}
+                </span>
+                <span
+                  class="badge badge-sub"
+                  :class="g.confidence === 'high' ? 'badge-info' : 'badge-warning'"
+                >
+                  {{ g.confidence === 'high' ? t('sdpe_confHigh') : t('sdpe_confMedium') }}
+                </span>
+              </div>
+              <ul class="org-items">
+                <li
+                  v-for="id in [g.keepId, ...g.dupIds]"
+                  :key="id"
+                  :class="{ 'is-keep': id === g.keepId }"
+                >
+                  <Icon v-if="id === g.keepId" name="check" />
+                  <span class="org-item-title">{{ simTitleOf(id) }}</span>
+                  <span class="org-item-url">{{
+                    id === g.keepId ? t('sdpe_keep') : siteOf(simUrlOf(id))
+                  }}</span>
+                </li>
+              </ul>
+              <p v-if="g.reason" class="org-group-reason">{{ g.reason }}</p>
+            </div>
+          </div>
+
+          <p class="org-usage">
+            {{
+              simUsage
+                ? t(
+                    'sdpe_found',
+                    String(simGroups.length),
+                    String(simUsage.input),
+                    String(simUsage.output),
+                  )
+                : t('sdpe_foundNoUsage', String(simGroups.length))
+            }}
+          </p>
+
+          <button class="btn btn-ghost btn-sm org-rescan" @click="runSimCheck">
+            <Icon name="refresh" />
+            {{ t('sdpe_rescan') }}
+          </button>
+        </template>
+
+        <p v-if="simError" class="org-status is-error">{{ simError }}</p>
+
+        <p class="org-safety">
+          <Icon name="shield" />
+          {{ t('sdpe_safetyNote') }}
+        </p>
+      </div>
+
+      <!-- 开关：AI 语义判重 -->
+      <div class="grp">
+        <div class="inset-group">
+          <div class="inset-row">
+            <div class="r-main">
+              <div class="r-title">{{ t('sdpe_enableTitle') }}</div>
+              <div class="r-sub">{{ t('sdpe_enableDesc') }}</div>
+            </div>
+            <button
+              class="switch"
+              role="switch"
+              :aria-checked="simEnabled"
+              :aria-label="t('sdpe_enableTitle')"
+              @click="toggleSim"
+            />
+          </div>
+        </div>
+      </div>
     </template>
   </section>
 </template>
 
 <script setup>
 /**
- * PaneOrganize.vue — 「整理书签」pane：AI 归类 + 本地去重。
+ * PaneOrganize.vue — 「整理书签」pane：AI 归类 + 去重（精确 / 语义）。
  *
- * ## 两个功能并列，不互相依赖
+ * ## 三个功能并列，互不依赖
  *
- * 归类走模型、去重不走。去重是确定性字符串处理（ai/dedupe.ts），零 token 零
- * 外发，任何时候都能单独用；把它们塞进一个向导会让人以为「不去重就没法归类」。
+ * 归类与语义判重走模型；精确去重是确定性字符串处理（ai/dedupe.ts），零 token
+ * 零外发，**任何时候都能单独用**。所以 AI 未就绪的 gate 只挡它真正依赖的那一块，
+ * 不再像早期那样整页拦下 —— 否则「没配 AI 就用不了去重」是假的限制。
  *
  * ## 为什么不自动应用
  *
- * 模型返回的分组**必须**先渲染成 diff 让用户看清，再勾选、再应用。这是
+ * 模型返回的分组 / 判重结论**必须**先渲染出来让用户看清，再勾选、再应用。这是
  * ai/classify.ts 文件头那条原则在 UI 上的落地。
  *
  * ## 去重只报告不删除
@@ -215,7 +347,15 @@ import { showToast } from '../store.js';
 import { readAiConfig, readApiKey } from '../ai/config.js';
 import { applyPlan, hostOf, listFolders, planOrganize, revertApply } from '../ai/organize.js';
 import { collectBookmarks, findDuplicates } from '../ai/dedupe.js';
+import { buildCandidates, classifySemanticDupes } from '../ai/semanticDedupe.js';
 import Icon from './ui/Icon.vue';
+import SegTabs from './ui/SegTabs.vue';
+
+const mode = ref('classify'); // 'classify' | 'dedupe'
+const modeOptions = [
+  { value: 'classify', label: t('org_tabClassify') },
+  { value: 'dedupe', label: t('org_tabDedupe') },
+];
 
 const stage = ref('scope'); // 'scope' | 'plan'
 const gate = ref('');
@@ -231,10 +371,23 @@ const result = ref(null);
 const statusMsg = ref('');
 const statusBad = ref(false);
 
+// ---- 精确重复（本地） ----
 const dupGroups = ref([]);
 const dupScanning = ref(false);
 const dupScanned = ref(false);
 let titleMap = new Map();
+
+// ---- 语义相似（AI） ----
+/** 默认关：开启即代表同意把标题与 URL 发给模型，不能替用户默认勾上。 */
+const simEnabled = ref(false);
+const simLoading = ref(false);
+const simScanned = ref(false);
+const simGroups = ref([]);
+const simUsage = ref(null);
+const simPairs = ref(0);
+const simError = ref('');
+/** id → { title, url, path }，供结果展示。 */
+let simMeta = new Map();
 
 /** 只有「有散书签可整理」的文件夹才是有效范围，looseCount=0 的列出来只是噪音。 */
 const eligible = computed(() => folders.value.filter((f) => f.looseCount > 0));
@@ -344,7 +497,7 @@ async function loadFolders() {
   }
 }
 
-/** 去重：全树扫，不受「选定范围」限制 —— 重复书签散在各处。 */
+/** 精确去重：全树扫，不受「选定范围」限制 —— 重复书签散在各处。 */
 async function scanDup() {
   if (dupScanning.value) return;
   dupScanning.value = true;
@@ -360,8 +513,56 @@ async function scanDup() {
   }
 }
 
+function toggleSim() {
+  simEnabled.value = !simEnabled.value;
+  simError.value = '';
+}
+
+/**
+ * 语义判重：全树取候选 → 交模型判定。
+ *
+ * 候选生成在本地完成（buildCandidates），只把「值得问」的几十到几百对发出去，
+ * 所以花费与书签总量基本无关，只与疑似重复的数量有关。
+ */
+async function runSimCheck() {
+  if (simLoading.value) return;
+  simLoading.value = true;
+  simError.value = '';
+  simGroups.value = [];
+  simUsage.value = null;
+  simPairs.value = 0;
+  try {
+    const tree = await api.bookmarks.getTree();
+    const items = collectBookmarks(tree);
+    simMeta = new Map(items.map((b) => [b.id, b]));
+    const pairs = buildCandidates(items.map((b) => ({ id: b.id, title: b.title, url: b.url })));
+    simPairs.value = pairs.length;
+    if (pairs.length === 0) {
+      simScanned.value = true;
+      return;
+    }
+    const [cfg, key] = await Promise.all([readAiConfig(), readApiKey()]);
+    const r = await classifySemanticDupes(cfg, key, items, pairs);
+    simGroups.value = r.groups;
+    simUsage.value = r.usage ?? null;
+    simScanned.value = true;
+  } catch (e) {
+    simError.value = describeError(e);
+  } finally {
+    simLoading.value = false;
+  }
+}
+
 function titleOf(id) {
   return titleMap.get(id) || id;
+}
+
+function simTitleOf(id) {
+  return simMeta.get(id)?.title || simMeta.get(id)?.url || id;
+}
+
+function simUrlOf(id) {
+  return simMeta.get(id)?.url || '';
 }
 
 /**
@@ -510,9 +711,26 @@ function shortUrl(url) {
 .org-status.is-error {
   color: var(--danger-text);
 }
-.org-dedupe {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-subtle);
+.org-h4-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.org-banner-sub {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.org-sim-start {
+  margin-top: 8px;
+}
+.org-rescan {
+  margin-top: 8px;
+}
+.org-group-reason {
+  margin: 0;
+  padding: 0 12px 9px 34px;
+  font-size: var(--fs-badge);
+  color: var(--text-quaternary);
 }
 </style>

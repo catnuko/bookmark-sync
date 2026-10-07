@@ -10,8 +10,12 @@
     "128": "icons/icon-128.png"
   },
   "permissions": ["bookmarks", "storage", "alarms"],
+  "optional_permissions": ["history"],
   "host_permissions": ["https://*.supabase.co/*"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "omnibox": {
+    "keyword": "bs"
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"

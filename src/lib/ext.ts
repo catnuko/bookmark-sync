@@ -68,6 +68,57 @@ export interface ExtensionTabs {
   create(createProperties: { url: string }): Promise<unknown>;
 }
 
+/**
+ * chrome.permissions 子集（可选 host 权限 / history 权限的申请与查询）。
+ * 与 ai/hostAccess.ts 里那份局部声明形状一致，这里放一份供新模块共用。
+ */
+export interface ExtensionPermissions {
+  contains(p: { origins?: string[]; permissions?: string[] }): Promise<boolean>;
+  request(p: { origins?: string[]; permissions?: string[] }): Promise<boolean>;
+  remove(p: { origins?: string[]; permissions?: string[] }): Promise<void>;
+}
+
+/** chrome.history 子集（健康洞察的「沉睡书签」统计用）。 */
+export interface ExtensionHistory {
+  /** 某 URL 的访问记录。空数组 = 从未访问过。 */
+  getVisits(details: { url: string }): Promise<Array<{ visitTime?: number }>>;
+  /**
+   * 检索浏览历史。`text: ''` + `maxResults: 0` = 取全部（Chrome/Firefox 均支持）。
+   *
+   * ★ 健康洞察**必须用 search 而不是逐条 getVisits**：上千条书签各调一次
+   * getVisits 是上千次异步往返，慢到不可接受；search 一次拿回整张历史表，
+   * 在本地建 URL→lastVisitTime 映射，再 O(1) 比对每条书签。
+   */
+  search(query: {
+    text: string;
+    startTime?: number;
+    endTime?: number;
+    maxResults?: number;
+  }): Promise<Array<{ url?: string; lastVisitTime?: number }>>;
+}
+
+/** omnibox 建议项（description 支持 XML 标记，见 src/omnibox.ts）。 */
+export interface OmniboxSuggestion {
+  content: string;
+  description: string;
+}
+
+/**
+ * chrome.omnibox 子集（地址栏搜索）。
+ *
+ * ★ 刻意**不含** `onInputEnded` —— Chrome 的 omnibox API 没有这个事件
+ * （只有 onInputStarted / Changed / Entered / Cancelled / DeleteSuggestion）。
+ */
+export interface ExtensionOmnibox {
+  setDefaultSuggestion(s: { description: string }): void;
+  onInputStarted: { addListener(cb: () => void): void };
+  onInputChanged: {
+    addListener(cb: (text: string, suggest: (s: OmniboxSuggestion[]) => void) => void): void;
+  };
+  onInputEntered: { addListener(cb: (text: string, disposition: string) => void): void };
+  onInputCancelled: { addListener(cb: () => void): void };
+}
+
 /** 全库使用的扩展 API 面（browser.* / chrome.* 公共子集）。 */
 export interface ExtensionApi {
   storage: { local: StorageArea };
@@ -75,6 +126,9 @@ export interface ExtensionApi {
   bookmarks: ChromeBookmarksAPI;
   alarms?: ExtensionAlarms;
   tabs?: ExtensionTabs;
+  permissions?: ExtensionPermissions;
+  history?: ExtensionHistory;
+  omnibox?: ExtensionOmnibox;
 }
 
 const g = globalThis as typeof globalThis & { browser?: unknown; chrome?: unknown };

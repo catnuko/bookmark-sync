@@ -1253,6 +1253,15 @@ svg {
   flex: none;
   padding: 16px 12px;
   border-right: 1px solid var(--border);
+  /* 纵向 flex：让底部的主题切换（.nav-foot）能被 margin-top:auto 顶到最底。
+     sticky + 100vh：内容滚动时侧栏保持可见（与原型 App.jsx 的 .opt-nav 一致）。 */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 /* 品牌区：图标与文字复用 popup 标题栏的 .ext-ico / .ext-name（唯一真源），
    这里只管在侧栏里的排布与间距 —— 不在此处覆盖字号/圆角，否则两边会漂移。 */
@@ -1262,7 +1271,10 @@ svg {
   gap: 8px;
   padding: 6px 10px 12px;
 }
-.opt-nav button {
+/* ★ 只用直接子选择器（> button）。导航项是 .opt-nav 的直接子元素，而底部
+   .nav-foot 里的主题分段也是 button —— 不加 > 会把 44px 行高 / 10px 内边距
+   套到分段控件上，把它撑变形。 */
+.opt-nav > button {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1276,20 +1288,64 @@ svg {
   text-align: left;
   transition: background var(--dur-instant);
 }
-.opt-nav button svg {
+.opt-nav > button svg {
   width: 17px;
   height: 17px;
   color: var(--text-secondary);
 }
-.opt-nav button:hover {
+.opt-nav > button:hover {
   background: var(--bg-scrim);
 }
-.opt-nav button.active {
+.opt-nav > button.active {
   background: var(--brand);
   color: var(--brand-foreground);
 }
-.opt-nav button.active svg {
+.opt-nav > button.active svg {
   color: var(--brand-foreground);
+}
+
+/* 导航底部：主题切换（跟随 / 浅色 / 深色）。margin-top:auto 把它推到侧栏最底。 */
+.nav-foot {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+.nav-foot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+}
+.nav-foot-icon {
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  flex: none;
+}
+.nav-foot-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.nav-foot-label {
+  font-size: var(--fs-secondary);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  flex: none;
+}
+.nav-foot-seg {
+  margin-left: auto;
+  flex: none;
+  width: 84px;
+}
+/* 比分段控件的默认尺寸（32px）矮一档，与侧栏行高协调 */
+.nav-foot-seg .seg {
+  height: 28px;
+}
+.nav-foot-seg .seg button {
+  height: 24px;
 }
 .opt-content {
   flex: 1;

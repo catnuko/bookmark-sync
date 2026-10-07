@@ -242,14 +242,18 @@ function truncate(s: string, n: number): string {
   return s.length <= n ? s : `${s.slice(0, n - 1)}…`;
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
+/** 按固定大小切块。导出给 ai/semanticDedupe.ts 复用（同一套分批策略）。 */
+export function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
 }
 
-/** 并发上限固定的 map。失败的项由调用方处理（这里吞成 null，不中断整体）。 */
-async function mapLimit<T, R>(
+/**
+ * 并发上限固定的 map。失败的项由调用方处理（这里吞成 null，不中断整体）。
+ * 导出给 ai/semanticDedupe.ts 复用。
+ */
+export async function mapLimit<T, R>(
   items: T[],
   limit: number,
   fn: (item: T) => Promise<R>,
