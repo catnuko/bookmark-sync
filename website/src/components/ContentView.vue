@@ -4,29 +4,41 @@
 // ★ 为什么不 v-html：AST 走 v-for 才能吃到 scoped 样式，且天然避免 XSS
 //   （内容是我们自己写的，但仍不给 innerHTML 开口子）。上一个文件里
 //   `<a href>` 是 LocalizedLink 渲染的，同样只走 AST。
-import { computed } from 'vue';
+import { computed, inject, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import LocalizedLink from './LocalizedLink.vue';
 import ContentBody from './ContentBody.vue';
-
-// 内容数据由 ssg.js 在渲染时注入（Vue 没有「给组件传服务端数据」的原生方式，
-// 这里的做法是：ssg.js 直接把 article 挂在 app.provide 上）。
-// ★ Article / FAQPage JSON-LD 由 vite-plugin 在构建时生成后塞进 head，
-//   不走组件 —— JSON-LD 必须在 SSR 产物里就存在，等客户端再补会漏。
-import { inject } from 'vue';
-const article = inject('contentArticle');
-
-if (!article) {
-  // 客户端 CSR 直达（无 SSG 数据）→ 路由不该匹配到内容页，报错比渲染空白好排查
-  throw new Error('[ContentView] 缺少 SSG 注入的 contentArticle');
-}
+// 内容数据两条来源：
+//   1. SSG —— vite-plugin 渲染时 app.provide('contentArticle', article)
+//   2. CSR —— dev server / 客户端路由跳转时没有注入，改从预渲染数据 JSON 取
+// ★ 原先只有第 1 条且拿不到就抛错，于是 **dev server 一进内容页就白屏**
+//   （线上因为每个文章 URL 都是独立 HTML，点进去是整页加载，掩盖了这个洞）。
+import { loadArticleForCsr } from '../content/csr';
 
 const route = useRoute();
-const cat = article.categoryMeta;
+const injected = inject('contentArticle', null);
+
+const article = ref(injected);
+if (!injected && route.meta.contentSlug) {
+  loadArticleForCsr(route.meta.contentSlug, route.meta.contentLocale || 'zh').then((d) => {
+    article.value = d;
+  });
+}
+
+// article 为 null = 还在取（CSR）。取回后（成功或失败）都会变成对象或保持 null，
+// 失败时下面的 v-else 会渲染出空壳 —— 但至少不再抛错白屏。
+const loading = computed(() => !article.value);
+const cat = computed(() => article.value?.categoryMeta || {});
 </script>
 
 <template>
-  <article class="content-page">
+  <!-- 取不到数据时的兜底。CSR 场景（dev server / 客户端跳转）先 fetch
+       预渲染数据 JSON，这个窗口内 article 为 null。 -->
+  <div v-if="loading" class="content-fallback container">
+    <p class="fallback-text">正在加载…</p>
+  </div>
+
+  <article v-else class="content-page">
     <!-- 页首 -->
     <header class="content-hero">
       <div class="container container-narrow">

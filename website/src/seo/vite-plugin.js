@@ -203,6 +203,60 @@ export function seoStaticPlugin() {
       if (content.articles.length) {
         console.log(`[content] ${content.articles.length} 篇已加载，manifest.js 已更新`);
       }
+
+      // ── CSR 用的内容数据 → public/content-data/ ────────────────────────
+      // ★ 为什么需要：内容页数据原**只**由 SSG 通过 app.provide 注入，
+      //   CSR（dev server / 客户端路由跳转）拿不到 → ContentView 抛错白屏。
+      //   线上因为每个文章 URL 都是预渲染 HTML（整页加载）掩盖了这个洞。
+      //
+      //   ★ 生成到 **public/** 而不是 dist/ —— vite dev 会直接服务 public/，
+      //   所以 dev 与生产走**同一条 fetch 路径**，不用写两套逻辑。
+      //   ★ buildStart 而不是 writeBundle：dev server 也要拿到它。
+      //   ★ 数据源用 loadContent 的解析结果（与 SSG 同一份 parse），不重新实现解析。
+      const pubDir = resolve(root, 'public/content-data');
+      for (const loc of LOCALES) {
+        const d = resolve(pubDir, loc);
+        mkdirSync(d, { recursive: true });
+      }
+      for (const a of content.articles) {
+        const cat = CATEGORIES[a.category];
+        // 相关阅读：与 vite-plugin 里 SSG targets 的组装保持一致
+        const related = (content.byLocale.get(a.locale) || [])
+          .filter((x) => x.category === a.category && x.slug !== a.slug)
+          .slice(0, 4)
+          .map((x) => ({ href: articlePath(x), title: x.frontmatter.title }));
+        const localePaths = LOCALES.reduce((acc, l) => {
+          const other = content.bySlug.get(`${l}/${a.slug}`);
+          if (other) acc[l] = articlePath(other);
+          return acc;
+        }, {});
+        writeFileSync(
+          resolve(pubDir, a.locale, `${a.slug}.json`),
+          JSON.stringify({
+            slug: a.slug,
+            locale: a.locale,
+            category: a.category,
+            frontmatter: a.frontmatter,
+            blocks: a.blocks,
+            lead: a.lead,
+            toc: a.toc,
+            faq: a.faq,
+            categoryMeta: {
+              prefix: cat.prefix,
+              label: cat.label[a.locale],
+              description: cat.description[a.locale],
+              tocLabel: cat.tocLabel?.[a.locale],
+              relatedLabel: cat.relatedLabel?.[a.locale],
+              cta: cat.cta?.[a.locale],
+              ctaLabel: cat.ctaLabel?.[a.locale],
+              ctaSecondary: cat.ctaSecondary?.[a.locale],
+            },
+            related,
+            localePaths,
+          }),
+          'utf8',
+        );
+      }
     },
 
     // ★ 用 writeBundle 而不是 closeBundle：vite 8 / rolldown 下 closeBundle
