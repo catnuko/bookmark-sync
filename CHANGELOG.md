@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.14.0](https://github.com/catnuko/bookmark-sync/compare/v2.13.0...v2.14.0) (2026-10-07)
+
+
+### Features
+
+* **website:** 文章列表改渐进披露（3 张精选卡 + 分类列表） ([0c7caa0](https://github.com/catnuko/bookmark-sync/commit/0c7caa0296803e3e6a96426b4c6a5ba8b9e6ca75))
+
+
+### Bug Fixes
+
+* **website:** 修内容页 CSR 白屏 + 文章列表改渐进披露 ([36571d3](https://github.com/catnuko/bookmark-sync/commit/36571d36b470b69ba6a7fd085e5bb3da5584167d))
+* **website:** 修内容页在 CSR 下白屏（dev server / 客户端跳转） ([1742a78](https://github.com/catnuko/bookmark-sync/commit/1742a780c6e0dedd8f6beb2fb7939bd4ad20bf21))
+
 ## [2.13.0](https://github.com/catnuko/bookmark-sync/compare/v2.12.0...v2.13.0) (2026-10-07)
 
 
