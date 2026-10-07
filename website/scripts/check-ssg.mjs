@@ -7,7 +7,7 @@
 // ★ 这个脚本存在的理由：SEO 出错**不会抛异常**。标题写错、canonical 指到别的页、
 //   hreflang 指向同一个 URL —— 构建照样绿，只有爬虫能发现。所以必须机器自查，
 //   而且**必须真的抓得住**（改这份脚本后请造探针回归，见文件末尾注释）。
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // ★ 页面清单**从路由表与内容清单自动推导**，不手抄。
@@ -335,6 +335,34 @@ export function runChecks({ quiet = false } = {}) {
     const canon = links(head, 'canonical');
     if (canon.length === 1 && canon[0] === `${SITE}/`) {
       fail(`${tag} 内容页 canonical 指向站点根，应指向自身`);
+    }
+  }
+
+  // ── SSG 页面的样式完整性（曾真实事故）───────────────────────────────
+  // ★ 背景：vite 默认 cssCodeSplit:true 会把每个懒加载视图的样式拆成独立 chunk，
+  //   而那些 <link> 是 JS 运行时插入的 → SSG 输出的 HTML <head> 里只有 main.css。
+  //   线上表现：页面 HTML 完整、无 JS 报错，但**浏览器首屏渲染出无样式裸文本**，
+  //   等 JS 跑完才补上样式并闪烁。构建期不报错、SEO 自检也查不出
+  //   （它只查 title/canonical 之类，与样式无关）—— 只有真浏览器看首屏才暴露。
+  //
+  // 判据：产物里**只应有一个 CSS 文件**，且每一页的 <head> 都必须引用它。
+  // 出现第二个 .css 或某页没引用 =分包又回来了。
+  const cssFiles = readdirSync(dist + '/assets').filter((f) => f.endsWith('.css'));
+  if (cssFiles.length !== 1) {
+    fail(
+      `产物里有 ${cssFiles.length} 个 CSS 文件（期望 1 个）：${cssFiles.join(', ')}` +
+        ' —— cssCodeSplit 被重新打开了？懒加载 chunk 的 CSS 不会被 SSG 注入<head>，' +
+        '线上会渲染成无样式裸文本。检查 vite.config.js 的 build.cssCodeSplit:false。',
+    );
+  }
+  for (const p of PAGES) {
+    if (!existsSync(resolve(dist, p.file))) continue;
+    const html = readFileSync(resolve(dist, p.file), 'utf8');
+    const refs = links(headOf(html), 'stylesheet');
+    if (refs.length !== 1) {
+      fail(`[${p.file}] <head> 里引用了 ${refs.length} 个样式表（期望 1 个），页面可能无样式`);
+    } else if (!refs[0].endsWith(cssFiles[0])) {
+      fail(`[${p.file}] 引用的样式表是 ${refs[0]}，但产物里唯一的 CSS 是 ${cssFiles[0]}`);
     }
   }
 
