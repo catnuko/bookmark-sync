@@ -42,6 +42,30 @@ const groups = computed(() => {
 });
 
 const total = computed(() => groups.value.reduce((n, g) => n + g.items.length, 0));
+
+/**
+ * 渐进披露：跨分类取前 3 篇作为「featured」，其余按分类收进下方列表。
+ *
+ * ★ 为什么不全平铺：11 段长度相近的列表没有视觉重心，用户扫一眼
+ *   不知道从哪篇开始。参考项目（catnuko.github.io）的 Posts 组件用
+ *   range/columns 做同样的事：首页 1 篇大图 + 2 篇并排 + 其余列表。
+ *
+ * 取法：按「分类声明顺序 × 组内 order」串起来取前 3 —— 保证
+ * 「问题解决」类（转化意图最强）永远排在前面，不受分类顺序变动影响。
+ */
+const FEATURED = 3;
+const flat = computed(() => groups.value.flatMap((g) => g.items));
+const featured = computed(() => flat.value.slice(0, FEATURED));
+const featuredKeys = computed(() => new Set(featured.value.map((i) => i.href)));
+// 每组里去掉已进入 featured 的，剩下的才进下方列表
+const restGroups = computed(() =>
+  groups.value
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => !featuredKeys.value.has(i.href)),
+    }))
+    .filter((g) => g.items.length > 0),
+);
 </script>
 
 <template>
@@ -52,7 +76,16 @@ const total = computed(() => groups.value.reduce((n, g) => n + g.items.length, 0
         <p class="docs-intro">{{ t('contentIndex.subtitle', { count: total }) }}</p>
       </header>
 
-      <div v-for="g in groups" :key="g.key" class="content-group">
+      <!-- 精选 3 篇：大卡片，无缩略图但标题更大、摘要完整 -->
+      <ul class="featured-list">
+        <li v-for="item in featured" :key="item.href" class="featured-item">
+          <LocalizedLink :to="item.href" class="featured-link">{{ item.title }}</LocalizedLink>
+          <p class="featured-desc">{{ item.description }}</p>
+        </li>
+      </ul>
+
+      <!-- 其余按分类列出 -->
+      <div v-for="g in restGroups" :key="g.key" class="content-group">
         <h3 class="content-group-title">{{ g.label }}</h3>
         <p class="content-group-desc">{{ g.description }}</p>
         <ul class="content-list">
@@ -75,6 +108,74 @@ const total = computed(() => groups.value.reduce((n, g) => n + g.items.length, 0
   margin-bottom: var(--space-10);
   padding-bottom: var(--space-6);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* 精选卡：比下方列表更大、摘要完整，给页面一个视觉起点 */
+.featured-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-12);
+}
+
+.featured-item {
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-soft);
+}
+
+.featured-link {
+  font-size: var(--text-lg);
+  font-weight: 640;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.featured-link:hover {
+  color: var(--color-accent);
+}
+
+.featured-desc {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+/* 精选卡：比下方列表更大、摘要完整，给页面一个视觉起点 */
+.featured-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-12);
+}
+
+.featured-item {
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-soft);
+}
+
+.featured-link {
+  font-size: var(--text-lg);
+  font-weight: 640;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.featured-link:hover {
+  color: var(--color-accent);
+}
+
+.featured-desc {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.7;
 }
 
 .content-group {
