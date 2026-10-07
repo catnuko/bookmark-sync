@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.12.0](https://github.com/catnuko/bookmark-sync/compare/v2.11.1...v2.12.0) (2026-10-07)
+
+
+### Features
+
+* **store:** update promo feature tags to 4 items incl AES-256-GCM & free-forever (zh/en) ([aeef48b](https://github.com/catnuko/bookmark-sync/commit/aeef48bb2a106bc6037fc003e22171f6d0f62c11))
+
+
+### Bug Fixes
+
+* **website:** 修 /admin 进不去（bootstrap 挂起 + 不该 hydrate 预渲染内容） ([47b5cc8](https://github.com/catnuko/bookmark-sync/commit/47b5cc8827692e7e91d8122887aec055baa8d077))
+
 ## [2.11.1](https://github.com/catnuko/bookmark-sync/compare/v2.11.0...v2.11.1) (2026-10-07)
 
 
