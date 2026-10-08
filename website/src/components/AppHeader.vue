@@ -58,12 +58,11 @@ async function onMobileSignOut() {
       <div class="header-actions">
         <ThemeToggle />
         <LanguageToggle />
-        <!--账户入口必须在导航里：登录 / 看当前档位 / 登出都靠它。
-             少了它，用户登录成功后页面上不留痕迹，也没有登出路径。 -->
+        <!-- 账户入口占据原「免费下载」的位置。账户 UI 必须在导航里：
+             登录 / 看当前档位 / 登出都靠它，少了它登录成功后页面上不留痕迹、
+             也没有登出路径。「免费下载」在 /download 页与 Hero 里都有，
+             页首不必重复，且它抢走了登录入口的位置。 -->
         <AccountMenu />
-        <LocalizedLink to="/download" class="btn btn-primary header-cta">
-          {{ t('hero.ctaPrimary') }}
-        </LocalizedLink>
         <button
           class="menu-toggle"
           :aria-label="t('common.viewAll')"
@@ -118,6 +117,9 @@ async function onMobileSignOut() {
   right: 0;
   height: var(--header-height);
   background: var(--color-header-bg);
+  /* ★ 这两行是AccountDialog 必须 Teleport 到 body 的原因：
+     backdrop-filter 会为所有后代创建包含块，弹窗的 fixed 定位会被困在 header 里。
+     别为了「看起来没用到」删掉 —— 删了会让弹窗位置行为变化（虽然 Teleport 后无碍）。 */
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
   border-bottom: 1px solid var(--color-border);
@@ -174,11 +176,6 @@ async function onMobileSignOut() {
   gap: var(--space-3);
 }
 
-.header-cta {
-  padding: 0.5rem 1rem;
-  font-size: var(--text-sm);
-}
-
 .menu-toggle {
   display: none;
   align-items: center;
@@ -223,15 +220,11 @@ async function onMobileSignOut() {
   opacity: 0.6;
 }
 
-/* 导航 5 项 + logo + 主题/语言/CTA 在窄桌面会挤：先压按钮内边距，
+/* 导航 5 项 + logo + 主题/语言/账户入口在窄桌面会挤：先压按钮内边距，
    再收进汉堡菜单。断点 1024 对应常见笔记本窄屏。 */
 @media (max-width: 1024px) {
   .nav-link {
     padding: 0.5rem 0.625rem;
-    font-size: var(--text-xs);
-  }
-  .header-cta {
-    padding: 0.5rem 0.75rem;
     font-size: var(--text-xs);
   }
   .header-inner {
@@ -245,9 +238,6 @@ async function onMobileSignOut() {
   }
   .menu-toggle {
     display: inline-flex;
-  }
-  .header-cta {
-    display: none;
   }
 }
 </style>

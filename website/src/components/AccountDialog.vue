@@ -4,6 +4,18 @@ import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { signIn, signUp } from '../lib/account.js';
 
+// ★ 必须 Teleport 到 body。
+//   弹窗从两处唤起：AppHeader 内的 AccountMenu、以及 PricingCard。前者踩坑：
+//   `.header` 上有 `backdrop-filter: blur(12px)` —— **backdrop-filter 会给所有
+//   后代创建包含块**，于是弹窗的 `position: fixed; inset: 0` 不再相对视口，
+//   而只相对那个 64px 高的 header 条 → 弹窗被顶到视口上方、标题被裁掉
+//   （2026-10-08 用户实机截图报「弹窗怎么这么奇怪」）。
+//   Teleport 到 body 后 fixed 重新相对视口，与唤起方的 DOM 位置彻底解耦。
+//   ★ 只 Teleport 会丢样式 —— scoped 的选择器带 [data-v-x] 属性。Vue 会把该属性
+//   加到 Teleport 的子节点上，所以样式照常生效，无需 :deep 或全局样式。
+//   z-index 也要抬过 header 的 50（mask 原本是 100，但被 header 的包含块困住时
+//   层级再高也只在 header 那一层内比较）。
+
 const emit = defineEmits(['close']);
 
 const { t } = useI18n();
@@ -38,60 +50,62 @@ async function submit() {
 </script>
 
 <template>
-  <div class="dialog-mask" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-modal="true">
-      <h3 class="dialog-title">
-        {{ mode === 'login' ? t('account.loginTitle') : t('account.registerTitle') }}
-      </h3>
-      <p class="dialog-sub">{{ t('account.loginSub') }}</p>
+  <Teleport to="body">
+    <div class="dialog-mask" @click.self="emit('close')">
+      <div class="dialog" role="dialog" aria-modal="true">
+        <h3 class="dialog-title">
+          {{ mode === 'login' ? t('account.loginTitle') : t('account.registerTitle') }}
+        </h3>
+        <p class="dialog-sub">{{ t('account.loginSub') }}</p>
 
-      <form @submit.prevent="submit">
-        <label class="field">
-          <span>{{ t('account.email') }}</span>
-          <input v-model="email" type="email" required autocomplete="email" />
-        </label>
-        <label class="field">
-          <span>{{ t('account.password') }}</span>
-          <input
-            v-model="password"
-            type="password"
-            required
-            minlength="6"
-            autocomplete="current-password"
-          />
-        </label>
+        <form @submit.prevent="submit">
+          <label class="field">
+            <span>{{ t('account.email') }}</span>
+            <input v-model="email" type="email" required autocomplete="email" />
+          </label>
+          <label class="field">
+            <span>{{ t('account.password') }}</span>
+            <input
+              v-model="password"
+              type="password"
+              required
+              minlength="6"
+              autocomplete="current-password"
+            />
+          </label>
 
-        <p v-if="error" class="dialog-error">{{ error }}</p>
-        <p v-if="info" class="dialog-info">{{ info }}</p>
+          <p v-if="error" class="dialog-error">{{ error }}</p>
+          <p v-if="info" class="dialog-info">{{ info }}</p>
 
-        <button class="btn btn-primary dialog-submit" type="submit" :disabled="busy">
-          {{
-            busy
-              ? t('account.processing')
-              : mode === 'login'
-                ? t('account.login')
-                : t('account.register')
-          }}
+          <button class="btn btn-primary dialog-submit" type="submit" :disabled="busy">
+            {{
+              busy
+                ? t('account.processing')
+                : mode === 'login'
+                  ? t('account.login')
+                  : t('account.register')
+            }}
+          </button>
+        </form>
+
+        <button
+          class="dialog-switch"
+          type="button"
+          @click="mode = mode === 'login' ? 'register' : 'login'"
+        >
+          {{ mode === 'login' ? t('account.toRegister') : t('account.toLogin') }}
         </button>
-      </form>
-
-      <button
-        class="dialog-switch"
-        type="button"
-        @click="mode = mode === 'login' ? 'register' : 'login'"
-      >
-        {{ mode === 'login' ? t('account.toRegister') : t('account.toLogin') }}
-      </button>
-      <button
-        class="dialog-close"
-        type="button"
-        :aria-label="t('account.close')"
-        @click="emit('close')"
-      >
-        ✕
-      </button>
+        <button
+          class="dialog-close"
+          type="button"
+          :aria-label="t('account.close')"
+          @click="emit('close')"
+        >
+          ✕
+        </button>
+      </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
