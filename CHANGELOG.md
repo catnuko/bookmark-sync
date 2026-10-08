@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.14.3](https://github.com/catnuko/bookmark-sync/compare/v2.14.2...v2.14.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* **website:** 页首改登录入口 + 修弹窗被 header 困住 ([98a4a93](https://github.com/catnuko/bookmark-sync/commit/98a4a93f05680b87b962b5b70288619c67a245ac))
+* **website:** 页首改登录入口 + 修弹窗被 header 困住 ([1f817d4](https://github.com/catnuko/bookmark-sync/commit/1f817d41736ec5855ec3a10a11bc69e80b89a4a6))
+
 ## [2.14.2](https://github.com/catnuko/bookmark-sync/compare/v2.14.1...v2.14.2) (2026-10-08)
 
 
