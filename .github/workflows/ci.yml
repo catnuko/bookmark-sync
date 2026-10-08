@@ -1,12 +1,35 @@
 name: Quality Gate
 
-# 质量门：只有推送到 main、以及任何 PR 才跑 typecheck + lint + 单测。
+# 质量门：推送到 main、以及任何 PR 都跑 typecheck + lint + fmt + 单测。
 # dev 是自己的日常开发分支，提交不跑 CI（本地用 `pnpm check` 自检），
 # 避免每次提交都刷一屏 workflow run。发版（release.yml）只负责构建与分发。
+#
+# ★ 为什么 release-please 的版本 PR 被排除（2026-10-08 加）
+#
+#   统计近 40 次 run：13 次 failure **全部**来自 release-please 那个分支的 PR，
+#   且 **0 次**误报落在真实 PR 或 main push 上。GitHub 对它报的是
+#   `This run likely failed because of a workflow file issue`，日志 `log not found`
+#   —— GitHub 侧的已知毛病，**不是代码问题**。
+#
+#   那个 PR 只改 CHANGELOG.md / package.json / 两个 manifest 的版本号，
+#   typecheck / lint / fmt / test 四项对它**毫无意义**（版本号不会影响任何一项）。
+#
+#   代价却是实打实的：Actions 列表里长期挂着一串红，每次都要重新分辨
+#   「这次红是真问题还是误报」—— 纯噪音把真信号淹了。删掉它零损失。
+#
+# ★ 为什么不能写松
+#   只匹配这一个完整分支名。不要改成 `startsWith('release')` 或
+#   `branches-ignore: ['release']` 之类 —— 那会连带跳过将来任何
+#   release/* 分支上的**真实**代码改动，那才是真损失。
+#
+# ★ 为什么 main push 仍全量跑
+#   版本 commit 合并后落在 main 上，那次 push 才是真正该验的一步。
 on:
   push:
     branches: [main]
   pull_request:
+    branches-ignore:
+      - release-please--branches--main--components--bookmark-sync
 
 permissions:
   contents: read
