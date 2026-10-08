@@ -40,6 +40,12 @@ const PLAN_QUOTA_BYTES: Record<string, number> = {
   pro: 500 * 1024 * 1024,
 };
 
+// 邮箱兜底时 metadata.plan 同样缺失，只能靠 product_id 推出档位。
+// 与 bsync-creem-checkout 的 PRODUCT_BY_PLAN 同源（同一批 secrets）。
+// 空串表示该档位的 secret 没配→ 不会误判，只有配了才生效。
+const PRODUCT_PLUS_ID = Deno.env.get('CREEM_PRODUCT_PLUS') || '';
+const PRODUCT_PRO_ID = Deno.env.get('CREEM_PRODUCT_PRO') || '';
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -92,6 +98,26 @@ function customerIdOf(obj: Record<string, unknown>): string | undefined {
   if (typeof c === 'string') return c;
   if (c && typeof c === 'object') return (c as { id?: string }).id;
   return undefined;
+}
+
+/**
+ * 取付款人邮箱。Creem 各事件的 customer 形状不一致：多数事件是展开对象带
+ * `email`，退款样例里挂在嵌套的 transaction.customer 上。
+ * ★ 这是绕开官网直接付款的匿名订单**唯一**能定位买家的线索（见 resolveUserId）。
+ */
+function customerEmailOf(obj: Record<string, unknown>): string | undefined {
+  const pick = (c: unknown): string | undefined => {
+    if (c && typeof c === 'object') {
+      const e = (c as { email?: unknown }).email;
+      if (typeof e === 'string' && e.includes('@')) return e.trim().toLowerCase();
+    }
+    return undefined;
+  };
+  return (
+    pick(obj.customer) ||
+    pick((obj.transaction as Record<string, unknown> | undefined)?.customer) ||
+    pick((obj.subscription as Record<string, unknown> | undefined)?.customer)
+  );
 }
 
 function productIdOf(obj: Record<string, unknown>): string | undefined {
@@ -192,11 +218,49 @@ Deno.serve(async (req: Request) => {
         plan = plan || data.plan;
       }
     }
+
+    // ---------- 邮箱兜底反查（绕开官网的匿名订单） ----------
+    // Creem 为每个产品生成公开可购买的落地页（/product/prod_xxx），且后台**没有**
+    // 关闭它的开关（实测：唯一的「启用公开店面」只管 /stores 聚合页，product 页照旧
+    // 200 直达收银台）。于是任何人拿 prod_ ID 都能直接付款，而这条路径上的checkout
+    // 由 Creem 自己生成，**不经过 bsync-creem-checkout → metadata 里没有 user_id**。
+    // 结果：用户付了钱，webhook 解析不到买家 → 账号不开通 → 只能人工退款。
+    // 这里用付款邮箱反查 Supabase Auth 找回user_id，让已付款的单自动到账。
+    //
+    // ★ 为什么必须用 service_role：auth.users 没有对外的 Data API 通道，
+    //   RLS 也管不到它（它不是 public schema 的表）。createClient 用的正是
+    //   SERVICE_ROLE_KEY，getUserByEmail 才能通。
+    let resolvedBy = userId ? 'metadata' : undefined;
     if (!userId) {
-      // 无法定位用户（如光顾但未登录过本产品的客户），记日志后确认接收，避免 Creem 无限重试
+      const email = customerEmailOf(obj);
+      if (email) {
+        const { data: found, error: authErr } = await sb.auth.admin.getUserByEmail(email);
+        if (authErr) {
+          console.warn(`creem-webhook: getUserByEmail failed (${eventType})`, authErr.message);
+        } else if (found?.user?.id) {
+          userId = found.user.id;
+          resolvedBy = 'email';
+          console.warn(
+            `creem-webhook: ${eventType} resolved user by email fallback ` +
+              `(${email.slice(0, 3)}***@${email.split('@')[1] || '?'})`,
+          );
+        }
+      }
+      // plan 也可能只有 product_id 可推。metadata 缺失时按产品 ID 反查档位，
+      // 否则下面 isActivePlan 判false → 跳过开通，钱照样收不到。
+      if (userId && !plan) {
+        const pid = productIdOf(obj);
+        if (pid && pid === PRODUCT_PLUS_ID) plan = 'plus';
+        else if (pid && pid === PRODUCT_PRO_ID) plan = 'pro';
+      }
+    }
+
+    if (!userId) {
+      // 无法定位用户（如确实从未注册过本产品的陌生买家），记日志后确认接收，
+      // 避免 Creem 无限重试。这类订单要人工退款，Creem 后台可按邮箱找到买家。
       console.warn(
         `creem-webhook: ${eventType} cannot resolve user_id`,
-        JSON.stringify(obj).slice(0, 500),
+        JSON.stringify({ email: customerEmailOf(obj), obj }).slice(0, 500),
       );
       return json({ ok: true, skipped: 'no_user' });
     }
@@ -278,7 +342,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // 降级与否取决于订阅是否仍生效：scheduled_cancel 到期前照样可用
-      await sb
+      const { error: profErr } = await sb
         .from('bsync_profiles')
         .update({
           plan,
@@ -286,7 +350,23 @@ Deno.serve(async (req: Request) => {
           purchased_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
-      return json({ ok: true });
+      // 用户已付款，plan 没翻= 白付。必须显式记错误：supabase-js 不把 PostgREST
+      // 错误当异常抛，漏检时表现为「webhook 返回 200、一切正常，用户却仍是 free」。
+      if (profErr) {
+        console.error(
+          `creem-webhook: PROFILE UPDATE FAILED (${eventType}, via ${resolvedBy}) ` +
+            `user=${userId} plan=${plan} —— 用户已付款但未开通，需人工处理:`,
+          JSON.stringify(profErr),
+        );
+      }
+      // 邮箱兜底开通的订单要留可检索的痕迹：这是「绕开官网直接付款」的唯一现场。
+      if (resolvedBy === 'email') {
+        console.warn(
+          `creem-webhook: ORDER ACTIVATED VIA EMAIL FALLBACK (${eventType}) ` +
+            `user=${userId} plan=${plan} sub=${subscriptionId || '-'}`,
+        );
+      }
+      return json({ ok: true, resolved_by: resolvedBy || 'metadata' });
     }
 
     // ---------- 扣款失败重试中：宽限期，暂不停服 ----------
@@ -348,10 +428,22 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
-    // ---------- 退款（对账用，降级走人工） ----------
-    // 退款事件的 object 是「退款」：订单在 object.transaction.order，订阅在
+    // ---------- 退款：降级 free（不只是对账） ----------
+    // 退款事件的 object 是「退款」：订单在object.transaction.order，订阅在
     // object.subscription（样例里 transaction.subscription 是纯字符串）。
     // 早期实现读 obj.order → 拿不到订单号 → 静默丢单，退款被计成营收。
+    //
+    // ★ 2026-10-08：原来这里只把订单标成 refunded 就返回，**从不降 profile**，
+    //   而全函数唯一的降级点在上面的「取消/到期」分支（:425）—— 退款事件走不到那里，
+    //   迁移 0044 的每日兜底也只扫「账期已过的取消态」，账期在未来的单子同样扫不到。
+    //   结果：用户退款了，钱退了，plan 纹丝不动地继续用一年（线上就是这个状态：
+    //   订单 status=refunded / profile plan=pro）。这是白嫖，不是设计。
+    //
+    //退款与取消是**两件不同的事**，不能共用判据：
+    //   取消 = 不再续费，已付费的服务期还没结束 → 保留 plan（:399的 stillPaid 就是对的）
+    //   退款 = 钱已经回来了还继续用 → 必须立刻降级，账期多长都无关
+    //
+    // 幂等：重复投递 refund.created 会重复降级，同一个值写两次，无副作用。
     if (eventType === 'refund.created') {
       const orderId = orderIdOf(obj);
       if (orderId) {
@@ -362,7 +454,43 @@ Deno.serve(async (req: Request) => {
           JSON.stringify(obj).slice(0, 500),
         );
       }
-      return json({ ok: true });
+      // 只在该用户没有**其他**仍生效的订阅时才降级：退款的是某一笔订单，
+      // 用户可能还开着别处的订阅（例如升级 Pro 后对Plus 那笔退款）。直接无条件
+      // 降级会把「退了旧订阅」的用户也一起打成 free —— 那是新的误伤。
+      const { data: stillActive } = await sb
+        .from('bsync_subscriptions')
+        .select('creem_subscription_id, plan, status')
+        .eq('user_id', userId)
+        .neq('status', 'refunded')
+        .not('creem_subscription_id', 'is', null);
+      const otherLive = (stillActive || []).filter(
+        (s) =>
+          s.creem_subscription_id !== subscriptionId &&
+          ['active', 'trialing', 'scheduled_cancel', 'past_due'].includes(s.status || ''),
+      );
+
+      if (otherLive.length > 0) {
+        console.warn(
+          `creem-webhook: refund.created 已退款，但该用户另有 ${otherLive.length} 个生效订阅 ` +
+            `(${otherLive.map((s) => s.plan).join(',')})，保留现档位`,
+        );
+      } else {
+        const { error: profErr } = await sb
+          .from('bsync_profiles')
+          .update({ plan: 'free', quota_bytes: PLAN_QUOTA_BYTES.free })
+          .eq('user_id', userId);
+        if (profErr) {
+          console.error(
+            `creem-webhook: REFUND DOWNGRADE FAILED user=${userId} —— 钱已退但会员未收回:`,
+            JSON.stringify(profErr),
+          );
+        }
+        console.warn(
+          `creem-webhook: refund.created 已降级 free user=${userId} ` +
+            `（订单 ${orderId || '无号'}，refund 前 plan=${plan || '未知'}）`,
+        );
+      }
+      return json({ ok: true, downgraded: otherLive.length === 0 });
     }
 
     // 其他事件（subscription.update 等）确认接收即可
