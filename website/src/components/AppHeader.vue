@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n';
 import ThemeToggle from './ThemeToggle.vue';
 import LanguageToggle from './LanguageToggle.vue';
 import LocalizedLink from './LocalizedLink.vue';
+import AccountMenu from './AccountMenu.vue';
+import { account, signOut } from '../lib/account.js';
 
 const { t } = useI18n();
 
@@ -19,6 +21,18 @@ const navItems = [
 ];
 
 const mobileOpen = ref(false);
+const signingOut = ref(false);
+
+async function onMobileSignOut() {
+  if (signingOut.value) return;
+  signingOut.value = true;
+  try {
+    await signOut();
+    mobileOpen.value = false;
+  } finally {
+    signingOut.value = false;
+  }
+}
 </script>
 
 <template>
@@ -44,6 +58,9 @@ const mobileOpen = ref(false);
       <div class="header-actions">
         <ThemeToggle />
         <LanguageToggle />
+        <!--账户入口必须在导航里：登录 / 看当前档位 / 登出都靠它。
+             少了它，用户登录成功后页面上不留痕迹，也没有登出路径。 -->
+        <AccountMenu />
         <LocalizedLink to="/download" class="btn btn-primary header-cta">
           {{ t('hero.ctaPrimary') }}
         </LocalizedLink>
@@ -77,6 +94,17 @@ const mobileOpen = ref(false);
         >
           {{ t(item.key) }}
         </LocalizedLink>
+        <!-- 窄屏下 header 的 AccountMenu 只剩档位徽章，邮箱与登出入口
+             必须在这里再给一份，否则移动端没有登出路径。 -->
+        <button
+          v-if="account.user"
+          class="nav-link-mobile nav-signout"
+          type="button"
+          :disabled="signingOut"
+          @click="onMobileSignOut"
+        >
+          {{ signingOut ? t('account.processing') : t('account.signOut') }}
+        </button>
       </nav>
     </Transition>
   </header>
@@ -183,6 +211,16 @@ const mobileOpen = ref(false);
 .nav-link-mobile.active {
   color: var(--color-text);
   font-weight: 500;
+}
+
+.nav-signout {
+  width: 100%;
+  text-align: left;
+  color: #dc2626;
+}
+
+.nav-signout:disabled {
+  opacity: 0.6;
 }
 
 /* 导航 5 项 + logo + 主题/语言/CTA 在窄桌面会挤：先压按钮内边距，
