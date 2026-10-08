@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.2](https://github.com/catnuko/bookmark-sync/compare/v2.14.1...v2.14.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **test:** 修 CI 上 mock 失效导致的假绿 ([6550aca](https://github.com/catnuko/bookmark-sync/commit/6550aca4276592d71c1032dffcafdd3edb252842))
+
 ## [2.14.1](https://github.com/catnuko/bookmark-sync/compare/v2.14.0...v2.14.1) (2026-10-08)
 
 
