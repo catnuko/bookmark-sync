@@ -94,7 +94,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" class="acct">
-    <!-- 未登录：文字按钮，登录入口不该跟主CTA 抢视觉权重 -->
+    <!-- 未登录：占据原主 CTA 位（已删「免费下载」），视觉权重与旧 CTA 一致，
+         否则用户根本注意不到「登录」这个入口。 -->
     <button v-if="!signedIn" class="acct-signin" type="button" @click="showLogin = true">
       {{ t('account.signIn') }}
     </button>
@@ -177,16 +178,20 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-/* 未登录：纯文字，和「免费下载」主 CTA 拉开层级 */
+/* 未登录：主 CTA 外观（页首已删「免费下载」，登录入口就是这个位置）。
+   原来做成纯文字按钮是错的——用户完全注意不到，账户入口形同虚设。 */
 .acct-signin {
-  padding: 0.5rem 0.25rem;
+  padding: 0.5rem 1rem;
   font-size: var(--text-sm);
-  color: var(--color-text-soft);
-  transition: color var(--transition);
+  font-weight: 500;
+  color: var(--color-bg);
+  background: var(--color-text);
+  border-radius: var(--radius-md);
+  transition: opacity var(--transition);
 }
 
 .acct-signin:hover {
-  color: var(--color-text);
+  opacity: 0.85;
 }
 
 .acct-trigger {
@@ -194,7 +199,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.5rem;
   max-width: 15rem;
-  padding: 0.375rem 0.625rem;
+  padding: 0.5rem 0.75rem;
   font-size: var(--text-sm);
   color: var(--color-text);
   background: var(--color-bg-muted);
