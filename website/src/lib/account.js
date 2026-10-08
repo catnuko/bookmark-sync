@@ -7,23 +7,47 @@
 import { reactive } from 'vue';
 import { supabase } from './supabase.js';
 
+// @ts-check —— 本文件被 tests/website/accountState.test.ts 与 tsc 一起看。
+// account 的字段必须显式标类型：`reactive({user: null})` 会把 user 推成 `null`，
+// 外部赋值时报 TS2322（vitest 能跑过，tsc 不能）。
+/**
+ * @typedef {{ plan: string|null, status: string, current_period_end?: string|null }} AccountSubscription
+ */
+
+/** @type {{ ready: boolean, user: { id: string, email?: string }|null, plan: string|null, subscription: AccountSubscription|null, error: string|null }} */
 export const account = reactive({
   ready: false,
   user: null,
-  plan: 'free', // bsync_profiles.plan：free / plus / pro
+  plan: 'free', // bsync_profiles.plan：free / plus / pro；null = 拉取失败（≠ free）
   subscription: null, // bsync_subscriptions 行或 null：{ plan, status, current_period_end }
+  // 拉 profile 失败时的原因（null = 正常）。付费用户拿不到 plan 时会被误判成
+  // free 而再买一次，所以必须能把「读失败」和「真的是free」区分开。
+  error: null,
 });
 
 async function refreshProfile() {
   if (!account.user) {
     account.plan = 'free';
     account.subscription = null;
+    account.error = null;
     return;
   }
   const [prof, sub] = await Promise.all([
     supabase.from('bsync_profiles').select('plan').maybeSingle(),
     supabase.from('bsync_subscriptions').select('plan, status, current_period_end').maybeSingle(),
   ]);
+  // ★ 两个查询都必须无错才算读成功。RLS 拒绝 / 网络失败 / 无表权限时 data 为
+  //   null且 error 有值——此时若照旧把 plan 落成 'free'，付费用户会在页面上
+  //   看到「订阅 Pro」按钮，再付一次钱。宁可显示「状态未知」也别误导。
+  const failed = prof.error || sub.error;
+  if (failed) {
+    account.error = failed.message || '读取账户状态失败';
+    account.plan = null; // null ≠ 'free'：UI 必须显式区分「未知」和「免费」
+    account.subscription = null;
+    console.warn('[account] refreshProfile failed:', account.error);
+    return;
+  }
+  account.error = null;
   account.plan = prof.data?.plan || 'free';
   account.subscription = sub.data || null;
 }
@@ -69,6 +93,11 @@ export async function signUp(email, password) {
 export async function signOut() {
   await supabase.auth.signOut();
   account.user = null;
+  // ★ 必须再刷一次 profile。只置user=null 会让 account.plan / account.subscription
+  //   停在上一个账号的值上——account 是模块级单例，登出后 `hasActiveSubscription()`
+  //   仍返回 true，定价页会把「订阅 Plus」显示成「管理 / 取消订阅」。
+  //   refreshProfile 内部对 user 为空有短路分支，会把两个字段复位。
+  await refreshProfile();
 }
 
 async function invoke(name, body) {
@@ -94,4 +123,10 @@ export async function openPortal() {
 export function hasActiveSubscription() {
   const s = account.subscription;
   return !!s && ['active', 'scheduled_cancel', 'past_due'].includes(s.status);
+}
+
+// 仅供测试：登出后 plan/subscription 是否真的被复位、失败时是否落 null，
+// 这两条都只能从外部观察 account 来断言。
+export async function refreshProfileForTest() {
+  await refreshProfile();
 }

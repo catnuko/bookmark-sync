@@ -29,8 +29,13 @@ const isCurrentPlan = computed(
   () => hasActiveSubscription() && account.subscription?.plan === props.plan,
 );
 
+// 账户状态拉取失败（RLS/网络）时 account.plan 是 null 而非 'free'。
+// 此时**不能**显示「订阅 Pro」——付费用户会以为没买过、再付一次钱。
+// 改成禁用 + 提示，让用户刷新重试。
+const statusUnknown = computed(() => !!account.user && !!account.error);
+
 async function onPaidCta() {
-  if (busy.value) return;
+  if (busy.value || statusUnknown.value) return;
   error.value = '';
   if (!account.user) {
     showLogin.value = true;
@@ -82,13 +87,15 @@ async function onPaidCta() {
       <button
         class="btn plan-cta"
         :class="props.highlighted ? 'btn-primary' : 'btn-outline'"
-        :disabled="busy"
+        :disabled="busy || statusUnknown"
         @click="onPaidCta"
       >
         <template v-if="busy">{{ t('account.processing') }}</template>
+        <template v-else-if="statusUnknown">{{ t('account.statusUnknownShort') }}</template>
         <template v-else-if="isCurrentPlan">{{ t('account.manageSub') }}</template>
         <template v-else>{{ t(`pricing.plans.${props.plan}.cta`) }}</template>
       </button>
+      <p v-if="statusUnknown" class="plan-cta-error">{{ t('account.statusFailed') }}</p>
       <p v-if="isCurrentPlan && account.subscription?.current_period_end" class="plan-sub-status">
         {{
           t('account.renewsOn', {
