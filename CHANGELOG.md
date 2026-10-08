@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.14.1](https://github.com/catnuko/bookmark-sync/compare/v2.14.0...v2.14.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **creem:** 退款即降级 + 邮箱反查兜底，修「付了钱没会员」 ([5e0f26a](https://github.com/catnuko/bookmark-sync/commit/5e0f26a3dc8d8bfa407ad7068c05f2c0c914a415))
+* **website:** 补账户入口与登出，登录态不再隐形 ([3c14beb](https://github.com/catnuko/bookmark-sync/commit/3c14beb49f690cff6aa88081d30be9883ff8335e))
+
 ## [2.14.0](https://github.com/catnuko/bookmark-sync/compare/v2.13.0...v2.14.0) (2026-10-07)
 
 
