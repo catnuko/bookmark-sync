@@ -1,0 +1,83 @@
+.dialogMask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  padding: var(--space-4);
+}
+
+.dialog {
+  position: relative;
+  width: 100%;
+  max-width: 24rem;
+  padding: var(--space-8);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.dialogTitle {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.dialogSub {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-6);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.field input {
+  padding: 0.625rem 0.75rem;
+  font-size: var(--text-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.dialogError {
+  font-size: var(--text-sm);
+  color: #dc2626;
+  margin-bottom: var(--space-3);
+}
+
+.dialogInfo {
+  font-size: var(--text-sm);
+  color: var(--color-accent);
+  margin-bottom: var(--space-3);
+}
+
+.dialogSubmit {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.dialogSwitch {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: underline;
+}
+
+.dialogClose {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
