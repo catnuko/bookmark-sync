@@ -4,22 +4,23 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "next dev",
+    "build": "next build",
+    "preview": "npx --yes serve out -l 4173",
     "check:ssg": "node scripts/check-ssg.mjs",
-    "preview": "vite preview",
     "check:hydr": "node scripts/check-hydration.mjs",
     "check": "node scripts/check-ssg.mjs && node scripts/check-hydration.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
-    "@unhead/vue": "^1.11.7",
-    "vue": "^3.5.42",
-    "vue-i18n": "^10.0.5",
-    "vue-router": "^4.4.5"
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.8",
-    "vite": "^8.2.2"
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^5.9.0"
   }
 }
