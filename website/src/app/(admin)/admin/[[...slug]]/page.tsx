@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import AdminApp from '@/admin/AdminApp';
 
 // /admin 是纯客户端后台，不进索引。
 export const metadata: Metadata = {
@@ -24,5 +25,5 @@ export function generateStaticParams() {
 }
 
 export default function AdminPage() {
-  return <main>Admin (scaffold placeholder)</main>;
+  return <AdminApp />;
 }

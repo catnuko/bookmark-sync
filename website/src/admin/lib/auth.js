@@ -126,7 +126,13 @@ export async function adminSignOut() {
  * @returns {string|null} 需要跳转的目标路径；null = 允许通过。
  */
 export function decide(pathname) {
-  if (!adminAuth.user) return '/admin/login';
+  if (!adminAuth.user) {
+    // 登录后回到原目标（/admin 本身不记，避免无意义的 redirect 参数）
+    if (pathname && pathname !== '/admin' && pathname !== '/admin/') {
+      return `/admin/login?redirect=${encodeURIComponent(pathname)}`;
+    }
+    return '/admin/login';
+  }
   if (!adminAuth.isAdmin) return '/admin/forbidden';
   return null;
 }
