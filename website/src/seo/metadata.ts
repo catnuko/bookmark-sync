@@ -82,8 +82,9 @@ export function buildPageMetadata(
   //   直接写 keywords:'' 会让 Next 产出一条空的 <meta name="keywords" content="">。
   if (keywords) md.keywords = keywords;
 
-  if (!opts.noindex) {
-    md.alternates = { canonical: opts.path, languages };
-  }
+  // ★ noindex 页（404 / 后台）**不出 canonical**（它没有对应内容可指，写 canonical
+  //   等于告诉 Google「把 /404 当成正式页面」），但 hreflang 仍照常输出 —— 与原站
+  //   useSEO 的 `...(isNoindex ? [] : [canonical]), ...alternates` 完全一致。
+  md.alternates = opts.noindex ? { languages } : { canonical: opts.path, languages };
   return md;
 }
