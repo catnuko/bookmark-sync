@@ -10,7 +10,7 @@
  *
  * 路由清单直接 import src/router/routes.js，不手抄 —— 手抄必然漏 /support（真发生过）。
  */
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import vue from '@vitejs/plugin-vue';
 // 内容管线：这两个是纯 Node 模块（fs + 字符串），不碰 .vue，可以直接 import。
@@ -196,10 +196,16 @@ export function seoStaticPlugin() {
   let isBuild = false;
   return {
     name: 'seo-static',
-    apply: 'build',
+    // ★ 刻意**不写** `apply: 'build'`。本插件在 dev 也要跑 buildStart —— 生成
+    //   manifest.js 与 public/content-data/*.json。否则 `pnpm dev` 只会服务磁盘上
+    //   那份**过期或缺失**的 content-data，内容页 fetch 404 → ContentView 永远停在
+    //   「正在加载…」→ 看不到正文（线上因每个 URL 都是预渲染 HTML，掩盖了这个洞）。
+    //   SSG 预渲染仍只在 build 执行（writeBundle 里按 isBuild 早退）。
 
-    configResolved() {
-      isBuild = true;
+    configResolved(config) {
+      // ★ configResolved 在 dev / build 都会调用，用 config.command 区分。
+      //   （此前写死 true，是靠 apply:'build' 只在 build 生效兜底才没错。）
+      isBuild = config.command === 'build';
     },
 
     // manifest 在 buildStart 阶段写好（此时 vite 还没开始本次构建的模块图扫描，
@@ -208,11 +214,13 @@ export function seoStaticPlugin() {
     buildStart() {
       const root = process.cwd();
       const content = loadContent(resolve(root, 'src/content'));
-      writeFileSync(
-        resolve(root, 'src/content/manifest.js'),
-        renderManifest(content.articles, CATEGORIES),
-        'utf8',
-      );
+      const manifestPath = resolve(root, 'src/content/manifest.js');
+      const manifestSrc = renderManifest(content.articles, CATEGORIES);
+      // ★ 内容没变就别重写：dev 下 manifest.js 在模块图里，重写会触发一次
+      //   无谓的全量刷新（每次起 dev server 都闪一下）。
+      if (!existsSync(manifestPath) || readFileSync(manifestPath, 'utf8') !== manifestSrc) {
+        writeFileSync(manifestPath, manifestSrc, 'utf8');
+      }
       if (content.articles.length) {
         console.log(`[content] ${content.articles.length} 篇已加载，manifest.js 已更新`);
       }
@@ -276,6 +284,8 @@ export function seoStaticPlugin() {
     //   早于 HTML 落盘（dist/index.html 还不存在），之前能跑通是插件顺序的巧合。
     //   writeBundle 保证在所有产物写完之后执行。
     async writeBundle() {
+      // dev 没有 bundle 阶段，SSG 预渲染只在 build 做。
+      if (!isBuild) return;
       const root = process.cwd();
       const distDir = resolve(root, 'dist');
       mkdirSync(distDir, { recursive: true });
