@@ -75,5 +75,8 @@ export async function renderPage(path, opts = {}) {
   }
 
   const { headHtml, htmlAttrs } = renderHeadTags(tags);
-  return { html, head: headHtml, htmlAttrs, locale };
+  // article 带出来给 vite-plugin：内容页要把它内联进 HTML，供客户端首帧同步读取
+  // （否则客户端 inject 拿不到 Node 侧的 provide，先渲染「正在加载」兜底 → hydration
+  // mismatch）。见 vite-plugin.js 的 injectIntoTemplate 与 ContentView.vue。
+  return { html, head: headHtml, htmlAttrs, locale, article: opts.article || null };
 }

@@ -4,9 +4,14 @@
 // 为什么必须有（2026-10-08）：AccountDialog 只能从定价页 CTA 唤起，登录成功后
 // 页面上不留任何痕迹 —— 用户看不出自己登录了，更没有登出入口。signOut() 一度
 // 零调用点。这条路径把「登录 / 看状态 / 登出」补成常态入口，不再依赖先滚到定价页。
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 import { account, openPortal, signOut } from '../lib/account.js';
+// adminAuth 是响应式的模块级单例，App.vue 已副作用导入（main.js 里 import）。
+// 这里直接复用它判管理员身份，**不再单独发一次 admin_whoami RPC**——
+// 页面加载时已经问过一次了。
+import { adminAuth } from '../admin/lib/auth.js';
 import AccountDialog from './AccountDialog.vue';
 import LocalizedLink from './LocalizedLink.vue';
 
@@ -19,6 +24,13 @@ const error = ref('');
 const root = ref(null);
 
 const signedIn = computed(() => !!account.user);
+
+// 仅管理员可见的后台入口。判据用 adminAuth.isAdmin —— 它由 admin_whoami RPC
+// 决定（服务端二次校验，前端只做 UX 层早隐藏）。
+// ★ 隐藏入口**不是**权限控制：真正的门禁是 /admin 的 requireAdmin 守卫 +
+//   后端每个 admin_* RPC 里的 assert_bsync_admin。这里只是不让普通用户
+//   在菜单里看到一个点进去会被拒的项。
+const isAdmin = computed(() => !!adminAuth.user && !!adminAuth.isAdmin);
 
 // plan 为 null = 拉取失败，**不是** free。两者必须显示不同文案，
 // 否则付费用户在网络抖动时会看到「订阅 Pro」而再买一次。
@@ -154,6 +166,13 @@ onBeforeUnmount(() => {
         <LocalizedLink v-else to="/pricing" class="acct-item" role="menuitem" @click="close">
           {{ t('account.seePlans') }}
         </LocalizedLink>
+
+        <!-- 后台管理：仅管理员可见。
+     ★ 用 RouterLink 而不是 LocalizedLink —— 后台不带语言前缀（/admin 不进 SSG/索引，
+       LocalizedLink 会把它变成 /en/admin，那是404）。LocalizedLink 的注释里也写了这条。 -->
+        <RouterLink v-if="isAdmin" to="/admin" class="acct-item" role="menuitem" @click="close">
+          {{ t('account.adminPanel') }}
+        </RouterLink>
 
         <div class="acct-sep" />
 

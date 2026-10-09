@@ -154,7 +154,7 @@ Sitemap: ${SITE_URL}/sitemap.xml
  * 2. <html> 开标签合并渲染出的 htmlAttrs（lang 必须正确，否则搜索引擎判语言错）
  * 3. 正文填入 <div id="app">
  */
-function injectIntoTemplate(template, { html, head, htmlAttrs }) {
+function injectIntoTemplate(template, { html, head, htmlAttrs, article }) {
   const start = template.indexOf('<div id="seo-default">');
   if (start === -1) {
     throw new Error('SSG 失败：dist/index.html 里找不到 <div id="seo-default"> 标记');
@@ -175,6 +175,19 @@ function injectIntoTemplate(template, { html, head, htmlAttrs }) {
   out = out.replace(/<html[^>]*>/, () => `<html${htmlAttrs || ' lang="zh-CN"'}>`);
 
   out = out.replace('<div id="app"></div>', () => `<div id="app">${html}</div>`);
+
+  // ★ 内容页：把文章 JSON 内联进 HTML（放在 </body> 之前、#app 之外，不进 hydrate 范围）。
+  //   客户端 ContentView 首帧同步读取它，使首帧 DOM 与 SSR 完全一致 —— 否则客户端
+  //   inject('contentArticle') 在浏览器里恒为 null，会先渲染「正在加载」兜底 <div>，
+  //   与 SSR 的 <article> 正文 mismatch（hydration 警告 + 首屏闪烁）。
+  //   JSON 里把 '<' 转义，防止正文里的 '</script>' 提前闭合脚本块。
+  if (article) {
+    const json = JSON.stringify(article).replace(/</g, '\\u003c');
+    const script = `<script>window.__BOOKMARK_SYNC_ARTICLE__=${json};</script>`;
+    const bi = out.lastIndexOf('</body>');
+    if (bi !== -1) out = out.slice(0, bi) + script + out.slice(bi);
+    else out += script;
+  }
 
   return out;
 }

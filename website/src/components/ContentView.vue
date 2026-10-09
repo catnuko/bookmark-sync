@@ -18,8 +18,19 @@ import { loadArticleForCsr } from '../content/csr';
 const route = useRoute();
 const injected = inject('contentArticle', null);
 
-const article = ref(injected);
-if (!injected && route.meta.contentSlug) {
+// ★ 客户端首屏：SSG 把文章 JSON 内联进 HTML 并挂到 window.__BOOKMARK_SYNC_ARTICLE__，
+//   这里同步读取，使首帧 DOM 与 SSR 完全一致，避免先渲染「正在加载」兜底 <div>
+//   → hydration mismatch（服务端渲染 <article> 正文，客户端若先渲染兜底 <div> 就报 mismatch）。
+//   读取后立即删除：防止 SPA 跳转到其它内容页时复用旧数据（那种情况走 CSR fetch）。
+const inline = (() => {
+  if (injected || typeof window === 'undefined') return null;
+  const a = window.__BOOKMARK_SYNC_ARTICLE__ || null;
+  if (a) delete window.__BOOKMARK_SYNC_ARTICLE__;
+  return a;
+})();
+
+const article = ref(injected || inline);
+if (!article.value && route.meta.contentSlug) {
   loadArticleForCsr(route.meta.contentSlug, route.meta.contentLocale || 'zh').then((d) => {
     article.value = d;
   });

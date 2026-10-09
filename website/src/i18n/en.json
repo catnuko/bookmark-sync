@@ -613,6 +613,7 @@
     "planUnknown": "Unknown plan",
     "statusUnknownShort": "Status unavailable",
     "statusFailed": "Could not load your account status. Please reload the page.",
+    "adminPanel": "Admin",
     "processing": "Processing…",
     "manageSub": "Manage / cancel subscription",
     "renewsOn": "Active until {date}. Manage or cancel in the Creem portal.",

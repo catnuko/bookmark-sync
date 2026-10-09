@@ -6,7 +6,7 @@ import { i18n, setLocale } from './i18n';
 import { localeFromPath } from './router/routes';
 import { getTheme, applyTheme } from './theme';
 import './styles/main.css';
-import { adminReady } from './admin/lib/auth.js';
+import './admin/lib/auth.js'; // 副作用导入：注册 onAuthStateChange，adminAuth 供守卫使用
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -19,30 +19,29 @@ if (isBrowser) {
 
 async function bootstrap() {
   const isAdminRoute = isBrowser && window.location.pathname.startsWith('/admin');
-  // 仅访问后台路由时等待管理员鉴权就绪，避免影响官网首屏
-  if (isAdminRoute) {
-    try {
-      // ★ 必须加超时。adminReady 内部要请求 Supabase（刷新会话/查 profile）：
-      //   - 本地或 env 缺配置时请求会挂起或长时间 pending；
-      //   - 网络不通时同理。
-      //   而 bootstrap 是 async 且串行 await 它 —— 一旦挂住，**整个应用永远不挂载**，
-      //   页面停在 SSG 预渲染出来的内容上（看起来像「路由没生效」），
-      //   且没有报错，只是永远安静着。2026-10-07 实际被这个卡过一次。
-      //   守卫 requireAdmin 会在挂载后自己处理未登录状态，这里等不到也无妨。
-      await Promise.race([adminReady, new Promise((r) => setTimeout(r, 3000))]);
-    } catch {
-      /* 后端迁移未部署时按未登录走，守卫会跳登录页 */
-    }
-  }
   const router = createAppRouter(true);
-  // ★ 必须等router.isReady() 再挂载。
-  //   RouterLink 的 active class（router-link-active）依赖 currentRoute，
-  //   SSG 产物里已经带了这些 class；客户端若在路由解析完成前就 hydrate，
-  //   会算出「无 active」→ class mismatch（首屏导航高亮还会闪一下）。
+  // ★ 修复（2026-10-09）：初始导航必须在 mount 之前触发。
   //
-  //   同样要加超时：守卫 requireAdmin 内部还会await 鉴权，若那条链挂住，
-  //   isReady() 永远不resolve → 又停在预渲染内容上（2026-10-07 实测卡在这里）。
-  await Promise.race([router.isReady(), new Promise((r) => setTimeout(r, 3000))]);
+  //   旧写法 `await Promise.race([router.isReady(), timeout(400)])` 实测永远走兜底
+  //   超时 —— 因为 router.isReady() 等待的「初始导航」只有 app.mount() 才会触发，
+  //   我们在 mount **之前**就 await 它，等于死锁。探针（改源码→重建→量登录页可见
+  //   时间）证实：200ms→329ms、3000ms→3058ms，出现时间 = 超时值 + 几十 ms，
+  //   说明 isReady 从没真正 resolve，那 400ms 纯粹是兜底耗尽。后果：每个页面都白白
+  //   延迟 400ms 才 hydrate，且掩盖了真实首屏时序（这也是此前「400ms 触发 40 条
+  //   hydration 警告」的根，而非后台鉴权慢）。
+  //
+  //   正确做法：在 mount 之前手动 push 当前地址，让初始导航（含守卫判定）完成、
+  //   isReady 立即 resolve。普通页瞬间完成；/admin 无 session 走快速路径
+  //   （同步读 localStorage，零网络）也瞬间完成，有 session 才走一次 whoami
+  //   （auth.js 里带 3s 兜底）。保留 5s 安全兜底防极端卡死，正常路径不会触发。
+  const loc = window.location.pathname + window.location.search + window.location.hash;
+  await Promise.race([
+    router
+      .push(loc)
+      .catch(() => {})
+      .then(() => router.isReady()),
+    new Promise((r) => setTimeout(r, 5000)),
+  ]);
   // SSG 已渲染出 DOM 时必须走 createSSRApp。否则 Vue 丢弃现有 DOM 重建：
   // SEO meta 丢失、正文丢失、无 JS 用户看到空页。
   const el = document.getElementById('app');
