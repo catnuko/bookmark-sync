@@ -48,7 +48,6 @@ export function buildPageMetadata(
   const md: Metadata = {
     title,
     description,
-    keywords,
     authors: [{ name: SITE.name }],
     // 用 other 而不是 metadata.robots —— 后者会被 Next 拆成 robots + googlebot 两条 meta，
     // 与原站「单条 robots」不一致，自检也会数错。
@@ -78,6 +77,10 @@ export function buildPageMetadata(
       images: [{ url: SITE.ogImage, alt: `${SITE.name} · ${title}` }],
     },
   };
+
+  // ★ keywords 为空时不输出该 meta（与原站 useSEO 的 `...(keywords ? [...] : [])` 一致）。
+  //   直接写 keywords:'' 会让 Next 产出一条空的 <meta name="keywords" content="">。
+  if (keywords) md.keywords = keywords;
 
   if (!opts.noindex) {
     md.alternates = { canonical: opts.path, languages };

@@ -65,3 +65,25 @@ export function getContent(): Content {
   }
   return cached;
 }
+
+/**
+ * 按 locale + URL 前缀 + slug 取一篇文章的视图数据。
+ * 前缀必须与文章 category 的 prefix 一致（否则视为 404），保证 URL 与分类自洽。
+ */
+export function getArticleView(locale: Locale, prefix: string, slug: string): ArticleView | null {
+  const content = getContent();
+  const a = content.bySlug.get(`${locale}/${slug}`);
+  if (!a) return null;
+  if (CATEGORIES[a.category as CategoryKey]?.prefix !== prefix) return null;
+  return deriveArticleView(a, content);
+}
+
+/** 某语言的全部文章 URL 参数（供 generateStaticParams 枚举真实路由）。 */
+export function listArticleParams(locale: Locale): { category: string; slug: string }[] {
+  const content = getContent();
+  return (content.byLocale.get(locale) ?? []).map((a) => ({
+    category: CATEGORIES[a.category as CategoryKey]?.prefix || a.category,
+    slug: a.slug,
+  }));
+}
+
