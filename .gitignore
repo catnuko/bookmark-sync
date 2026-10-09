@@ -40,6 +40,7 @@ scripts/e2e/.reports/
 
 # 安装包托管在 Supabase Storage（release.yml 上传），仓库不存 zip 二进制
 website/public/downloads/
+*.zip
 
 # 商店提交凭证（publish-extension init 生成；CLI 会自动加载 cwd 下的它）
 .env.submit
