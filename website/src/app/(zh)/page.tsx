@@ -1,3 +1,15 @@
-export default function HomePage() {
-  return <main className="container section">BookmarkSync · 中文首页（脚手架占位）</main>;
+import type { Metadata } from 'next';
+import { buildPageMetadata } from '@/seo/metadata';
+import PageJsonLd from '@/seo/PageJsonLd';
+import HomePage from '@/components/pages/HomePage';
+
+export const metadata: Metadata = buildPageMetadata('home', 'zh', { path: '/' });
+
+export default function Page() {
+  return (
+    <>
+      <HomePage locale="zh" />
+      <PageJsonLd seoKey="home" locale="zh" path="/" />
+    </>
+  );
 }

@@ -1,0 +1,147 @@
+.supportPage {
+  display: flex;
+  flex-direction: column;
+}
+
+.supportHero {
+  background: var(--color-bg);
+  padding-top: var(--space-20);
+  padding-bottom: var(--space-12);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.containerNarrow {
+  max-width: 720px;
+}
+
+.sectionEyebrow {
+  margin-bottom: var(--space-2);
+}
+
+.sectionTitle {
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-3);
+}
+
+.supportIntro {
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-8);
+}
+
+.supportEmailCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-soft);
+  text-decoration: none;
+  transition: border-color var(--transition);
+}
+
+.supportEmailCard:hover {
+  border-color: var(--color-accent);
+}
+
+.emailLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.emailValue {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.emailNote {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.supportFaq {
+  background: var(--color-bg);
+  padding-top: var(--space-16);
+  padding-bottom: var(--space-12);
+}
+
+.supportH2 {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-2);
+}
+
+.supportSubtitle {
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-8);
+}
+
+.faqList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.faqItem {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-soft);
+  padding: var(--space-4) var(--space-5);
+}
+
+.faqItem[open] {
+  border-color: var(--color-accent);
+}
+
+.faqQ {
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.faqQ::-webkit-details-marker {
+  display: none;
+}
+
+.faqA {
+  margin-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-base);
+  line-height: 1.7;
+}
+
+.supportResources {
+  background: var(--color-bg-soft);
+  padding-top: var(--space-16);
+  padding-bottom: var(--space-20);
+}
+
+.resourceLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.resourceLink {
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    border-color var(--transition),
+    color var(--transition);
+}
+
+.resourceLink:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
