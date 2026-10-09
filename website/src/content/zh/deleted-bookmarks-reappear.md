@@ -2,7 +2,7 @@
 title: 删掉的书签又冒出来了：删除同步的原理与四种修法
 description: 在 A 电脑删掉的书签，在 B 电脑同步后又出现了——这不是同步失败，是删除没有被正确传播。这篇讲清删除同步的四种实现，以及怎么判断你用的是哪一种。
 category: fix
-order: 3
+date: 2026-09-26
 seoTitle: 删掉的书签又回来了怎么解决 · BookmarkSync
 seoDescription: 书签删了又冒出来（firefox sync 会自动重新出现书签）？根因是删除没有墓碑标记，被当成「本地没有」而非「已删除」。讲清四种删除同步实现与判断方法。
 keywords: 删掉的书签又回来了,书签删除没有同步,bookmarks keep coming back,deleted bookmarks reappear,书签自动恢复,书签同步删除失效

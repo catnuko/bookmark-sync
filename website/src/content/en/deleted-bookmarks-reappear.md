@@ -2,7 +2,7 @@
 title: Deleted Bookmarks Keep Coming Back: How Deletion Syncs and Four Ways to Fix It
 description: You delete bookmarks on machine A and they reappear on machine B after syncing. That's not a sync failure — it's deletion failing to propagate. Here's how deletion sync works and how to tell which implementation you have.
 category: fix
-order: 3
+date: 2026-09-26
 seoTitle: Deleted Bookmarks Keep Reappearing · BookmarkSync
 seoDescription: Deleted bookmarks reappear after sync (Firefox "bookmarks keep reproducing themselves")? The root cause is that deletion isn't recorded as a fact, so other devices treat it as "not yet received." Four deletion-sync implementations explained.
 keywords: deleted bookmarks reappear,bookmarks keep coming back,bookmark deletion not syncing,deleted bookmarks come back after sync,firefox sync keeps restoring bookmarks

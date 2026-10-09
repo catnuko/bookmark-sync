@@ -15,203 +15,43 @@
 export const CONTENT_ROUTES = [
   {
     "locale": "zh",
-    "slug": "folder-rename-loses-children",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "文件夹改名后子项全丢：为什么会发生，以及怎么避免",
-    "seoTitle": "文件夹改名后子项消失丢书签 · BookmarkSync",
-    "description": "改名或移动一个文件夹后，里面几百条书签「蒸发」，多半是书签被当成路径字符串而不是独立节点。这个根因只有一个解法。",
-    "order": 1
+    "slug": "faq-and-troubleshooting",
+    "prefix": "guide",
+    "category": "guide",
+    "title": "常见问题与故障排查",
+    "seoTitle": "BookmarkSync 常见问题与故障排查",
+    "description": "忘记口令、换设备恢复、删除能否找回、同步完成提示怎么读、账号书签栏文件夹是怎么回事，以及解密失败、菜单文件夹、扩展不更新、同步不触发等故障的处理。",
+    "date": "2026-10-10"
   },
   {
     "locale": "en",
-    "slug": "folder-rename-loses-children",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "Folder Renamed, Children Gone: Why It Happens and How to Avoid It",
-    "seoTitle": "Folder Rename Loses Children · BookmarkSync",
-    "description": "Rename or move a folder and hundreds of child bookmarks vanish. The cause is almost always bookmarks being stored as path strings instead of independent nodes — and there is only one real fix.",
-    "order": 1
+    "slug": "faq-and-troubleshooting",
+    "prefix": "guide",
+    "category": "guide",
+    "title": "Common Questions and Troubleshooting",
+    "seoTitle": "BookmarkSync FAQ & Troubleshooting",
+    "description": "Forgot passphrase, restoring on a new device, whether deletes can be recovered, how to read the sync message, the account bookmarks bar folder — plus decryption failures, the menu folder, extensions not updating, and sync not triggering.",
+    "date": "2026-10-10"
   },
   {
     "locale": "zh",
-    "slug": "forgot-sync-passphrase",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "忘记同步口令，书签能救回来吗",
-    "seoTitle": "忘记同步口令书签能恢复吗 · BookmarkSync",
-    "description": "端到端加密的同步口令忘了，服务端也救不了——这不是产品缺陷，是加密的代价。这篇讲清能做什么、不能做什么，以及怎么在忘记之前就留好退路。",
-    "order": 2
+    "slug": "getting-started",
+    "prefix": "guide",
+    "category": "guide",
+    "title": "快速上手：从安装到第一次同步",
+    "seoTitle": "BookmarkSync 快速上手指南 · 从安装到第一次同步",
+    "description": "从商店安装、登录账号、设置同步口令，到点击第一次同步、在新设备上恢复书签——新手要走的每一步，以及同步引擎的八项核心能力。",
+    "date": "2026-10-09"
   },
   {
     "locale": "en",
-    "slug": "forgot-sync-passphrase",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "Forgot Your Sync Passphrase: Can Your Bookmarks Be Recovered",
-    "seoTitle": "Forgot Sync Passphrase, Can Bookmarks Be Recovered? · BookmarkSync",
-    "description": "With end-to-end encryption, a forgotten sync passphrase means your data can never be decrypted — by anyone. That's the cost of encryption, not a product defect. Here's what you can do now so you never face that.",
-    "order": 2
-  },
-  {
-    "locale": "zh",
-    "slug": "deleted-bookmarks-reappear",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "删掉的书签又冒出来了：删除同步的原理与四种修法",
-    "seoTitle": "删掉的书签又回来了怎么解决 · BookmarkSync",
-    "description": "在 A 电脑删掉的书签，在 B 电脑同步后又出现了——这不是同步失败，是删除没有被正确传播。这篇讲清删除同步的四种实现，以及怎么判断你用的是哪一种。",
-    "order": 3
-  },
-  {
-    "locale": "en",
-    "slug": "deleted-bookmarks-reappear",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "Deleted Bookmarks Keep Coming Back: How Deletion Syncs and Four Ways to Fix It",
-    "seoTitle": "Deleted Bookmarks Keep Reappearing · BookmarkSync",
-    "description": "You delete bookmarks on machine A and they reappear on machine B after syncing. That's not a sync failure — it's deletion failing to propagate. Here's how deletion sync works and how to tell which implementation you have.",
-    "order": 3
-  },
-  {
-    "locale": "zh",
-    "slug": "merge-conflict-two-devices",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "两台设备同时改书签：合并冲突的四种处理方式和各自的代价",
-    "seoTitle": "多设备书签合并冲突 · BookmarkSync",
-    "description": "公司电脑新加了 30 条书签，回家笔记本上同步后这30 条不见了。这是合并冲突，根因是同步引擎用哪种方式裁决「两边都改了」。四种处理方式里只有一种能保证两边都不丢。",
-    "order": 4
-  },
-  {
-    "locale": "en",
-    "slug": "merge-conflict-two-devices",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "Two Devices Edited the Same Bookmarks: Four Merge Strategies and What Each Costs",
-    "seoTitle": "Bookmark Merge Conflicts Explained · BookmarkSync",
-    "description": "You added 30 bookmarks at the office, synced at home, and the 30 were gone. This is a merge conflict. The root cause is which strategy your engine uses to arbitrate \"both sides changed\" — and only one of the four can guarantee nothing is lost.",
-    "order": 4
-  },
-  {
-    "locale": "zh",
-    "slug": "firefox-sync-bookmarks-mixed-up",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "Firefox 同步后书签全挤在一处：树被打散的根因是「合并」模型",
-    "seoTitle": "Firefox 同步书签结构错乱 · BookmarkSync",
-    "description": "Firefox 同步后 3000 条书签的树被打散、同一文件夹的书签全被合并进一个文件夹、新笔记本同步后子文件夹变空。根因不在操作，在于书签树节点不携带同步来源信息，而 Firefox Sync 用的是合并模型。",
-    "order": 5
-  },
-  {
-    "locale": "en",
-    "slug": "firefox-sync-bookmarks-mixed-up",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "Firefox Sync Squashed All Your Bookmarks Into One Folder",
-    "seoTitle": "Firefox Sync Mangled My Bookmark Tree · BookmarkSync",
-    "description": "After Firefox sync, 3,000 bookmarks collapse into a single folder and subfolders come back empty. The root cause isn't anything you did — bookmark tree nodes carry no sync provenance, and Firefox Sync uses a merge model.",
-    "order": 5
-  },
-  {
-    "locale": "zh",
-    "slug": "bookmarks-not-syncing-troubleshooting",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "书签同步不生效：按顺序排查的完整清单（含限流与配额）",
-    "seoTitle": "书签同步不生效排查 · BookmarkSync",
-    "description": "书签同步不生效、状态一直显示 scheduled、同步时好时坏。这篇是按执行顺序排的排查手册：先分清状态含义，再排除账号，再查配额和限流，最后才动本地数据。",
-    "order": 6
-  },
-  {
-    "locale": "en",
-    "slug": "bookmarks-not-syncing-troubleshooting",
-    "prefix": "fix",
-    "category": "fix",
-    "title": "Bookmark Sync Not Working: A Troubleshooting Checklist in Order",
-    "seoTitle": "Bookmark Sync Not Working · BookmarkSync",
-    "description": "Sync does nothing, the status stays on scheduled, or it works half the time. This is a runbook, not a list of causes: check status meaning first, then account, then quota and rate limits, and only then touch local data.",
-    "order": 6
-  },
-  {
-    "locale": "zh",
-    "slug": "chrome-to-firefox-bookmarks",
-    "prefix": "migrate",
-    "category": "migrate",
-    "title": "Chrome 书签迁移到 Firefox：会丢什么，以及怎么正确迁",
-    "seoTitle": "Chrome 书签迁移到 Firefox · BookmarkSync",
-    "description": "把 Chrome 书签搬到 Firefox，空的中间层文件夹会消失、Chrome 账号子树会落到「其他书签」。这是迁移前必须知道的四件事，以及两条迁移路径的取舍。",
-    "order": 7
-  },
-  {
-    "locale": "en",
-    "slug": "chrome-to-firefox-bookmarks",
-    "prefix": "migrate",
-    "category": "migrate",
-    "title": "Migrating Bookmarks from Chrome to Firefox: What You Lose and How to Do It Right",
-    "seoTitle": "Chrome to Firefox Bookmark Migration · BookmarkSync",
-    "description": "Moving Chrome bookmarks to Firefox flattens empty intermediate folders and lands your Chrome account subtree under Other Bookmarks. Four unavoidable limits, two migration paths, and how to verify the result.",
-    "order": 7
-  },
-  {
-    "locale": "zh",
-    "slug": "safari-to-chrome-bookmarks",
-    "prefix": "migrate",
-    "category": "migrate",
-    "title": "Safari 书签迁移到 Chrome：会丢什么，最快的路径是哪条",
-    "seoTitle": "Safari 书签迁移到 Chrome · BookmarkSync",
-    "description": "Safari 书签存在二进制的 Bookmarks.plist 里，但首选路径不是导文件——是 Apple 官方的 iCloud Bookmarks 扩展。这篇讲清阅读列表和智能文件夹会丢、书签顺序不导出，以及 Chrome 侧的真实代价。",
-    "order": 8
-  },
-  {
-    "locale": "en",
-    "slug": "safari-to-chrome-bookmarks",
-    "prefix": "migrate",
-    "category": "migrate",
-    "title": "Safari Bookmarks to Chrome: What You Lose and the Fastest Path",
-    "seoTitle": "Safari Bookmarks to Chrome · BookmarkSync",
-    "description": "Safari's bookmarks live in a binary plist, but the fastest path isn't a file export — it's Apple's official iCloud Bookmarks extension. What Reader and Smart Folders lose, why order doesn't export, and Chrome's real cost.",
-    "order": 8
-  },
-  {
-    "locale": "zh",
-    "slug": "edge-to-chrome-bookmarks",
-    "prefix": "migrate",
-    "category": "migrate",
-    "title": "Edge 收藏夹并入 Chrome：最简单的迁移，和「删掉又冒出来」那个问题",
-    "seoTitle": "Edge 收藏夹导入 Chrome · BookmarkSync",
-    "description": "Edge 和 Chrome 都是 Chromium 内核，书签格式完全兼容，迁移成本最低。这篇讲清哪些能带走、哪些带不走（集、edge://favorites 路径），以及收藏夹删掉又冒出来的原因。",
-    "order": 9
-  },
-  {
-    "locale": "en",
-    "slug": "edge-to-chrome-bookmarks",
-    "prefix": "migrate",
-    "category": "migrate",
-    "title": "Merging Edge Favorites into Chrome: The Easy Migration and the Duplicates Problem",
-    "seoTitle": "Edge Favorites to Chrome · BookmarkSync",
-    "description": "Edge and Chrome share the Chromium engine and a fully compatible bookmark format, making this the cheapest migration there is. What carries over, what doesn't (Collections, edge:// paths), and why deleted favorites come back.",
-    "order": 9
-  },
-  {
-    "locale": "zh",
-    "slug": "how-to-verify-e2ee-bookmark-sync",
-    "prefix": "explain",
-    "category": "explain",
-    "title": "怎么判断一个书签同步扩展是真端到端加密：一份检查清单",
-    "seoTitle": "真端到端加密怎么判断 · BookmarkSync",
-    "description": "「我们支持端到端加密」这句话几乎没有信息量。这份清单列出七个可以自己动手验证的判据：密码重置流程、网页预览、算法名、密钥派生迭代、审计、开源，以及最关键的一条——他们能不能给你发重置主密码的邮件。",
-    "order": 10
-  },
-  {
-    "locale": "en",
-    "slug": "how-to-verify-e2ee-bookmark-sync",
-    "prefix": "explain",
-    "category": "explain",
-    "title": "How to Tell If a Bookmark Sync Extension Is Actually End-to-End Encrypted",
-    "seoTitle": "Is It Really E2EE? A Checklist · BookmarkSync",
-    "description": "\"We support end-to-end encryption\" carries almost no information — plaintext storage can say it too. Here are seven criteria you can verify yourself, starting with the strongest one: whether the vendor can email you a link to reset your master password.",
-    "order": 10
+    "slug": "getting-started",
+    "prefix": "guide",
+    "category": "guide",
+    "title": "Quick Start: From Install to Your First Sync",
+    "seoTitle": "BookmarkSync Quick Start · Install to First Sync",
+    "description": "Install from your browser store, log in, set a sync passphrase, run the first sync, and restore on a new device — plus the eight core capabilities of the sync engine.",
+    "date": "2026-10-09"
   },
   {
     "locale": "zh",
@@ -221,22 +61,227 @@ export const CONTENT_ROUTES = [
     "title": "Chrome 双子树时代，「同一棵书签树」到底是什么意思",
     "seoTitle": "Chrome 双子树书签同步原理 · BookmarkSync",
     "description": "2025 年起 Chrome 把书签拆成账号与本地两棵子树，登录后书签栏出现两套文件夹。跨设备同步还能叫「同一棵书签树」吗？这篇讲清同步引擎如何把多棵原生根归一化成一棵逻辑树。",
-    "order": 11
+    "date": "2026-10-08"
   },
   {
     "locale": "en",
     "slug": "chrome-dual-bookmark-trees",
     "prefix": "explain",
     "category": "explain",
-    "title": "\"Chrome's Two Bookmark Trees: What \\\"One Bookmark Tree\\\" Really Means\"",
-    "seoTitle": "\"Chrome's Dual Bookmark Trees Explained · BookmarkSync\"",
-    "description": "Since 2025, Chrome has split bookmarks into an account tree and a local tree, so signed-in users see two sets of top-level folders. Does cross-device sync still mean \\\"one bookmark tree\\\"? This article explains how the sync engine normalizes multiple native roots into a single logical tree.",
-    "order": 11
+    "title": "Chrome's Two Bookmark Trees: What \"One Bookmark Tree\" Really Means",
+    "seoTitle": "Chrome's Dual Bookmark Trees Explained · BookmarkSync",
+    "description": "Since 2025, Chrome has split bookmarks into an account tree and a local tree, so signed-in users see two sets of top-level folders. Does cross-device sync still mean \"one bookmark tree\"? This article explains how the sync engine normalizes multiple native roots into a single logical tree.",
+    "date": "2026-10-08"
+  },
+  {
+    "locale": "zh",
+    "slug": "how-to-verify-e2ee-bookmark-sync",
+    "prefix": "explain",
+    "category": "explain",
+    "title": "怎么判断一个书签同步扩展是真端到端加密：一份检查清单",
+    "seoTitle": "真端到端加密怎么判断 · BookmarkSync",
+    "description": "「我们支持端到端加密」这句话几乎没有信息量。这份清单列出七个可以自己动手验证的判据：密码重置流程、网页预览、算法名、密钥派生迭代、审计、开源，以及最关键的一条——他们能不能给你发重置主密码的邮件。",
+    "date": "2026-10-07"
+  },
+  {
+    "locale": "en",
+    "slug": "how-to-verify-e2ee-bookmark-sync",
+    "prefix": "explain",
+    "category": "explain",
+    "title": "How to Tell If a Bookmark Sync Extension Is Actually End-to-End Encrypted",
+    "seoTitle": "Is It Really E2EE? A Checklist · BookmarkSync",
+    "description": "\"We support end-to-end encryption\" carries almost no information — plaintext storage can say it too. Here are seven criteria you can verify yourself, starting with the strongest one: whether the vendor can email you a link to reset your master password.",
+    "date": "2026-10-07"
+  },
+  {
+    "locale": "zh",
+    "slug": "edge-to-chrome-bookmarks",
+    "prefix": "migrate",
+    "category": "migrate",
+    "title": "Edge 收藏夹并入 Chrome：最简单的迁移，和「删掉又冒出来」那个问题",
+    "seoTitle": "Edge 收藏夹导入 Chrome · BookmarkSync",
+    "description": "Edge 和 Chrome 都是 Chromium 内核，书签格式完全兼容，迁移成本最低。这篇讲清哪些能带走、哪些带不走（集、edge://favorites 路径），以及收藏夹删掉又冒出来的原因。",
+    "date": "2026-10-06"
+  },
+  {
+    "locale": "en",
+    "slug": "edge-to-chrome-bookmarks",
+    "prefix": "migrate",
+    "category": "migrate",
+    "title": "Merging Edge Favorites into Chrome: The Easy Migration and the Duplicates Problem",
+    "seoTitle": "Edge Favorites to Chrome · BookmarkSync",
+    "description": "Edge and Chrome share the Chromium engine and a fully compatible bookmark format, making this the cheapest migration there is. What carries over, what doesn't (Collections, edge:// paths), and why deleted favorites come back.",
+    "date": "2026-10-06"
+  },
+  {
+    "locale": "zh",
+    "slug": "safari-to-chrome-bookmarks",
+    "prefix": "migrate",
+    "category": "migrate",
+    "title": "Safari 书签迁移到 Chrome：会丢什么，最快的路径是哪条",
+    "seoTitle": "Safari 书签迁移到 Chrome · BookmarkSync",
+    "description": "Safari 书签存在二进制的 Bookmarks.plist 里，但首选路径不是导文件——是 Apple 官方的 iCloud Bookmarks 扩展。这篇讲清阅读列表和智能文件夹会丢、书签顺序不导出，以及 Chrome 侧的真实代价。",
+    "date": "2026-10-05"
+  },
+  {
+    "locale": "en",
+    "slug": "safari-to-chrome-bookmarks",
+    "prefix": "migrate",
+    "category": "migrate",
+    "title": "Safari Bookmarks to Chrome: What You Lose and the Fastest Path",
+    "seoTitle": "Safari Bookmarks to Chrome · BookmarkSync",
+    "description": "Safari's bookmarks live in a binary plist, but the fastest path isn't a file export — it's Apple's official iCloud Bookmarks extension. What Reader and Smart Folders lose, why order doesn't export, and Chrome's real cost.",
+    "date": "2026-10-05"
+  },
+  {
+    "locale": "zh",
+    "slug": "chrome-to-firefox-bookmarks",
+    "prefix": "migrate",
+    "category": "migrate",
+    "title": "Chrome 书签迁移到 Firefox：会丢什么，以及怎么正确迁",
+    "seoTitle": "Chrome 书签迁移到 Firefox · BookmarkSync",
+    "description": "把 Chrome 书签搬到 Firefox，空的中间层文件夹会消失、Chrome 账号子树会落到「其他书签」。这是迁移前必须知道的四件事，以及两条迁移路径的取舍。",
+    "date": "2026-10-04"
+  },
+  {
+    "locale": "en",
+    "slug": "chrome-to-firefox-bookmarks",
+    "prefix": "migrate",
+    "category": "migrate",
+    "title": "Migrating Bookmarks from Chrome to Firefox: What You Lose and How to Do It Right",
+    "seoTitle": "Chrome to Firefox Bookmark Migration · BookmarkSync",
+    "description": "Moving Chrome bookmarks to Firefox flattens empty intermediate folders and lands your Chrome account subtree under Other Bookmarks. Four unavoidable limits, two migration paths, and how to verify the result.",
+    "date": "2026-10-04"
+  },
+  {
+    "locale": "zh",
+    "slug": "bookmarks-not-syncing-troubleshooting",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "书签同步不生效：按顺序排查的完整清单（含限流与配额）",
+    "seoTitle": "书签同步不生效排查 · BookmarkSync",
+    "description": "书签同步不生效、状态一直显示 scheduled、同步时好时坏。这篇是按执行顺序排的排查手册：先分清状态含义，再排除账号，再查配额和限流，最后才动本地数据。",
+    "date": "2026-10-02"
+  },
+  {
+    "locale": "en",
+    "slug": "bookmarks-not-syncing-troubleshooting",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "Bookmark Sync Not Working: A Troubleshooting Checklist in Order",
+    "seoTitle": "Bookmark Sync Not Working · BookmarkSync",
+    "description": "Sync does nothing, the status stays on scheduled, or it works half the time. This is a runbook, not a list of causes: check status meaning first, then account, then quota and rate limits, and only then touch local data.",
+    "date": "2026-10-02"
+  },
+  {
+    "locale": "zh",
+    "slug": "firefox-sync-bookmarks-mixed-up",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "Firefox 同步后书签全挤在一处：树被打散的根因是「合并」模型",
+    "seoTitle": "Firefox 同步书签结构错乱 · BookmarkSync",
+    "description": "Firefox 同步后 3000 条书签的树被打散、同一文件夹的书签全被合并进一个文件夹、新笔记本同步后子文件夹变空。根因不在操作，在于书签树节点不携带同步来源信息，而 Firefox Sync 用的是合并模型。",
+    "date": "2026-09-30"
+  },
+  {
+    "locale": "en",
+    "slug": "firefox-sync-bookmarks-mixed-up",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "Firefox Sync Squashed All Your Bookmarks Into One Folder",
+    "seoTitle": "Firefox Sync Mangled My Bookmark Tree · BookmarkSync",
+    "description": "After Firefox sync, 3,000 bookmarks collapse into a single folder and subfolders come back empty. The root cause isn't anything you did — bookmark tree nodes carry no sync provenance, and Firefox Sync uses a merge model.",
+    "date": "2026-09-30"
+  },
+  {
+    "locale": "zh",
+    "slug": "merge-conflict-two-devices",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "两台设备同时改书签：合并冲突的四种处理方式和各自的代价",
+    "seoTitle": "多设备书签合并冲突 · BookmarkSync",
+    "description": "公司电脑新加了 30 条书签，回家笔记本上同步后这30 条不见了。这是合并冲突，根因是同步引擎用哪种方式裁决「两边都改了」。四种处理方式里只有一种能保证两边都不丢。",
+    "date": "2026-09-28"
+  },
+  {
+    "locale": "en",
+    "slug": "merge-conflict-two-devices",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "Two Devices Edited the Same Bookmarks: Four Merge Strategies and What Each Costs",
+    "seoTitle": "Bookmark Merge Conflicts Explained · BookmarkSync",
+    "description": "You added 30 bookmarks at the office, synced at home, and the 30 were gone. This is a merge conflict. The root cause is which strategy your engine uses to arbitrate \"both sides changed\" — and only one of the four can guarantee nothing is lost.",
+    "date": "2026-09-28"
+  },
+  {
+    "locale": "zh",
+    "slug": "deleted-bookmarks-reappear",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "删掉的书签又冒出来了：删除同步的原理与四种修法",
+    "seoTitle": "删掉的书签又回来了怎么解决 · BookmarkSync",
+    "description": "在 A 电脑删掉的书签，在 B 电脑同步后又出现了——这不是同步失败，是删除没有被正确传播。这篇讲清删除同步的四种实现，以及怎么判断你用的是哪一种。",
+    "date": "2026-09-26"
+  },
+  {
+    "locale": "en",
+    "slug": "deleted-bookmarks-reappear",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "Deleted Bookmarks Keep Coming Back: How Deletion Syncs and Four Ways to Fix It",
+    "seoTitle": "Deleted Bookmarks Keep Reappearing · BookmarkSync",
+    "description": "You delete bookmarks on machine A and they reappear on machine B after syncing. That's not a sync failure — it's deletion failing to propagate. Here's how deletion sync works and how to tell which implementation you have.",
+    "date": "2026-09-26"
+  },
+  {
+    "locale": "zh",
+    "slug": "forgot-sync-passphrase",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "忘记同步口令，书签能救回来吗",
+    "seoTitle": "忘记同步口令书签能恢复吗 · BookmarkSync",
+    "description": "端到端加密的同步口令忘了，服务端也救不了——这不是产品缺陷，是加密的代价。这篇讲清能做什么、不能做什么，以及怎么在忘记之前就留好退路。",
+    "date": "2026-09-24"
+  },
+  {
+    "locale": "en",
+    "slug": "forgot-sync-passphrase",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "Forgot Your Sync Passphrase: Can Your Bookmarks Be Recovered",
+    "seoTitle": "Forgot Sync Passphrase, Can Bookmarks Be Recovered? · BookmarkSync",
+    "description": "With end-to-end encryption, a forgotten sync passphrase means your data can never be decrypted — by anyone. That's the cost of encryption, not a product defect. Here's what you can do now so you never face that.",
+    "date": "2026-09-24"
+  },
+  {
+    "locale": "zh",
+    "slug": "folder-rename-loses-children",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "文件夹改名后子项全丢：为什么会发生，以及怎么避免",
+    "seoTitle": "文件夹改名后子项消失丢书签 · BookmarkSync",
+    "description": "改名或移动一个文件夹后，里面几百条书签「蒸发」，多半是书签被当成路径字符串而不是独立节点。这个根因只有一个解法。",
+    "date": "2026-09-22"
+  },
+  {
+    "locale": "en",
+    "slug": "folder-rename-loses-children",
+    "prefix": "fix",
+    "category": "fix",
+    "title": "Folder Renamed, Children Gone: Why It Happens and How to Avoid It",
+    "seoTitle": "Folder Rename Loses Children · BookmarkSync",
+    "description": "Rename or move a folder and hundreds of child bookmarks vanish. The cause is almost always bookmarks being stored as path strings instead of independent nodes — and there is only one real fix.",
+    "date": "2026-09-22"
   }
 ];
 
 /** 内容文章的分类定义（与 src/content/index.js 的 CATEGORIES 保持一致）。 */
 export const CONTENT_CATEGORIES = {
+  guide: {
+    prefix: "guide",
+    label: {"zh":"使用指南","en":"Guides"},
+    description: {"zh":"从安装、登录到第一次同步，以及日常使用中最常被问到的疑问与故障处理——新手要走的每一步都在这里。","en":"From install and login to your first sync, plus the questions and failures that come up in daily use — every step a new user needs, in one place."},
+  },
   fix: {
     prefix: "fix",
     label: {"zh":"问题解决","en":"Troubleshooting"},

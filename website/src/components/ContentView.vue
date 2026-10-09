@@ -8,6 +8,7 @@ import { computed, inject, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import LocalizedLink from './LocalizedLink.vue';
 import ContentBody from './ContentBody.vue';
+import { formatDate } from '../lib/format-date.js';
 // 内容数据两条来源：
 //   1. SSG —— vite-plugin 渲染时 app.provide('contentArticle', article)
 //   2. CSR —— dev server / 客户端路由跳转时没有注入，改从预渲染数据 JSON 取
@@ -55,6 +56,11 @@ const cat = computed(() => article.value?.categoryMeta || {});
       <div class="container container-narrow">
         <p class="section-eyebrow">{{ cat.label }}</p>
         <h1 class="content-title">{{ article.frontmatter.title }}</h1>
+        <p v-if="article.frontmatter.date" class="content-date">
+          <time :datetime="article.frontmatter.date">{{
+            formatDate(article.frontmatter.date, article.locale)
+          }}</time>
+        </p>
         <p class="content-lead">{{ article.lead }}</p>
       </div>
     </header>
@@ -136,6 +142,13 @@ const cat = computed(() => article.value?.categoryMeta || {});
   line-height: 1.65;
   color: var(--color-text-muted);
   max-width: 38em;
+}
+
+.content-date {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .content-body {

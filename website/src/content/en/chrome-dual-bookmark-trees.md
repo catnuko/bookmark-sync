@@ -1,10 +1,10 @@
 ---
-title: "Chrome's Two Bookmark Trees: What \"One Bookmark Tree\" Really Means"
-description: Since 2025, Chrome has split bookmarks into an account tree and a local tree, so signed-in users see two sets of top-level folders. Does cross-device sync still mean \"one bookmark tree\"? This article explains how the sync engine normalizes multiple native roots into a single logical tree.
+title: Chrome's Two Bookmark Trees: What "One Bookmark Tree" Really Means
+description: Since 2025, Chrome has split bookmarks into an account tree and a local tree, so signed-in users see two sets of top-level folders. Does cross-device sync still mean "one bookmark tree"? This article explains how the sync engine normalizes multiple native roots into a single logical tree.
 category: explain
-order: 11
-seoTitle: "Chrome's Dual Bookmark Trees Explained · BookmarkSync"
-seoDescription: After Chrome's 2025 dual bookmark trees (syncing account tree / non-syncing local tree), is \"keeping one bookmark tree across devices\" still accurate? How rootResolver maps roots by folderType + syncing, the 8 fixed-root UUIDs, a single-root Move-CRDT logical tree, and Lamport convergence.
+date: 2026-10-08
+seoTitle: Chrome's Dual Bookmark Trees Explained · BookmarkSync
+seoDescription: After Chrome's 2025 dual bookmark trees (syncing account tree / non-syncing local tree), is "keeping one bookmark tree across devices" still accurate? How rootResolver maps roots by folderType + syncing, the 8 fixed-root UUIDs, a single-root Move-CRDT logical tree, and Lamport convergence.
 keywords: Chrome dual bookmark trees,syncing subtree,non-syncing subtree,Chrome bookmarks two roots,bookmark sync dual tree,one bookmark tree
 faq: true
 ---

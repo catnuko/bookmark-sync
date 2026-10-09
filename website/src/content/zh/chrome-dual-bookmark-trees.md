@@ -2,7 +2,7 @@
 title: Chrome 双子树时代，「同一棵书签树」到底是什么意思
 description: 2025 年起 Chrome 把书签拆成账号与本地两棵子树，登录后书签栏出现两套文件夹。跨设备同步还能叫「同一棵书签树」吗？这篇讲清同步引擎如何把多棵原生根归一化成一棵逻辑树。
 category: explain
-order: 11
+date: 2026-10-08
 seoTitle: Chrome 双子树书签同步原理 · BookmarkSync
 seoDescription: Chrome 2025 双子树（syncing 账号树 / non-syncing 本地树）之后，「跨设备保持同一棵书签树」还成立吗？本文拆解 rootResolver 按 folderType + syncing 认根、8 个固定根 UUID、Move-CRDT 单根逻辑树与 Lamport 收敛。
 keywords: Chrome 双子树,书签双子树,syncing 子树,non-syncing 子树,Chrome 书签两棵树,bookmark sync dual tree,Chrome bookmarks two roots,同一棵书签树

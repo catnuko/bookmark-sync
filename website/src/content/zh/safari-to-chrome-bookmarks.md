@@ -2,7 +2,7 @@
 title: Safari 书签迁移到 Chrome：会丢什么，最快的路径是哪条
 description: Safari 书签存在二进制的 Bookmarks.plist 里，但首选路径不是导文件——是 Apple 官方的 iCloud Bookmarks 扩展。这篇讲清阅读列表和智能文件夹会丢、书签顺序不导出，以及 Chrome 侧的真实代价。
 category: migrate
-order: 8
+date: 2026-10-05
 seoTitle: Safari 书签迁移到 Chrome · BookmarkSync
 seoDescription: Safari 书签搬到 Chrome 会丢什么？阅读列表和智能文件夹在 Chrome 没有对应概念，书签顺序不导出到 HTML。首选是 Apple 官方 iCloud Bookmarks 扩展，本文对比它与第三方工具并给出验证方法。
 keywords: Safari书签迁移到Chrome,Safari书签导入Chrome,iCloud书签导入Chrome,Safari书签导出,书签顺序重排,阅读列表迁移

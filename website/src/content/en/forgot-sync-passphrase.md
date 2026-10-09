@@ -2,7 +2,7 @@
 title: Forgot Your Sync Passphrase: Can Your Bookmarks Be Recovered
 description: With end-to-end encryption, a forgotten sync passphrase means your data can never be decrypted — by anyone. That's the cost of encryption, not a product defect. Here's what you can do now so you never face that.
 category: fix
-order: 2
+date: 2026-09-24
 seoTitle: Forgot Sync Passphrase, Can Bookmarks Be Recovered? · BookmarkSync
 seoDescription: Forgot your end-to-end-encryption sync passphrase? No provider can recover your bookmarks — that's mathematics, not policy. What actually works: three paths worth trying, the real state of each, and why new designs let you avoid memorizing a 44-character key.
 keywords: forgot sync passphrase,sync password forgotten,bookmarks cannot be recovered,end to end encryption forgot password,recover cloud bookmark data,restore bookmarks new device

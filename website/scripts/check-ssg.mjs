@@ -126,9 +126,14 @@ function hrefsOf(html, tagName, className) {
   return out;
 }
 
-/** 取某类标签的 id 数量（属性顺序无关）。 */
+/**
+ * 取 **h2** 的 id 数量（属性顺序无关）。
+ * ★ 只数 h2：目录（toc）由 parse.js 从 h2 生成、ContentView 仅在 h2 ≥ 3 时渲染。
+ *   早先数 h2+h3 会让「h2 少但 h3 多」的合理文章（如常见问题类）被误判成
+ *   「目录提取失效」—— 误报的判据必须与目录真正依据的层级一致。
+ */
 function headingIdsCount(html) {
-  return [...html.matchAll(/<h[23]\b[^>]*>/g)].filter((m) => /\bid="/.test(m[0])).length;
+  return [...html.matchAll(/<h2\b[^>]*>/g)].filter((m) => /\bid="/.test(m[0])).length;
 }
 
 const metas = (head, name) => attrTags(head, 'meta', 'name', 'content', name);
@@ -325,7 +330,7 @@ export function runChecks({ quiet = false } = {}) {
 
     // 内容页必须内链到其它内容页（否则是孤岛页，权重传不出去）
     const linksOut = hrefsOf(html, 'a').filter((h) =>
-      /^\/(?:en\/)?(?:fix|migrate|explain)\/[^"#]+$/.test(h),
+      /^\/(?:en\/)?(?:guide|fix|migrate|explain)\/[^"#]+$/.test(h),
     );
     if (linksOut.length === 0 && !p.onlyContent) {
       fail(`${tag} 内容页无任何指向其它内容页的内链（孤岛页）`);

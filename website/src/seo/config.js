@@ -88,16 +88,18 @@ export const ROUTE_SEO = {
   },
   docs: {
     zh: {
-      title: '使用文档 · BookmarkSync',
+      title: '文章 · BookmarkSync | 书签同步的上手、原理与排障',
       description:
-        'BookmarkSync 使用文档：快速开始、功能详解、常见问题、故障排查。所有关于书签同步工具的疑问，在这里找到答案。',
-      keywords: 'BookmarkSync 文档,书签同步教程,书签同步使用,书签同步 FAQ',
+        'BookmarkSync 文章：快速上手、跨浏览器迁移、同步原理与故障排查。所有内容按发布时间排列，帮你把书签同步彻底用明白。',
+      keywords:
+        'BookmarkSync 文章,书签同步教程,书签同步使用,跨浏览器书签迁移,书签同步原理,书签同步故障排查',
     },
     en: {
-      title: 'Documentation · BookmarkSync',
+      title: 'Articles · BookmarkSync',
       description:
-        'BookmarkSync documentation: quick start, feature deep-dive, FAQ, troubleshooting. Find every answer about the bookmark sync tool here.',
-      keywords: 'BookmarkSync docs,bookmark sync tutorial,bookmark sync usage,bookmark sync FAQ',
+        'BookmarkSync articles: quick start, cross-browser migration, how the sync engine works, and troubleshooting — all in one timeline, newest first.',
+      keywords:
+        'BookmarkSync articles,bookmark sync guide,bookmark sync usage,cross-browser bookmark migration,bookmark sync internals,bookmark sync troubleshooting',
     },
   },
   support: {
@@ -162,7 +164,7 @@ const CRUMB_LABELS = {
     home: '首页',
     pricing: '定价',
     download: '下载',
-    docs: '文档',
+    docs: '文章',
     support: '支持',
     privacy: '隐私',
     terms: '条款',
@@ -171,7 +173,7 @@ const CRUMB_LABELS = {
     home: 'Home',
     pricing: 'Pricing',
     download: 'Download',
-    docs: 'Docs',
+    docs: 'Articles',
     support: 'Support',
     privacy: 'Privacy',
     terms: 'Terms',
@@ -286,17 +288,26 @@ export function getBreadcrumbJsonLd(seoKey, locale = 'zh', leafName) {
 /**
  * Article JSON-LD —— 告诉搜索引擎这是一篇有实质内容的文章（不是营销落地页）。
  *
- * ★ 不声明 datePublished：我们没有可信的首次发布日期，编一个比不写更糟
- *   （Google 会拿它做时效性判断，错的日期会伤排名）。
+ * ★ datePublished 取自文章 frontmatter 的 `date`（内容模型里的一等字段，
+ *   列表与页面都按它排序、展示）。之前没有该字段时刻意不声明日期 ——
+ *   编一个日期比不写更糟；现在日期是内容的一部分，可以如实声明。
+ *   dateModified 由调用方取「max(发布日期, 站点更新日)」，避免出现
+ *   修改日早于发布日的矛盾数据。
  */
-export function getArticleJsonLd({ headline, description, url, dateModified, locale = 'zh' }) {
-  return {
+export function getArticleJsonLd({
+  headline,
+  description,
+  url,
+  datePublished,
+  dateModified,
+  locale = 'zh',
+}) {
+  const data = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline,
     description,
     url,
-    dateModified,
     inLanguage: LOCALE_TAGS[locale]?.htmlLang || 'zh-CN',
     author: { '@type': 'Organization', name: SITE.name, url: SITE.url },
     publisher: {
@@ -307,6 +318,9 @@ export function getArticleJsonLd({ headline, description, url, dateModified, loc
     },
     mainEntityOfPage: { '@type': 'WebPage', '@id': url },
   };
+  if (datePublished) data.datePublished = datePublished;
+  if (dateModified) data.dateModified = dateModified;
+  return data;
 }
 
 /**

@@ -2,7 +2,7 @@
 title: Safari Bookmarks to Chrome: What You Lose and the Fastest Path
 description: Safari's bookmarks live in a binary plist, but the fastest path isn't a file export — it's Apple's official iCloud Bookmarks extension. What Reader and Smart Folders lose, why order doesn't export, and Chrome's real cost.
 category: migrate
-order: 8
+date: 2026-10-05
 seoTitle: Safari Bookmarks to Chrome · BookmarkSync
 seoDescription: What do you lose moving Safari bookmarks to Chrome? Reader and Smart Folders have no Chrome equivalent, and bookmark order doesn't export to HTML. Start with Apple's official iCloud Bookmarks extension, compare paths, and learn how to verify.
 keywords: Safari bookmarks to Chrome,import Safari bookmarks into Chrome,iCloud bookmarks Chrome,export Safari bookmarks,bookmark order changed after import,move Reader list to Chrome

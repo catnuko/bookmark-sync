@@ -2,7 +2,7 @@
 title: Edge 收藏夹并入 Chrome：最简单的迁移，和「删掉又冒出来」那个问题
 description: Edge 和 Chrome 都是 Chromium 内核，书签格式完全兼容，迁移成本最低。这篇讲清哪些能带走、哪些带不走（集、edge://favorites 路径），以及收藏夹删掉又冒出来的原因。
 category: migrate
-order: 9
+date: 2026-10-06
 seoTitle: Edge 收藏夹导入 Chrome · BookmarkSync
 seoDescription: Edge 收藏夹怎么并入 Chrome？两者同为 Chromium 内核、格式完全兼容，但 Edge 的「集」和 edge://favorites 路径带不走。本文给出导入 HTML 的完整步骤、两条路径对比，以及「收藏夹删掉又冒出来」的根本原因与解法。
 keywords: Edge收藏夹导入Chrome,Edge书签迁移Chrome,Edge收藏夹同步到Chrome,edge收藏夹重复,Edge收藏夹删不掉,Chromium书签互通

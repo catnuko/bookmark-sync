@@ -2,7 +2,7 @@
 title: Merging Edge Favorites into Chrome: The Easy Migration and the Duplicates Problem
 description: Edge and Chrome share the Chromium engine and a fully compatible bookmark format, making this the cheapest migration there is. What carries over, what doesn't (Collections, edge:// paths), and why deleted favorites come back.
 category: migrate
-order: 9
+date: 2026-10-06
 seoTitle: Edge Favorites to Chrome · BookmarkSync
 seoDescription: How do you merge Edge favorites into Chrome? Both run on Chromium with fully compatible formats, but Collections and edge:// paths don't carry over. Full HTML import steps, two paths compared, and why deleted Edge favorites keep reappearing.
 keywords: Edge favorites to Chrome,import Edge bookmarks into Chrome,sync Edge favorites to Chrome,Edge favorites keep duplicating,can't delete Edge favorite,Chromium bookmark compatibility

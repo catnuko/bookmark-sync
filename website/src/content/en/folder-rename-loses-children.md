@@ -2,7 +2,7 @@
 title: Folder Renamed, Children Gone: Why It Happens and How to Avoid It
 description: Rename or move a folder and hundreds of child bookmarks vanish. The cause is almost always bookmarks being stored as path strings instead of independent nodes — and there is only one real fix.
 category: fix
-order: 1
+date: 2026-09-22
 seoTitle: Folder Rename Loses Children · BookmarkSync
 seoDescription: Child bookmarks disappear after renaming or moving a folder? The root cause is bookmarks stored as path strings (bookmarks/work/child) rather than independent nodes, so changing the parent path orphans them. Compare sync approaches and fix it.
 keywords: folder rename loses children,bookmarks disappear after rename,moving folder loses bookmarks,bookmark hierarchy broken,bookmark tree structure corrupt

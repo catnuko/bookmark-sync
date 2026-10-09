@@ -2,7 +2,7 @@
 title: 两台设备同时改书签：合并冲突的四种处理方式和各自的代价
 description: 公司电脑新加了 30 条书签，回家笔记本上同步后这30 条不见了。这是合并冲突，根因是同步引擎用哪种方式裁决「两边都改了」。四种处理方式里只有一种能保证两边都不丢。
 category: fix
-order: 4
+date: 2026-09-28
 seoTitle: 多设备书签合并冲突 · BookmarkSync
 seoDescription: 两台设备同时改同一批书签，一边新增的被另一边覆盖、合并打架打不完？根因是合并语义不同：last-write-wins 会丢数据，三方合并要求两端都有版本，CRDT 保证所有副本最终一致。附四种方案对比与自测方法。
 keywords: 书签合并冲突,多设备书签覆盖,同步后新书签消失,last-write-wins丢数据,书签同步打架,merge conflict bookmarks,两台设备同步互相覆盖

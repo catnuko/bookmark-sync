@@ -95,7 +95,7 @@ function renderManifest(articles, categories) {
     title: a.frontmatter.title,
     seoTitle: a.frontmatter.seoTitle,
     description: a.frontmatter.description,
-    order: a.order,
+    date: a.date,
   }));
   const catEntries = Object.entries(categories)
     .map(
@@ -340,7 +340,7 @@ export function seoStaticPlugin() {
           // 内容页 priority 0.7：它们是长尾落地页，值得被爬但不该压过定价/下载页。
           // ★ basePath 用**中文路径**（articlePath 已按 locale 生成，这里取 zh 版）
           //   作为 hreflang 拼前缀的基准；同一 slug 的英文 URL 由 pathForLocale 推导。
-          ...['fix', 'migrate', 'explain'].flatMap((cat) => {
+          ...['guide', 'fix', 'migrate', 'explain'].flatMap((cat) => {
             const slugs = content.articles.filter((a) => a.category === cat);
             // 每个 slug 只出一条（sitemap 内部会为它生成两种语言）
             const seen = new Set();
@@ -404,7 +404,7 @@ export function seoStaticPlugin() {
         // 内容文章页
         for (const a of content.articles) {
           const cat = CATEGORIES[a.category];
-          // 同分类的相关阅读（同语言、按 order 排，取前 4 篇不含自己）
+          // 同分类的相关阅读（同语言、按 date 倒序，取前 4 篇不含自己）
           const related = (content.byLocale.get(a.locale) || [])
             .filter((x) => x.category === a.category && x.slug !== a.slug)
             .slice(0, 4)
@@ -458,12 +458,16 @@ export function seoStaticPlugin() {
           }
           if (t.article) {
             const a = t.article;
+            // dateModified 取「max(发布日期, 站点更新日)」：避免出现修改日早于发布日。
+            const published = a.frontmatter.date;
+            const modified = published && published > SITE_UPDATED ? published : SITE_UPDATED;
             jsonLd.push(
               configMod.getArticleJsonLd({
                 headline: a.frontmatter.title,
                 description: a.frontmatter.seoDescription,
                 url: `${SITE_URL}${t.urlPath}`,
-                dateModified: SITE_UPDATED,
+                datePublished: published,
+                dateModified: modified,
                 locale: t.locale,
               }),
             );
