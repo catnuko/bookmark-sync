@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.15.0](https://github.com/catnuko/bookmark-sync/compare/v2.14.3...v2.15.0) (2026-10-10)
+
+
+### Features
+
+* **website:** 404 / sitemap / robots 迁移到 Next.js（P6） ([6eb8e04](https://github.com/catnuko/bookmark-sync/commit/6eb8e04cf29f440852c2beb6a90092329371190c))
+* **website:** 内容路由与 AST 渲染迁移到 Next.js（P5） ([6d06fa9](https://github.com/catnuko/bookmark-sync/commit/6d06fa93e6e400f776799e9de51ac9cad292bfa7))
+* **website:** 后台 Admin 迁移到 Next.js（P7） ([44390ff](https://github.com/catnuko/bookmark-sync/commit/44390ff1e1247431aae99be2f022f0757b38374b))
+* **website:** 文档页改为按日期排序的文章时间线 ([79d2fb5](https://github.com/catnuko/bookmark-sync/commit/79d2fb55fceefda1c3e38b4f83ccc43ab5fd13ca))
+* **website:** 移植 i18n / SEO config / 内容派生到 TS（P2） ([bb244ee](https://github.com/catnuko/bookmark-sync/commit/bb244ee6c59b11f705b90776770062c4918b08be))
+* **website:** 移植公开页 + SEO metadata 到 Next.js（P4） ([aff84c4](https://github.com/catnuko/bookmark-sync/commit/aff84c4491a887fe8031894374910bc4c51fdaa9))
+* **website:** 移植布局壳（Header/Footer/账号/主题）（P3） ([2ad09f5](https://github.com/catnuko/bookmark-sync/commit/2ad09f5ef8968eb18897218ae9d40dd7c63da0b9))
+
+
+### Bug Fixes
+
+* **ui:** 「本机无处落地」不再当警告展示，只留控制台日志 ([ad05dd3](https://github.com/catnuko/bookmark-sync/commit/ad05dd309aac5b2279e0372e488a66029656531e))
+* **website:** dev 服务器也生成 content-data，修内容页看不到正文 ([edb3ead](https://github.com/catnuko/bookmark-sync/commit/edb3ead87636fbc6dec5cd550c564721411f150e))
+* **website:** 修内容页 hydration mismatch 与首屏白延迟 ([54ed65a](https://github.com/catnuko/bookmark-sync/commit/54ed65a40ecb9c06c9de24e8092ef22822f58585))
+* **website:** 页首导航去掉「支持」，该入口页脚已有 ([9ca74c5](https://github.com/catnuko/bookmark-sync/commit/9ca74c50b97144a7962d2f69286d9a9e5c581ada))
+
 ## [2.14.3](https://github.com/catnuko/bookmark-sync/compare/v2.14.2...v2.14.3) (2026-10-08)
 
 
