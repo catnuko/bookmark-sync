@@ -12,14 +12,13 @@ import LanguageToggle from './LanguageToggle';
 import AccountMenu from './AccountMenu';
 import styles from './AppHeader.module.css';
 
-// 隐私/条款入口在页脚，页首导航只放主功能页。
-// ★ 必须包含全部高价值落地页（含 /support）—— 页首导航是爬虫最先看到的内链。
+// 隐私/条款/支持入口在页脚，页首导航只放主功能页。
+// ★ 页首导航是爬虫最先看到的内链，尽量覆盖高价值落地页。
 const NAV_ITEMS = [
   { key: 'nav.home', to: '/' },
   { key: 'nav.pricing', to: '/pricing' },
   { key: 'nav.download', to: '/download' },
   { key: 'nav.docs', to: '/docs' },
-  { key: 'nav.support', to: '/support' },
 ];
 
 export default function AppHeader() {
