@@ -43,6 +43,10 @@
     //      不支持斜体。formatter 改的语法我们不认，就可能出现「源码看着是斜体、
     //      渲染出来是字面星号」的静默失配。
     //   内容格式的真相在解析器里，不在 formatter 里。
-    "website/src/content/**/*.md"
+    "website/src/content/**/*.md",
+
+    // 商店推广长文（PUBLISH-GUIDE / article-zh / article-en）。同上述理由：
+    // oxfmt 只会把表格列宽重排，是纯 churn，且这些文档不由我们的解析器消费。
+    "extension-infomation/**/*.md"
   ]
 }
