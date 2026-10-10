@@ -2,40 +2,32 @@
 //
 // 用法：
 //   node scripts/check-ssg.mjs         → CLI，自检失败 exit 1
-//   import { runChecks } from '…'      → 被 vite-plugin 在构建末尾调用
 //
 // ★ 这个脚本存在的理由：SEO 出错**不会抛异常**。标题写错、canonical 指到别的页、
 //   hreflang 指向同一个 URL —— 构建照样绿，只有爬虫能发现。所以必须机器自查，
 //   而且**必须真的抓得住**（改这份脚本后请造探针回归，见文件末尾注释）。
+//
+// ★ 迁移到 Next.js 后的差异（相对旧 Vite 产物）：
+//   · 产物目录 dist/ → out/，且是「每页一个 .html」而非「每页一个 <dir>/index.html」。
+//   · JSON-LD 由 React 组件渲染在 **<body>** 里（不在 <head>），故整篇扫描。
+//   · CSS 由 Next 按路由分块（不再是「全站唯一一个 .css」），改为校验
+//     「全局 token 样式表存在且被每一页 <head> 引用」。
+//   · 目录锚点 / FAQ 计数改用**与实现无关**的判据（href="#…" / <details>），
+//     不再依赖被 CSS Modules 哈希过的类名。
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-// ★ 页面清单**从路由表与内容清单自动推导**，不手抄。
-//   手抄的代价已经付过：sitemap 的 /support 就是因为 vite-plugin 里手抄路由表漏掉的。
-//   内容页数量随写作增长，写死更是每加一篇就红一次。
-//
-//   ★ routes.js 顶层 import 了 .vue（NotFoundView / ContentView），Node 直接 import
-//   会报 ERR_UNKNOWN_FILE_EXTENSION。所以只取它的纯数据导出，用正则从源码里抠
-//   PUBLIC_ROUTES —— 比整个 import 稳，也比手抄好。
+import { PUBLIC_ROUTES } from '../src/lib/routes.mjs';
 import { CONTENT_ROUTES } from '../src/content/manifest.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const dist = resolve(root, 'dist');
+const out = resolve(root, 'out');
 const SITE = 'https://www.bookmark-sync.top';
 
-/** 从 routes.js 源码抠出 PUBLIC_ROUTES 的 { path } 列表（避开 .vue import）。 */
-function readPublicRoutePaths() {
-  const src = readFileSync(resolve(root, 'src/router/routes.js'), 'utf8');
-  const block = /export const PUBLIC_ROUTES = \[([\s\S]*?)\];/.exec(src);
-  if (!block) throw new Error('[check-ssg] 没能从 routes.js 读到 PUBLIC_ROUTES');
-  return [...block[1].matchAll(/path:\s*'([^']+)'/g)].map((m) => m[1]);
-}
+const PUBLIC_ROUTE_PATHS = PUBLIC_ROUTES.map((r) => r.path);
 
-const PUBLIC_ROUTE_PATHS = readPublicRoutePaths();
-
-/** URL 路径 → dist 内的文件名。Vercel / Cloudflare Pages 按目录 index 提供无扩展名 URL。 */
-const fileFor = (urlPath) =>
-  urlPath === '/' ? 'index.html' : `${urlPath.replace(/^\//, '')}/index.html`;
+/** URL 路径 → out 内的文件名。Next 静态导出（trailingSlash:false）每页一个 .html。 */
+const fileFor = (urlPath) => (urlPath === '/' ? 'index.html' : `${urlPath.replace(/^\//, '')}.html`);
 
 function buildPageList() {
   const pages = [];
@@ -44,12 +36,8 @@ function buildPageList() {
     const enPath = `/en${basePath === '/' ? '' : basePath}`;
     pages.push({ url: enPath, file: fileFor(enPath), locale: 'en' });
   }
-  // ★ CONTENT_ROUTES **已经含每种语言各一条**（zh 一条 + en 一条 = 同一篇的两种语言，
-  //   见 manifest 生成逻辑）。这里直接用它，不要再为每条补 en ——
-  //   补了会让每篇文章在清单里出现两次，进而把期望 URL 数算成 2倍
-  //   （第一版就踩了：sitemap 实际 16 条、期望算出 18）。
-  //   判据：sitemap 的 buildSitemap 也是「按 slug 去重后由它自己生成两种语言」，
-  //   这里的清单必须与之一致。
+  // ★ CONTENT_ROUTES **已经含每种语言各一条**（zh 一条 + en 一条 = 同一篇的两种语言），
+  //   不要再为每条补 en —— 补了会让每篇文章在清单里出现两次。
   for (const c of CONTENT_ROUTES) {
     const base = `/${c.prefix}/${c.slug}`;
     const url = c.locale === 'en' ? `/en${base}` : base;
@@ -62,8 +50,6 @@ function buildPageList() {
 
 const PAGES = buildPageList();
 // 全站只有**一篇**内容文章时，它没有「同分类其它文章」可链，孤岛检查要放过。
-// ★ CONTENT_ROUTES 是**每语言一条**（zh 一条 + en 一条 = 同一篇的两种语言），
-//   所以要按去重后的 slug 数判断，不能直接用length —— 一篇文章会让 length = 2。
 const distinctSlugs = new Set(CONTENT_ROUTES.map((c) => c.slug));
 const onlyContent = distinctSlugs.size <= 1;
 for (const p of PAGES) {
@@ -83,54 +69,39 @@ function headOf(html) {
 
 /**
  * 取 <meta name=X content=Y> / <link rel=X href=Y>。
- * ★ 正则**不假设属性顺序**：真实产物里 unhead 可能输出 `hreflang` 在 `rel` 之前。
- *   之前写成 `<link[^>]*rel="X"[^>]*href="Y"` 时，因为某页的 canonical 被 SSR 排到
- *   alternates 后面而侥幸匹配上，但探针（故意把 canonical 指错页）竟然没被抓到 ——
- *   说明这条正则在某些顺序下会静默失配，让自检变成假绿。
+ * ★ 正则**不假设属性顺序**：属性顺序由编译器决定，不可假设。
  */
 function attrTags(head, kind, key, valAttr, valName) {
   const re = new RegExp(`<${kind}\\b[^>]*>`, 'g');
-  const out = [];
+  const result = [];
   for (const m of head.matchAll(re)) {
     const tag = m[0];
     const km = tag.match(new RegExp(`\\b${key}=["']([^"']*)["']`));
     if (!km || km[1] !== valName) continue;
     const vm = tag.match(new RegExp(`\\b${valAttr}=["']([^"']*)["']`));
-    if (vm) out.push(vm[1]);
+    if (vm) result.push(vm[1]);
   }
-  return out;
+  return result;
 }
 
-/**
- * 取某类标签里的所有 href（属性顺序无关）。
- *
- * ★ 本文件已经因为「正则假设属性顺序」栽了三次：
- *   1. links() 写死 rel 在 href 前 → canonical 探针抓不到（假绿）
- *   2. 目录锚点检查同样写死class 在 href 前 → 抓到 0 条，检查形同虚设
- *   3. hydrate 检查里的属性正则
- * Vue 渲染出来的属性顺序由编译器决定，**不可假设**。所以统一走这里：
- * 先把标签切出来，再逐个属性解析。
- */
+/** 取某类标签里的所有 href（属性顺序无关）。 */
 function hrefsOf(html, tagName, className) {
-  const out = [];
+  const result = [];
   for (const m of html.matchAll(new RegExp(`<${tagName}\\b[^>]*>`, 'g'))) {
     const tag = m[0];
     if (className) {
       const cls = tag.match(/\bclass="([^"]*)"/);
-      // class 里可能有多个类名（scoped 会加 data-v-xxx，不影响 class 本身）
       if (!cls || !cls[1].split(/\s+/).includes(className)) continue;
     }
     const href = tag.match(/\bhref="([^"]*)"/);
-    if (href) out.push(href[1]);
+    if (href) result.push(href[1]);
   }
-  return out;
+  return result;
 }
 
 /**
  * 取 **h2** 的 id 数量（属性顺序无关）。
- * ★ 只数 h2：目录（toc）由 parse.js 从 h2 生成、ContentView 仅在 h2 ≥ 3 时渲染。
- *   早先数 h2+h3 会让「h2 少但 h3 多」的合理文章（如常见问题类）被误判成
- *   「目录提取失效」—— 误报的判据必须与目录真正依据的层级一致。
+ * ★ 只数 h2：目录（toc）由 parse.js 从 h2 生成、ContentPage 仅在 h2 ≥ 3 时渲染。
  */
 function headingIdsCount(html) {
   return [...html.matchAll(/<h2\b[^>]*>/g)].filter((m) => /\bid="/.test(m[0])).length;
@@ -139,6 +110,14 @@ function headingIdsCount(html) {
 const metas = (head, name) => attrTags(head, 'meta', 'name', 'content', name);
 const metasProp = (head, prop) => attrTags(head, 'meta', 'property', 'content', prop);
 const links = (head, rel) => attrTags(head, 'link', 'rel', 'href', rel);
+
+/**
+ * URL 归一化（仅用于比较）：去掉结尾斜杠。
+ * ★ Next 的 metadata 会按 `trailingSlash: false` 把 URL 归一化，于是首页 canonical
+ *   输出 `https://host`（无斜杠），而 `SITE + '/'` 是 `https://host/`。二者按 RFC 3986
+ *   等价（空路径 == "/"），爬虫一视同仁 —— 比较时归一化即可，不必强求字节一致。
+ */
+const norm = (u) => (u ? u.replace(/\/$/, '') : u);
 
 /** 读 JPEG SOFn 段拿真实像素宽高（og:image 尺寸核对用）。 */
 function jpegSize(buf) {
@@ -157,18 +136,39 @@ function jpegSize(buf) {
   }
   return null;
 }
-/** hreflang 需要连 key 一起取（三个 alternate 共用 rel="alternate"） */
+/** hreflang 需要连 key 一起取（三个 alternate 共用 rel="alternate"）。
+ *  ★ 属性名大小写不敏感：Next 的 metadata 输出的是 `hrefLang`（camelCase），
+ *   而 HTML5 规定属性名按 ASCII 大小写不敏感解析，所以爬虫照样认。
+ *   正则必须带 `i`，否则会静默漏掉全部 hreflang（假绿）。 */
 function alternateLinks(head) {
-  const out = [];
-  for (const m of head.matchAll(/<link\b[^>]*>/g)) {
+  const result = [];
+  for (const m of head.matchAll(/<link\b[^>]*>/gi)) {
     const tag = m[0];
-    const rel = tag.match(/\brel=["']alternate["']/);
-    if (!rel) continue;
-    const hl = tag.match(/\bhreflang=["']([^"']*)["']/);
-    const href = tag.match(/\bhref=["']([^"']*)["']/);
-    if (hl && href) out.push([hl[1], href[1]]);
+    if (!/\brel=["']alternate["']/i.test(tag)) continue;
+    const hl = tag.match(/\bhreflang=["']([^"']*)["']/i);
+    const href = tag.match(/\bhref=["']([^"']*)["']/i);
+    if (hl && href) result.push([hl[1], href[1]]);
   }
-  return out;
+  return result;
+}
+
+/** 整篇扫描 JSON-LD（Next 把它渲染在 <body>，不在 <head>）。 */
+function jsonLdBlocks(html) {
+  return [...html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map(
+    (m) => m[1],
+  );
+}
+
+/** 正文纯文本长度（去 script/style/标签）。 */
+function bodyTextLength(html) {
+  const i = html.indexOf('<body');
+  const body = i === -1 ? html : html.slice(i);
+  return body
+    .replace(/<script[\s\S]*?<\/script>/g, '')
+    .replace(/<style[\s\S]*?<\/style>/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim().length;
 }
 
 export function runChecks({ quiet = false } = {}) {
@@ -177,7 +177,7 @@ export function runChecks({ quiet = false } = {}) {
   const fail = (m) => errors.push(m);
 
   for (const p of PAGES) {
-    const filePath = resolve(dist, p.file);
+    const filePath = resolve(out, p.file);
     if (!existsSync(filePath)) {
       fail(`[${p.file}] 文件不存在`);
       continue;
@@ -204,17 +204,24 @@ export function runChecks({ quiet = false } = {}) {
       if (canon.length > 0) fail(`${tag} 404 页不应有 canonical（指向 ${canon[0]}）`);
     } else if (canon.length !== 1) {
       fail(`${tag} canonical 数量 = ${canon.length}（应为 1）: ${JSON.stringify(canon)}`);
-    } else if (canon[0] !== SITE + p.url) {
+    } else if (norm(canon[0]) !== norm(SITE + p.url)) {
       fail(`${tag} canonical = ${canon[0]}，期望 ${SITE + p.url}`);
     }
 
     // 4. robots
+    // ★ zh 的 404.html 会同时带 Next 内建的 `<meta name="robots" content="noindex">`
+    //   与我们的 `noindex, nofollow`（两个 root layout 下没有共享 404，两份都留着）。
+    //   爬虫取最严格者合并，语义正确 —— 所以 404 只要求「至少一个且含 noindex」，
+    //   不再要求恰好一个。
     const robots = metas(head, 'robots');
-    if (robots.length !== 1) fail(`${tag} robots 数量 = ${robots.length}（应为 1）`);
-    else if (p.notFound && !robots[0].includes('noindex'))
-      fail(`${tag} 404 页 robots 缺 noindex: ${robots[0]}`);
-    else if (!p.notFound && robots[0].includes('noindex'))
+    if (p.notFound) {
+      if (!robots.some((r) => r.includes('noindex')))
+        fail(`${tag} 404 页 robots 缺 noindex: ${JSON.stringify(robots)}`);
+    } else if (robots.length !== 1) {
+      fail(`${tag} robots 数量 = ${robots.length}（应为 1）`);
+    } else if (robots[0].includes('noindex')) {
       fail(`${tag} 公开页被标了 noindex: ${robots[0]}`);
+    }
 
     // 5. html lang 与 locale 一致
     const htmlLang = html.match(/<html[^>]*\blang="([^"]*)"/)?.[1];
@@ -231,25 +238,33 @@ export function runChecks({ quiet = false } = {}) {
       if (byLang['zh-CN'] && byLang.en && byLang['zh-CN'] === byLang.en) {
         fail(`${tag} hreflang zh-CN 与 en 指向同一 URL（${byLang['zh-CN']}）—— 违背 hreflang 规范`);
       }
-      if (p.locale === 'en' && byLang.en && byLang.en !== SITE + p.url) {
+      if (p.locale === 'en' && byLang.en && norm(byLang.en) !== norm(SITE + p.url)) {
         fail(`${tag} hreflang=en 指向 ${byLang.en}，期望 ${SITE + p.url}`);
       }
       // 中文页的 hreflang zh-CN 必须自指
-      if (p.locale === 'zh' && byLang['zh-CN'] && byLang['zh-CN'] !== SITE + p.url) {
+      if (p.locale === 'zh' && byLang['zh-CN'] && norm(byLang['zh-CN']) !== norm(SITE + p.url)) {
         fail(`${tag} 中文页 hreflang=zh-CN 指向 ${byLang['zh-CN']}，期望自指 ${SITE + p.url}`);
       }
-      // 页内链接不得跨语言（英文页里链到中文页会断掉 hreflang cluster）
+      // 页内链接不得跨语言（英文页里链到中文页会断掉 hreflang cluster）。
+      // ★ 例外：语言切换链接**本就指向本页的另一语言版本**，是 hreflang cluster
+      //   里正当的互链，放行；其它跨语言链接才判错。
+      const counterpart =
+        p.locale === 'zh'
+          ? p.url === '/'
+            ? '/en'
+            : `/en${p.url}`
+          : p.url === '/en'
+            ? '/'
+            : p.url.slice(3);
       const enLinks = [...html.matchAll(/<a[^>]*href="(\/[^"#]*)"/g)].map((m) => m[1]);
       const badLink = enLinks.find(
-        (h) => (p.locale === 'en') !== (h === '/en' || h.startsWith('/en/')),
+        (h) => (p.locale === 'en') !== (h === '/en' || h.startsWith('/en/')) && h !== counterpart,
       );
       if (badLink) fail(`${tag} 页内链接语言不一致: ${badLink}`);
     }
 
-    // 7. JSON-LD 可解析 + 至少 Organization
-    const ld = [...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(
-      (m) => m[1],
-    );
+    // 7. JSON-LD 可解析 + 至少 Organization（整篇扫描：Next 渲染在 body）
+    const ld = jsonLdBlocks(html);
     if (ld.length === 0) fail(`${tag} 无 JSON-LD`);
     for (const raw of ld) {
       try {
@@ -263,16 +278,9 @@ export function runChecks({ quiet = false } = {}) {
 
     // 8. 正文非空（SSG 的核心目的）。404 页本来就没多少字，用更低阈值。
     const minText = p.notFound ? 100 : 200;
-    if (html.includes('<div id="app"></div>')) fail(`${tag} app 容器仍为空（SSG 未注入）`);
-    const bodyHtml = html.slice(html.indexOf('<div id="app">'));
-    const text = bodyHtml
-      .replace(/<script[\s\S]*?<\/script>/g, '')
-      .replace(/<style[\s\S]*?<\/style>/g, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (text.length < minText)
-      fail(`${tag} 正文文本仅 ${text.length} 字符（阈值 ${minText}，SSG 未生效？）`);
+    const textLen = bodyTextLength(html);
+    if (textLen < minText)
+      fail(`${tag} 正文文本仅 ${textLen} 字符（阈值 ${minText}，SSG 未生效？）`);
 
     // 9. og:image / twitter:image 必填（社交卡片）
     if (!metasProp(head, 'og:image').length) fail(`${tag} 缺 og:image`);
@@ -281,27 +289,26 @@ export function runChecks({ quiet = false } = {}) {
 
   // ── 内容页（markdown 驱动）额外检查 ───────────────────────────────────
   // ★ FAQPage 声明的问答必须与页面上肉眼可见的**一致** —— 声明页面上不存在的问答
-  //属于结构化数据滥用，Google 会忽略甚至处罚。只查「有 FAQ 小节就有 FAQPage」不够，
-  //   还要比对**条数**（第一版就只查了存在性）。
+  //   属于结构化数据滥用，Google 会忽略甚至处罚。比对**条数**而非仅存在性。
   for (const p of PAGES) {
     if (!p.content) continue;
-    const html = readFileSync(resolve(dist, p.file), 'utf8');
+    const html = readFileSync(resolve(out, p.file), 'utf8');
     const head = headOf(html);
     const tag = `[${p.file}]`;
 
-    if (!head.includes('"Article"')) fail(`${tag} 缺 Article JSON-LD`);
+    if (!html.includes('"Article"')) fail(`${tag} 缺 Article JSON-LD`);
 
-    const ldAll = [
-      ...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g),
-    ].map((m) => {
+    const ldAll = jsonLdBlocks(html).map((raw) => {
       try {
-        return JSON.parse(m[1]);
+        return JSON.parse(raw);
       } catch {
         return {};
       }
     });
     const faqLd = ldAll.find((o) => o['@type'] === 'FAQPage');
-    const visibleCount = (html.match(/class="content-details"/g) || []).length;
+    // ★ 可见 FAQ = 页面里的 <details> 数（ContentPage 的 FAQ 项；类名被 CSS Modules
+    //   哈希过，不能拿类名当判据）。内容页正文的 markdown AST 不会产出 <details>。
+    const visibleCount = (html.match(/<details\b/g) || []).length;
     if (visibleCount > 0) {
       if (!faqLd) {
         fail(`${tag} 页面有 ${visibleCount} 条 FAQ 但无 FAQPage JSON-LD`);
@@ -312,17 +319,15 @@ export function runChecks({ quiet = false } = {}) {
       }
     }
 
-    // 目录锚点必须与正文 h2 的 id 严格对应，否则目录点了跳不过去
-    //（两边各自 slugify，一旦实现漂移就是死链，而构建期不报错）。
-    const tocAnchors = hrefsOf(html, 'a', 'toc-link')
-      .filter((h) => h.startsWith('#'))
-      .map((h) => h.slice(1));
-    if (tocAnchors.length === 0 && headingIdsCount(html) >= 3) {
-      fail(`${tag} 有${headingIdsCount(html)} 个小节标题却一个目录项都没抓到 —— 检查逻辑本身失效`);
+    // 目录锚点必须与正文标题的 id 严格对应，否则目录点了跳不过去。
+    // ★ 判据与实现无关：取页内 `href="#x"` 锚点，逐个核对文档里存在 id="x"。
+    const anchors = [...html.matchAll(/<a\b[^>]*\bhref="#([^"]+)"/g)].map((m) => m[1]);
+    const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
+    if (anchors.length === 0 && headingIdsCount(html) >= 3) {
+      fail(`${tag} 有 ${headingIdsCount(html)} 个小节标题却一个目录项都没抓到 —— 检查逻辑本身失效`);
     }
-    const headingIds = [...html.matchAll(/<h[23]\b[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
-    if (tocAnchors.length >= 3) {
-      const dead = tocAnchors.filter((a) => !headingIds.includes(a));
+    if (anchors.length >= 3) {
+      const dead = anchors.filter((a) => !ids.has(a));
       if (dead.length) {
         fail(`${tag} 目录有 ${dead.length} 个锚点匹配不到正文标题: ${dead.slice(0, 3).join(', ')}`);
       }
@@ -344,35 +349,50 @@ export function runChecks({ quiet = false } = {}) {
   }
 
   // ── SSG 页面的样式完整性（曾真实事故）───────────────────────────────
-  // ★ 背景：vite 默认 cssCodeSplit:true 会把每个懒加载视图的样式拆成独立 chunk，
-  //   而那些 <link> 是 JS 运行时插入的 → SSG 输出的 HTML <head> 里只有 main.css。
-  //   线上表现：页面 HTML 完整、无 JS 报错，但**浏览器首屏渲染出无样式裸文本**，
-  //   等 JS 跑完才补上样式并闪烁。构建期不报错、SEO 自检也查不出
-  //   （它只查 title/canonical 之类，与样式无关）—— 只有真浏览器看首屏才暴露。
+  // ★ 背景：旧 Vite 方案里 cssCodeSplit 会把懒加载视图的样式拆成独立 chunk，而
+  //   那些 <link> 是 JS 运行时插入的 → SSG 的 <head> 只有 main.css，首屏渲染成
+  //   无样式裸文本，等 JS 跑完才补上并闪烁。构建期不报错、SEO 自检也查不出。
   //
-  // 判据：产物里**只应有一个 CSS 文件**，且每一页的 <head> 都必须引用它。
-  // 出现第二个 .css 或某页没引用 =分包又回来了。
-  const cssFiles = readdirSync(dist + '/assets').filter((f) => f.endsWith('.css'));
-  if (cssFiles.length !== 1) {
+  //   Next 会按路由把 CSS 分块（不再是「全站唯一一个 .css」），但**全局 token
+  //   样式表（main.css）必须出现在每一页 <head> 的关键路径里**。判据：
+  //     1) out/_next/static/chunks 里**恰好一个** CSS 文件定义全局 token（--color-bg-soft）
+  //     2) 每一页的 <head> 都引用它
+  //     3) 页面引用的每个样式表在磁盘上真实存在
+  const cssDir = resolve(out, '_next/static/chunks');
+  const cssFiles = existsSync(cssDir)
+    ? readdirSync(cssDir).filter((f) => f.endsWith('.css'))
+    : [];
+  const globalCss = cssFiles.filter((f) =>
+    /--color-bg-soft:/.test(readFileSync(resolve(cssDir, f), 'utf8')),
+  );
+  if (globalCss.length !== 1) {
     fail(
-      `产物里有 ${cssFiles.length} 个 CSS 文件（期望 1 个）：${cssFiles.join(', ')}` +
-        ' —— cssCodeSplit 被重新打开了？懒加载 chunk 的 CSS 不会被 SSG 注入<head>，' +
-        '线上会渲染成无样式裸文本。检查 vite.config.js 的 build.cssCodeSplit:false。',
+      `定义全局 token 的样式表有 ${globalCss.length} 个（期望 1 个）：${globalCss.join(', ')}` +
+        ' —— main.css 被拆分/丢失？首屏可能无样式。',
     );
   }
+  const globalCssHref = globalCss.length === 1 ? `/_next/static/chunks/${globalCss[0]}` : null;
   for (const p of PAGES) {
-    if (!existsSync(resolve(dist, p.file))) continue;
-    const html = readFileSync(resolve(dist, p.file), 'utf8');
+    if (!existsSync(resolve(out, p.file))) continue;
+    const html = readFileSync(resolve(out, p.file), 'utf8');
     const refs = links(headOf(html), 'stylesheet');
-    if (refs.length !== 1) {
-      fail(`[${p.file}] <head> 里引用了 ${refs.length} 个样式表（期望 1 个），页面可能无样式`);
-    } else if (!refs[0].endsWith(cssFiles[0])) {
-      fail(`[${p.file}] 引用的样式表是 ${refs[0]}，但产物里唯一的 CSS 是 ${cssFiles[0]}`);
+    if (refs.length < 1) {
+      fail(`[${p.file}] <head> 里没有样式表引用，页面会无样式首屏`);
+      continue;
+    }
+    if (globalCssHref && !refs.includes(globalCssHref)) {
+      fail(`[${p.file}] <head> 未引用全局样式表 ${globalCssHref}（引用了 ${refs.join(', ')}）`);
+    }
+    for (const href of refs) {
+      if (!href.startsWith('/_next/')) continue;
+      if (!existsSync(resolve(out, href.replace(/^\//, '')))) {
+        fail(`[${p.file}] 引用了不存在的样式表 ${href}`);
+      }
     }
   }
 
   // 10. sitemap 必须含全部公开 URL，且 hreflang 互指不同 URL
-  const smPath = resolve(dist, 'sitemap.xml');
+  const smPath = resolve(out, 'sitemap.xml');
   if (!existsSync(smPath)) {
     fail('sitemap.xml 不存在');
   } else {
@@ -386,10 +406,7 @@ export function runChecks({ quiet = false } = {}) {
         fail(`sitemap 某条 URL 的 hreflang 少于 3 个（zh/en/x-default）: ${b.slice(0, 80)}`);
       if (new Set(hrefs).size < 2) fail(`sitemap 某条 URL 的 hreflang 全指向同一 URL: ${hrefs[0]}`);
     }
-    // 期望 URL 数 = PAGES 里非 404 的条目数。
-    // ★ PAGES 已经**每种语言各有一条**（buildPageList 里 zh、en 都push 了），
-    //   所以这里不能再 × 2 —— 写了会翻倍（第一版就踩过：期望值算出 36 而实际 16）。
-    //   数量必须由清单推导、内容页增加时不能忘改（之前这里写死 14）。
+    // 期望 URL 数 = PAGES 里非 404 的条目数（已含每种语言各一条，不能再 ×2）。
     const expectedUrlCount = PAGES.filter((x) => !x.notFound).length;
     const urlCount = (sm.match(/<loc>/g) || []).length;
     if (urlCount !== expectedUrlCount) {
@@ -397,8 +414,8 @@ export function runChecks({ quiet = false } = {}) {
     }
   }
 
-  // 10. robots 必须禁 admin 并指向 sitemap
-  const rbPath = resolve(dist, 'robots.txt');
+  // 11. robots 必须禁 admin 并指向 sitemap
+  const rbPath = resolve(out, 'robots.txt');
   if (!existsSync(rbPath)) {
     fail('robots.txt 不存在');
   } else {
@@ -407,9 +424,8 @@ export function runChecks({ quiet = false } = {}) {
     if (!rb.includes(`Sitemap: ${SITE}/sitemap.xml`)) fail('robots.txt 未指向 sitemap');
   }
 
-  // 11. og:image 声明的宽高必须等于图片实际像素。
-  //     声明与实物不符 → LinkedIn/Slack 等按声明尺寸缩放后再裁剪，分享卡片糊掉或主体被切。
-  const ogPath = resolve(dist, 'og-image.jpg');
+  // 12. og:image 声明的宽高必须等于图片实际像素。
+  const ogPath = resolve(out, 'og-image.jpg');
   if (!existsSync(ogPath)) {
     fail('og-image.jpg 不存在（社交卡片会没有图）');
   } else {
@@ -418,7 +434,7 @@ export function runChecks({ quiet = false } = {}) {
       fail('无法解析 og-image.jpg 尺寸（文件可能损坏）');
     } else {
       for (const p of PAGES.filter((x) => !x.notFound)) {
-        const head = headOf(readFileSync(resolve(dist, p.file), 'utf8'));
+        const head = headOf(readFileSync(resolve(out, p.file), 'utf8'));
         const w = metasProp(head, 'og:image:width')[0];
         const h = metasProp(head, 'og:image:height')[0];
         if (String(real.w) !== String(w) || String(real.h) !== String(h)) {
@@ -442,7 +458,7 @@ export function runChecks({ quiet = false } = {}) {
   return { errors, warnings };
 }
 
-// CLI 直跑（被 vite 插件 import 时不走这段）
+// CLI 直跑
 if (process.argv[1] && process.argv[1].endsWith('check-ssg.mjs')) {
   const { errors } = runChecks();
   if (errors.length) process.exit(1);

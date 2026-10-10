@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { buildPageMetadata } from '@/seo/metadata';
+import PageJsonLd from '@/seo/PageJsonLd';
 import NotFoundPage from '@/components/pages/NotFoundPage';
 
 // /404（中文树）→ 静态导出为 out/404.html，由托管平台作为「未匹配路径」的兜底页。
@@ -10,5 +11,10 @@ export const metadata: Metadata = buildPageMetadata('notFound', 'zh', {
 });
 
 export default function Page() {
-  return <NotFoundPage locale="zh" />;
+  return (
+    <>
+      <NotFoundPage locale="zh" />
+      <PageJsonLd seoKey="notFound" locale="zh" path="/404" />
+    </>
+  );
 }

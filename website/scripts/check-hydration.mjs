@@ -2,26 +2,35 @@
 //
 // 用法：
 //   node scripts/check-hydration.mjs        → CLI，失败 exit 1
-//   import { runHydrationChecks } from '…'   → 被 vite-plugin 在构建末尾调用
 //
 // ★ 为什么必须测：hydration mismatch 只在浏览器控制台报错，SSG 自检（纯文本分析）
-//   完全看不见。而它造成的后果是实打实的：首屏闪烁、无 JS 用户看到残缺页面、
-//   爬虫在不同渲染时机看到不同内容。构建期无法发现，只能真跑一次浏览器。
+//   完全看不见。而它造成的后果是实打实的：首屏闪烁、无 JS 用户看到残缺页面、爬虫在
+//   不同渲染时机看到不同内容。构建期无法发现，只能真跑一次浏览器。
+//
+// ★ 迁移到 Next.js 后的差异：
+//   · 产物目录 dist/ → out/，且每页一个扁平 .html（/pricing → pricing.html）。
+//   · 内置一个**无依赖的 Node 静态服务器**（把无扩展名路径映射到 .html），
+//     不再依赖 `python3 -m http.server`（它无法把 /pricing 映射到 pricing.html）。
+//   · 应用根不再是 `#app`（Next 直接渲染进 <body>），改用 body.innerText 判「已 hydrate」。
+//   · 新增**样式探针**：注入 .container 读 computed max-width，确认全局 CSS 真的生效
+//     （而不是 HTML 完整却渲染成无样式裸文本）。
 //
 // 需要系统 Chrome/Chromium/Edge（CHROME_BIN 可覆盖）。没装则跳过 —— CI 容器
 // 通常没有浏览器，硬失败只会让所有部署无谓地红。
-import { spawn } from 'node:child_process';
-import { resolve, dirname } from 'node:path';
+import { createServer } from 'node:http';
+import { resolve, dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { CONTENT_ROUTES } from '../src/content/manifest.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const dist = resolve(root, 'dist');
+const out = resolve(root, 'out');
 const PORT = 8912;
 
 // 必测页面：每种视图类型各一个 + 两种语言（hydration bug 常只在特定页面出现）。
-// ★ 内容页（markdown 驱动）**必测**：它靠 SSG 注入 article 数据，
-//   客户端没有那份数据 —— 一旦两端不一致就是 mismatch，而构建期文本分析看不出来。
+// ★ 内容页（markdown 驱动）**必测**：它靠构建期装配的数据渲染，客户端没有那份数据 ——
+//   一旦两端不一致就是 mismatch，而构建期文本分析看不出来。
+// ★ 后台登录页也测：它是**纯客户端**渲染（SSR 输出空壳），能验证客户端挂载链路。
 const PATHS = [
   '/',
   '/en',
@@ -30,34 +39,23 @@ const PATHS = [
   '/download',
   '/en/support',
   ...readContentProbePaths(),
+  '/admin/login',
 ];
 
-/** 从 manifest 抠第一个内容页的两种语言 URL（内容页是新增路径，必须过浏览器）。 */
+/** 从内容清单取第一篇文章的两种语言 URL（内容页是新增路径，必须过浏览器）。 */
 function readContentProbePaths() {
-  try {
-    const mf = resolve(root, 'src/content/manifest.js');
-    if (!existsSync(mf)) return [];
-    const src = readFileSync(mf, 'utf8');
-    const block = /export const CONTENT_ROUTES = (\[[\s\S]*?\]);/.exec(src);
-    if (!block) return [];
-    const routes = JSON.parse(block[1]);
-    const seen = new Set();
-    const out = [];
-    for (const r of routes) {
-      if (seen.has(r.slug)) continue;
-      seen.add(r.slug);
-      const base = `/${r.prefix}/${r.slug}`;
-      out.push(base, `/en${base}`);
-    }
-    return out;
-  } catch {
-    return [];
+  const seen = new Set();
+  const result = [];
+  for (const r of CONTENT_ROUTES) {
+    if (seen.has(r.slug)) continue;
+    seen.add(r.slug);
+    const base = `/${r.prefix}/${r.slug}`;
+    result.push(base, `/en${base}`);
   }
+  return result;
 }
 
-/** 等页面「静下来」的最大时长。hydration 在挂载后几百 ms 内完成，
- *  固定 sleep 2500ms×6 页 = 15s 白等。这里改成轮询：正文出现即开始计时，
- *  再留 400ms 观察窗给迟到的 warning —— 能省 10s 以上，且比固定等待更可靠。 */
+/** 等页面「静下来」的最大时长。 */
 const SETTLE_MS = 400;
 const MAX_WAIT_MS = 4000;
 
@@ -75,35 +73,66 @@ function findChrome() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function waitForServer(port) {
-  const net = await import('node:net');
-  for (let i = 0; i < 60; i++) {
-    // ★ 只用「裸 TCP 握手」探端口，**不要** fetch('/') 去探首页。
-    //   python -m http.server 是单线程串行的：一次 fetch('/') 会占住唯一连接，
-    //   随后的页面请求被排队甚至截断，浏览器拿到不完整 HTML → 报 hydration mismatch。
-    //   这个坑真踩过：一度以为产品 hydration 有问题，实际是探针自己制造的假阳性。
-    const ok = await new Promise((res) => {
-      const s = net.connect({ host: '127.0.0.1', port }, () => {
-        s.end();
-        res(true);
-      });
-      s.on('error', () => res(false));
-    });
-    if (ok) return true;
-    await sleep(150);
-  }
-  return false;
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
+};
+
+/**
+ * 无依赖静态服务器：把无扩展名路径映射到 `<path>.html` / `<path>/index.html`。
+ * ★ 旧脚本用 `python3 -m http.server`，它只按目录 index 提供文件 —— Next 的
+ *   扁平 `pricing.html` 会让 `/pricing` 直接 404，探针全红但产品没问题。
+ */
+function startServer(rootDir, port) {
+  const server = createServer((req, res) => {
+    let pathname;
+    try {
+      pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    } catch {
+      res.writeHead(400);
+      res.end('bad request');
+      return;
+    }
+    const candidates =
+      pathname === '/'
+        ? ['index.html']
+        : pathname.endsWith('/')
+          ? [`${pathname}index.html`]
+          : [pathname, `${pathname}.html`, `${pathname}/index.html`];
+    for (const c of candidates) {
+      const file = normalize(join(rootDir, c));
+      if (!file.startsWith(rootDir)) continue; // 防目录穿越
+      if (existsSync(file) && statSync(file).isFile()) {
+        const ext = file.slice(file.lastIndexOf('.'));
+        res.writeHead(200, { 'content-type': MIME[ext] || 'application/octet-stream' });
+        res.end(readFileSync(file));
+        return;
+      }
+    }
+    res.writeHead(404, { 'content-type': 'text/plain' });
+    res.end('404');
+  });
+  return new Promise((ok) => server.listen(port, '127.0.0.1', () => ok(server)));
 }
 
 export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) {
   // ★ playwright 必须**动态导入**，不能顶层 import。
   //   它是仓库**根**的 devDependency（给 tests/ 用的），不在 website/package.json 里。
-  //   本机因为 pnpm workspace 的提升（hoisting）能解析到，**Vercel 上解析不到** ——
-  //   顶层 import 会让整个 build 以
-  //     Error: Cannot find package 'playwright' imported from .../check-hydration.mjs
-  //   失败。Vercel 日志里真出现过这一条（36 页SSG 全部成功、ssg-check 也过了，
-  //   最后一步挂在 import 上）。
-  //   动态导入 + 找不到就跳过 —— hydration 检查是**加分项**，不该成为部署的硬阻塞。
+  //   顶层 import 会让整个检查在缺包时直接抛错；动态导入 + 找不到就跳过 ——
+  //   hydration 检查是**加分项**，不该成为部署的硬阻塞。
   let chromium;
   try {
     ({ chromium } = await import('playwright'));
@@ -119,24 +148,16 @@ export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) 
     };
   }
 
-  const server = spawn('python3', ['-m', 'http.server', String(PORT)], {
-    cwd: dist,
-    stdio: 'ignore',
-  });
+  const server = await startServer(out, PORT);
   const errors = [];
 
   try {
-    if (!(await waitForServer(PORT))) {
-      return { errors: [`静态服务没起来（port ${PORT}）`], skipped: null };
-    }
-
     const browser = await chromium.launch({ executablePath: chromePath, headless: true });
 
     for (const p of paths) {
       // ★ 每个页面必须用**独立 context**。
-      //   共用 context 会让前一个页面写入的 localStorage['bsync.locale'] 泄漏到下一个——
+      //   共用 context 会让前一个页面写入的 localStorage['bsync.locale'] 泄漏到下一个 ——
       //   「访问过 /en 之后打开 /pricing」于是被判成语言不一致 + hydration mismatch。
-      //   同样真踩过：一度以为产品有 bug，实际是探针自己污染了状态。
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       const msgs = [];
@@ -145,7 +166,6 @@ export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) 
       });
       page.on('pageerror', (e) => msgs.push(`[pageerror] ${e.message}`));
 
-      // static server 对 /pricing 会 301 到 /pricing/，跟随后取最终 URL
       await page.goto(`http://127.0.0.1:${PORT}${p}`, { waitUntil: 'load' });
 
       // 轮询等正文出现（hydration 完成），再留观察窗
@@ -153,7 +173,7 @@ export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) 
       let hydrated = false;
       while (Date.now() - t0 < MAX_WAIT_MS) {
         hydrated = await page
-          .evaluate(() => (document.querySelector('#app')?.innerText.length || 0) > 100)
+          .evaluate(() => (document.body?.innerText?.length || 0) > 50)
           .catch(() => false);
         if (hydrated) break;
         await sleep(100);
@@ -171,20 +191,36 @@ export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) 
       const wantLang = p.startsWith('/en') ? 'en' : 'zh-CN';
       if (lang !== wantLang) errors.push(`[${p}] html lang = ${lang}，期望 ${wantLang}`);
 
-      // 3. 标题必须与 SSG 静态值一致（hydration 后被改说明两端判断不一致）
+      // 3. 标题必须与 SSG 静态值一致
       const title = await page.title();
       if (!title) errors.push(`[${p}] title 为空`);
 
       // 4. 正文必须真的被 hydrate（不是空壳）
-      const mainLen = await page.evaluate(
-        () => document.querySelector('#app')?.innerText.length || 0,
-      );
-      if (mainLen < 100) errors.push(`[${p}] hydrate 后正文仅 ${mainLen} 字符`);
+      const mainLen = await page.evaluate(() => document.body?.innerText?.length || 0);
+      if (mainLen < 50) errors.push(`[${p}] hydrate 后正文仅 ${mainLen} 字符`);
 
-      // 5. 其他控制台错误（不含 404 资源类噪声）
-      const real = msgs.filter(
-        (m) => !/favicon|404 \(Not Found\)|Failed to load resource/i.test(m),
-      );
+      // 5. 样式探针：全局 CSS 必须真的生效（否则首屏无样式裸文本）
+      const styled = await page
+        .evaluate(() => {
+          const el = document.createElement('div');
+          el.className = 'container';
+          document.body.appendChild(el);
+          const maxWidth = getComputedStyle(el).maxWidth;
+          el.remove();
+          return { sheets: document.styleSheets.length, maxWidth };
+        })
+        .catch(() => null);
+      if (!styled) {
+        errors.push(`[${p}] 样式探针执行失败`);
+      } else {
+        if (styled.sheets < 1) errors.push(`[${p}] 没有加载任何样式表`);
+        if (!styled.maxWidth || styled.maxWidth === 'none') {
+          errors.push(`[${p}] .container 未被样式化（max-width=${styled.maxWidth}）—— 全局 CSS 未生效`);
+        }
+      }
+
+      // 6. 其他控制台错误（不含 404 资源类噪声）
+      const real = msgs.filter((m) => !/favicon|404 \(Not Found\)|Failed to load resource/i.test(m));
       if (real.length) errors.push(`[${p}] 控制台报错:\n      ${real.join('\n      ')}`);
 
       await page.close();
@@ -198,18 +234,18 @@ export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) 
         console.log(`\n❌ ${errors.length} 个错误:`);
         errors.forEach((e) => console.log('  - ' + e));
       } else {
-        console.log('✅ 全部通过：无 hydration 警告，语言与 URL 一致\n');
+        console.log('✅ 全部通过：无 hydration 警告，语言与 URL 一致，样式已生效\n');
       }
     }
     return { errors, skipped: null };
   } catch (e) {
     return { errors: [`hydration 检查异常: ${e.message}`], skipped: null };
   } finally {
-    server.kill();
+    server.close();
   }
 }
 
-// CLI 直跑（被 vite 插件 import 时不走这段）
+// CLI 直跑
 if (process.argv[1] && process.argv[1].endsWith('check-hydration.mjs')) {
   const { errors, skipped } = await runHydrationChecks();
   if (skipped) {

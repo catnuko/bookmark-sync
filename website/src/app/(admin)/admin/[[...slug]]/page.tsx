@@ -2,7 +2,10 @@ import type { Metadata } from 'next';
 import AdminApp from '@/admin/AdminApp';
 
 // /admin 是纯客户端后台，不进索引。
+// ★ 给一个静态 title：迁移前的后台路由虽有 meta.title，但没有任何代码消费它，
+//   于是标签页标题为空。这里补上（浏览器标签 / 历史记录可读），比迁移前更完整。
 export const metadata: Metadata = {
+  title: 'BSYNC · Admin',
   robots: 'noindex, nofollow',
 };
 
