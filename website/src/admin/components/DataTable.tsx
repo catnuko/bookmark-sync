@@ -36,7 +36,12 @@ export default function DataTable<T>({
   rowKey,
 }: Props<T>) {
   const hasCards = !!renderCard;
-  const keyOf = (row: T, i: number) => (rowKey ? rowKey(row, i) : ((row as { id?: string; user_id?: string }).id ?? (row as { user_id?: string }).user_id ?? i));
+  const keyOf = (row: T, i: number) =>
+    rowKey
+      ? rowKey(row, i)
+      : ((row as { id?: string; user_id?: string }).id ??
+        (row as { user_id?: string }).user_id ??
+        i);
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   return (

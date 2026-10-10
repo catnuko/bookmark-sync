@@ -14,8 +14,7 @@ export type SeoOverride = {
   breadcrumbLeaf?: string;
 };
 
-const ROBOTS_INDEX =
-  'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
+const ROBOTS_INDEX = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 const ROBOTS_NOINDEX = 'noindex, nofollow';
 
 export function buildPageMetadata(

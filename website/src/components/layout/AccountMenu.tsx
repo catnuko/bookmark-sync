@@ -20,7 +20,6 @@ export default function AccountMenu() {
   const [open, setOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
 
   // adminAuth 是模块级单例；页面加载时启动一次鉴权（幂等）。
@@ -47,21 +46,22 @@ export default function AccountMenu() {
   const signedIn = !!account.user;
   const isAdmin = !!adminAuth.user && !!adminAuth.isAdmin;
   // plan 为 null = 拉取失败，**不是** free。
-  const planKey = account.error ? 'account.planUnknown' : `pricing.plans.${account.plan || 'free'}.name`;
+  const planKey = account.error
+    ? 'account.planUnknown'
+    : `pricing.plans.${account.plan || 'free'}.name`;
   const hasActiveSub =
     !!account.subscription &&
     ['active', 'scheduled_cancel', 'past_due'].includes(account.subscription.status);
 
   async function onManage() {
     if (busy) return;
-    setError('');
     setBusy(true);
     setOpen(false);
     try {
       const url = await openPortal();
       window.open(url, '_blank', 'noopener');
-    } catch (e) {
-      setError((e as Error)?.message || t('account.portalFailed'));
+    } catch {
+      // 与迁移前一致：菜单内不展示错误（原实现把错误存进一个从未渲染的 ref）。
     } finally {
       setBusy(false);
     }
@@ -70,12 +70,11 @@ export default function AccountMenu() {
   async function onSignOut() {
     if (busy) return;
     setBusy(true);
-    setError('');
     try {
       await signOut();
       setOpen(false);
-    } catch (e) {
-      setError((e as Error)?.message || String(e));
+    } catch {
+      // 同上：错误不在此处展示。
     } finally {
       setBusy(false);
     }
@@ -101,7 +100,13 @@ export default function AccountMenu() {
           >
             <span className={styles.acctMail}>{account.user?.email}</span>
             <span className={styles.acctPlan}>{t(planKey)}</span>
-            <svg className={styles.acctCaret} width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <svg
+              className={styles.acctCaret}
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
               <path
                 d="M6 9l6 6 6-6"
                 stroke="currentColor"
@@ -141,14 +146,24 @@ export default function AccountMenu() {
                   {t('account.manageSub')}
                 </button>
               ) : (
-                <LocalizedLink to="/pricing" className={styles.acctItem} role="menuitem" onClick={() => setOpen(false)}>
+                <LocalizedLink
+                  to="/pricing"
+                  className={styles.acctItem}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                >
                   {t('account.seePlans')}
                 </LocalizedLink>
               )}
 
               {/* 后台管理：仅管理员可见。用 Link 而非 LocalizedLink —— 后台不带语言前缀。 */}
               {isAdmin && (
-                <Link href="/admin" className={styles.acctItem} role="menuitem" onClick={() => setOpen(false)}>
+                <Link
+                  href="/admin"
+                  className={styles.acctItem}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                >
                   {t('account.adminPanel')}
                 </Link>
               )}

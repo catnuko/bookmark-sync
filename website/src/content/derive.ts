@@ -86,4 +86,3 @@ export function listArticleParams(locale: Locale): { category: string; slug: str
     slug: a.slug,
   }));
 }
-

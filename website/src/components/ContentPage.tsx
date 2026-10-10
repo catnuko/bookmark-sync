@@ -1,4 +1,3 @@
-import type { Locale } from '@/i18n/t';
 import type { ArticleView } from '@/content/derive';
 import { formatDate } from '@/lib/format-date';
 import LocalizedLink from '@/components/layout/LocalizedLink';
@@ -11,7 +10,7 @@ import styles from './ContentPage.module.css';
 //   XSS（内容是我们自己写的，但仍不给 innerHTML 开口子）。
 // ★ Next 静态导出下每篇文章都是预渲染的独立 HTML，数据在构建期由 deriveArticleView
 //   装配好直接渲染 —— 不再需要迁移前的「SSG 注入 / CSR fetch」双通道。
-export default function ContentPage({ article, locale }: { article: ArticleView; locale: Locale }) {
+export default function ContentPage({ article }: { article: ArticleView }) {
   const cat = article.categoryMeta;
   const fm = article.frontmatter;
 

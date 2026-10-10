@@ -27,7 +27,8 @@ const SITE = 'https://www.bookmark-sync.top';
 const PUBLIC_ROUTE_PATHS = PUBLIC_ROUTES.map((r) => r.path);
 
 /** URL 路径 → out 内的文件名。Next 静态导出（trailingSlash:false）每页一个 .html。 */
-const fileFor = (urlPath) => (urlPath === '/' ? 'index.html' : `${urlPath.replace(/^\//, '')}.html`);
+const fileFor = (urlPath) =>
+  urlPath === '/' ? 'index.html' : `${urlPath.replace(/^\//, '')}.html`;
 
 function buildPageList() {
   const pages = [];
@@ -154,9 +155,9 @@ function alternateLinks(head) {
 
 /** 整篇扫描 JSON-LD（Next 把它渲染在 <body>，不在 <head>）。 */
 function jsonLdBlocks(html) {
-  return [...html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map(
-    (m) => m[1],
-  );
+  return [
+    ...html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g),
+  ].map((m) => m[1]);
 }
 
 /** 正文纯文本长度（去 script/style/标签）。 */
@@ -359,9 +360,7 @@ export function runChecks({ quiet = false } = {}) {
   //     2) 每一页的 <head> 都引用它
   //     3) 页面引用的每个样式表在磁盘上真实存在
   const cssDir = resolve(out, '_next/static/chunks');
-  const cssFiles = existsSync(cssDir)
-    ? readdirSync(cssDir).filter((f) => f.endsWith('.css'))
-    : [];
+  const cssFiles = existsSync(cssDir) ? readdirSync(cssDir).filter((f) => f.endsWith('.css')) : [];
   const globalCss = cssFiles.filter((f) =>
     /--color-bg-soft:/.test(readFileSync(resolve(cssDir, f), 'utf8')),
   );

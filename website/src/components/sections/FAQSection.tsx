@@ -39,7 +39,13 @@ export default function FAQSection() {
             <div key={key} className={`${styles.faqItem} ${openIndex === i ? styles.open : ''}`}>
               <button className={styles.faqQ} onClick={() => toggle(i)}>
                 <span>{t(`pricing.faq.items.${key}.q`)}</span>
-                <svg className={styles.faqArrow} width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <svg
+                  className={styles.faqArrow}
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
                   <path
                     d="M6 9l6 6 6-6"
                     stroke="currentColor"

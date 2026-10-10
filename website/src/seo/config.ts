@@ -137,7 +137,11 @@ export const ROUTE_SEO: Record<string, Record<Locale, SeoCopy>> = {
     },
   },
   notFound: {
-    zh: { title: '页面不存在 · BookmarkSync', description: '你访问的页面不存在或已移动。', keywords: '' },
+    zh: {
+      title: '页面不存在 · BookmarkSync',
+      description: '你访问的页面不存在或已移动。',
+      keywords: '',
+    },
     en: {
       title: 'Page not found · BookmarkSync',
       description: 'The page you visited does not exist or has moved.',
@@ -201,16 +205,38 @@ export function getSoftwareAppJsonLd(locale: Locale = 'zh'): JsonLd {
       ? '跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox 之间书签自动同步。真树同步，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 500 条书签起步。'
       : 'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — and convergent multi-device merge. Start free with 500 bookmarks.',
     offers: [
-      { '@type': 'Offer', price: '0', priceCurrency: 'USD', name: 'Free', url: `${SITE.url}/pricing` },
-      { '@type': 'Offer', price: '20', priceCurrency: 'USD', name: 'Plus', url: `${SITE.url}/pricing` },
-      { '@type': 'Offer', price: '50', priceCurrency: 'USD', name: 'Pro', url: `${SITE.url}/pricing` },
+      {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+        name: 'Free',
+        url: `${SITE.url}/pricing`,
+      },
+      {
+        '@type': 'Offer',
+        price: '20',
+        priceCurrency: 'USD',
+        name: 'Plus',
+        url: `${SITE.url}/pricing`,
+      },
+      {
+        '@type': 'Offer',
+        price: '50',
+        priceCurrency: 'USD',
+        name: 'Pro',
+        url: `${SITE.url}/pricing`,
+      },
     ],
   };
   if (SITE.twitter) data.sameAs = [`https://twitter.com/${SITE.twitter.replace(/^@/, '')}`];
   return data;
 }
 
-export function getBreadcrumbJsonLd(seoKey: string, locale: Locale = 'zh', leafName?: string): JsonLd {
+export function getBreadcrumbJsonLd(
+  seoKey: string,
+  locale: Locale = 'zh',
+  leafName?: string,
+): JsonLd {
   const labels = CRUMB_LABELS[locale] || CRUMB_LABELS.zh;
   const prefix = locale === 'en' ? '/en' : '';
   const items: { name: string; path: string | null }[] = [

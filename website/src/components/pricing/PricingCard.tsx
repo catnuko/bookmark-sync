@@ -94,15 +94,13 @@ export default function PricingCard({
             disabled={busy || statusUnknown}
             onClick={onPaidCta}
           >
-            {busy ? (
-              t('account.processing')
-            ) : statusUnknown ? (
-              t('account.statusUnknownShort')
-            ) : isCurrentPlan ? (
-              t('account.manageSub')
-            ) : (
-              t(`pricing.plans.${plan}.cta`)
-            )}
+            {busy
+              ? t('account.processing')
+              : statusUnknown
+                ? t('account.statusUnknownShort')
+                : isCurrentPlan
+                  ? t('account.manageSub')
+                  : t(`pricing.plans.${plan}.cta`)}
           </button>
           {statusUnknown ? (
             <p className={styles.planCtaError}>{t('account.statusFailed')}</p>

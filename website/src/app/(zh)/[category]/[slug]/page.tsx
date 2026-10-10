@@ -49,7 +49,7 @@ export default async function Page({ params }: Props) {
 
   return (
     <>
-      <ContentPage article={article} locale="zh" />
+      <ContentPage article={article} />
       <PageJsonLd
         seoKey="content"
         locale="zh"

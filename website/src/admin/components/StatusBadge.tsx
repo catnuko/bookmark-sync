@@ -9,5 +9,7 @@ export default function StatusBadge({
   label: string;
   tone?: BadgeTone | string;
 }) {
-  return <span className={`${styles.badge} ${styles[`t-${tone}`] ?? styles['t-neutral']}`}>{label}</span>;
+  return (
+    <span className={`${styles.badge} ${styles[`t-${tone}`] ?? styles['t-neutral']}`}>{label}</span>
+  );
 }

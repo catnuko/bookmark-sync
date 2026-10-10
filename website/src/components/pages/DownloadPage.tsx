@@ -155,10 +155,18 @@ export default function DownloadPage() {
             <p className={styles.manualSub}>{t('download.manual.subtitle')}</p>
 
             <div className={styles.manualCtas}>
-              <a href={chromiumZip} download className={`btn btn-primary btn-lg ${styles.manualCta}`}>
+              <a
+                href={chromiumZip}
+                download
+                className={`btn btn-primary btn-lg ${styles.manualCta}`}
+              >
                 {t('download.manual.chromiumCta')}
               </a>
-              <a href={firefoxZip} download className={`btn btn-outline btn-lg ${styles.manualCta}`}>
+              <a
+                href={firefoxZip}
+                download
+                className={`btn btn-outline btn-lg ${styles.manualCta}`}
+              >
                 {t('download.manual.firefoxCta')}
               </a>
             </div>

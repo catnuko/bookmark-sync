@@ -18,11 +18,7 @@ import AdminSystemView from './views/AdminSystemView';
 import styles from './AdminApp.module.css';
 
 function renderView(p: string) {
-  const rest = p
-    .replace(/\/+$/, '')
-    .split('/')
-    .filter(Boolean)
-    .slice(1); // 去掉开头的 "admin"
+  const rest = p.replace(/\/+$/, '').split('/').filter(Boolean).slice(1); // 去掉开头的 "admin"
   if (rest.length === 0) return <AdminDashboardView />;
   if (rest[0] === 'users') {
     if (rest.length === 1) return <AdminUsersView />;

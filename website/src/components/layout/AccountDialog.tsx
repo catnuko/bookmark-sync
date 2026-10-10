@@ -79,8 +79,16 @@ export default function AccountDialog({ onClose }: { onClose: () => void }) {
           {error && <p className={styles.dialogError}>{error}</p>}
           {info && <p className={styles.dialogInfo}>{info}</p>}
 
-          <button className={`btn btn-primary ${styles.dialogSubmit}`} type="submit" disabled={busy}>
-            {busy ? t('account.processing') : mode === 'login' ? t('account.login') : t('account.register')}
+          <button
+            className={`btn btn-primary ${styles.dialogSubmit}`}
+            type="submit"
+            disabled={busy}
+          >
+            {busy
+              ? t('account.processing')
+              : mode === 'login'
+                ? t('account.login')
+                : t('account.register')}
           </button>
         </form>
 

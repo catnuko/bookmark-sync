@@ -61,7 +61,12 @@ export default function AdminAuditView() {
   }, [page, action]);
 
   const columns: Column<AuditRow>[] = [
-    { key: 'time', header: '时间', className: styles.nowrap, cell: (r) => formatTime(r.created_at) },
+    {
+      key: 'time',
+      header: '时间',
+      className: styles.nowrap,
+      cell: (r) => formatTime(r.created_at),
+    },
     { key: 'admin', header: '操作人', cell: (r) => r.admin_email || r.admin_id },
     {
       key: 'action',

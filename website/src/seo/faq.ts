@@ -41,10 +41,12 @@ export function pickFaqItems(
   namespace: string,
   keys: string[],
 ): { q: string; a: string }[] {
-  const bucket = namespace.split('.').reduce<unknown>(
-    (o, k) => (o == null ? undefined : (o as Record<string, unknown>)[k]),
-    messages,
-  );
+  const bucket = namespace
+    .split('.')
+    .reduce<unknown>(
+      (o, k) => (o == null ? undefined : (o as Record<string, unknown>)[k]),
+      messages,
+    );
   if (!bucket) return [];
   const out: { q: string; a: string }[] = [];
   for (const key of keys) {
@@ -72,4 +74,3 @@ export function faqItemsFor(seoKey: string, locale: Locale): { q: string; a: str
   if (!f) return [];
   return pickFaqItems(messages[locale], f.ns, f.keys);
 }
-

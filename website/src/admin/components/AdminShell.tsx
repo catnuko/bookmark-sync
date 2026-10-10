@@ -17,7 +17,13 @@ const NAV = [
 
 const norm = (p: string) => (p !== '/' ? p.replace(/\/$/, '') : p);
 
-export default function AdminShell({ current, children }: { current: string; children: ReactNode }) {
+export default function AdminShell({
+  current,
+  children,
+}: {
+  current: string;
+  children: ReactNode;
+}) {
   const auth = useAdminAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -101,7 +107,12 @@ export default function AdminShell({ current, children }: { current: string; chi
             onClick={() => setDrawerOpen((v) => !v)}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <path
+                d="M4 7h16M4 12h16M4 17h16"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
           <div className={styles.who}>

@@ -15,7 +15,13 @@ const Ctx = createContext<LocaleCtx | null>(null);
  * 客户端组件用的 locale 上下文。locale 由所在语言树的 root layout 静态传入。
  * server component 不用这个 —— 它们用 makeT(locale) 直接绑定（见 i18n/t.ts）。
  */
-export function LocaleProvider({ locale, children }: { locale: Locale; children: React.ReactNode }) {
+export function LocaleProvider({
+  locale,
+  children,
+}: {
+  locale: Locale;
+  children: React.ReactNode;
+}) {
   const value = useMemo<LocaleCtx>(() => {
     const dict = messages[locale];
     return {

@@ -182,7 +182,9 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
       `确认清空 ${data?.email ?? '该用户'} 的全部云端同步数据？\n\n将删除：空间、操作日志、快照、设备登记，并重置 E2EE 盐与用量。\n此操作不可恢复！`,
     );
     if (!first) return;
-    const second = confirm('再次确认：该用户的同步数据将被永久删除，仅保留浏览器本地的书签。确定继续？');
+    const second = confirm(
+      '再次确认：该用户的同步数据将被永久删除，仅保留浏览器本地的书签。确定继续？',
+    );
     if (!second) return;
     try {
       setClearing(true);
@@ -214,10 +216,14 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
               <h3>档案</h3>
               <p>
                 plan：
-                <StatusBadge label={planLabel(data.profile?.plan)} tone={planTone(data.profile?.plan)} />
+                <StatusBadge
+                  label={planLabel(data.profile?.plan)}
+                  tone={planTone(data.profile?.plan)}
+                />
               </p>
               <p>
-                用量：{formatBytes(data.profile?.used_bytes)} / {formatBytes(data.profile?.quota_bytes)}
+                用量：{formatBytes(data.profile?.used_bytes)} /{' '}
+                {formatBytes(data.profile?.quota_bytes)}
               </p>
               <p>条数：{formatCount(data.profile?.used_count)}</p>
               <p>购买时间：{formatTime(data.profile?.purchased_at)}</p>
@@ -409,7 +415,9 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
                           <td>{formatCount(s.op_count)}</td>
                           <td>{s.snapshot_bytes ? formatBytes(s.snapshot_bytes) : '—'}</td>
                           <td>
-                            {s.snapshot_after_op_id != null ? formatCount(s.snapshot_after_op_id) : '—'}
+                            {s.snapshot_after_op_id != null
+                              ? formatCount(s.snapshot_after_op_id)
+                              : '—'}
                           </td>
                           <td>{s.snapshot_created_at ? formatTime(s.snapshot_created_at) : '—'}</td>
                         </tr>
@@ -428,13 +436,28 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
                     className={styles.gcInput}
                     onChange={(e) => setGcThresholdInput(e.target.value)}
                   />
-                  <button className={styles.btn} type="button" disabled={gcBusy} onClick={saveGcThreshold}>
+                  <button
+                    className={styles.btn}
+                    type="button"
+                    disabled={gcBusy}
+                    onClick={saveGcThreshold}
+                  >
                     保存阈值
                   </button>
-                  <button className={styles.btn} type="button" disabled={gcBusy} onClick={requestGc}>
+                  <button
+                    className={styles.btn}
+                    type="button"
+                    disabled={gcBusy}
+                    onClick={requestGc}
+                  >
                     请求压缩（GC）
                   </button>
-                  <button className={styles.btnGhost} type="button" disabled={gcBusy} onClick={loadGc}>
+                  <button
+                    className={styles.btnGhost}
+                    type="button"
+                    disabled={gcBusy}
+                    onClick={loadGc}
+                  >
                     刷新
                   </button>
                 </div>
@@ -455,7 +478,12 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
               仅保留浏览器本地的书签。用于测试账号清理，不可恢复。
             </p>
             <div className={styles.actions}>
-              <button className={styles.btnDanger} type="button" disabled={clearing} onClick={clearUserData}>
+              <button
+                className={styles.btnDanger}
+                type="button"
+                disabled={clearing}
+                onClick={clearUserData}
+              >
                 {clearing ? '清空中…' : '一键清空该用户的同步数据'}
               </button>
             </div>

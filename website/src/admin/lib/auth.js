@@ -95,10 +95,9 @@ export function ensureAdminAuth() {
     return Promise.resolve();
   }
   if (!readyOnce) {
-    readyOnce = Promise.race([
-      refresh(),
-      new Promise((r) => setTimeout(r, 3000)),
-    ]).then(() => undefined);
+    readyOnce = Promise.race([refresh(), new Promise((r) => setTimeout(r, 3000))]).then(
+      () => undefined,
+    );
   }
   return readyOnce;
 }

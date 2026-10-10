@@ -23,7 +23,15 @@ function Inline({ nodes }: { nodes: InlineNode[] }) {
   );
 }
 
-function Heading({ level, text, inline }: { level: 2 | 3 | 4; text: string; inline: InlineNode[] }) {
+function Heading({
+  level,
+  text,
+  inline,
+}: {
+  level: 2 | 3 | 4;
+  text: string;
+  inline: InlineNode[];
+}) {
   const cls = level === 2 ? styles.h2 : level === 3 ? styles.h3 : styles.h4;
   const Tag = `h${level}` as 'h2' | 'h3' | 'h4';
   return (
@@ -37,7 +45,8 @@ export default function ContentBody({ blocks }: { blocks: Block[] }) {
   return (
     <div className={styles.cb}>
       {blocks.map((b, i) => {
-        if (b.type === 'heading') return <Heading key={i} level={b.level} text={b.text} inline={b.inline} />;
+        if (b.type === 'heading')
+          return <Heading key={i} level={b.level} text={b.text} inline={b.inline} />;
 
         if (b.type === 'paragraph')
           return (

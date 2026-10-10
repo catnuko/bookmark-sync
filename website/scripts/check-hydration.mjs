@@ -215,12 +215,16 @@ export async function runHydrationChecks({ quiet = false, paths = PATHS } = {}) 
       } else {
         if (styled.sheets < 1) errors.push(`[${p}] 没有加载任何样式表`);
         if (!styled.maxWidth || styled.maxWidth === 'none') {
-          errors.push(`[${p}] .container 未被样式化（max-width=${styled.maxWidth}）—— 全局 CSS 未生效`);
+          errors.push(
+            `[${p}] .container 未被样式化（max-width=${styled.maxWidth}）—— 全局 CSS 未生效`,
+          );
         }
       }
 
       // 6. 其他控制台错误（不含 404 资源类噪声）
-      const real = msgs.filter((m) => !/favicon|404 \(Not Found\)|Failed to load resource/i.test(m));
+      const real = msgs.filter(
+        (m) => !/favicon|404 \(Not Found\)|Failed to load resource/i.test(m),
+      );
       if (real.length) errors.push(`[${p}] 控制台报错:\n      ${real.join('\n      ')}`);
 
       await page.close();

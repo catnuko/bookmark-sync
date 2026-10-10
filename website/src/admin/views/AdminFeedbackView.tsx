@@ -192,7 +192,12 @@ export default function AdminFeedbackView() {
   }
 
   const fbColumns: Column<FeedbackRow>[] = [
-    { key: 'time', header: '时间', className: styles.nowrap, cell: (r) => formatTime(r.created_at) },
+    {
+      key: 'time',
+      header: '时间',
+      className: styles.nowrap,
+      cell: (r) => formatTime(r.created_at),
+    },
     {
       key: 'kind',
       header: '类型',
@@ -233,11 +238,7 @@ export default function AdminFeedbackView() {
       key: 'mark',
       header: '标记',
       cell: (r) => (
-        <select
-          value={r.status}
-          disabled={fbBusy}
-          onChange={(e) => setStatus(r, e.target.value)}
-        >
+        <select value={r.status} disabled={fbBusy} onChange={(e) => setStatus(r, e.target.value)}>
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -249,7 +250,12 @@ export default function AdminFeedbackView() {
   ];
 
   const erColumns: Column<ErrorRow>[] = [
-    { key: 'time', header: '最后出现', className: styles.nowrap, cell: (r) => timeAgo(r.last_seen_at) },
+    {
+      key: 'time',
+      header: '最后出现',
+      className: styles.nowrap,
+      cell: (r) => timeAgo(r.last_seen_at),
+    },
     { key: 'count', header: '次数', cell: (r) => formatCount(r.occurrences) },
     ...(erGroup === 'fingerprint'
       ? [
@@ -277,7 +283,11 @@ export default function AdminFeedbackView() {
     },
     ...(erGroup === 'row'
       ? [
-          { key: 'user', header: '用户', cell: (r: ErrorRow) => r.email || '—' } as Column<ErrorRow>,
+          {
+            key: 'user',
+            header: '用户',
+            cell: (r: ErrorRow) => r.email || '—',
+          } as Column<ErrorRow>,
           {
             key: 'open',
             header: '',
@@ -487,7 +497,11 @@ export default function AdminFeedbackView() {
                     {r.app_version || '—'} · {r.platform || '—'}
                   </span>
                   {erGroup === 'row' ? (
-                    <button className={styles.link} type="button" onClick={() => openErrorDetail(r)}>
+                    <button
+                      className={styles.link}
+                      type="button"
+                      onClick={() => openErrorDetail(r)}
+                    >
                       详情
                     </button>
                   ) : null}
@@ -536,8 +550,8 @@ export default function AdminFeedbackView() {
             <div className={styles.mRow}>
               <span className={styles.cK}>环境</span>
               <span>
-                {fbDetail.app_version || '—'} · {fbDetail.platform || '—'} · {fbDetail.locale || '—'} ·
-                错误阶段 {fbDetail.last_error_phase || '—'}
+                {fbDetail.app_version || '—'} · {fbDetail.platform || '—'} ·{' '}
+                {fbDetail.locale || '—'} · 错误阶段 {fbDetail.last_error_phase || '—'}
               </span>
             </div>
             <div className={styles.mActions}>

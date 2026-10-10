@@ -61,7 +61,13 @@ export default function HeroSection({ locale }: { locale: Locale }) {
                   />
                 </svg>
                 <span>{t('hero.previewFolder1')}</span>
-                <svg className={styles.syncSpin} width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <svg
+                  className={styles.syncSpin}
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
                   <path
                     d="M4 4v6h6M20 20v-6h-6"
                     stroke="currentColor"
@@ -130,7 +136,13 @@ export default function HeroSection({ locale }: { locale: Locale }) {
                   />
                 </svg>
                 <span>{t('hero.previewDeleted')}</span>
-                <svg className={styles.restoreIcon} width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <svg
+                  className={styles.restoreIcon}
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
                   <path
                     d="M5 13l4 4L19 7"
                     stroke="currentColor"
