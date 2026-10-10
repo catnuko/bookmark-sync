@@ -4,10 +4,7 @@
   "buildCommand": "pnpm install --frozen-lockfile && pnpm build",
   "installCommand": "pnpm install --frozen-lockfile",
   "trailingSlash": false,
-  "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/admin/:path*", "destination": "/admin.html" }
-  ],
+  "rewrites": [{ "source": "/admin/:path*", "destination": "/admin" }],
   "headers": [
     {
       "source": "/_next/static/(.*)",
