@@ -2,7 +2,7 @@
 title: Chrome 书签迁移到 Firefox：会丢什么，以及怎么正确迁
 description: 把 Chrome 书签搬到 Firefox，空的中间层文件夹会消失、Chrome 账号子树会落到「其他书签」。这是迁移前必须知道的四件事，以及两条迁移路径的取舍。
 category: migrate
-order: 7
+date: 2026-10-04
 seoTitle: Chrome 书签迁移到 Firefox · BookmarkSync
 seoDescription: Chrome 书签导入 Firefox 会丢什么？本文讲清 HTML 格式不保存空中间层文件夹、Firefox Sync 是合并模型没有账号子树、Chrome 账号子树落到「其他书签」、tags 文件夹不该捕获，并给出两条迁移路径对比与验证方法。
 keywords: Chrome书签迁移到Firefox,Firefox导入Chrome书签,Chrome转Firefox书签,书签跨浏览器同步,Firefox书签合并,书签层级丢失

@@ -2,7 +2,7 @@
 title: How to Tell If a Bookmark Sync Extension Is Actually End-to-End Encrypted
 description: "We support end-to-end encryption" carries almost no information — plaintext storage can say it too. Here are seven criteria you can verify yourself, starting with the strongest one: whether the vendor can email you a link to reset your master password.
 category: explain
-order: 10
+date: 2026-10-07
 seoTitle: Is It Really E2EE? A Checklist · BookmarkSync
 seoDescription: How do you check whether a bookmark sync extension is genuinely end-to-end encrypted? Seven verifiable criteria: password reset flow, web preview, algorithm disclosure, KDF iteration count, third-party audit, open source, and whether they can send you a reset-your-master-password email.
 keywords: how to tell if e2ee is real,end-to-end encryption bookmark sync,is my bookmark sync encrypted,verify e2ee bookmark extension,e2ee checklist,bookmark sync encryption audit,master password reset email,encryption audit

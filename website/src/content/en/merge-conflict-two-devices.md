@@ -2,7 +2,7 @@
 title: Two Devices Edited the Same Bookmarks: Four Merge Strategies and What Each Costs
 description: You added 30 bookmarks at the office, synced at home, and the 30 were gone. This is a merge conflict. The root cause is which strategy your engine uses to arbitrate "both sides changed" — and only one of the four can guarantee nothing is lost.
 category: fix
-order: 4
+date: 2026-09-28
 seoTitle: Bookmark Merge Conflicts Explained · BookmarkSync
 seoDescription: New bookmarks vanish after a two-device sync, or merges keep fighting each other? Compare last-write-wins (loses data), three-way merge (needs a common ancestor), full overwrite, and CRDT. With offline concurrency tests.
 keywords: bookmark merge conflict,sync conflict bookmarks,new bookmarks disappeared after sync,last-write-wins data loss,bookmarks overwritten between devices,CRDT bookmark sync,two way merge conflict

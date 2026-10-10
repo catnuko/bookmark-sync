@@ -45,13 +45,8 @@
     //   内容格式的真相在解析器里，不在 formatter 里。
     "website/src/content/**/*.md",
 
-    // 内容路由清单 —— vite-plugin 在 buildStart **生成**的文件。
-    //
-    // 排除的理由是「每次 build 都改写」：生成器输出 JSON 风格（双引号、无尾逗号），
-    // oxfmt 要单引号 + 尾逗号，于是
-    //   npm run fmt → 改它 → npm run build → 又改回去 → fmt:check 永远失败。
-    // 这不是格式问题，是**两个工具对同一份文件的风格要求冲突**，只能让一个让。
-    // 让 formatter（它是通用工具，不该为某个生成器定制）。
-    "website/src/content/manifest.js"
+    // 商店推广长文（PUBLISH-GUIDE / article-zh / article-en）。同上述理由：
+    // oxfmt 只会把表格列宽重排，是纯 churn，且这些文档不由我们的解析器消费。
+    "extension-infomation/**/*.md"
   ]
 }

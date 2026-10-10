@@ -2,7 +2,7 @@
 title: Migrating Bookmarks from Chrome to Firefox: What You Lose and How to Do It Right
 description: Moving Chrome bookmarks to Firefox flattens empty intermediate folders and lands your Chrome account subtree under Other Bookmarks. Four unavoidable limits, two migration paths, and how to verify the result.
 category: migrate
-order: 7
+date: 2026-10-04
 seoTitle: Chrome to Firefox Bookmark Migration · BookmarkSync
 seoDescription: What do you actually lose migrating Chrome bookmarks to Firefox? HTML export drops empty intermediate folders, Firefox Sync is a merge model with no account subtree, the Chrome account subtree lands under Other Bookmarks, and tags________ must be skipped. Two paths compared, plus verification.
 keywords: migrate Chrome bookmarks to Firefox,import Chrome bookmarks into Firefox,Chrome to Firefox bookmarks,bookmark sync across browsers,Firefox bookmark merge,bookmark hierarchy lost

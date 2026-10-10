@@ -2,7 +2,7 @@
 title: Firefox 同步后书签全挤在一处：树被打散的根因是「合并」模型
 description: Firefox 同步后 3000 条书签的树被打散、同一文件夹的书签全被合并进一个文件夹、新笔记本同步后子文件夹变空。根因不在操作，在于书签树节点不携带同步来源信息，而 Firefox Sync 用的是合并模型。
 category: fix
-order: 5
+date: 2026-09-30
 seoTitle: Firefox 同步书签结构错乱 · BookmarkSync
 seoDescription: Firefox 同步后书签全挤到一个文件夹、3000 条书签的树被打散、新笔记本同步后子文件夹被清空？根因是 BookmarkTreeNode 不带 syncing 字段与 folderType，且 Firefox Sync 是合并模型。附自测步骤与方案对比。
 keywords: firefox书签同步乱,书签同步结构乱掉,firefox同步后书签合并,书签都挤在一个文件夹,firefox同步树形结构丢失,bookmarks merged into one folder,书签父子关系同步错乱

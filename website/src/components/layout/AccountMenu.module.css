@@ -1,0 +1,140 @@
+.acct {
+  position: relative;
+}
+
+.acctSignin {
+  padding: 0.5rem 1rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-bg);
+  background: var(--color-text);
+  border-radius: var(--radius-md);
+  transition: opacity var(--transition);
+}
+
+.acctSignin:hover {
+  opacity: 0.85;
+}
+
+.acctTrigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 15rem;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition);
+}
+
+.acctTrigger:hover {
+  border-color: var(--color-border-strong);
+}
+
+.acctMail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acctPlan {
+  flex-shrink: 0;
+  padding: 0.0625rem 0.375rem;
+  font-size: var(--text-xs);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-full);
+}
+
+.acctCaret {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.acctMenu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 60;
+  min-width: 16rem;
+  padding: 0.375rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.acctHead {
+  padding: 0.625rem 0.75rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.acctEmail {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.acctTier {
+  margin-top: 0.25rem;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.acctTierErr {
+  color: #dc2626;
+}
+
+.acctRenew {
+  margin-top: 0.375rem;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.acctErr {
+  margin-top: 0.25rem;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.acctItem {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--text-sm);
+  text-align: left;
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  transition: background var(--transition);
+}
+
+.acctItem:hover:not(:disabled) {
+  background: var(--color-bg-muted);
+}
+
+.acctItem:disabled {
+  opacity: 0.6;
+}
+
+.acctDanger {
+  color: #dc2626;
+}
+
+.acctSep {
+  height: 1px;
+  margin: 0.25rem 0;
+  background: var(--color-border);
+}
+
+@media (max-width: 768px) {
+  .acctMail {
+    display: none;
+  }
+
+  .acctTrigger {
+    max-width: none;
+  }
+}

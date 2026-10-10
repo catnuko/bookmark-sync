@@ -2,7 +2,7 @@
 title: Bookmark Sync Not Working: A Troubleshooting Checklist in Order
 description: Sync does nothing, the status stays on scheduled, or it works half the time. This is a runbook, not a list of causes: check status meaning first, then account, then quota and rate limits, and only then touch local data.
 category: fix
-order: 6
+date: 2026-10-02
 seoTitle: Bookmark Sync Not Working · BookmarkSync
 seoDescription: Bookmark sync does nothing, stuck on scheduled, or fails intermittently? Key causes include rate_limited responses causing intermittent failures and the Free tier's 500-item / 1MB byte quota. Ordered steps and error code tables.
 keywords: bookmark sync not working,sync stuck scheduled,bookmarks not syncing,bookmark sync troubleshooting,rate limited sync,bookmark sync quota exceeded,e2ee sync error code,bookmark sync failed

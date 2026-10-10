@@ -1,0 +1,87 @@
+.tableWrap {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.tableScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th,
+.table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+.table th {
+  background: var(--color-bg-muted);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cell.muted {
+  text-align: center;
+  color: var(--color-text-faint);
+  padding: 24px;
+}
+/* 卡片容器：仅移动端可见（见下方 media query），桌面端不渲染（renderCard 为假）时也不存在 */
+.cards {
+  display: none;
+}
+.cardsMsg {
+  text-align: center;
+  color: var(--color-text-faint);
+  padding: 24px;
+  font-size: 13px;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.pager button {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .hasCards .tableScroll {
+    display: none;
+  }
+  .hasCards .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+  .table th,
+  .table td {
+    padding: 8px 10px;
+  }
+  .pager {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+  }
+  .pager button {
+    min-height: 40px;
+    padding: 4px 14px;
+  }
+}

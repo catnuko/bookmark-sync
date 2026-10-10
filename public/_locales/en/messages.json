@@ -101,14 +101,6 @@
   "status_uptodate": {
     "message": "Already up to date"
   },
-  "status_unplacedWarn": {
-    "message": "⚠️ $COUNT$ local bookmarks not shown here",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
-  },
   "status_decryptWarn": {
     "message": "⚠️ $COUNT$ cloud entries failed to decrypt (key mismatch — check your sync key/passphrase)",
     "placeholders": {
@@ -1092,15 +1084,12 @@
     "message": "📡 How to read the sync-complete message?"
   },
   "help_7_body": {
-    "message": "<p>Sync messages describe the direction of the result; they no longer show \"pushed/pulled N\" — that number counts internal sync operations, which never matches your actual bookmark count. Reference:</p><table class=\"help-tbl\"><thead><tr><th>Message</th><th>Meaning</th></tr></thead><tbody><tr><td>First sync complete — bookmarks uploaded encrypted</td><td>This device uploaded its bookmarks to the cloud for the first time (the cloud was empty)</td></tr><tr><td>First sync complete — bookmarks restored from the cloud</td><td>New device or reinstall pulled existing cloud bookmarks</td></tr><tr><td>Two-way sync complete</td><td>Both this device and others had changes; both directions synced</td></tr><tr><td>Uploaded local changes</td><td>Only local new/changed bookmarks were uploaded</td></tr><tr><td>Synced changes from other devices</td><td>Received new bookmarks added by other devices</td></tr><tr><td>Already up to date</td><td>No changes, nothing to do</td></tr><tr><td>⚠️ N local bookmarks not shown here</td><td>The space has device-local bookmarks, but this Chrome has no local Bookmarks bar to hold them — when signed in with an empty local tree, Chrome doesn't create one</td></tr></tbody></table><p>The \"N bookmarks\" on the status card is the true total and is accurate. \"⚠️ N cloud entries failed to decrypt\" means your sync key doesn't match the cloud data — check your key or passphrase.</p><p>To show them on this device: <strong>sign out of Chrome</strong>, then <strong>create one local bookmark</strong> (when signed out, only the local Bookmarks bar exists). Once it appears, sync again. They stay on this device and are never uploaded to your Google account.</p>"
+    "message": "<p>Sync messages describe the direction of the result; they no longer show \"pushed/pulled N\" — that number counts internal sync operations, which never matches your actual bookmark count. Reference:</p><table class=\"help-tbl\"><thead><tr><th>Message</th><th>Meaning</th></tr></thead><tbody><tr><td>First sync complete — bookmarks uploaded encrypted</td><td>This device uploaded its bookmarks to the cloud for the first time (the cloud was empty)</td></tr><tr><td>First sync complete — bookmarks restored from the cloud</td><td>New device or reinstall pulled existing cloud bookmarks</td></tr><tr><td>Two-way sync complete</td><td>Both this device and others had changes; both directions synced</td></tr><tr><td>Uploaded local changes</td><td>Only local new/changed bookmarks were uploaded</td></tr><tr><td>Synced changes from other devices</td><td>Received new bookmarks added by other devices</td></tr><tr><td>Already up to date</td><td>No changes, nothing to do</td></tr></tbody></table><p>The \"N bookmarks\" on the status card is the true total and is accurate. \"⚠️ N cloud entries failed to decrypt\" means your sync key doesn't match the cloud data — check your key or passphrase.</p><p>One case the UI intentionally doesn't warn about: if the space has device-local bookmarks but this Chrome has no local Bookmarks bar to hold them (when signed in with an empty local tree, Chrome doesn't create one), those bookmarks stay in the cloud only. If you hit that: <strong>sign out of Chrome</strong>, then <strong>create one local bookmark</strong> (when signed out, only the local Bookmarks bar exists), and sync again once it appears. They are never uploaded to your Google account.</p>"
   },
   "gate_hintSetup": {
     "message": "Set a sync passphrase — it's the only credential that can decrypt your bookmarks. It can't be changed once set, and it can't be recovered if forgotten."
   },
   "gate_hintVerify": {
     "message": "Cloud bookmarks are encrypted. Enter the same sync passphrase as your other devices."
-  },
-  "status_unplacedHint": {
-    "message": "These bookmarks are device-local, and this Chrome has no local Bookmarks bar to hold them. Sign out of Chrome, create one local bookmark, then sync again to show them (they are never uploaded to your Google account). See Help for details."
   }
 }

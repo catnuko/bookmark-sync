@@ -19,6 +19,20 @@ export const CONTENT_DIR = 'content';
 
 /** 内容分类 —— 决定文章的 URL 前缀与索引页归属。 */
 export const CATEGORIES = {
+  /** 「怎么用」—— 上手、功能与答疑，取代原 /docs 页硬编码的文档段落 */
+  guide: {
+    prefix: 'guide',
+    label: { zh: '使用指南', en: 'Guides' },
+    tocLabel: { zh: '本文目录', en: 'On this page' },
+    relatedLabel: { zh: '更多指南', en: 'More guides' },
+    cta: { zh: '装好就一次，之后交给它', en: 'Set it up once, then let it run' },
+    ctaLabel: { zh: '免费安装', en: 'Install free' },
+    ctaSecondary: { zh: '查看定价', en: 'See pricing' },
+    description: {
+      zh: '从安装、登录到第一次同步，以及日常使用中最常被问到的疑问与故障处理——新手要走的每一步都在这里。',
+      en: 'From install and login to your first sync, plus the questions and failures that come up in daily use — every step a new user needs, in one place.',
+    },
+  },
   /** 「我的书签出问题了」—— 转化意图最强，对应研究里的问题/故障类关键词 */
   fix: {
     prefix: 'fix',

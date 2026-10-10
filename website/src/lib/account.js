@@ -4,32 +4,47 @@
 // 订阅：调 creem-checkout 边缘函数拿收银台链接，支付结果由 creem-webhook 翻转服务端 plan。
 // 取消：调 creem-portal 拿 Creem 客户门户链接，门户内 Cancel，webhook 同步状态。
 // 状态：RLS 只读自己的 bsync_profiles.plan 与 bsync_subscriptions。
-import { reactive } from 'vue';
+//
+// ★ 迁移到 Next 后：本文件去掉了 Vue 的 reactive，改为「普通对象 + 版本号 + 订阅」，
+//   React 侧通过 useAccount()（useSyncExternalStore）订阅。对外 API（account 字段与
+//   各导出函数）保持不变，根仓库的 tests/website/accountState.test.ts 无需改动。
 import { supabase } from './supabase.js';
 
-// @ts-check —— 本文件被 tests/website/accountState.test.ts 与 tsc 一起看。
-// account 的字段必须显式标类型：`reactive({user: null})` 会把 user 推成 `null`，
-// 外部赋值时报 TS2322（vitest 能跑过，tsc 不能）。
 /**
  * @typedef {{ plan: string|null, status: string, current_period_end?: string|null }} AccountSubscription
+ * @type {{ ready: boolean, user: { id: string, email?: string }|null, plan: string|null, subscription: AccountSubscription|null, error: string|null }}
  */
-
-/** @type {{ ready: boolean, user: { id: string, email?: string }|null, plan: string|null, subscription: AccountSubscription|null, error: string|null }} */
-export const account = reactive({
+export const account = {
   ready: false,
   user: null,
   plan: 'free', // bsync_profiles.plan：free / plus / pro；null = 拉取失败（≠ free）
   subscription: null, // bsync_subscriptions 行或 null：{ plan, status, current_period_end }
   // 拉 profile 失败时的原因（null = 正常）。付费用户拿不到 plan 时会被误判成
-  // free 而再买一次，所以必须能把「读失败」和「真的是free」区分开。
+  // free 而再买一次，所以必须能把「读失败」和「真的是 free」区分开。
   error: null,
-});
+};
+
+// —— React 订阅通道（useSyncExternalStore 用）——
+let version = 0;
+const listeners = new Set();
+export function getAccountVersion() {
+  return version;
+}
+export function subscribeAccount(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+function notify() {
+  version += 1;
+  for (const fn of listeners) fn();
+}
 
 async function refreshProfile() {
   if (!account.user) {
     account.plan = 'free';
     account.subscription = null;
     account.error = null;
+    notify();
     return;
   }
   const [prof, sub] = await Promise.all([
@@ -37,7 +52,7 @@ async function refreshProfile() {
     supabase.from('bsync_subscriptions').select('plan, status, current_period_end').maybeSingle(),
   ]);
   // ★ 两个查询都必须无错才算读成功。RLS 拒绝 / 网络失败 / 无表权限时 data 为
-  //   null且 error 有值——此时若照旧把 plan 落成 'free'，付费用户会在页面上
+  //   null 且 error 有值——此时若照旧把 plan 落成 'free'，付费用户会在页面上
   //   看到「订阅 Pro」按钮，再付一次钱。宁可显示「状态未知」也别误导。
   const failed = prof.error || sub.error;
   if (failed) {
@@ -45,14 +60,16 @@ async function refreshProfile() {
     account.plan = null; // null ≠ 'free'：UI 必须显式区分「未知」和「免费」
     account.subscription = null;
     console.warn('[account] refreshProfile failed:', account.error);
+    notify();
     return;
   }
   account.error = null;
   account.plan = prof.data?.plan || 'free';
   account.subscription = sub.data || null;
+  notify();
 }
 
-// ★ 服务端（SSG 预渲染）下短路：账号态是纯客户端状态，Node 端拉 session 会
+// ★ 服务端（预渲染）下短路：账号态是纯客户端状态，Node 端拉 session 会
 //   拖挂预渲染进程。SSG 产物一律按「未登录」渲染，客户端 hydrate 后再补真实态。
 if (typeof window !== 'undefined') {
   supabase.auth
@@ -63,6 +80,7 @@ if (typeof window !== 'undefined') {
     })
     .finally(() => {
       account.ready = true;
+      notify();
     });
 
   supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -93,10 +111,9 @@ export async function signUp(email, password) {
 export async function signOut() {
   await supabase.auth.signOut();
   account.user = null;
-  // ★ 必须再刷一次 profile。只置user=null 会让 account.plan / account.subscription
-  //   停在上一个账号的值上——account 是模块级单例，登出后 `hasActiveSubscription()`
+  // ★ 必须再刷一次 profile。只置 user=null 会让 account.plan / account.subscription
+  //   停在上一个账号的值上——account 是模块级单例，登出后 hasActiveSubscription()
   //   仍返回 true，定价页会把「订阅 Plus」显示成「管理 / 取消订阅」。
-  //   refreshProfile 内部对 user 为空有短路分支，会把两个字段复位。
   await refreshProfile();
 }
 

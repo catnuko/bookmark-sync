@@ -2,7 +2,7 @@
 title: Firefox Sync Squashed All Your Bookmarks Into One Folder
 description: After Firefox sync, 3,000 bookmarks collapse into a single folder and subfolders come back empty. The root cause isn't anything you did — bookmark tree nodes carry no sync provenance, and Firefox Sync uses a merge model.
 category: fix
-order: 5
+date: 2026-09-30
 seoTitle: Firefox Sync Mangled My Bookmark Tree · BookmarkSync
 seoDescription: Firefox sync flattened 3,000 bookmarks into one folder, emptied subfolders on a new laptop, or scattered the tree? The cause is BookmarkTreeNode having no syncing field and no folderType, plus Firefox Sync's merge model. Tests and fixes inside.
 keywords: firefox sync messed up bookmarks,bookmarks merged into one folder,firefox sync flattened bookmark tree,firefox subfolders empty after sync,bookmarks all in one folder,firefox bookmark tree broken,mozilla sync hierarchy

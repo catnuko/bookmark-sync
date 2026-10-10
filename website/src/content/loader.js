@@ -16,14 +16,16 @@ import { parseMarkdown, parseFrontmatter } from './parse.js';
 import { CATEGORIES } from './index.js';
 
 const LOCALES = ['zh', 'en'];
-const REQUIRED_FIELDS = ['title', 'description', 'category', 'seoTitle', 'seoDescription'];
+const REQUIRED_FIELDS = ['title', 'description', 'category', 'date', 'seoTitle', 'seoDescription'];
+/** 发布日期格式：YYYY-MM-DD（字符串比较即等价于时间比较，排序用得上）。 */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * 加载全部内容。
  *
  * @param {string} contentDir 绝对路径（website/src/content）
  * @returns {{ articles: object[], bySlug: Map, byLocale: Map }}
- *   article = { slug, locale, category, order, frontmatter, blocks, faq, lead }
+ *   article = { slug, locale, category, date, frontmatter, blocks, faq, lead }
  */
 export function loadContent(contentDir) {
   const articles = [];
@@ -50,6 +52,9 @@ export function loadContent(contentDir) {
           `${locale}/${file} 的 category="${data.category}" 不存在（可用：${Object.keys(CATEGORIES).join(', ')}）`,
         );
       }
+      if (data.date && !DATE_RE.test(data.date)) {
+        problems.push(`${locale}/${file} 的 date="${data.date}" 不是 YYYY-MM-DD 格式`);
+      }
 
       const { blocks, faq, lead, toc } = parseMarkdown(body, `${locale}/${file}`);
       if (data.faq === 'true' && faq.length === 0) {
@@ -61,7 +66,7 @@ export function loadContent(contentDir) {
         slug,
         locale,
         category: data.category,
-        order: Number(data.order) || 99,
+        date: data.date,
         frontmatter: data,
         blocks,
         faq,
@@ -86,7 +91,8 @@ export function loadContent(contentDir) {
     throw new Error(`[content] 内容校验失败：\n  - ${problems.join('\n  - ')}`);
   }
 
-  articles.sort((a, b) => a.order - b.order || a.slug.localeCompare(b.slug));
+  // 按发布日期倒序（博客时间线）；同日按 slug 稳定排序，保证两端顺序一致。
+  articles.sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
 
   const bySlug = new Map();
   const byLocale = new Map();

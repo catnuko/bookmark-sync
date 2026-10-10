@@ -2,7 +2,7 @@
 title: 书签同步不生效：按顺序排查的完整清单（含限流与配额）
 description: 书签同步不生效、状态一直显示 scheduled、同步时好时坏。这篇是按执行顺序排的排查手册：先分清状态含义，再排除账号，再查配额和限流，最后才动本地数据。
 category: fix
-order: 6
+date: 2026-10-02
 seoTitle: 书签同步不生效排查 · BookmarkSync
 seoDescription: 书签同步不生效、一直显示 scheduled、同步时好时坏？根因包括服务端限流返回 rate_limited 导致的间歇性失败、Free 档 500 条 / 1MB 字节配额已满。附按顺序执行的排查步骤与错误码对照表。
 keywords: 书签同步不生效,同步状态scheduled,书签同步卡住不动,书签同步失败原因,rate_limited限流,书签同步超出配额,e2ee同步错误码,bookmark sync not working

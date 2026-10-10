@@ -1,0 +1,128 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: var(--color-header-bg);
+  /* ★ 这两行是 AccountDialog 必须 portal 到 body 的原因：
+     backdrop-filter 会为所有后代创建包含块，弹窗的 fixed 定位会被困在 header 里。 */
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--color-border);
+  z-index: 50;
+}
+
+.headerInner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.brandName {
+  font-size: var(--text-base);
+}
+
+.navDesktop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.navLink {
+  padding: 0.5rem 0.875rem;
+  font-size: var(--text-sm);
+  color: var(--color-text-soft);
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+}
+
+.navLink:hover {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+}
+
+.navLink.active {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.menuToggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+}
+
+.menuToggle:hover {
+  background: var(--color-bg-muted);
+}
+
+.navMobile {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--container-pad);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.navLinkMobile {
+  padding: 0.875rem 0.5rem;
+  font-size: var(--text-base);
+  color: var(--color-text-soft);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.navLinkMobile.active {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.navSignout {
+  width: 100%;
+  text-align: left;
+  color: #dc2626;
+}
+
+.navSignout:disabled {
+  opacity: 0.6;
+}
+
+/* 导航 5 项 + logo + 主题/语言/账户入口在窄桌面会挤：先压按钮内边距，再收进汉堡菜单。 */
+@media (max-width: 1024px) {
+  .navLink {
+    padding: 0.5rem 0.625rem;
+    font-size: var(--text-xs);
+  }
+  .headerInner {
+    gap: var(--space-4);
+  }
+}
+
+@media (max-width: 768px) {
+  .navDesktop {
+    display: none;
+  }
+  .menuToggle {
+    display: inline-flex;
+  }
+}
