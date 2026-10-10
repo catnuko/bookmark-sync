@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.15.1](https://github.com/catnuko/bookmark-sync/compare/v2.15.0...v2.15.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **website:** 修后台用户详情页 404（rewrite 目标改为已注册路由） ([a385c33](https://github.com/catnuko/bookmark-sync/commit/a385c332c54f44e2a9529ca766d2be51703b1644))
+* **website:** 修后台用户详情页 404（rewrite 目标改为已注册路由） ([47f674d](https://github.com/catnuko/bookmark-sync/commit/47f674d5aba92cd81fc1f91c8b5b72629648c7c9))
+
 ## [2.15.0](https://github.com/catnuko/bookmark-sync/compare/v2.14.3...v2.15.0) (2026-10-10)
 
 
