@@ -87,8 +87,8 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 
 ### 版本管理文件（勿手动改版本号发版）
 
-- `release-please-config.json`：extra-files 让 release PR 同步 `public/manifest.json`、`public/manifest.firefox.json` 的 `version` 字段
-- `.release-please-manifest.json`：版本基线（当前 2.5.2）
+- `release-please-config.json`：根包 `"."` 的 **`exclude-paths`** 决定哪些路径的提交不参与版本判定 —— 非扩展产物（`website` / `docs` / `memory` / `extension-infomation` / `supabase` / `tests` / `.github` / `bookmark-sync`）一律排除，**版本号只随扩展产物（`src/`、`public/`、`scripts/`、`package.json`、`vite.config.js` 等）变化**。语义：某提交的**全部**改动文件都落在排除路径下才排除（混合提交仍 bump）；只做**目录前缀**匹配，写文件路径（如 `AGENTS.md`）无效。**新增顶层目录时，若不属于扩展产物，要加进这个列表**（护栏：`tests/release-please-config.test.ts`）。另：`extra-files` 本意是让 release PR 同步两个 manifest 的 `version`，但**实测不生效**（见下「要点」）。
+- `.release-please-manifest.json`：版本基线（release-please 自动维护，勿手改）
 - **禁止**手动改 package.json 版本号或手动打 tag / 建 Release——会绕过 release-please 导致版本错乱（v2.0.0 就是这么出的岔子：release PR 悬挂、manifest 版本滞后）。**同理禁止代用户合 release PR、禁止本地手工打包上传**：发版链路上的问题一律「修好流水线」而不是绕过它。
 
 ### 要点（踩过的坑，勿回退）
@@ -110,7 +110,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
   - **隐患**：升 GitHub Pro 后若给 main 开 branch protection 并把 `Quality Gate` 设为必需检查，**release PR 会永久卡死**（永远等不到批准）。届时二选一：① `ci.yml` 的 `pull_request:` 下加 `paths-ignore`（列 release PR 恰好只改的那三个文件：`CHANGELOG.md` / `.release-please-manifest.json` / `package.json`）→ 干脆不创建 run；副作用是「只改 package.json」的 PR 会漏跑 CI。② 给 release-please 传非 `GITHUB_TOKEN` 的 `token:`（PAT / GitHub App）→ PR 检查才真正执行。
 - 私有仓库：匿名 curl 下载 release asset 返回 404，须用 `gh release download <tag> --repo catnuko/bookmark-sync`。
 - **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。**源码包不进 Supabase**（官网访客不需要源码），只挂 Release。
-- **★ 官网并列显示两个版本号**（2026-09-30 起）：`latest.json` = **我们已发布**的版本；`stores.json` = **商店在架**的版本。二者语义不同、刻意分成两个文件 —— 商店审核有延迟，在架版本常落后于我们已发布的版本，只显示其中一个会让用户点进商店后看到不一致的版本号。`stores.json` 由独立工作流 `.github/workflows/store-versions.yml`（cron `0 */6 * * *` + `workflow_dispatch`，`environment: stores`）跑 `scripts/fetch-store-versions.mjs` 采集写入；三家各自采集、单家失败只保留该家线上旧值并 `exit 1` 报红。Chrome 走 CWS API v2 `items/<id>:fetchStatus`（GET；在架 = `publishedItemRevisionStatus.distributionChannels[0].crxVersion`，审核中 = `submittedItemRevisionStatus...`），Edge 走店面端点 `getproductdetailsbycrxid/<crxId>`（官方 Partner Center API 没有读已发布版本的端点），Firefox 走 AMO 公开 API v5。本地自检：`node scripts/fetch-store-versions.mjs --dry-run`（直连被 RST 时加 `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=...`）。
+- **★ 官网并列显示两个版本号**（2026-09-30 起）：`latest.json` = **我们已发布**的版本；`stores.json` = **商店在架**的版本。二者语义不同、刻意分成两个文件 —— 商店审核有延迟，在架版本常落后于我们已发布的版本，只显示其中一个会让用户点进商店后看到不一致的版本号。`stores.json` 由独立工作流 `.github/workflows/store-versions.yml`（cron `0 */6 * * *` + `workflow_dispatch`，`environment: stores`）跑 `scripts/fetch-store-versions.mjs` 采集写入；三家各自采集、单家失败只保留该家线上旧值并 `exit 1` 报红。Chrome 走 CWS API v2 `items/<id>:fetchStatus`（GET；在架 = `publishedItemRevisionStatus.distributionChannels[0].crxVersion`，审核中 = `submittedItemRevisionStatus...`），Edge 走店面端点 `getproductdetailsbycrxid/<crxId>`（官方 Partner Center API 没有读已发布版本的端点），Firefox 走 AMO 公开 API v5。本地自检：`node scripts/fetch-store-versions.mjs --dry-run`（直连被 RST 时加 `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=...`）。**2026-10-12 起**：根包 `exclude-paths` 生效后，`latest.json` 等价于**扩展版本**（只随扩展产物变化），它和 `stores.json` 的差距才是真差距；此前版本号被网站提交推高（如 v2.15.1 相对商店 2.10.1 的落差是历史膨胀，不是扩展真改了 5 个版本）。
 
 ## 3. ★ Safari 硬约束（暂缓，勿投入）
 
