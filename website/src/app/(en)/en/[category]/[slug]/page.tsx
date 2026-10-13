@@ -5,7 +5,6 @@ import { buildPageMetadata } from '@/seo/metadata';
 import PageJsonLd from '@/seo/PageJsonLd';
 import ContentPage from '@/components/ContentPage';
 import { SITE } from '@/seo/config';
-import { SITE_UPDATED } from '@/lib/site-meta.js';
 
 // 内容页（英文树）：/en/[category]/[slug]。与中文树同一套渲染，仅 locale 与 URL 前缀不同。
 export const dynamicParams = false;
@@ -45,8 +44,8 @@ export default async function Page({ params }: Props) {
 
   const fm = article.frontmatter;
   const path = `/en/${category}/${slug}`;
+  // dateModified 与 sitemap 的 lastmod 同源：都取该文章的发布日期（md frontmatter 的 date）。
   const published = fm.date;
-  const modified = published && published > SITE_UPDATED ? published : SITE_UPDATED;
 
   return (
     <>
@@ -62,7 +61,7 @@ export default async function Page({ params }: Props) {
           description: fm.seoDescription,
           url: `${SITE.url}${path}`,
           datePublished: published,
-          dateModified: modified,
+          dateModified: published,
           locale: 'en',
         }}
       />
