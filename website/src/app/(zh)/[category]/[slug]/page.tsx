@@ -5,7 +5,6 @@ import { buildPageMetadata } from '@/seo/metadata';
 import PageJsonLd from '@/seo/PageJsonLd';
 import ContentPage from '@/components/ContentPage';
 import { SITE } from '@/seo/config';
-import { SITE_UPDATED } from '@/lib/site-meta.js';
 
 // 内容页（中文树）：/[category]/[slug]。category 是真实前缀（guide|fix|migrate|explain）。
 // 只枚举 manifest 里存在的组合；dynamicParams=false 让未知组合直接 404（静态导出行为）。
@@ -43,9 +42,9 @@ export default async function Page({ params }: Props) {
 
   const fm = article.frontmatter;
   const path = `/${category}/${slug}`;
-  // dateModified 取「max(发布日期, 站点更新日)」：避免出现修改日早于发布日。
+  // dateModified 与 sitemap 的 lastmod 同源：都取该文章的发布日期（md frontmatter 的 date）。
+  // 不再用站点更新日兜底 —— 否则站点级日期一前移，全部老文章都会谎称当天改过。
   const published = fm.date;
-  const modified = published && published > SITE_UPDATED ? published : SITE_UPDATED;
 
   return (
     <>
@@ -61,7 +60,7 @@ export default async function Page({ params }: Props) {
           description: fm.seoDescription,
           url: `${SITE.url}${path}`,
           datePublished: published,
-          dateModified: modified,
+          dateModified: published,
           locale: 'zh',
         }}
       />
