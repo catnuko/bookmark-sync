@@ -1,0 +1,31 @@
+name: IndexNow
+
+# 手动触发 —— 把官网 sitemap 里的全部 URL 推给 IndexNow（Bing / Yandex / Seznam / Naver 共用端点）。
+#
+# ★ 为什么手动、而不是 push:main 自动跑：官网由 Vercel 的 Git 集成部署，push 到 main 之后
+#   Vercel 还要构建几十秒到几分钟，GitHub Actions 这边无法可靠地得知「部署已完成」。
+#   脚本自带 key 文件上线轮询（最多 10 次 × 15s），所以在部署基本完成后手动点一次即可。
+#
+# ★ 只对 Bing 系生效：Google 不支持 IndexNow，Google 侧仍要走 GSC 的「请求编入索引」+ 外链。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 脚本只用 node 内置模块（fetch / fs），无需装依赖；22 与其它工作流保持一致。
+          node-version: 22
+
+      - name: Submit sitemap URLs to IndexNow
+        working-directory: website
+        run: node scripts/indexnow.mjs

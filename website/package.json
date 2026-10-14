@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "preview": "npx --yes serve out -l 4173",
+    "indexnow": "node scripts/indexnow.mjs",
     "check:ssg": "node scripts/check-ssg.mjs",
     "check:hydr": "node scripts/check-hydration.mjs",
     "check": "node scripts/check-ssg.mjs && node scripts/check-hydration.mjs"
