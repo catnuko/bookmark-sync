@@ -22,6 +22,9 @@
  *   node scripts/fetch-store-versions.mjs --dry-run      # 只采集并打印，不上传
  *   node scripts/fetch-store-versions.mjs --out <path>   # 另存本地一份便于检查
  *
+ * 导出：`fetchAllStoreVersions()` 供 scripts/store-gate.mjs 复用（商店提交前的版本闸门），
+ *       避免两处各写一份采集逻辑而漂移。CLI 直接跑时走 main()，作为模块 import 时不自动执行。
+ *
  * 退出码：三家全成功 = 0；**任一失败 = 1**（成功项照常写入，失败项保留线上旧值），
  * 让定时任务红起来，不至于把商店采集坏掉这件事静默掉。
  *
@@ -231,6 +234,26 @@ async function putStores(json) {
 
 // ---------------------------------------------------------------- 主流程
 
+/** 采集三家在架版本。复用点：scripts/store-gate.mjs 的版本闸门。 */
+export async function fetchAllStoreVersions() {
+  const stores = [
+    ['chrome', fetchChrome],
+    ['edge', fetchEdge],
+    ['firefox', fetchFirefox],
+  ];
+  const results = {};
+  const failures = [];
+  for (const [name, fn] of stores) {
+    try {
+      results[name] = await fn();
+    } catch (e) {
+      failures.push(name);
+      results[name] = { error: e.message };
+    }
+  }
+  return { results, failures };
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes('--dry-run');
@@ -239,25 +262,13 @@ async function main() {
 
   loadEnvFile();
 
-  const stores = [
-    ['chrome', fetchChrome],
-    ['edge', fetchEdge],
-    ['firefox', fetchFirefox],
-  ];
-
-  const results = {};
-  const failures = [];
-  for (const [name, fn] of stores) {
-    try {
-      results[name] = await fn();
-      console.log(`✓ ${name}: ${JSON.stringify(results[name])}`);
-    } catch (e) {
-      failures.push(name);
-      console.error(`✗ ${name}: ${e.message}`);
-    }
+  const { results, failures } = await fetchAllStoreVersions();
+  for (const [name, r] of Object.entries(results)) {
+    if (failures.includes(name)) console.error(`✗ ${name}: ${r.error}`);
+    else console.log(`✓ ${name}: ${JSON.stringify(r)}`);
   }
 
-  const succeeded = Object.keys(results);
+  const succeeded = Object.keys(results).filter((k) => !failures.includes(k));
   if (succeeded.length === 0) {
     console.error('\n三家全部采集失败，不覆盖线上 stores.json。');
     return 1;
@@ -266,7 +277,8 @@ async function main() {
   // 先取旧值，只覆盖本次成功的项 —— 单家失败不该把它的版本号抹掉。
   const prev = dryRun ? null : await getPrevStores();
   const { updatedAt: _ignored, ...prevRest } = prev && typeof prev === 'object' ? prev : {};
-  const merged = { updatedAt: new Date().toISOString(), ...prevRest, ...results };
+  const ok = Object.fromEntries(succeeded.map((k) => [k, results[k]]));
+  const merged = { updatedAt: new Date().toISOString(), ...prevRest, ...ok };
 
   const text = `${JSON.stringify(merged, null, 2)}\n`;
   if (outPath) {
