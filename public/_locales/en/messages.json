@@ -737,8 +737,11 @@
   "plan_plusFeat2": {
     "message": "3 sync spaces"
   },
-  "plan_devicesUnlimited": {
-    "message": "Unlimited devices"
+  "plan_plusDevices": {
+    "message": "Up to 6 devices"
+  },
+  "plan_proDevices": {
+    "message": "Up to 15 devices"
   },
   "plan_proFeat1": {
     "message": "Unlimited bookmarks"

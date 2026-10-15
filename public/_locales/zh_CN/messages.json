@@ -737,8 +737,11 @@
   "plan_plusFeat2": {
     "message": "3 个同步空间"
   },
-  "plan_devicesUnlimited": {
-    "message": "设备数量不限"
+  "plan_plusDevices": {
+    "message": "最多 6 台设备"
+  },
+  "plan_proDevices": {
+    "message": "最多 15 台设备"
   },
   "plan_proFeat1": {
     "message": "书签数量无限"
