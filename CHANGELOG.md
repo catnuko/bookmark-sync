@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.16.2](https://github.com/catnuko/bookmark-sync/compare/v2.16.1...v2.16.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ci:** 商店提交判定改用 conclusion，修掉「三家都成功却报失败」 ([5e91160](https://github.com/catnuko/bookmark-sync/commit/5e91160cd623b876c850fbd5295b0c6841e0ade7))
+* **ci:** 商店提交判定改用 conclusion，修掉「三家都成功却报失败」 ([fc21dd3](https://github.com/catnuko/bookmark-sync/commit/fc21dd36a8760d6294300f5c965126811a8659da))
+
 ## [2.16.1](https://github.com/catnuko/bookmark-sync/compare/v2.16.0...v2.16.1) (2026-10-15)
 
 
