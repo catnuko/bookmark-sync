@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.16.1](https://github.com/catnuko/bookmark-sync/compare/v2.16.0...v2.16.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ci:** 闸门 import 不再连带跑采集上传（商店提交首轮失败的根因） ([9b3bd59](https://github.com/catnuko/bookmark-sync/commit/9b3bd59875162020edf93c3d3b80f109531acb69))
+* **ci:** 闸门 import 不再连带跑采集上传（商店提交首轮失败的根因） ([dda5d90](https://github.com/catnuko/bookmark-sync/commit/dda5d904231f6fdff4ba5189a2a80b2194f83dba))
+
 ## [2.16.0](https://github.com/catnuko/bookmark-sync/compare/v2.15.1...v2.16.0) (2026-10-15)
 
 
