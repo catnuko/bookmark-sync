@@ -16,7 +16,7 @@
           <ul>
             <li><Icon name="check" />{{ t('plan_plusFeat1') }}</li>
             <li><Icon name="check" />{{ t('plan_plusFeat2') }}</li>
-            <li><Icon name="check" />{{ t('plan_devicesUnlimited') }}</li>
+            <li><Icon name="check" />{{ t('plan_plusDevices') }}</li>
           </ul>
           <button
             class="btn btn-secondary"
@@ -39,7 +39,7 @@
           <ul>
             <li><Icon name="check" />{{ t('plan_proFeat1') }}</li>
             <li><Icon name="check" />{{ t('plan_proFeat2') }}</li>
-            <li><Icon name="check" />{{ t('plan_devicesUnlimited') }}</li>
+            <li><Icon name="check" />{{ t('plan_proDevices') }}</li>
           </ul>
           <button
             class="btn btn-primary"
