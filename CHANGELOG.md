@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.16.0](https://github.com/catnuko/bookmark-sync/compare/v2.15.1...v2.16.0) (2026-10-15)
+
+
+### Features
+
+* **admin:** admin_overview 增补按设备名聚合的设备台数 ([60e0f21](https://github.com/catnuko/bookmark-sync/commit/60e0f21ec5aee58442d20e28e76bef4db658d8a7))
+* **ci:** 商店提交自动化（release 末尾自动 dispatch + 版本闸门） ([aed4bc9](https://github.com/catnuko/bookmark-sync/commit/aed4bc93db0f689bed957bd09372bfb4e14e918c))
+* **ci:** 商店提交自动化（release 末尾自动 dispatch + 版本闸门） ([186d6b2](https://github.com/catnuko/bookmark-sync/commit/186d6b20e79ab8b4ec8a9ce40a2991a17c29a9b2))
+
+
+### Bug Fixes
+
+* **i18n:** 升级弹窗设备上限改回真实值（Plus 6 台 / Pro 15 台） ([c55cf51](https://github.com/catnuko/bookmark-sync/commit/c55cf51f6e5d83a20a802a46a69a432db944cde8))
+* **i18n:** 升级弹窗设备上限改回真实值（Plus 6 台 / Pro 15 台） ([6460907](https://github.com/catnuko/bookmark-sync/commit/64609074af176c6146df148ba16857a381a99df8))
+
 ## [2.15.1](https://github.com/catnuko/bookmark-sync/compare/v2.15.0...v2.15.1) (2026-10-10)
 
 
