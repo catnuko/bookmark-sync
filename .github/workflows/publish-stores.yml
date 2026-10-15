@@ -23,6 +23,12 @@ name: Publish to stores
 # ★ 手动触发默认**不**碰商店（本工作流本身就是手动触发的，且只提交不打包）：
 #   同一版本重复提交会被三家商店以「版本号未递增」拒绝，所以只在明确要提交时才跑。
 #
+# ★ 2026-10-15：接上「版本闸门」后，本工作流也可由 release.yml 末尾自动 dispatch。
+#   闸门（scripts/store-gate.mjs）逐家比对目标版本与商店在架版本：目标不高于在架
+#   （或正是审核中的 pending）就跳过该家，避免误触发造成的「版本号未递增」拒绝。
+#   手动触发与自动 dispatch 走同一条路径，行为一致 —— 手动触发同样受闸门约束，
+#   所以「补交旧版本」必须按版本递增顺序逐次跑，一次跳多个版本会全部被跳过。
+#
 # 用法：Actions → Publish to stores → Run workflow
 #   tag 留空 = 取最新 Release；也可显式填 v2.5.3 重提某个旧版本。
 #
@@ -92,13 +98,35 @@ jobs:
           echo "本次提交目标：${TAG}（版本 ${VER}）"
 
       - name: Setup Node.js
-        # 本 job 不 checkout、不装项目依赖；setup-node 只为满足 CLI 的
-        # engines: node >= 22（release.yml 的 build job 用的是 Node 20，跑不了）。
+        # setup-node 只为满足 CLI 的 engines: node >= 22
+        # （release.yml 的 build job 用的是 Node 20，跑不了）。
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
+      # 闸门要跑 scripts/store-gate.mjs，需要仓库源码。刻意浅克隆 + 不装依赖：
+      # 本 job 只有两个 Node 脚本要跑（store-gate / 无），都是零依赖原生脚本。
+      - name: Checkout (for store gate script)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/
+          sparse-checkout-cone-mode: false
+
+      # ★ 版本闸门：目标版本 vs 三家在架版本（含 Chrome 的审核中 pending）。
+      #   逐家输出 submit / skip。三家全 skip 时后面的步骤整体跳过，不下载 zip、不跑 CLI。
+      #   采集失败时放行（submit），宁可红在商店侧也不静默漏发。
+      - name: Store version gate
+        id: gate
+        env:
+          TARGET_VERSION: ${{ steps.resolve.outputs.version }}
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+        run: node scripts/store-gate.mjs
+
       - name: Download zips from GitHub Release
+        # 闸门全 skip 时无需下载；有任一家要提交才下载（zip 三家共用一份 chromium）。
+        if: steps.gate.outputs.all_skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -152,6 +180,7 @@ jobs:
       #   能分别展示在 step summary 里。各步骤 continue-on-error，末尾统一报红。
       - name: Submit to Chrome Web Store
         id: chrome
+        if: steps.gate.outputs.chrome == 'submit'
         continue-on-error: true
         env:
           # 固定常量内联，不走 vars：未配置的 var 渲染成空串会把 CLI 的
@@ -169,6 +198,7 @@ jobs:
 
       - name: Submit to Edge Add-ons
         id: edge
+        if: steps.gate.outputs.edge == 'submit'
         continue-on-error: true
         env:
           EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
@@ -180,6 +210,7 @@ jobs:
 
       - name: Submit to Firefox AMO
         id: firefox
+        if: steps.gate.outputs.firefox == 'submit'
         continue-on-error: true
         env:
           FIREFOX_EXTENSION_ID: bookmark-sync@bookmarksync.app
@@ -195,22 +226,38 @@ jobs:
         if: always()
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
+          CHROME_REASON: ${{ steps.gate.outputs.chrome_reason }}
+          EDGE_REASON: ${{ steps.gate.outputs.edge_reason }}
+          FIREFOX_REASON: ${{ steps.gate.outputs.firefox_reason }}
         run: |
+          # 被闸门跳过的 step，outcome 是 skipped —— 那不是失败，单独标注。
+          row() {
+            case "$2" in
+              skipped) echo "| $1 | 跳过（闸门） | $3 |" ;;
+              success) echo "| $1 | 已提交 | $3 |" ;;
+              failure) echo "| $1 | **失败** | $3 |" ;;
+              *)       echo "| $1 | $2 | $3 |" ;;
+            esac
+          }
           {
             echo "## 商店提交结果（${TAG:-未解析}）"
             echo ""
-            echo "| 商店 | 结果 |"
-            echo "|---|---|"
-            echo "| Chrome Web Store | ${{ steps.chrome.outcome }} |"
-            echo "| Edge Add-ons | ${{ steps.edge.outcome }} |"
-            echo "| Firefox AMO | ${{ steps.firefox.outcome }} |"
+            echo "| 商店 | 结果 | 闸门理由 |"
+            echo "|---|---|---|"
+            row "Chrome Web Store" "${{ steps.chrome.outcome }}" "$CHROME_REASON"
+            row "Edge Add-ons"      "${{ steps.edge.outcome }}" "$EDGE_REASON"
+            row "Firefox AMO"       "${{ steps.firefox.outcome }}" "$FIREFOX_REASON"
             echo ""
+            if [ "${{ steps.gate.outputs.all_skip }}" = "true" ]; then
+              echo "> 三家在架版本均已达到或高于目标，本次未提交任何商店。"
+            fi
             echo "> 本工作流只提交商店，不影响任何已发布产物（tag / Release / 官网下载）。"
             echo "> 重试：Actions → Publish to stores → Run workflow（tag 填 ${TAG}）。"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # 各提交步骤 continue-on-error 保证三家都尝试；这里统一把失败炸出来
       # （job 红 + run 红），避免「商店没提交成功」被当成成功。
+      # 闸门跳过的 step outcome 为 skipped，不计入失败。
       - name: Fail if any store submission failed
         env:
           TAG: ${{ steps.resolve.outputs.tag }}

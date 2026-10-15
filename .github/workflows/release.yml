@@ -20,13 +20,15 @@ name: Automated Release
 #      仓库不再提交 zip 二进制（website/public/downloads 已 gitignore）。
 #      源码包只挂 Release，不进 Supabase —— 官网访客不需要源码。
 #
-#   6. ★ 三家商店（Chrome / Edge / Firefox AMO）的提交**不在本工作流里**：
-#      见 .github/workflows/publish-stores.yml —— 独立 workflow_dispatch 工作流，
-#      人在 Actions 页面点一次「Run workflow」即放行，这是全流程唯一的人工动作。
-#      为什么不挂在本工作流末尾：私有仓库 + Free 套餐不支持 environment 的
-#      required reviewers / wait timer 保护规则（API 实测 422「billing plan
-#      supports ... protection rule」），没法在流水线中途暂停等审批。
-#      商店提交失败不影响本工作流已发布的一切（tag / Release / 官网下载）。
+#   6. ★ 三家商店（Chrome / Edge / Firefox AMO）的提交由本工作流末尾自动 dispatch：
+#      见 .github/workflows/publish-stores.yml —— 独立工作流，本文件只在「tag/Release/
+#      zip/官网全部就绪」后踢一脚。商店提交失败不影响上面任何产物。
+#      防重复提交不在 dispatch 这一步，而在 publish-stores.yml 的版本闸门
+#      （scripts/store-gate.mjs 逐家比对目标版本与在架版本），所以误触发也安全。
+#      历史：2026-09-29 起商店提交是手动 workflow_dispatch（唯一人工动作），
+#      因为私有仓库 + Free 套餐不支持 environment 保护规则，无法在流水线中途暂停等审批。
+#      2026-10-15 改为自动 dispatch + 版本闸门，全流程零人工。
+#      仍需人工的场景：凭证过期/修错后重试 → Actions → Publish to stores → Run workflow。
 #
 # 开发流程：所有改动走 dev 分支，用 Conventional Commits 提交，合并到 main 即自动发版。
 # 提交格式示例：
@@ -43,7 +45,8 @@ name: Automated Release
 #     （GitHub Release 用 --clobber，Supabase 用 x-upsert），可反复执行。
 #   - 「商店没提交成功」（凭证错/过期、审核系统抖动）→ 先修 stores environment 的
 #     凭证，再跑 publish-stores.yml（Actions → Publish to stores → Run workflow），
-#     只提交商店，不重跑打包、不重建 tag。
+#     只提交商店，不重跑打包、不重建 tag。注意闸门会跳过「不高于在架版本」的目标，
+#     所以补交旧版本必须按版本递增顺序逐次跑。
 
 on:
   push:
@@ -283,3 +286,15 @@ jobs:
           upload "bookmark-sync-firefox-$VER.zip"   "application/zip"  "dist/bookmark-sync-firefox-$VER.zip"
           printf '{"version":"%s"}\n' "$VER" > latest.json
           upload "latest.json" "application/json" "latest.json"
+
+      # ★ 2026-10-15：商店提交改为自动 dispatch（原来是唯一的人工动作）。
+      #   只在此刻（tag/Release/zip/官网全部就绪）才踢，商店提交失败不影响上面任何产物。
+      #   重复提交的防护不在这一步，而在 publish-stores.yml 的「版本闸门」
+      #   （scripts/store-gate.mjs 逐家比对目标版本与在架版本），所以自动触发
+      #   被误跑也不会造成「版本号未递增」的拒绝。
+      #   仍需人工的场景：修凭证后重试 → Actions → Publish to stores → Run workflow。
+      - name: Dispatch store submission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run publish-stores.yml --ref main
