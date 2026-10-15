@@ -244,9 +244,9 @@ jobs:
             echo ""
             echo "| 商店 | 结果 | 闸门理由 |"
             echo "|---|---|---|"
-            row "Chrome Web Store" "${{ steps.chrome.outcome }}" "$CHROME_REASON"
-            row "Edge Add-ons"      "${{ steps.edge.outcome }}" "$EDGE_REASON"
-            row "Firefox AMO"       "${{ steps.firefox.outcome }}" "$FIREFOX_REASON"
+            row "Chrome Web Store" "${{ steps.chrome.conclusion }}" "$CHROME_REASON"
+            row "Edge Add-ons"      "${{ steps.edge.conclusion }}" "$EDGE_REASON"
+            row "Firefox AMO"       "${{ steps.firefox.conclusion }}" "$FIREFOX_REASON"
             echo ""
             if [ "${{ steps.gate.outputs.all_skip }}" = "true" ]; then
               echo "> 三家在架版本均已达到或高于目标，本次未提交任何商店。"
@@ -257,11 +257,14 @@ jobs:
 
       # 各提交步骤 continue-on-error 保证三家都尝试；这里统一把失败炸出来
       # （job 红 + run 红），避免「商店没提交成功」被当成成功。
-      # 闸门跳过的 step outcome 为 skipped，不计入失败。
+      # ★ 必须用 conclusion 而不是 outcome：continue-on-error 的步骤即使成功，
+      #   outcome 也返回 failure（outcome 反映 continue-on-error 之前的结果），
+      #   用 outcome 会让「三家都提交成功」的 run 误判为失败（2026-10-15 v2.16.1 实测）。
+      #   闸门跳过的 step conclusion 为 skipped，不计入失败。
       - name: Fail if any store submission failed
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
-        if: steps.chrome.outcome == 'failure' || steps.edge.outcome == 'failure' || steps.firefox.outcome == 'failure'
+        if: steps.chrome.conclusion == 'failure' || steps.edge.conclusion == 'failure' || steps.firefox.conclusion == 'failure'
         run: |
           echo "::error::商店提交失败（详见 step summary 与各步骤日志）。Release ${TAG} 本身不受影响；修好 stores environment 的凭证后重跑本工作流即可。"
           exit 1
