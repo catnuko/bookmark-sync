@@ -328,10 +328,17 @@ async function writeSummary(merged, failures, dryRun) {
   }
 }
 
-main().then(
-  (code) => process.exit(code),
-  (e) => {
-    console.error(`::error::${e?.stack || e}`);
-    process.exit(1);
-  },
-);
+// 仅在「直接作为 CLI 执行」时跑 main；被 import（如 scripts/store-gate.mjs 的闸门）
+// 时不自动执行 —— 否则闸门 import 时会连带跑一遍采集 + 上传，缺
+// SUPABASE_SERVICE_ROLE_KEY 就把闸门自己炸掉（2026-10-15 实测）。
+const invokedDirectly =
+  typeof process.argv[1] === 'string' && process.argv[1].endsWith('fetch-store-versions.mjs');
+if (invokedDirectly) {
+  main().then(
+    (code) => process.exit(code),
+    (e) => {
+      console.error(`::error::${e?.stack || e}`);
+      process.exit(1);
+    },
+  );
+}
