@@ -47,6 +47,14 @@
 
     // 商店推广长文（PUBLISH-GUIDE / article-zh / article-en）。同上述理由：
     // oxfmt 只会把表格列宽重排，是纯 churn，且这些文档不由我们的解析器消费。
-    "extension-infomation/**/*.md"
+    "extension-infomation/**/*.md",
+
+    // oh-my-claudecode 的本地状态目录（会话状态 / 通知节流 / 后台任务痕迹）。
+    // 这些 JSON 由工具在运行时不断重写，不是我们的源码：
+    //   1) 它们不在 git 里（.omc 未被 .gitignore，但也从未提交），格式化它们无收益；
+    //   2) 内容随时被改写，格式化完下一秒就失效，`fmt:check` 会因此随机变红；
+    //   3) CI 上全新 checkout 没有这个目录，所以加这条不影响 CI 结果 ——
+    //      它只修本地 `pnpm check` 的假红。
+    ".omc/"
   ]
 }
