@@ -38,8 +38,13 @@ on:
         default: false
 
 permissions:
-  # 不碰仓库内容：只需要读代码、写外部 Supabase。
+  # contents: read  —— 读仓库源码（脚本）。
+  # actions: write  —— 「Catch up Chrome submission」步骤要 dispatch publish-stores.yml。
+  #                  release.yml 的 dispatch 步骤同样只靠 GITHUB_TOKEN 的
+  #                  actions:write（workflow_dispatch 不受「GITHUB_TOKEN 触发的事件
+  #                  被递归抑制」约束，实测可用）。刻意不加 contents:write。
   contents: read
+  actions: write
 
 concurrency:
   # 采集之间互不干扰，但避免 schedule 与手动触发重叠写同一个对象。
@@ -95,3 +100,34 @@ jobs:
           else
             node scripts/fetch-store-versions.mjs
           fi
+
+      # ★ 商店补发：Chrome 因「审核中不许再提交」被闸门跳过的版本，事后补一刀。
+      #   发版时 Chrome 正在审上一版 → 闸门 skip → 没人再推最新版 → Chrome 永久停在
+      #   旧版本（2026-10-15 实测：Chrome 2.16.0 / Firefox 2.16.2）。本步骤挂在采集
+      #   之后，每轮检查一次「Chrome 是否落后于最新 Release 且不在审核中」，是则
+      #   dispatch publish-stores.yml 补发。
+      #   if: always() —— 采集本身失败（exit 1）不该连带跳过补发判定；补发脚本自己
+      #   会重新采集一次，只看 Chrome 的数据，采集失败就不 dispatch。
+      #   continue-on-error: true —— dispatch 失败（权限/API 抖动）不该让**采集**这
+      #   个每 6 小时的定时任务变红，把真正的信号（商店版本采集中断）淹掉。补发失败
+      #   的后果只是「再等 6 小时下一轮」，不致命；采集失败才是要人看的。
+      #   dry_run 时跳过 —— 那个输入的用途就是「只看看，别写任何东西」。
+      #   只补 Chrome：Edge 走店面端点看不到审核中版本，无法判断能否安全提交；
+      #   Firefox 允许审核中提交，发版时的 dispatch 已覆盖它。
+      - name: Catch up Chrome submission
+        if: always() && inputs.dry_run != true
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+        run: |
+          # 取最新 Release 的 tag；没有 Release（新项目/全被删）就跳过。
+          TAG=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          if [ -z "$TAG" ]; then
+            echo "没有 Release，跳过补发判定。"
+            exit 0
+          fi
+          LATEST_TAG="$TAG" node scripts/store-catchup.mjs

@@ -244,9 +244,9 @@ jobs:
             echo ""
             echo "| 商店 | 结果 | 闸门理由 |"
             echo "|---|---|---|"
-            row "Chrome Web Store" "${{ steps.chrome.conclusion }}" "$CHROME_REASON"
-            row "Edge Add-ons"      "${{ steps.edge.conclusion }}" "$EDGE_REASON"
-            row "Firefox AMO"       "${{ steps.firefox.conclusion }}" "$FIREFOX_REASON"
+            row "Chrome Web Store" "${{ steps.chrome.outcome }}" "$CHROME_REASON"
+            row "Edge Add-ons"      "${{ steps.edge.outcome }}" "$EDGE_REASON"
+            row "Firefox AMO"       "${{ steps.firefox.outcome }}" "$FIREFOX_REASON"
             echo ""
             if [ "${{ steps.gate.outputs.all_skip }}" = "true" ]; then
               echo "> 三家在架版本均已达到或高于目标，本次未提交任何商店。"
@@ -257,14 +257,22 @@ jobs:
 
       # 各提交步骤 continue-on-error 保证三家都尝试；这里统一把失败炸出来
       # （job 红 + run 红），避免「商店没提交成功」被当成成功。
-      # ★ 必须用 conclusion 而不是 outcome：continue-on-error 的步骤即使成功，
-      #   outcome 也返回 failure（outcome 反映 continue-on-error 之前的结果），
-      #   用 outcome 会让「三家都提交成功」的 run 误判为失败（2026-10-15 v2.16.1 实测）。
-      #   闸门跳过的 step conclusion 为 skipped，不计入失败。
+      # ★ 必须用 outcome 而不是 conclusion —— GitHub 官方语义（Contexts 文档）：
+      #   outcome   = 应用 continue-on-error **之前**的结果（步骤命令的真实成败）
+      #   conclusion= 应用 continue-on-error **之后**的结果
+      #   本文件三个 submit 步骤都是 continue-on-error: true，所以命令失败时
+      #   conclusion 会被伪装成 success，只有 outcome 仍是 failure。
+      # 2026-10-15 v2.16.1 曾反过来改成 conclusion，导致「Chrome 报 400 却整轮报绿」：
+      # 那次 run 的 Chrome 日志里明明有 "You may not edit or publish an item that is
+      # in review." + exit code 1，conclusion 却是 success，失败检测成了死代码。
+      # 当时的误判源于 UI：continue-on-error 的步骤即使成功，outcome 也是 failure，
+      # 于是看着像「三家都成功却报红」——其实 outcome 的 failure 未必是真失败，
+      # 要区分得看日志，而不是把判据整个换掉。已回退为 outcome。
+      # 闸门跳过的 step outcome 为 skipped，不计入失败。
       - name: Fail if any store submission failed
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
-        if: steps.chrome.conclusion == 'failure' || steps.edge.conclusion == 'failure' || steps.firefox.conclusion == 'failure'
+        if: steps.chrome.outcome == 'failure' || steps.edge.outcome == 'failure' || steps.firefox.outcome == 'failure'
         run: |
           echo "::error::商店提交失败（详见 step summary 与各步骤日志）。Release ${TAG} 本身不受影响；修好 stores environment 的凭证后重跑本工作流即可。"
           exit 1

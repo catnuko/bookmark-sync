@@ -62,12 +62,26 @@ describe('decideStore（单家闸门判定）', () => {
     });
     expect(r.action).toBe('skip');
     expect(r.reason).toContain('正在审核中');
+    expect(r.reason).toContain('PENDING_REVIEW');
   });
 
-  it('pending 是别的版本 → 按在架版本正常判定', () => {
-    // 在架 2.15.1、审核中 2.15.2，目标 2.15.3 → 照常提交
-    const r = decideStore('2.15.3', { version: '2.15.1', pending: '2.15.2' });
+  it('★ pending 是别的版本 → 也跳过（Chrome in-review 与目标无关，2026-10-15 v2.16.1/2.16.2 实测）', () => {
+    // 在架 2.10.1、审核中 2.16.0，目标 2.16.2 —— 目标比 pending 高，但 Chrome 照样
+    // 返回 400 NOT_UPDATEABLE，所以必须跳过。
+    const r = decideStore('2.16.2', {
+      version: '2.10.1',
+      pending: '2.16.0',
+      pendingState: 'PENDING_REVIEW',
+    });
+    expect(r.action).toBe('skip');
+    expect(r.reason).toContain('2.16.0 正在审核中');
+    expect(r.reason).toContain('与目标 2.16.2 不同但同样被拒');
+  });
+
+  it('pending 是非版本号（采集异常）→ 按无 pending 处理，照在架判定', () => {
+    const r = decideStore('2.15.2', { version: '2.10.1', pending: null });
     expect(r.action).toBe('submit');
+    expect(r.reason).toContain('在架 2.10.1 < 目标 2.15.2');
   });
 
   it('采集失败 → 放行（宁可红在商店侧，也不静默漏发）', () => {

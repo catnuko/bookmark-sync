@@ -9,9 +9,19 @@
  * 判据（复用 fetch-store-versions.mjs 的采集逻辑，不另写一份）：
  *   - 目标版本 > 在架版本            → 放行（submit）
  *   - 目标版本 <= 在架版本           → 跳过（skip，该家已等于或高于目标）
- *   - 目标版本 == pending（审核中）   → 跳过（skip，已提交过，正在审）
+ *   - 该家**有任何版本在审核中**      → 跳过（skip，已提交过，正在审）
  *   - 采集失败                        → 保守起见放行（submit），让商店自己拒绝；
  *                                       宁可红在商店侧，也不因探测失败而静默漏发。
+ *
+ * ★ 为什么「有任何 pending 就跳过」，而不是「pending == 目标才跳过」：
+ *   Chrome Web Store 的硬限制是「只要有 item 在审核中，就不许 edit or publish」，
+ *   与被提交的版本号无关 —— 2026-10-15 实测：v2.16.0 提交后进审核，随后 v2.16.1
+ *   和 v2.16.2 的提交都被拒（400 FAILED_PRECONDITION / NOT_UPDATEABLE），
+ *   而它们的 pending 分别是自己（2.16.1）和不存在（2.16.2 提交时 2.16.0 正在审）。
+ *   原判据只认 `pending === target`，于是这两次都被放行、撞墙。
+ *   Firefox AMO 允许在审核中继续提交（排队），所以这条规则实际只影响 Chrome；
+ *   Edge 不受影响（它接受提交但不上架，版本落后由下方补发机制解决）。
+ *   代价是「排队中跳过一次自动提交」—— 由 store-catchup.yml 定时补发兜底。
  *
  * 输出：GITHUB_OUTPUT 写 chrome=edge=firefox=<submit|skip>，以及人类可读的 reason；
  *       同时写 GITHUB_STEP_SUMMARY 表格。退出码恒 0 —— 闸门的职责是「决定要不要提交」，
@@ -55,10 +65,17 @@ export function decideStore(target, info) {
   if (!live || !VERSION_RE.test(live)) {
     return { action: 'submit', reason: `在架版本异常（${JSON.stringify(live)}），交由商店侧判定` };
   }
-  if (info.pending && compareVersions(target, info.pending) === 0) {
+  // 有任意版本在审核中就跳过 —— Chrome 的 in-review 是硬闸，与目标版本号无关。
+  // 只认 version 形态合法的 pending；采集不到 pending 时按无 pending 处理。
+  if (info.pending && VERSION_RE.test(info.pending)) {
+    const sameAsTarget = compareVersions(target, info.pending) === 0;
     return {
       action: 'skip',
-      reason: `${target} 正在审核中（pending=${info.pending}${info.pendingState ? ` · ${info.pendingState}` : ''}），重复提交会被拒`,
+      reason:
+        `${info.pending} 正在审核中` +
+        `${info.pendingState ? `（${info.pendingState}）` : ''}` +
+        `${sameAsTarget ? '' : `，与目标 ${target} 不同但同样被拒`}` +
+        `，该家不允许审核中再次提交`,
     };
   }
   const cmp = compareVersions(target, live);
