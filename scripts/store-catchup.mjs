@@ -43,8 +43,10 @@ import { decideStore } from './store-gate.mjs';
  * 决定要不要 dispatch 一次商店提交。纯函数，便于测试（tests/store-catchup.test.ts）。
  *
  * @param {string} latest 最新 Release 的版本号（不带 v 前缀）
- * @param {Record<string, {version?: string, pending?: string, error?: string}>} results
- *         fetchAllStoreVersions() 返回的 results
+ * @param {Record<string, {version?: string, pending?: string, pendingState?: string, error?: string} | null>} results
+ *         fetchAllStoreVersions() 返回的 results。某家采集失败时该项为 null
+ *         （fetchAllStoreVersions 的单家失败处理），故值类型需含 null。
+ *         pendingState 与 store-gate.mjs 的 decideStore() 读取的字段一致。
  * @returns {{dispatch: boolean, reason: string}}
  */
 export function planCatchup(latest, results) {
@@ -92,9 +94,13 @@ async function main() {
   }
   // 显式传 tag：与 resolve 步骤「取最新 Release」等价，但少一次竞态。
   console.log(`dispatch publish-stores.yml（ref=main, tag=${tag}）…`);
-  execFileSync('gh', ['workflow', 'run', 'publish-stores.yml', '--ref', 'main', '-f', `tag=${tag}`], {
-    stdio: 'inherit',
-  });
+  execFileSync(
+    'gh',
+    ['workflow', 'run', 'publish-stores.yml', '--ref', 'main', '-f', `tag=${tag}`],
+    {
+      stdio: 'inherit',
+    },
+  );
   console.log('已 dispatch。提交结果看 Publish to stores 工作流。');
 }
 
