@@ -187,15 +187,18 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - 视觉验证以截图对照参考实现为准。
 - 本文件是开发注意事项，README 才是面向部署/发布的完整说明。
 
-### ★ 本地开发直接推分支，不开 PR（2026-10-16 定，取代「改完开 PR」的旧做法）
+### ★ 本地开发一律走 PR（2026-10-16 定；曾短暂改为「直接推 dev」，当天改回）
 
-本项目是**单人、单机**开发，本地改动**直接 `git push origin dev`**，不需要走 PR。
+改动完成后：**提交 → push 到独立分支 → 开 PR 到 `dev` → 由用户合并**。不要直接 push 到 `dev` 或 `main`。
 
-- **授权怎么给**：一次授权覆盖「提交 + 推送」两个动作（例：「改完直接推 dev」）。授权后**不必每次再问**，同一条工作流内持续有效；改**新任务**、或要动 `main` / 发版链路时，重新确认。
-- **为什么**：单人仓库开 PR 只是给自己加一道手续 —— PR 的 review 界面、分支保护、CI 门禁在单机场景下都不产生额外信息，却多出「建分支 → push → 开 PR → 等合并 → 本地 pull」五步。2026-10-16 实测：仅改一个 `.github/workflows/ci.yml`，走了 worktree → 新分支 → push → PR #68 → 人工合并 → 主目录还要 `git pull` 才看得见，代价与收益完全倒挂。
-- **仍然要走 PR 的两种情况**：
-  1. **`dev → main` 的发版合并**照旧（那是 release-please 的输入，见第 2 节；且**不要 squash**，避免折叠 Conventional 前缀）；
-  2. 需要留一份可回溯的变更说明给未来的自己（大重构、破坏性变更）—— 此时**由用户决定**是否开 PR，不是默认动作。
-- **推送目标恒为 `dev`**：`main` 只能由 release PR 合入（第 2 节「禁止手动打 tag / 建 Release」同理）。**禁止 `git push --force`、禁止直接推 `main`。**
-- 后台任务/并行 agent 若在 worktree 里干活，隔离照旧（防互相踩），但收尾时同样是「commit + push 到 `dev`」，不开 PR。
-- 提交信息照旧用 Conventional Commits（`feat:` / `fix:` / `chore:` 等）—— 它决定 release-please 的版本判定，与走不走 PR 无关。
+- **为什么最终选 PR 而不是直接推**（2026-10-16 两次反复后的定论）：worktree 是物理上**另一个目录**，改动的文件不在主目录里。开 PR 后，合并动作由用户在自己熟悉的 `dev` 上完成，主目录 `git pull` 一次即得 —— 这是唯一一条「改动必然经过用户之手、且用户知道该去哪里看」的路径。直接推 `dev` 虽然技术上可行（worktree 里 `git push origin HEAD:dev` 实测成功），但用户的主目录不会自动更新，容易漏 pull；且缺少一次人工确认的卡点。
+- **PR 的基本要求**：
+  - base 恒为 `dev`，**不是** `main`；
+  - **不要 squash**（避免折叠 Conventional 前缀，见第 2 节）；
+  - 标题用 Conventional Commits（`feat:` / `fix:` / `chore:` 等）—— 它决定 release-please 的版本判定；
+  - body 写清「改了什么 / 为什么 / 怎么验证的」，大改动附风险与回滚方式。
+- **合并由用户做**：开完 PR 告知链接与要点，等用户合并；**不代用户合 PR**（第 2 节同此纪律）。
+- **`dev → main` 的发版合并**照旧走 release PR（那是 release-please 的输入，见第 2 节）。
+- **禁止**：`git push --force`、直接推 `main`、绕过 PR 直接改 `dev`。
+- 后台任务/并行 agent 在 worktree 里干活时隔离照旧（防互相踩），收尾同样是「commit → push 分支 → 开 PR」，不开后门。
+- **PR 合并后**：提醒用户在主目录 `git pull`（worktree 的改动不会自动出现在主目录）。
