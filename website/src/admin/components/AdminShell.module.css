@@ -1,0 +1,169 @@
+.adminShell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-bg-soft);
+}
+.adminSide {
+  width: 220px;
+  background: #111214;
+  color: #e5e5e5;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 4px 12px 20px;
+  color: #fff;
+}
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #b8b8b8;
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.navItem.active {
+  background: var(--color-accent);
+  color: #fff;
+}
+.icon {
+  width: 20px;
+  text-align: center;
+}
+.sideFoot {
+  margin-top: auto;
+  padding: 12px;
+}
+.backSite {
+  color: #888;
+  font-size: 13px;
+  text-decoration: none;
+}
+.backSite:hover {
+  color: #fff;
+}
+
+/* 遮罩只在移动端抽屉打开时出现 */
+.scrim {
+  display: none;
+}
+
+.adminMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.adminTop {
+  height: 52px;
+  background: #fff;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+.menuBtn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
+  border-radius: 8px;
+  color: var(--color-text);
+}
+.menuBtn:hover {
+  background: var(--color-bg-muted);
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--color-text-soft);
+}
+.whoMail {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btnGhost {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btnGhost:hover {
+  background: var(--color-bg-muted);
+}
+.adminContent {
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .adminSide {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(280px, 80vw);
+    height: auto;
+    overflow-y: auto;
+    padding: max(20px, env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+    transform: translateX(-100%);
+    /* visibility 让收起的抽屉脱离 tab 序 / 无障碍树 */
+    visibility: hidden;
+    transition:
+      transform 220ms var(--ease-out),
+      visibility 220ms;
+    z-index: 60;
+  }
+  .drawerOpen .adminSide {
+    transform: none;
+    visibility: visible;
+  }
+  .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.42);
+    padding: 0;
+    border: 0;
+    touch-action: none;
+  }
+  .menuBtn {
+    display: inline-flex;
+  }
+  .adminTop {
+    height: 56px;
+    padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+  }
+  .adminContent {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .whoMail {
+    display: none;
+  }
+}

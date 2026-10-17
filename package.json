@@ -1,7 +1,7 @@
 {
   "name": "bookmark-sync",
   "private": true,
-  "version": "2.10.1",
+  "version": "2.16.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,8 +17,8 @@
     "e2e": "node scripts/e2e/run.mjs",
     "e2e:reset": "node scripts/e2e/run.mjs reset",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint src/ scripts/e2e/ tests/ website/src/",
-    "lint:fix": "oxlint --fix src/ scripts/e2e/ tests/ website/src/",
+    "lint": "oxlint src/ scripts/e2e/ tests/ website/",
+    "lint:fix": "oxlint --fix src/ scripts/e2e/ tests/ website/",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "check": "npm run typecheck && npm run lint && npm run fmt:check && npm run test"

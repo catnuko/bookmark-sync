@@ -62,7 +62,11 @@ interface SyncSummary {
   push: boolean;
   pull: boolean;
   dec: number;
-  /** 本机无处落地的书签条数（runSync 的 unplaced；0 = 无）。 */
+  /**
+   * 本机无处落地的书签条数（runSync 的 unplaced；0 = 无）。
+   * **仅供诊断，不进 UI**（2026-10-09）：这是 Chrome 环境造成的人为限制，不是
+   * 故障，展示出来会被用户当成插件坏了。排查看 background 控制台。
+   */
   unplaced: number;
 }
 
@@ -970,9 +974,11 @@ function summaryText(sum: SyncSummary | null): string {
   else if (sum.pull) body = t('status_pulled');
   else body = t('status_uptodate');
   if (sum.dec > 0) body += ` · ${t('status_decryptWarn', sum.dec)}`;
-  // 「本机看不到的本地书签」和方向摘要一样是**结果**的一部分，跟着一起展示
-  // （旧版本持久化的摘要没有 unplaced 字段 → undefined > 0 为 false，天然兼容）。
-  if (sum.unplaced > 0) body += ` · ${t('status_unplacedWarn', sum.unplaced)}`;
+  // ★ 不展示 unplaced（「N 条本地书签本机看不到」）。它是**环境造成的人为限制**
+  // （Chrome 已登录 + 本地子树为空 → 不创建本地根），不是插件故障，也不是用户
+  // 能靠「重试 / 重新登录」解决的问题。挂在状态行上会让用户以为插件坏了
+  // （2026-10-09 反馈）。需要排查时看 background 控制台的 `[bsync] N 个落地根…`。
+  // 字段仍写进持久化摘要，供诊断/日志回放，不进 UI。
   return body;
 }
 
@@ -1482,25 +1488,18 @@ export const syncSub = computed(() => {
   const decrypt = state.lastDecryptErrors?.errors?.length;
   if (decrypt) return t('status_decryptLine', decrypt);
   const sum = parseSummary(state.lastSyncSummary);
-  // 「本机无处落地」**不单列一行**：它和方向摘要一样是「本轮结果」的一部分，由
-  // summaryText 以 `· ⚠️ N 条本地书签本机看不到` 的小尾巴跟在后面（与 decryptWarn 同款）。
-  // （曾单列一行并顶掉「已是最新」，但该情况在「已登录 + 本地为空」的设备上**每轮都会
-  // 出现**，长期顶掉常规状态反而让人看不出同步本身有没有问题。）
+  // 「本机无处落地」既不单列一行、也不挂状态行尾巴（2026-10-09：属环境限制而非
+  // 故障，展示出来会被当成「插件坏了」）。只在 background 控制台留warn。
   if (sum) return summaryText(sum);
   // 兼容旧版本持久化的中文摘要文案
   if (st && st !== 'ok') return st;
   return t('status_okSub', usedCount.value ?? 0);
 });
 
-// 「本机看不到的本地书签」的**可操作提示** —— 只作为状态行的 tooltip（悬停可见），
-// 不做成常驻行：该情况在「已登录 + 本地为空」的设备上**每轮都会出现**，常驻会顶掉常规状态。
-// 但也不能只留 `⚠️ N 条本地书签本机看不到` 让用户无从下手，所以悬停给出「为什么 + 怎么办」。
-// 空串 → 调用方用 `|| undefined` 让 Vue 不渲染 title 属性（不显示空 tooltip）。
-export const syncHint = computed(() => {
-  if (syncState.value !== 'ok') return '';
-  const sum = parseSummary(state.lastSyncSummary);
-  return sum && sum.unplaced > 0 ? t('status_unplacedHint') : '';
-});
+// 注：原有 syncHint（「本机看不到的本地书签」tooltip）已随UI 展示一起下线
+// （2026-10-09）——那是 Chrome 环境造成的人为限制（已登录 + 本地子树为空 →
+// Chrome 不创建本地根），不是插件故障，展示出来会被当成「插件坏了」。
+// 排查只看 background 控制台的 `[bsync] N 个落地根在本机无处落地…`。
 
 export const syncTail = computed(() => {
   if (syncState.value === 'never') return t('status_unregistered');

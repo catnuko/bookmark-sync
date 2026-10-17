@@ -1,0 +1,77 @@
+<svg viewBox="0 0 1020 690" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'PingFang SC','Helvetica Neue',sans-serif" role="img" aria-labelledby="svgTitle svgDesc">
+  <title id="svgTitle">Chrome 双子树归一化为同一棵 CRDT 同步树</title>
+  <desc id="svgDesc">Chrome 账号与本地两棵子树、Firefox 多个原生根，经 rootResolver 按 folderType 与 syncing 认根，归一化为 8 个固定根 UUID，共同挂在 ROOT_UUID 之下形成一棵逻辑树，跨设备按 Lamport 时间戳收敛。</desc>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6B7FA8"/></marker>
+  </defs>
+  <rect x="0" y="0" width="1020" height="690" rx="16" fill="#F6F9FF"/>
+
+  <!-- 标题 -->
+  <text x="510" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#17234A">Chrome 双子树 → 归一化 → 同一棵 CRDT 同步树</text>
+  <text x="510" y="56" text-anchor="middle" font-size="13" fill="#6B7FA8">Chrome's two bookmark trees are normalized into one logical CRDT tree</text>
+
+  <!-- Chrome 原生框 -->
+  <rect x="28" y="72" width="560" height="272" rx="14" fill="#FFFFFF" stroke="#C9D6F2" stroke-width="1.5"/>
+  <text x="46" y="98" font-size="15" font-weight="700" fill="#1B2A55">Chrome 原生 · Native（2025-06 起双子树，id 不固定）</text>
+
+  <!-- 账号子树 -->
+  <rect x="46" y="112" width="250" height="218" rx="10" fill="#F3F1FF" stroke="#B9A8F0" stroke-width="1.2"/>
+  <text x="171" y="134" text-anchor="middle" font-size="13.5" font-weight="700" fill="#5B3FBF">账号子树 · syncing=true</text>
+  <rect x="58" y="146" width="226" height="36" rx="7" fill="#FFFFFF" stroke="#C9B8F2"/><text x="171" y="162" text-anchor="middle" font-size="12.5" font-weight="600" fill="#3B3270">Account bookmarks bar</text><text x="171" y="176" text-anchor="middle" font-size="11" fill="#8A7BB8">账号书签栏</text>
+  <rect x="58" y="188" width="226" height="36" rx="7" fill="#FFFFFF" stroke="#C9B8F2"/><text x="171" y="204" text-anchor="middle" font-size="12.5" font-weight="600" fill="#3B3270">Account other bookmarks</text><text x="171" y="218" text-anchor="middle" font-size="11" fill="#8A7BB8">账号其他书签</text>
+  <rect x="58" y="230" width="226" height="36" rx="7" fill="#FFFFFF" stroke="#C9B8F2"/><text x="171" y="246" text-anchor="middle" font-size="12.5" font-weight="600" fill="#3B3270">Account mobile bookmarks</text><text x="171" y="260" text-anchor="middle" font-size="11" fill="#8A7BB8">账号移动书签</text>
+  <text x="171" y="296" text-anchor="middle" font-size="11.5" fill="#8A7BB8">登录后出现；登录 + 本地为空时本地树被隐藏</text>
+
+  <!-- 本地子树 -->
+  <rect x="318" y="112" width="252" height="218" rx="10" fill="#EDF4FF" stroke="#9FBCEA" stroke-width="1.2"/>
+  <text x="444" y="134" text-anchor="middle" font-size="13.5" font-weight="700" fill="#2F5DB8">本地子树 · syncing=false</text>
+  <rect x="330" y="146" width="228" height="36" rx="7" fill="#FFFFFF" stroke="#B6CCEF"/><text x="444" y="162" text-anchor="middle" font-size="12.5" font-weight="600" fill="#24365F">Bookmarks bar</text><text x="444" y="176" text-anchor="middle" font-size="11" fill="#6B7FA8">书签栏</text>
+  <rect x="330" y="188" width="228" height="36" rx="7" fill="#FFFFFF" stroke="#B6CCEF"/><text x="444" y="204" text-anchor="middle" font-size="12.5" font-weight="600" fill="#24365F">Other bookmarks</text><text x="444" y="218" text-anchor="middle" font-size="11" fill="#6B7FA8">其他书签</text>
+  <rect x="330" y="230" width="228" height="36" rx="7" fill="#FFFFFF" stroke="#B6CCEF"/><text x="444" y="246" text-anchor="middle" font-size="12.5" font-weight="600" fill="#24365F">Mobile bookmarks</text><text x="444" y="260" text-anchor="middle" font-size="11" fill="#6B7FA8">移动书签</text>
+  <text x="444" y="296" text-anchor="middle" font-size="11.5" fill="#6B7FA8">本机整棵书签树 ≡ 绑定空间，一并同步</text>
+
+  <!-- Firefox 原生框 -->
+  <rect x="612" y="72" width="380" height="272" rx="14" fill="#FFFFFF" stroke="#C9D6F2" stroke-width="1.5"/>
+  <text x="630" y="98" font-size="15" font-weight="700" fill="#1B2A55">Firefox 原生 · Native（静态 id 表，无双子树）</text>
+  <rect x="630" y="112" width="344" height="38" rx="7" fill="#EFF6EE" stroke="#B4D4B0"/><text x="802" y="129" text-anchor="middle" font-size="12.5" font-weight="600" fill="#2E5C2E">menu________</text><text x="802" y="144" text-anchor="middle" font-size="11" fill="#5A6B96">书签菜单</text>
+  <rect x="630" y="156" width="344" height="38" rx="7" fill="#EFF6EE" stroke="#B4D4B0"/><text x="802" y="173" text-anchor="middle" font-size="12.5" font-weight="600" fill="#2E5C2E">toolbar_____</text><text x="802" y="188" text-anchor="middle" font-size="11" fill="#5A6B96">书签工具栏</text>
+  <rect x="630" y="200" width="344" height="38" rx="7" fill="#EFF6EE" stroke="#B4D4B0"/><text x="802" y="217" text-anchor="middle" font-size="12.5" font-weight="600" fill="#2E5C2E">unfiled_____</text><text x="802" y="232" text-anchor="middle" font-size="11" fill="#5A6B96">其他书签</text>
+  <rect x="630" y="244" width="344" height="38" rx="7" fill="#EFF6EE" stroke="#B4D4B0"/><text x="802" y="261" text-anchor="middle" font-size="12.5" font-weight="600" fill="#2E5C2E">mobile______</text><text x="802" y="276" text-anchor="middle" font-size="11" fill="#5A6B96">移动书签</text>
+
+  <!-- 归一化条 -->
+  <rect x="28" y="362" width="964" height="66" rx="12" fill="#17234A"/>
+  <text x="510" y="390" text-anchor="middle" font-size="14.5" font-weight="700" fill="#FFFFFF">rootResolver：Chrome 134+ 按 folderType + syncing 认根（每轮重新解析，账号根 chromeId 动态）</text>
+  <text x="510" y="412" text-anchor="middle" font-size="12.5" fill="#C9D6F2">→ 归一化为固定根 UUID（chromeId ↔ uuid 1:1，账号根与本地根并列、非 alias；受管书签显式忽略）</text>
+
+  <!-- CRDT 逻辑树 -->
+  <rect x="28" y="446" width="964" height="228" rx="14" fill="#FFFFFF" stroke="#C9D6F2" stroke-width="1.5"/>
+  <text x="510" y="472" text-anchor="middle" font-size="15" font-weight="700" fill="#17234A">CRDT 逻辑树：一棵以 ROOT_UUID 为根，8 个固定根并列 · One logical tree, 8 fixed roots</text>
+
+  <rect x="442" y="482" width="136" height="34" rx="17" fill="#17234A"/>
+  <text x="510" y="504" text-anchor="middle" font-size="13.5" font-weight="700" fill="#FFFFFF">ROOT_UUID</text>
+
+  <line x1="510" y1="516" x2="510" y2="528" stroke="#6B7FA8" stroke-width="1.6"/>
+  <line x1="140" y1="528" x2="880" y2="528" stroke="#6B7FA8" stroke-width="1.6"/>
+  <line x1="140" y1="528" x2="140" y2="538" stroke="#6B7FA8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="350" y1="528" x2="350" y2="538" stroke="#6B7FA8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="510" y1="528" x2="510" y2="538" stroke="#6B7FA8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="670" y1="528" x2="670" y2="538" stroke="#6B7FA8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="880" y1="528" x2="880" y2="538" stroke="#6B7FA8" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <rect x="65" y="540" width="150" height="46" rx="9" fill="#EDF4FF" stroke="#9FBCEA"/><text x="140" y="558" text-anchor="middle" font-size="12" font-weight="600" fill="#2F5DB8">BOOKMARKS_BAR</text><text x="140" y="576" text-anchor="middle" font-size="11" fill="#5A6B96">本地书签栏</text>
+  <rect x="275" y="540" width="150" height="46" rx="9" fill="#EDF4FF" stroke="#9FBCEA"/><text x="350" y="558" text-anchor="middle" font-size="12" font-weight="600" fill="#2F5DB8">OTHER</text><text x="350" y="576" text-anchor="middle" font-size="11" fill="#5A6B96">本地其他书签</text>
+  <rect x="435" y="540" width="150" height="46" rx="9" fill="#EDF4FF" stroke="#9FBCEA"/><text x="510" y="558" text-anchor="middle" font-size="12" font-weight="600" fill="#2F5DB8">MOBILE</text><text x="510" y="576" text-anchor="middle" font-size="11" fill="#5A6B96">本地移动书签</text>
+  <rect x="595" y="540" width="150" height="46" rx="9" fill="#EFF6EE" stroke="#B4D4B0"/><text x="670" y="558" text-anchor="middle" font-size="12" font-weight="600" fill="#2E5C2E">MENU</text><text x="670" y="576" text-anchor="middle" font-size="11" fill="#5A6B96">书签菜单</text>
+
+  <line x1="510" y1="586" x2="510" y2="598" stroke="#6B7FA8" stroke-width="1.6"/>
+  <line x1="350" y1="598" x2="670" y2="598" stroke="#6B7FA8" stroke-width="1.6"/>
+  <line x1="350" y1="598" x2="350" y2="608" stroke="#6B7FA8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="510" y1="598" x2="510" y2="608" stroke="#6B7FA8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="670" y1="598" x2="670" y2="608" stroke="#6B7FA8" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <rect x="275" y="610" width="150" height="46" rx="9" fill="#F3F1FF" stroke="#B9A8F0"/><text x="350" y="628" text-anchor="middle" font-size="12" font-weight="600" fill="#5B3FBF">ACCOUNT_BAR</text><text x="350" y="646" text-anchor="middle" font-size="11" fill="#8A7BB8">账号书签栏</text>
+  <rect x="435" y="610" width="150" height="46" rx="9" fill="#F3F1FF" stroke="#B9A8F0"/><text x="510" y="628" text-anchor="middle" font-size="12" font-weight="600" fill="#5B3FBF">ACCOUNT_OTHER</text><text x="510" y="646" text-anchor="middle" font-size="11" fill="#8A7BB8">账号其他书签</text>
+  <rect x="595" y="610" width="150" height="46" rx="9" fill="#F3F1FF" stroke="#B9A8F0"/><text x="670" y="628" text-anchor="middle" font-size="12" font-weight="600" fill="#5B3FBF">ACCOUNT_MOBILE</text><text x="670" y="646" text-anchor="middle" font-size="11" fill="#8A7BB8">账号移动书签</text>
+
+  <text x="510" y="686" text-anchor="middle" font-size="12.5" fill="#3B4A6F">↓ 跨设备按 Lamport 时间戳收敛：无论 Chrome 账号 / 本地两套还是 Firefox 多根，同步的都是这同一棵逻辑树</text>
+</svg>

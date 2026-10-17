@@ -73,7 +73,7 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 
 ## 2. 发版流程（全自动，dev → main；唯一人工动作 = 手动触发商店提交）
 
-**开发流程：所有改动走 `dev` 分支，用 Conventional Commits 提交；合并到 `main` 即全自动发版（release PR 自动合并，不做人工合并）。** 2026-09-29 发 v2.5.2 已实测跑通全程零人工介入；2026-09-29 起追加「商店自动提交」，但提交动作拆到独立工作流，需人工在 Actions 页面点一次 Run workflow 放行（见第 5 节）。
+**开发流程：所有改动走 `dev` 分支，用 Conventional Commits 提交；合并到 `main` 即全自动发版（release PR 自动合并，不做人工合并）。** 2026-09-29 发 v2.5.2 已实测跑通全程零人工介入；2026-10-15 起商店提交也全自动（`release.yml` 末尾 dispatch `publish-stores.yml`），**发版链路全程零人工**（见第 5 节）。
 
 ### 全自动闭环（`.github/workflows/release.yml`）
 
@@ -83,12 +83,12 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 4. ★ **合并动作本身不会触发下一轮**：`GITHUB_TOKEN` 引发的事件被 GitHub 递归抑制，合并产生的 push 事件不创建新 run，tag 就建不出来（2026-09-28 发 2.5.1 实测）。**由工作流自己解决**：Auto-merge 之后紧接一步 `gh workflow run release.yml --ref main`（`workflow_dispatch` 是这条递归规则的例外），**不需要人工踢**。第二轮 release-please 才打 tag + 创建 GitHub Release。
 5. **`resolve` job** 统一算「这次构建哪个 tag / 哪个版本」：正常发版取 release-please 的输出，手动补发取 `workflow_dispatch` 的 `tag` 输入；`build` 只依赖它 —— 这样 tag 建好之后若质量门/打包/上传失败，**还能按 tag 重跑 build**（否则 build 会因 `release_created` 已 unset 而永久跳过）。
 6. build job 构建并上传三个 zip：`bookmark-sync-chromium-<ver>.zip` / `bookmark-sync-firefox-<ver>.zip` / `bookmark-sync-source-<ver>.zip`（最后一个只挂 Release，不进官网）
-7. ★ **商店提交不在 `release.yml` 里**，见独立工作流 `.github/workflows/publish-stores.yml`：手动 `workflow_dispatch` 触发，从 GitHub Release 取回三个 zip 提交到 Chrome Web Store / Edge Add-ons / Firefox AMO。**这是全流程唯一的人工动作** —— 到 Actions 页面点一次「Run workflow」（tag 留空 = 取最新 Release）。商店提交失败**不影响** `release.yml` 已发布的一切（Release / tag / 官网下载在 build 阶段就发布完了）。
+7. ★ **商店提交不在 `release.yml` 里**，见独立工作流 `.github/workflows/publish-stores.yml`：由 `release.yml` 末尾（tag/Release/zip/官网就绪后）**自动 dispatch**，从 GitHub Release 取回三个 zip 提交到 Chrome Web Store / Edge Add-ons / Firefox AMO。手动 `workflow_dispatch` 入口仍保留（修凭证后重试）。商店提交失败**不影响** `release.yml` 已发布的一切（Release / tag / 官网下载在 build 阶段就发布完了）。
 
 ### 版本管理文件（勿手动改版本号发版）
 
-- `release-please-config.json`：extra-files 让 release PR 同步 `public/manifest.json`、`public/manifest.firefox.json` 的 `version` 字段
-- `.release-please-manifest.json`：版本基线（当前 2.5.2）
+- `release-please-config.json`：根包 `"."` 的 **`exclude-paths`** 决定哪些路径的提交不参与版本判定 —— 非扩展产物（`website` / `docs` / `memory` / `extension-infomation` / `supabase` / `tests` / `.github` / `bookmark-sync`）一律排除，**版本号只随扩展产物（`src/`、`public/`、`scripts/`、`package.json`、`vite.config.js` 等）变化**。语义：某提交的**全部**改动文件都落在排除路径下才排除（混合提交仍 bump）；只做**目录前缀**匹配，写文件路径（如 `AGENTS.md`）无效。**新增顶层目录时，若不属于扩展产物，要加进这个列表**（护栏：`tests/release-please-config.test.ts`）。另：`extra-files` 本意是让 release PR 同步两个 manifest 的 `version`，但**实测不生效**（见下「要点」）。
+- `.release-please-manifest.json`：版本基线（release-please 自动维护，勿手改）
 - **禁止**手动改 package.json 版本号或手动打 tag / 建 Release——会绕过 release-please 导致版本错乱（v2.0.0 就是这么出的岔子：release PR 悬挂、manifest 版本滞后）。**同理禁止代用户合 release PR、禁止本地手工打包上传**：发版链路上的问题一律「修好流水线」而不是绕过它。
 
 ### 要点（踩过的坑，勿回退）
@@ -104,13 +104,15 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - **dev→main 合并不要 squash**，避免折叠掉 Conventional 前缀导致版本判断失效。
 - `gh` CLI 用 `GH_TOKEN` 登录（git push 需先 `gh auth setup-git`）。本地 token **可以** `gh workflow run`（2026-09-28 实测，此前「无 workflow dispatch 权限」的说法不成立）—— 用途仅限于下面的「重跑自动化」。
 - **发版卡住时只「重跑自动化」，这不是手动发版**（三条命令都不碰版本号 / tag / Release，2026-09-29 已实测）：①「release PR 合了但没 tag」→ `gh workflow run release.yml --ref main`；②「tag/Release 建好了但 zip 没上传」（build 或质量门失败）→ `gh workflow run release.yml --ref main -f tag=vX.Y.Z`，resolve job 按该 tag 只重跑 build，GitHub Release 用 `--clobber`、Supabase 用 `x-upsert`，幂等可重复；③「商店没提交成功」（凭证错/过期、商店系统抖动）→ 先修 `stores` environment 的凭证，再重跑商店提交 `gh workflow run publish-stores.yml --ref main -f tag=vX.Y.Z`（等价于在 Actions 页面点 Run workflow），只提交商店，不重跑打包、不重建 tag。**三条都救不回来 → 修 workflow 并走 dev→main。**
-- **商店提交是独立工作流、默认不自动跑**：`release.yml` 完全不碰商店；`publish-stores.yml` 只有人工 `workflow_dispatch` 一个入口。**同一版本重复提交会被三家商店以「版本号未递增」拒绝**，所以绝不要在 `release.yml` 里加「自动调用 publish-stores」的步骤。
+- **商店提交是独立工作流，但 2026-10-15 起会自动跑**：`release.yml` 自己不提交商店，只在末尾 `gh workflow run publish-stores.yml --ref main` 踢一脚（`workflow_dispatch` 是「GITHUB_TOKEN 触发的事件被递归抑制」那条规则的例外，故不会自激）。防重复提交不靠 dispatch 的克制，而靠 `publish-stores.yml` 的**版本闸门**（`scripts/store-gate.mjs` 逐家比对目标版本与在架/审核中版本）——所以误触发也安全。
 - **★ 私有仓库 + Free 套餐不支持 environment 保护规则**（2026-09-29 实测）：`Required reviewers` / `Wait timer` 都返回 422「Please ensure the billing plan supports ... protection rule」；`Environment secrets/variables` 和 `Deployment branches` 限制**仍然可用**。这就是商店提交必须走独立工作流手动触发、而不是在流水线中途暂停等 Approve 的原因。升级到 GitHub Pro 后可改回「挂 `environment: stores` + Required reviewers」的一键 Approve 模式。
-- **★ release PR 上的 `Quality Gate` 必红，是预期现象、不是故障**（2026-09-30 排查定论）：release-please 用 `GITHUB_TOKEN` 建 PR，而 GitHub 对「bot 建的 PR」的 `pull_request` 事件**会创建 run 但不放行**（run 页注解原文：_"This workflow run required approval but was not approved before it expired."_）。没人点批准 → Auto-merge 一合并，这个悬挂的 run 立即作废并被记成 `failure`。识别特征：**0 个 job、生命周期 ≈ PR 存活时长**（run 的 `updated_at` = PR 的 `merged_at` +1~2s；`gh run view` 会误报 "workflow file issue"，那是 gh 对 0-job run 的兜底话术）。2026-09-22 起 8/8 次发版全如此，人开的 PR 则正常跑绿（`actor` = `github-actions[bot]` 是判别点）。**不阻断发版**：无 branch protection，auto-merge 用 `gh pr merge` 不等检查，同一棵树由 `push: main` 那轮真跑。
-  - **隐患**：升 GitHub Pro 后若给 main 开 branch protection 并把 `Quality Gate` 设为必需检查，**release PR 会永久卡死**（永远等不到批准）。届时二选一：① `ci.yml` 的 `pull_request:` 下加 `paths-ignore`（列 release PR 恰好只改的那三个文件：`CHANGELOG.md` / `.release-please-manifest.json` / `package.json`）→ 干脆不创建 run；副作用是「只改 package.json」的 PR 会漏跑 CI。② 给 release-please 传非 `GITHUB_TOKEN` 的 `token:`（PAT / GitHub App）→ PR 检查才真正执行。
+- **★ `Quality Gate` 只跑 `push: main`，不跑 PR**（2026-10-16 定）：单人开发，PR 跑一遍、合并后再跑一遍、每个 `worktree-*` / `fix/*` 分支再各跑一遍，验的是**同一棵树**，纯重复。四项检查与本地 `pnpm check` 一字不差（typecheck + lint + fmt:check + test），合并前本地自检即可；合并后 CI 兜底一次保 main 恒绿。量化（近 30 天）：改前 Quality Gate 是全仓库 Actions 用量第一大户（102 runs / 315 分钟，占 391 分钟的 **81%**）；改后只剩 push:main。**发版的守门人是 `release.yml` 的 build job**（`pnpm typecheck && pnpm lint && pnpm test`，打包前执行），删 PR 触发不影响它。
+- **★ 曾试图用 `branches-ignore` 排除 release PR，但那条排除从未生效**（2026-10-16 实测，勿再照抄旧写法）：`pull_request` 的 `branches` / `branches-ignore` 过滤的是 PR 的 **base 分支**，不是 head 分支；release-please 的版本 PR base 是 `main`，所以写 `branches-ignore: [release-please--branches--main--components--bookmark-sync]` 永远不命中。2026-10-09 加、10-10 00:48 合入 main，当天 23:58 与 10-15 仍产生 4 个 0-job 的失败 run —— **那条"已修复"的结论是基于修复前的观察窗口得出的，不成立**。现已无 `pull_request` 事件，这条过滤随之删除。
+- **★ 那些 0-job 的红色 run 是什么**（历史遗留，现在不会再出现）：release-please 用 `GITHUB_TOKEN` 建 PR，GitHub 对「bot 建的 PR」的 `pull_request` 事件**会创建 run 但不放行**，没人点批准 → Auto-merge 一合并，悬挂的 run 立即作废并被记成 `failure`。识别特征：**0 个 job**（`gh run view` 会误报 "workflow file issue"，那是它对 0-job run 的兜底话术）。这是 GitHub 侧行为、不是代码问题。2026-09-22 起 8/8 次发版全如此；人开的 PR 则正常跑绿（`actor` = `github-actions[bot]` 是判别点）。
+  - **若将来恢复 PR 触发**（换机器/多人协作/想开 branch protection）：直接给 release-please 传非 `GITHUB_TOKEN` 的 `token:`（PAT / GitHub App）—— PR 检查才会真正执行，无需 `branches` / `branches-ignore` / `paths-ignore` 之类的过滤器。**不要再用 `branches-ignore` 排 release 分支**，理由见上一条。另注：私有仓库 + Free 套餐不支持 branch protection，本项当前用不上。
 - 私有仓库：匿名 curl 下载 release asset 返回 404，须用 `gh release download <tag> --repo catnuko/bookmark-sync`。
 - **官网安装包分发**（2026-09-19 起）：Release 资产仍是权威产物；release.yml 随后把两个 zip + `latest.json` 上传到 Supabase Storage public bucket `downloads`（桶由迁移 0037 创建，写路径仅 service_role）。官网 DownloadView 运行时读 `latest.json` 生成下载链接，**发新版官网无需重新部署**；`website/public/downloads/` 已 gitignore，仓库不存 zip 二进制。需要 secret：`SUPABASE_SERVICE_ROLE_KEY`。**源码包不进 Supabase**（官网访客不需要源码），只挂 Release。
-- **★ 官网并列显示两个版本号**（2026-09-30 起）：`latest.json` = **我们已发布**的版本；`stores.json` = **商店在架**的版本。二者语义不同、刻意分成两个文件 —— 商店审核有延迟，在架版本常落后于我们已发布的版本，只显示其中一个会让用户点进商店后看到不一致的版本号。`stores.json` 由独立工作流 `.github/workflows/store-versions.yml`（cron `0 */6 * * *` + `workflow_dispatch`，`environment: stores`）跑 `scripts/fetch-store-versions.mjs` 采集写入；三家各自采集、单家失败只保留该家线上旧值并 `exit 1` 报红。Chrome 走 CWS API v2 `items/<id>:fetchStatus`（GET；在架 = `publishedItemRevisionStatus.distributionChannels[0].crxVersion`，审核中 = `submittedItemRevisionStatus...`），Edge 走店面端点 `getproductdetailsbycrxid/<crxId>`（官方 Partner Center API 没有读已发布版本的端点），Firefox 走 AMO 公开 API v5。本地自检：`node scripts/fetch-store-versions.mjs --dry-run`（直连被 RST 时加 `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=...`）。
+- **★ 官网并列显示两个版本号**（2026-09-30 起）：`latest.json` = **我们已发布**的版本；`stores.json` = **商店在架**的版本。二者语义不同、刻意分成两个文件 —— 商店审核有延迟，在架版本常落后于我们已发布的版本，只显示其中一个会让用户点进商店后看到不一致的版本号。`stores.json` 由独立工作流 `.github/workflows/store-versions.yml`（cron `0 */6 * * *` + `workflow_dispatch`，`environment: stores`）跑 `scripts/fetch-store-versions.mjs` 采集写入，采集后还会跑一次 `scripts/store-catchup.mjs` 给 Chrome 补发（见第 5 节）；三家各自采集、单家失败只保留该家线上旧值并 `exit 1` 报红。Chrome 走 CWS API v2 `items/<id>:fetchStatus`（GET；在架 = `publishedItemRevisionStatus.distributionChannels[0].crxVersion`，审核中 = `submittedItemRevisionStatus...`），Edge 走店面端点 `getproductdetailsbycrxid/<crxId>`（官方 Partner Center API 没有读已发布版本的端点），Firefox 走 AMO 公开 API v5。本地自检：`node scripts/fetch-store-versions.mjs --dry-run`（直连被 RST 时加 `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=...`）。**2026-10-12 起**：根包 `exclude-paths` 生效后，`latest.json` 等价于**扩展版本**（只随扩展产物变化），它和 `stores.json` 的差距才是真差距；此前版本号被网站提交推高（如 v2.15.1 相对商店 2.10.1 的落差是历史膨胀，不是扩展真改了 5 个版本）。
 
 ## 3. ★ Safari 硬约束（暂缓，勿投入）
 
@@ -130,9 +132,13 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - AMO：`manifest.firefox.json` 已声明 `data_collection_permissions`（邮箱/书签/PII）；审核要交**源码包** —— 每次 Release 已自动附带 `bookmark-sync-source-<ver>.zip`（`scripts/package-source.mjs` 生成：可复现构建的最小源码集 + 自动写入的 `BUILD.md` 构建说明），直接下载上传即可，**不用再手工打包**；提交给 AMO 的产物是 Vite 压缩 bundle；`gecko.id` 一经提交不可改。
 - Chrome/Edge 提交 `extension/` 的 zip。
 
-### 自动提交（2026-09-29 起，不再人工传包）
+### 自动提交（2026-10-15 起全自动，不再人工传包）
 
-`.github/workflows/publish-stores.yml` 是**独立**工作流（`workflow_dispatch` 手动触发），从 GitHub Release 取回三个 zip 提交到三家商店；`release.yml` 完全不碰商店。用第三方 CLI `publish-browser-extension`（钉死 **`@6.1.1`**，`npx --yes` 拉取，**不进 `devDependencies`** —— 免得污染 `pnpm-lock.yaml` 与 AMO 源码包）。
+`.github/workflows/publish-stores.yml` 从 GitHub Release 取回三个 zip 提交到三家商店。**2026-10-15 起由 `release.yml` 末尾自动 dispatch**（原来需人工在 Actions 点 Run workflow，那一步已取消），触发时机是 tag/Release/zip/官网 latest.json 全部就绪之后；`release.yml` 本身不直接提交商店，只负责踢一脚。手动 `workflow_dispatch` 入口保留，用于修凭证后重试。用第三方 CLI `publish-browser-extension`（钉死 **`@6.1.1`**，`npx --yes` 拉取，**不进 `devDependencies`** —— 免得污染 `pnpm-lock.yaml` 与 AMO 源码包）。
+
+- **★ 商店提交成败用 `steps.<id>.outcome` 判定，不是 `conclusion`**（2026-10-16 修回）：三个 submit 步骤都是 `continue-on-error: true`，而 GitHub 语义是 `outcome` = 应用 continue-on-error **之前**的结果、`conclusion` = **之后**的结果。所以**命令失败时 `conclusion` 会被伪装成 `success`**，只有 `outcome` 仍是 `failure`。曾反过来改成 `conclusion`，导致「Chrome 报 400 `You may not edit or publish an item that is in review.` + exit code 1，整轮 run 却报绿」。判别点：continue-on-error 的步骤即使**成功**，`outcome` 也显示 failure —— 看着像「都成功却报红」，别急着换判据，去看日志。
+- **★ Chrome 的硬限制：只要有版本在审核中，就不许再提交**，且与版本号无关（`FAILED_PRECONDITION` / `NOT_UPDATEABLE`）。Firefox AMO 允许审核中继续提交（所以它总能到最新），Chrome 不能。因此 `scripts/store-gate.mjs` 的闸门判据是「**该家有任何 pending 就跳过**」—— 原先只认「pending == 目标版本才跳过」，于是 2026-10-15 v2.16.0 进审后，v2.16.1 / v2.16.2 的提交全被拒，Chrome 停在 2.16.0 而 Firefox 已 2.16.2。
+- **★ 补发机制**：Chrome 被闸门跳过后，若没有东西再推最新版，它会**永久**停在旧版本。故 `.github/workflows/store-versions.yml` 采集后多一步 `Catch up Chrome submission`（`scripts/store-catchup.mjs`）：Chrome 落后于最新 Release 且不在审核中 → dispatch `publish-stores.yml`。**只补 Chrome** —— Edge 走店面端点看不到审核中版本，无法判断能否安全提交（盲目补发只会以「版本号未递增」被拒，制造红色 run）；Firefox 发版时已 dispatch 过。补发步骤 `continue-on-error: true`：dispatch 抖动不该淹掉采集失败的信号（补发失败只是再等 6 小时）。
 
 - **★ 为什么独立工作流 + 手动触发，而不是挂在 release.yml 末尾等 Approve**：私有仓库 + Free 套餐**不支持** environment 保护规则（`Required reviewers` / `Wait timer` 均 422，见第 2 节要点）。于是把「放行」交给 `workflow_dispatch`：人点一次 Run workflow 就是审批动作，免费、纯浏览器。升级到 Pro 后可改回「`release.yml` 里挂 `environment: stores` + Required reviewers」。
 - **凭证全部放在 GitHub Environment `stores`**（`Settings → Environments`；**Deployment branches 已限 `main`** —— 在别的分支触发本工作流会失败，这是刻意的）。job 声明 `environment: stores`；**environment secret/variable 只有 job 真正开始后才注入**，所以凭证预检步骤必须在 job 内部。
@@ -161,8 +167,8 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - **★ 可选环境变量不能写成空串**：CLI 用 `?? process.env.X` 取值，空串会被当成「给了值」→ 配置校验直接失败（`vars.X` 未配置时正是渲染成空串）。所以可选项（`CHROME_PUBLISH_TYPE` / `CHROME_CANCEL_PENDING` / `FIREFOX_CHANNEL`）一律不写；必需项走 job 内的预检步骤点名。
 - **★ `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` 必须是「真实换行」的 PEM**：CLI 只在**交互式 `init`** 里做 `replaceAll("\\n","\n")`，走环境变量时**不反转义** → 塞带字面 `\n` 的单行串会在签名时炸。用 `gh secret set` 从 stdin 灌原始 JSON 的 `private_key` 即可（`node -e 'process.stdout.write(require("<key.json>").private_key)' | gh secret set ...`）。
 - **Node 必须 ≥ 22**：该 CLI 的 `engines.node` 是 `>=22.0.0`，publish job 用 Node 22（build job 的 Node 20 跑不了）。
-- **三家分开调用 CLI**（不一次传三个 zip）：CLI 是「传了哪个 zip 才提交哪家」，分开跑可让一家失败不阻断另两家；各步骤 `continue-on-error` 收集结果，末尾统一 `exit 1` 让 run 变红。
-- **Chrome 首轮用 `CHROME_PUBLISH_TYPE: STAGED_PUBLISH`**（提交审核但**不自动上架**，需在 CWS 后台点发布）—— 链路验证无误后删掉那一行即恢复「审核通过即全量发布」。
+- **三家分开调用 CLI**（不一次传三个 zip）：CLI 是「传了哪个 zip 才提交哪家」，分开跑可让一家失败不阻断另两家；各步骤 `continue-on-error` 收集结果，末尾的「Fail if any store submission failed」按 `steps.<id>.outcome == 'failure'` 统一 `exit 1` 让 run 变红（判据为何必须是 `outcome` 见本节开头）。
+- ~~Chrome 首轮用 `CHROME_PUBLISH_TYPE: STAGED_PUBLISH`~~ —— 该安全阀已于 **2026-10-03**（v2.9.0 走完 staged → 放行 → `stores.json` 采到 2.9.0）拆除，恢复「审核通过即全量发布」，`workflow` 里不再设这个变量。
 - **Edge 的 `--dry-run` 是空操作**（源码里明写无法在 dry run 校验 API key）→ Edge 凭证只能在真实提交时验证（用上面的只读探针代替）。
 - 本地验证凭证（不污染线上商店；凭证放 gitignored 的 `.env.submit`，CLI 会自动加载）：
 
@@ -180,3 +186,24 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 - 改代码前先对齐方案，不自动 commit/push（需明确授权）。
 - 视觉验证以截图对照参考实现为准。
 - 本文件是开发注意事项，README 才是面向部署/发布的完整说明。
+
+### ★ 本地开发分支策略：主目录直接推 `dev`，隔离场景才走 PR（2026-10-17 定）
+
+判据是「**改动是否发生在主目录工作树**」，不是改动大小 —— 不用每次判断复杂度，也不会反复。
+
+| 场景                               | 做法                                              |
+| ---------------------------------- | ------------------------------------------------- |
+| 主目录串行开发（默认）             | `git checkout dev` → 改 → `commit` → `git push`   |
+| worktree / 后台并行 agent 同时开工 | 独立分支 → push → **开 PR 到 `dev`** → 由用户合并 |
+
+- **为什么主目录可以直接推**（2026-10-17 定论，取代 2026-10-16 的「一律走 PR」）：worktree 是物理上**另一个目录**，改动不在主目录里，用户的主目录不会自动更新，容易漏 pull —— 这才是 PR 的理由。**主目录场景该理由不成立**：改完 commit 的就是用户眼前这份工作树，本就是最新的。且 Quality Gate 只跑 `push: main`（不跑 PR），PR 现在不提供任何 CI 信号，剩余价值只有 diff 链接与整段 revert 点，为简单开发付这个成本不成比例。
+- **「切分支再本地 merge 回 dev」不采用**：既没有 PR 的审查/链接价值，又比直接 commit 多几步，两头不占。
+- **PR 的基本要求**（仅隔离场景）：
+  - base 恒为 `dev`，**不是** `main`；
+  - **不要 squash**（避免折叠 Conventional 前缀，见第 2 节）；
+  - 标题用 Conventional Commits（`feat:` / `fix:` / `chore:` 等）—— 它决定 release-please 的版本判定；
+  - body 写清「改了什么 / 为什么 / 怎么验证的」，大改动附风险与回滚方式。
+- **合并由用户做**：开完 PR 告知链接与要点，等用户合并；**不代用户合 PR**（第 2 节同此纪律）。
+- **`dev → main` 的发版合并**照旧走 release PR（那是 release-please 的输入，见第 2 节）。
+- **PR 合并后**：提醒用户在主目录 `git pull`（worktree 的改动不会自动出现在主目录）。
+- **禁止**：`git push --force`、直接推 `main`。

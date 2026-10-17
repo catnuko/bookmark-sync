@@ -4,6 +4,16 @@
   "packages": {
     ".": {
       "release-type": "node",
+      "exclude-paths": [
+        "website",
+        "docs",
+        "memory",
+        "extension-infomation",
+        "supabase",
+        "tests",
+        ".github",
+        "bookmark-sync"
+      ],
       "extra-files": [
         {
           "type": "json",

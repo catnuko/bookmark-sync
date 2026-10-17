@@ -8,10 +8,13 @@
     "features": "Features",
     "pricing": "Pricing",
     "download": "Download",
-    "docs": "Docs",
+    "docs": "Articles",
     "privacy": "Privacy",
     "terms": "Terms",
     "support": "Support"
+  },
+  "contentIndex": {
+    "count": "{count} articles"
   },
   "contact": {
     "supportEmail": "support{'@'}bookmark-sync.top",
@@ -30,7 +33,11 @@
     "backToHome": "Back to home",
     "language": "Language",
     "chinese": "中文",
-    "english": "English"
+    "english": "English",
+    "notFound": {
+      "title": "Page not found",
+      "desc": "The page you visited does not exist or has been moved."
+    }
   },
   "hero": {
     "badge": "Chrome · Edge · Firefox",
@@ -363,131 +370,9 @@
     }
   },
   "docs": {
-    "eyebrow": "Docs",
-    "title": "Documentation",
-    "subtitle": "Quick start, feature deep-dive, FAQ, and troubleshooting — all answered here.",
-    "sections": {
-      "quickstart": {
-        "title": "Quick Start",
-        "intro": "From install to first sync, about 5 minutes.",
-        "steps": [
-          {
-            "t": "Download & install",
-            "d": "Install from your browser's store: search for BookmarkSync on the Chrome Web Store, Edge Add-ons, or Firefox Add-ons. You can also download an offline package from the download page and load it manually."
-          },
-          {
-            "t": "Log in",
-            "d": "Open the extension options page and sign up or log in with your email. The website and the extension share the same account (same Supabase Auth)."
-          },
-          {
-            "t": "Set your sync passphrase",
-            "d": "Set a sync passphrase after first login. All bookmarks are encrypted on your device before upload; the passphrase only derives the decryption key locally and is never sent to the server. Store it in a password manager — losing it means your data cannot be recovered."
-          },
-          {
-            "t": "Start syncing",
-            "d": "Tap Sync Now to upload your local bookmarks encrypted. On a new device, log in and enter the same passphrase to restore from the cloud; a default sync space is created automatically."
-          }
-        ]
-      },
-      "features": {
-        "title": "Features",
-        "intro": "The sync engine works on the real bookmark tree, not flattened path strings.",
-        "items": [
-          {
-            "t": "True-tree sync",
-            "d": "Syncs the bookmark tree as-is. Rename, move, or reorder folders without losing children or hierarchy."
-          },
-          {
-            "t": "Precise deletes, never resurrect",
-            "d": "Deletes propagate across devices as tombstones; a bookmark removed on device A never reappears on device B from stale data."
-          },
-          {
-            "t": "Automatic multi-device merge",
-            "d": "Concurrent add/edit/delete merges intelligently on both devices — both sides' changes are kept, nothing overwritten."
-          },
-          {
-            "t": "End-to-end encryption (on by default)",
-            "d": "Every bookmark op is encrypted (AES-256-GCM) on your device before upload; the server stores ciphertext only. Keys derive from your passphrase (PBKDF2, salt synced in the cloud); a new device decrypts with the same passphrase."
-          },
-          {
-            "t": "Multiple sync spaces",
-            "d": "Each space is an independent bookmark tree (e.g., work / personal), bindable to different browser profiles. Free 1 space, Plus 3, Pro 10."
-          },
-          {
-            "t": "Device management",
-            "d": "Syncing browsers register as devices automatically — view, rename, or unbind them, and remove unused old devices anytime."
-          },
-          {
-            "t": "Automatic sync",
-            "d": "Detects local bookmark changes and uploads/pulls deltas in the background automatically; can be disabled under Advanced for manual-only sync."
-          },
-          {
-            "t": "Cross-browser bookmark menu",
-            "d": "Firefox's Bookmark Menu location is mirrored as a same-named folder under Chrome's bookmark bar, synced across devices."
-          }
-        ]
-      },
-      "faq": {
-        "title": "FAQ",
-        "intro": "",
-        "items": [
-          {
-            "q": "What if I forget my sync passphrase?",
-            "a": "The passphrase is the only key to decrypt: losing it means the encrypted cloud data can never be decrypted. Save it in a password manager. New versions sync the salt in the cloud, so you only need the same passphrase on a new device."
-          },
-          {
-            "q": "How do I restore bookmarks on a new device / after reinstall?",
-            "a": "1. Remember your sync passphrase on the old device;\n2. Log in with the same account on the new device;\n3. Enter the same passphrase when prompted;\n4. Tap Sync Now — bookmarks restore from the cloud, and a default sync space is created automatically."
-          },
-          {
-            "q": "Can deleted bookmarks be recovered?",
-            "a": "No. Deleting creates a tombstone that syncs to every device; deletion is consistent across devices and is never pulled back from the cloud. Confirm before deleting."
-          },
-          {
-            "q": "How do I read the sync-done message?",
-            "a": "Messages describe the outcome instead of push/pull counts (those are internal op counts and don't match your bookmark count). First sync done = first upload or cloud restore; Two-way sync done = both sides changed and synced; Up to date = nothing new."
-          },
-          {
-            "q": "Is the quota counted by bookmarks or bytes?",
-            "a": "Enforcement is by bytes (the only server-enforceable metric under E2EE): Free 1MB / Plus 20MB / Pro 500MB, calibrated at ~2KB per bookmark to line up with the advertised counts — Free 500 / Plus 10,000 / Pro unlimited (500MB ≈ 250,000 cap). When over quota, new changes pause; delete bookmarks or spaces to free up space and sync resumes automatically. Already-synced data is unaffected."
-          },
-          {
-            "q": "Can I turn off automatic sync?",
-            "a": "Yes. Turn off the auto-sync toggle under Advanced in the options page; sync then only runs when you tap Sync Now."
-          },
-          {
-            "q": "Why is there an extra \"Account Bookmarks Bar\" folder under Other Bookmarks in Firefox / Edge?",
-            "a": "When Chrome is signed into a Google account, it has a separate \"account bookmarks bar\" distinct from your local bar. Firefox and Edge have no native place for it, so the extension collects those bookmarks into a same-named \"Account Bookmarks Bar\" folder under Other Bookmarks, so you can still see and edit them there. This is by design—not a duplicate and not a bug. The bookmarks inside match exactly what you see in Chrome, and editing on any device syncs everywhere. On Firefox / Edge it stays as a folder permanently; it works the same."
-          },
-          {
-            "q": "How do bookmarks merge across the three browsers? Will the layout drift?",
-            "a": "Each browser lays out its bookmarks bar / other bookmarks / bookmarks menu differently. The extension maps them onto one consistent set of standard locations: a bookmark you put in Chrome's bookmarks bar lands in Firefox's toolbar and Edge's bar too. Deletes sync as \"tombstones\"—remove it on one device and it stays gone everywhere. If two devices change things at the same time, both sets of additions are kept; nothing overwrites the other. The only small difference is the one above: Chrome's account bookmarks bar has no matching root in Firefox / Edge, so it shows up as a folder under Other Bookmarks. Apart from that, structure and order stay consistent across devices."
-          }
-        ]
-      },
-      "troubleshoot": {
-        "title": "Troubleshooting",
-        "intro": "",
-        "items": [
-          {
-            "q": "Seeing 'N cloud items failed to decrypt'?",
-            "a": "It means the sync key doesn't match the cloud data. Check that you entered the correct sync passphrase, or whether the key changed. Never keep overwriting sync while decryption fails — it can truncate cloud data."
-          },
-          {
-            "q": "Deleted the Bookmark Menu folder in Chrome?",
-            "a": "That only clears the bookmarks inside (synced to all devices); the folder itself auto-recovers — designed behavior, not a bug. Don't delete it repeatedly; to clear its contents, delete the bookmarks inside."
-          },
-          {
-            "q": "Developer-mode extension doesn't update?",
-            "a": "Extensions loaded via Developer Mode don't auto-update: rebuild after code changes and click Reload on the browser's extensions page."
-          },
-          {
-            "q": "Sync isn't triggering?",
-            "a": "Check network and login state. Auto-sync is on by default: local changes push after a ~2s debounce, and a delta pull runs every 30 minutes. You can also tap Sync Now manually."
-          }
-        ]
-      }
-    }
+    "eyebrow": "Blog",
+    "title": "Articles",
+    "subtitle": "Guides, how-it-works, migration and troubleshooting — every article in one timeline, newest first."
   },
   "privacy": {
     "eyebrow": "Privacy",
@@ -599,6 +484,13 @@
     "toRegister": "No account yet? Create one",
     "toLogin": "Already have an account? Sign in",
     "emailConfirmSent": "A confirmation email has been sent. Please verify before signing in.",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "seePlans": "See plans",
+    "planUnknown": "Unknown plan",
+    "statusUnknownShort": "Status unavailable",
+    "statusFailed": "Could not load your account status. Please reload the page.",
+    "adminPanel": "Admin",
     "processing": "Processing…",
     "manageSub": "Manage / cancel subscription",
     "renewsOn": "Active until {date}. Manage or cancel in the Creem portal.",
@@ -660,7 +552,7 @@
       "title": "More resources",
       "desc": "Documentation, privacy policy and terms of service:",
       "items": {
-        "docs": "Documentation",
+        "docs": "Articles",
         "privacy": "Privacy Policy",
         "terms": "Terms of Service"
       }

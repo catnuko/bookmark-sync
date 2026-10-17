@@ -1,12 +1,43 @@
 name: Quality Gate
 
-# 质量门：只有推送到 main、以及任何 PR 才跑 typecheck + lint + 单测。
-# dev 是自己的日常开发分支，提交不跑 CI（本地用 `pnpm check` 自检），
-# 避免每次提交都刷一屏 workflow run。发版（release.yml）只负责构建与分发。
+# 质量门：只验证**合并到 main 之后**的那棵树（typecheck + lint + fmt + 单测）。
+#
+# ★ 为什么没有 pull_request 触发（2026-10-16 改）
+#
+#   本项目是单人开发（只有一台机器），PR 跑一遍、合并后 push:main 再跑一遍、
+#   每个 worktree-* / fix/* 分支再各跑一遍，验的是**同一棵树** —— 纯重复。
+#   而四项检查与本地 `pnpm check` 一字不差（typecheck + lint + fmt:check + test），
+#   合并前本地自检即可；合并后这里兜底一次，保证 main 恒绿。
+#
+#   量化（2026-10-16 统计近 30 天）：Quality Gate 曾是 Actions 用量第一大户
+#   —— 102 runs / 315 分钟，占全仓库 234 runs / 391 分钟的 **81% 的分钟数**；
+#   去掉 pull_request 后只剩 push:main（约 2 runs/月，≈5 分钟）。
+#
+# ★ 删掉 `branches-ignore` 而不是修它 —— 那条排除**从未生效**
+#
+#   `pull_request` 的 `branches` / `branches-ignore` 过滤的是 PR 的 **base 分支**，
+#   不是 head 分支。release-please 的版本 PR base 是 `main`，所以
+#   `branches-ignore: [release-please--branches--main--components--bookmark-sync]`
+#   永远不命中（2026-10-09 加的这条，2026-10-10 00:48 合入 main 后，
+#   当天 23:58 与 10-15 仍产生 4 个 0-job 的失败 run，实测未生效）。
+#   本文件已无 pull_request 事件，这条过滤随之失效，故删除。
+#
+# ★ 那些 0-job 的红色 run 是什么
+#
+#   release-please 用 `GITHUB_TOKEN` 建 PR，GitHub 对「bot 建的 PR」的
+#   `pull_request` 事件**会创建 run 但不放行**，没人点批准 → Auto-merge 一合并，
+#   悬挂的 run 立即作废并被记成 failure。识别特征：**0 个 job**。
+#   这是 GitHub 侧行为，不是代码问题；本文件不再监听 pull_request 后不会再出现。
+#
+# ★ 坏代码为什么仍进不了 Release
+#
+#   release.yml 的 build job 里有一道独立的发版前质量门
+#   （`pnpm typecheck && pnpm lint && pnpm test`），打包前执行。
+#   删掉 PR 触发不影响它 —— Release 的守门人是 release.yml，不是本文件。
+
 on:
   push:
     branches: [main]
-  pull_request:
 
 permissions:
   contents: read

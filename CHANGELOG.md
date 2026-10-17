@@ -1,5 +1,145 @@
 # Changelog
 
+## [2.16.2](https://github.com/catnuko/bookmark-sync/compare/v2.16.1...v2.16.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ci:** 商店提交判定改用 conclusion，修掉「三家都成功却报失败」 ([5e91160](https://github.com/catnuko/bookmark-sync/commit/5e91160cd623b876c850fbd5295b0c6841e0ade7))
+* **ci:** 商店提交判定改用 conclusion，修掉「三家都成功却报失败」 ([fc21dd3](https://github.com/catnuko/bookmark-sync/commit/fc21dd36a8760d6294300f5c965126811a8659da))
+
+## [2.16.1](https://github.com/catnuko/bookmark-sync/compare/v2.16.0...v2.16.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ci:** 闸门 import 不再连带跑采集上传（商店提交首轮失败的根因） ([9b3bd59](https://github.com/catnuko/bookmark-sync/commit/9b3bd59875162020edf93c3d3b80f109531acb69))
+* **ci:** 闸门 import 不再连带跑采集上传（商店提交首轮失败的根因） ([dda5d90](https://github.com/catnuko/bookmark-sync/commit/dda5d904231f6fdff4ba5189a2a80b2194f83dba))
+
+## [2.16.0](https://github.com/catnuko/bookmark-sync/compare/v2.15.1...v2.16.0) (2026-10-15)
+
+
+### Features
+
+* **admin:** admin_overview 增补按设备名聚合的设备台数 ([60e0f21](https://github.com/catnuko/bookmark-sync/commit/60e0f21ec5aee58442d20e28e76bef4db658d8a7))
+* **ci:** 商店提交自动化（release 末尾自动 dispatch + 版本闸门） ([aed4bc9](https://github.com/catnuko/bookmark-sync/commit/aed4bc93db0f689bed957bd09372bfb4e14e918c))
+* **ci:** 商店提交自动化（release 末尾自动 dispatch + 版本闸门） ([186d6b2](https://github.com/catnuko/bookmark-sync/commit/186d6b20e79ab8b4ec8a9ce40a2991a17c29a9b2))
+
+
+### Bug Fixes
+
+* **i18n:** 升级弹窗设备上限改回真实值（Plus 6 台 / Pro 15 台） ([c55cf51](https://github.com/catnuko/bookmark-sync/commit/c55cf51f6e5d83a20a802a46a69a432db944cde8))
+* **i18n:** 升级弹窗设备上限改回真实值（Plus 6 台 / Pro 15 台） ([6460907](https://github.com/catnuko/bookmark-sync/commit/64609074af176c6146df148ba16857a381a99df8))
+
+## [2.15.1](https://github.com/catnuko/bookmark-sync/compare/v2.15.0...v2.15.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **website:** 修后台用户详情页 404（rewrite 目标改为已注册路由） ([a385c33](https://github.com/catnuko/bookmark-sync/commit/a385c332c54f44e2a9529ca766d2be51703b1644))
+* **website:** 修后台用户详情页 404（rewrite 目标改为已注册路由） ([47f674d](https://github.com/catnuko/bookmark-sync/commit/47f674d5aba92cd81fc1f91c8b5b72629648c7c9))
+
+## [2.15.0](https://github.com/catnuko/bookmark-sync/compare/v2.14.3...v2.15.0) (2026-10-10)
+
+
+### Features
+
+* **website:** 404 / sitemap / robots 迁移到 Next.js（P6） ([6eb8e04](https://github.com/catnuko/bookmark-sync/commit/6eb8e04cf29f440852c2beb6a90092329371190c))
+* **website:** 内容路由与 AST 渲染迁移到 Next.js（P5） ([6d06fa9](https://github.com/catnuko/bookmark-sync/commit/6d06fa93e6e400f776799e9de51ac9cad292bfa7))
+* **website:** 后台 Admin 迁移到 Next.js（P7） ([44390ff](https://github.com/catnuko/bookmark-sync/commit/44390ff1e1247431aae99be2f022f0757b38374b))
+* **website:** 文档页改为按日期排序的文章时间线 ([79d2fb5](https://github.com/catnuko/bookmark-sync/commit/79d2fb55fceefda1c3e38b4f83ccc43ab5fd13ca))
+* **website:** 移植 i18n / SEO config / 内容派生到 TS（P2） ([bb244ee](https://github.com/catnuko/bookmark-sync/commit/bb244ee6c59b11f705b90776770062c4918b08be))
+* **website:** 移植公开页 + SEO metadata 到 Next.js（P4） ([aff84c4](https://github.com/catnuko/bookmark-sync/commit/aff84c4491a887fe8031894374910bc4c51fdaa9))
+* **website:** 移植布局壳（Header/Footer/账号/主题）（P3） ([2ad09f5](https://github.com/catnuko/bookmark-sync/commit/2ad09f5ef8968eb18897218ae9d40dd7c63da0b9))
+
+
+### Bug Fixes
+
+* **ui:** 「本机无处落地」不再当警告展示，只留控制台日志 ([ad05dd3](https://github.com/catnuko/bookmark-sync/commit/ad05dd309aac5b2279e0372e488a66029656531e))
+* **website:** dev 服务器也生成 content-data，修内容页看不到正文 ([edb3ead](https://github.com/catnuko/bookmark-sync/commit/edb3ead87636fbc6dec5cd550c564721411f150e))
+* **website:** 修内容页 hydration mismatch 与首屏白延迟 ([54ed65a](https://github.com/catnuko/bookmark-sync/commit/54ed65a40ecb9c06c9de24e8092ef22822f58585))
+* **website:** 页首导航去掉「支持」，该入口页脚已有 ([9ca74c5](https://github.com/catnuko/bookmark-sync/commit/9ca74c50b97144a7962d2f69286d9a9e5c581ada))
+
+## [2.14.3](https://github.com/catnuko/bookmark-sync/compare/v2.14.2...v2.14.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* **website:** 页首改登录入口 + 修弹窗被 header 困住 ([98a4a93](https://github.com/catnuko/bookmark-sync/commit/98a4a93f05680b87b962b5b70288619c67a245ac))
+* **website:** 页首改登录入口 + 修弹窗被 header 困住 ([1f817d4](https://github.com/catnuko/bookmark-sync/commit/1f817d41736ec5855ec3a10a11bc69e80b89a4a6))
+
+## [2.14.2](https://github.com/catnuko/bookmark-sync/compare/v2.14.1...v2.14.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **test:** 修 CI 上 mock 失效导致的假绿 ([6550aca](https://github.com/catnuko/bookmark-sync/commit/6550aca4276592d71c1032dffcafdd3edb252842))
+
+## [2.14.1](https://github.com/catnuko/bookmark-sync/compare/v2.14.0...v2.14.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **creem:** 退款即降级 + 邮箱反查兜底，修「付了钱没会员」 ([5e0f26a](https://github.com/catnuko/bookmark-sync/commit/5e0f26a3dc8d8bfa407ad7068c05f2c0c914a415))
+* **website:** 补账户入口与登出，登录态不再隐形 ([3c14beb](https://github.com/catnuko/bookmark-sync/commit/3c14beb49f690cff6aa88081d30be9883ff8335e))
+
+## [2.14.0](https://github.com/catnuko/bookmark-sync/compare/v2.13.0...v2.14.0) (2026-10-07)
+
+
+### Features
+
+* **website:** 文章列表改渐进披露（3 张精选卡 + 分类列表） ([0c7caa0](https://github.com/catnuko/bookmark-sync/commit/0c7caa0296803e3e6a96426b4c6a5ba8b9e6ca75))
+
+
+### Bug Fixes
+
+* **website:** 修内容页 CSR 白屏 + 文章列表改渐进披露 ([36571d3](https://github.com/catnuko/bookmark-sync/commit/36571d36b470b69ba6a7fd085e5bb3da5584167d))
+* **website:** 修内容页在 CSR 下白屏（dev server / 客户端跳转） ([1742a78](https://github.com/catnuko/bookmark-sync/commit/1742a780c6e0dedd8f6beb2fb7939bd4ad20bf21))
+
+## [2.13.0](https://github.com/catnuko/bookmark-sync/compare/v2.12.0...v2.13.0) (2026-10-07)
+
+
+### Features
+
+* **store:** add promo video for social media (zh, 9:16) ([819aacf](https://github.com/catnuko/bookmark-sync/commit/819aacf9cd606eced3dd0edfc6606f108c51fdc4))
+* **store:** update promo headline to bookmark structure (zh/en) ([e26ff1d](https://github.com/catnuko/bookmark-sync/commit/e26ff1d368fc84335879252906c5cc57e8b5b093))
+* **website:** add explain article on Chrome dual bookmark trees with image support ([0962497](https://github.com/catnuko/bookmark-sync/commit/096249708acaa959896975e242ef68e3c25818be))
+
+## [2.12.0](https://github.com/catnuko/bookmark-sync/compare/v2.11.1...v2.12.0) (2026-10-07)
+
+
+### Features
+
+* **store:** update promo feature tags to 4 items incl AES-256-GCM & free-forever (zh/en) ([aeef48b](https://github.com/catnuko/bookmark-sync/commit/aeef48bb2a106bc6037fc003e22171f6d0f62c11))
+
+
+### Bug Fixes
+
+* **website:** 修 /admin 进不去（bootstrap 挂起 + 不该 hydrate 预渲染内容） ([47b5cc8](https://github.com/catnuko/bookmark-sync/commit/47b5cc8827692e7e91d8122887aec055baa8d077))
+
+## [2.11.1](https://github.com/catnuko/bookmark-sync/compare/v2.11.0...v2.11.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **website:** 关掉 cssCodeSplit，修 SSG 页面全部无样式 ([dada9b2](https://github.com/catnuko/bookmark-sync/commit/dada9b270ec473a5fede3b6fdc0ca8df8003f82b))
+* **website:** 关掉 cssCodeSplit，修 SSG 页面全部无样式 ([35cd65f](https://github.com/catnuko/bookmark-sync/commit/35cd65fbf1e932a7bdc7f1546fe70a13bc5d88fd))
+
+## [2.11.0](https://github.com/catnuko/bookmark-sync/compare/v2.10.1...v2.11.0) (2026-10-06)
+
+
+### Features
+
+* **store:** add premium store screenshots (zh/en) ([ed8db14](https://github.com/catnuko/bookmark-sync/commit/ed8db14cd008e2ff170123d4ca4ac4f9ac08b240))
+* **website:** markdown 内容管道 + 10 篇长尾内容（问题解决/迁移/原理） ([1d9b334](https://github.com/catnuko/bookmark-sync/commit/1d9b334dd0a149ea672fbcb2970ce7fe1f67c562))
+* **website:** SSG 预渲染 16 页 + 双语独立 URL，SEO 从 CSR 空壳改为可索引 ([b667cca](https://github.com/catnuko/bookmark-sync/commit/b667cca6c79677da804dc18070e0b372ed533bec))
+
+
+### Bug Fixes
+
+* **store:** remove duplicated bottom content in premium store screenshots (zh/en) ([d795db9](https://github.com/catnuko/bookmark-sync/commit/d795db939a55d517c8fc650290c8d46d79b91e03))
+* **website:** hydration 检查改动态导入 playwright，修复 Vercel 构建失败 ([2e5f8c5](https://github.com/catnuko/bookmark-sync/commit/2e5f8c52759e7bca0b4416f3cf8cb438faeec0d4))
+
 ## [2.10.1](https://github.com/catnuko/bookmark-sync/compare/v2.10.0...v2.10.1) (2026-10-04)
 
 

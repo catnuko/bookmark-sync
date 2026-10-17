@@ -101,14 +101,6 @@
   "status_uptodate": {
     "message": "已是最新"
   },
-  "status_unplacedWarn": {
-    "message": "⚠️ $COUNT$ 条本地书签本机看不到",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      }
-    }
-  },
   "status_decryptWarn": {
     "message": "⚠️ $COUNT$ 条云端数据解密失败（密钥不匹配，请检查同步密钥/口令）",
     "placeholders": {
@@ -223,9 +215,6 @@
   },
   "popup_accountRow": {
     "message": "账户"
-  },
-  "popup_settingsRow": {
-    "message": "整理书签"
   },
   "quota_loading": {
     "message": "额度加载中…"
@@ -748,8 +737,11 @@
   "plan_plusFeat2": {
     "message": "3 个同步空间"
   },
-  "plan_devicesUnlimited": {
-    "message": "设备数量不限"
+  "plan_plusDevices": {
+    "message": "最多 6 台设备"
+  },
+  "plan_proDevices": {
+    "message": "最多 15 台设备"
   },
   "plan_proFeat1": {
     "message": "书签数量无限"
@@ -944,6 +936,9 @@
   "opts_navAria": {
     "message": "设置分区"
   },
+  "opts_note": {
+    "message": "设置已整合进插件弹窗，点击浏览器工具栏图标即可使用。"
+  },
   "toast_syncDone": {
     "message": "同步完成"
   },
@@ -1092,7 +1087,7 @@
     "message": "📡 同步完成提示怎么看？"
   },
   "help_7_body": {
-    "message": "<p>同步后的提示按结果方向描述，不再显示「推送 / 拉取几条」——那个数字是内部同步操作数，和你实际的书签数对不上，容易误导。对照如下：</p><table class=\"help-tbl\"><thead><tr><th>你看到的提示</th><th>含义</th></tr></thead><tbody><tr><td>首次同步完成，书签已加密上传</td><td>本机第一次把本地书签整体上传到云端（云端原本是空的）</td></tr><tr><td>首次同步完成，已从云端恢复书签</td><td>新设备 / 重装后，把云端已有书签拉到本机</td></tr><tr><td>双向同步完成</td><td>本机和其他设备都有改动，已互相同步</td></tr><tr><td>已上传本地变更</td><td>只把本机新增 / 修改的书签传到了云端</td></tr><tr><td>已同步其他设备的变更</td><td>收到了别的设备新加的书签</td></tr><tr><td>已是最新</td><td>没有新变更，无需操作</td></tr><tr><td>⚠️ N 条本地书签本机看不到</td><td>空间里有「只属于本机」的书签，但本机 Chrome 没有本地书签栏可放 —— 已登录且本地为空时，Chrome 不创建本地书签栏</td></tr></tbody></table><p>状态卡上的「N 条书签」是真实书签总数，是准确的。看到「⚠️ N 条云端数据解密失败」说明同步密钥和云端数据不匹配，请检查密钥或口令。</p><p>想让这些书签在本机显示：<strong>登出 Chrome</strong> 后<strong>新建一个本地书签</strong>（未登录时只有本地书签栏），本地书签栏出现后再同步一次即可。它们只留在本机，不会上传到你的 Google 账号。</p>"
+    "message": "<p>同步后的提示按结果方向描述，不再显示「推送 / 拉取几条」——那个数字是内部同步操作数，和你实际的书签数对不上，容易误导。对照如下：</p><table class=\"help-tbl\"><thead><tr><th>你看到的提示</th><th>含义</th></tr></thead><tbody><tr><td>首次同步完成，书签已加密上传</td><td>本机第一次把本地书签整体上传到云端（云端原本是空的）</td></tr><tr><td>首次同步完成，已从云端恢复书签</td><td>新设备 / 重装后，把云端已有书签拉到本机</td></tr><tr><td>双向同步完成</td><td>本机和其他设备都有改动，已互相同步</td></tr><tr><td>已上传本地变更</td><td>只把本机新增 / 修改的书签传到了云端</td></tr><tr><td>已同步其他设备的变更</td><td>收到了别的设备新加的书签</td></tr><tr><td>已是最新</td><td>没有新变更，无需操作</td></tr></tbody></table><p>状态卡上的「N 条书签」是真实书签总数，是准确的。看到「⚠️ N 条云端数据解密失败」说明同步密钥和云端数据不匹配，请检查密钥或口令。</p><p>还有一种情况界面不会提示：如果空间里有「只属于本机」的书签，而本机 Chrome 没有本地书签栏可放（已登录且本地为空时，Chrome 不创建本地书签栏），这些书签就只留在云端。遇到时：<strong>登出 Chrome</strong> 后<strong>新建一个本地书签</strong>（未登录时只有本地书签栏），本地书签栏出现后再同步一次即可。它们不会上传到你的 Google 账号。</p>"
   },
   "gate_hintSetup": {
     "message": "请设置一个同步口令——它是解密书签的唯一凭证，一旦设置不可更改，忘记将无法找回。"
@@ -1100,8 +1095,8 @@
   "gate_hintVerify": {
     "message": "云端书签已加密，请输入与其他设备相同的同步口令。"
   },
-  "status_unplacedHint": {
-    "message": "这些书签只属于本机，本机 Chrome 没有「本地书签栏」可放。登出 Chrome 后新建一个本地书签，再同步一次即可显示（不会上传到 Google 账号）。详见「帮助」。"
+  "popup_settingsRow": {
+    "message": "整理书签"
   },
   "ai_title": {
     "message": "AI"

@@ -1,0 +1,62 @@
+.page h2 {
+  margin: 0 0 14px;
+}
+.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.bar select {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* 移动端卡片 */
+.oCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.oHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.oAmount {
+  font-weight: 600;
+  font-size: 15px;
+}
+.oRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+.oK {
+  color: var(--color-text-muted);
+  flex: none;
+}
+.oV {
+  text-align: right;
+  word-break: break-all;
+}
+
+@media (max-width: 768px) {
+  .bar {
+    flex-wrap: wrap;
+  }
+  .bar select {
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
+}

@@ -1,0 +1,23 @@
+.langToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--radius-md);
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  transition: all var(--transition);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.langToggle:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-soft);
+}
+
+.langLabel {
+  letter-spacing: 0.02em;
+}

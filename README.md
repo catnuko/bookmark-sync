@@ -63,7 +63,7 @@ node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
 - `bookmark-sync-firefox-<ver>.zip`（Firefox）
 - `bookmark-sync-source-<ver>.zip`（AMO 审核用源码包，含 `BUILD.md` 构建说明；Chrome / Edge 商店不需要）
 
-任何推送到 `dev` / `main` 或 PR 都会先跑 **Quality Gate**（`tsc` 类型检查 + eslint + vitest 单测，本地可用 `pnpm check` 一键执行），未通过不会发版。
+合并到 `main` 后会自动跑 **Quality Gate**（`tsc` 类型检查 + lint + 格式检查 + vitest 单测），未通过不会发版。本项目是单人开发，PR 阶段不重复跑 CI —— 四项检查与本地 `pnpm check` 完全一致，合并前本地一键自检即可。
 
 ## 已知限制
 

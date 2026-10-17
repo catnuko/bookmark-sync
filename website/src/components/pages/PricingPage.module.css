@@ -1,0 +1,116 @@
+.pricingPage {
+  display: flex;
+  flex-direction: column;
+}
+
+.pricingHero {
+  background: var(--color-bg);
+  padding-top: var(--space-20);
+}
+
+.sectionHeader {
+  text-align: center;
+  margin-bottom: var(--space-16);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.plansGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  max-width: 1080px;
+  margin: 0 auto;
+  align-items: stretch;
+}
+
+.compareSection {
+  background: var(--color-bg-soft);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.compareTableWrap {
+  max-width: 880px;
+  margin: 0 auto;
+  overflow-x: auto;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.compareTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 680px;
+}
+
+.compareTable thead th {
+  padding: var(--space-4) var(--space-5);
+  text-align: left;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.compareTable thead .colHighlight {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.compareTable thead .colFeature {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.compareTable tbody td {
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--text-sm);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-soft);
+  text-align: center;
+}
+
+.compareTable tbody td.colFeature {
+  color: var(--color-text);
+  font-weight: 500;
+  text-align: left;
+}
+
+.compareTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.compareTable tbody .colHighlight {
+  background: var(--color-accent-soft);
+}
+
+.cellYes {
+  color: var(--color-accent);
+  font-weight: 700;
+  font-size: var(--text-base);
+}
+
+.cellNo {
+  color: var(--color-text-faint);
+}
+
+.cellText {
+  color: var(--color-text-soft);
+}
+
+.pricingLegalNote {
+  text-align: center;
+  margin-top: var(--space-6);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 900px) {
+  .plansGrid {
+    grid-template-columns: 1fr;
+    max-width: 460px;
+  }
+}

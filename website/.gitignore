@@ -1,0 +1,5 @@
+# Next.js 构建产物
+/out
+/.next
+next-env.d.ts
+*.tsbuildinfo
