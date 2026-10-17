@@ -48,4 +48,6 @@ website/public/downloads/
 .dev-creds.json
 
 .codebuddy
-.claude
+# .claude 下只有项目级子代理定义入库，本地设置仍忽略
+.claude/*
+!.claude/agents/
