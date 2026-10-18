@@ -737,8 +737,11 @@
   "plan_plusFeat2": {
     "message": "3 个同步空间"
   },
-  "plan_devicesUnlimited": {
-    "message": "设备数量不限"
+  "plan_plusDevices": {
+    "message": "最多 6 台设备"
+  },
+  "plan_proDevices": {
+    "message": "最多 15 台设备"
   },
   "plan_proFeat1": {
     "message": "书签数量无限"
@@ -902,7 +905,7 @@
     "message": "立即同步"
   },
   "sync_recoveredRoot": {
-    "message": "同步復原的書籤"
+    "message": "同步恢复的书签"
   },
   "sync_lastSync": {
     "message": "上次同步 $TIME$ · $COUNT$ 条",
@@ -1262,31 +1265,31 @@
     "message": "模型没有返回内容。请检查「AI 设置」里的模型名是否正确。"
   },
   "org_title": {
-    "message": "整理書籤"
+    "message": "整理书签"
   },
   "org_sub": {
-    "message": "AI 建議怎麼分組，你確認後才動。也可以只查重複書籤（本地完成，不連網）。"
+    "message": "AI 建议怎么分组，你确认后才动。也可以只查重复书签（本地完成，不联网）。"
   },
   "org_pickScope": {
-    "message": "要整理哪個資料夾？"
+    "message": "要整理哪个文件夹？"
   },
   "org_pickScopePlaceholder": {
-    "message": "選擇一個資料夾"
+    "message": "选择一个文件夹"
   },
   "org_pickScopeHint": {
-    "message": "只整理所選資料夾下直接散著的書籤，已在子資料夾裡的不動。"
+    "message": "只整理所选文件夹下直接散着的书签，已在子文件夹里的不动。"
   },
   "org_start": {
-    "message": "產生整理方案"
+    "message": "生成整理方案"
   },
   "org_planning": {
     "message": "模型正在想…"
   },
   "org_changeScope": {
-    "message": "換個資料夾"
+    "message": "换个文件夹"
   },
   "org_planStat": {
-    "message": "建議 $1 組，涵蓋 $2 條書籤",
+    "message": "建议 $1 组，涵盖 $2 条书签",
     "placeholders": {
       "groups": {
         "content": "$1"
@@ -1297,16 +1300,16 @@
     }
   },
   "org_noGroups": {
-    "message": "這個資料夾下沒有可整理的書籤。"
+    "message": "这个文件夹下没有可整理的书签。"
   },
   "org_reuse": {
-    "message": "沿用現有資料夾"
+    "message": "复用现有文件夹"
   },
   "org_create": {
-    "message": "新增資料夾"
+    "message": "新建文件夹"
   },
   "org_moreItems": {
-    "message": "還有 $1 條…",
+    "message": "还有 $1 条…",
     "placeholders": {
       "n": {
         "content": "$1"
@@ -1314,7 +1317,7 @@
     }
   },
   "org_unclassified": {
-    "message": "有 $1 條沒能歸類，會保持原位不動。",
+    "message": "有 $1 条没能归类，会保持原位不动。",
     "placeholders": {
       "n": {
         "content": "$1"
@@ -1322,7 +1325,7 @@
     }
   },
   "org_usage": {
-    "message": "本次消耗：輸入約 $1 tokens，輸出約 $2 tokens。",
+    "message": "本次消耗：输入约 $1 tokens，输出约 $2 tokens。",
     "placeholders": {
       "in": {
         "content": "$1"
@@ -1333,10 +1336,10 @@
     }
   },
   "org_safetyNote": {
-    "message": "只會移動和新增資料夾，不會刪除任何書籤。移動後同步到你的其他裝置。"
+    "message": "只会移动和新建文件夹，不会删除任何书签。移动后同步到你的其他设备。"
   },
   "org_apply": {
-    "message": "套用（移動 $1 條）",
+    "message": "应用（移动 $1 条）",
     "placeholders": {
       "n": {
         "content": "$1"
@@ -1347,7 +1350,7 @@
     "message": "取消"
   },
   "org_progress": {
-    "message": "正在移動 $1 / $2…",
+    "message": "正在移动 $1 / $2…",
     "placeholders": {
       "done": {
         "content": "$1"
@@ -1358,7 +1361,7 @@
     }
   },
   "org_applied": {
-    "message": "已移動 $1 條書籤",
+    "message": "已移动 $1 条书签",
     "placeholders": {
       "n": {
         "content": "$1"
@@ -1366,7 +1369,7 @@
     }
   },
   "org_partialFail": {
-    "message": "有 $1 項沒成功，詳情見主控台。",
+    "message": "有 $1 项没成功，详情见控制台。",
     "placeholders": {
       "n": {
         "content": "$1"
@@ -1374,7 +1377,7 @@
     }
   },
   "org_createdFolders": {
-    "message": "新增了 $1 個資料夾。",
+    "message": "新建了 $1 个文件夹。",
     "placeholders": {
       "n": {
         "content": "$1"
@@ -1382,13 +1385,13 @@
     }
   },
   "org_revert": {
-    "message": "復原移動"
+    "message": "撤销移动"
   },
   "org_reverting": {
-    "message": "復原中…"
+    "message": "撤销中…"
   },
   "org_reverted": {
-    "message": "已移回 $1 條。",
+    "message": "已移回 $1 条。",
     "placeholders": {
       "n": {
         "content": "$1"
@@ -1399,16 +1402,16 @@
     "message": "完成"
   },
   "dpe_title": {
-    "message": "尋找重複書籤"
+    "message": "查找重复书签"
   },
   "dpe_sub": {
-    "message": "去掉追蹤參數後比對網址。純本地，不連網、不上傳。"
+    "message": "去掉追踪参数后对比网址。纯本地，不联网、不上传。"
   },
   "dpe_safetyNote": {
-    "message": "只列出重複項，不會替你刪除。刪不刪由你決定。"
+    "message": "只列出重复项，不会替你删除。删不删由你决定。"
   },
   "dpe_group": {
-    "message": "第 $1 組 · $2 條",
+    "message": "第 $1 组 · $2 条",
     "placeholders": {
       "i": {
         "content": "$1"
@@ -1419,58 +1422,58 @@
     }
   },
   "dpe_keep": {
-    "message": "建議保留"
+    "message": "建议保留"
   },
   "dpe_none": {
-    "message": "沒有發現重複書籤。"
+    "message": "没有发现重复书签。"
   },
   "ai_modelList": {
     "message": "模型"
   },
   "ai_modelListHint": {
-    "message": "點一行切換到該模型。每條模型單獨保存自己的 Key，互不影響。"
+    "message": "点一行切换到该模型。每条模型单独保存自己的 Key，互不影响。"
   },
   "ai_inUse": {
     "message": "使用中"
   },
   "ai_addProvider": {
-    "message": "新增模型"
+    "message": "添加模型"
   },
   "ai_removeProvider": {
-    "message": "刪除這條"
+    "message": "删除这条"
   },
   "ai_noProviders": {
-    "message": "還沒有新增任何模型。點下面的按鈕新增一個。"
+    "message": "还没有添加任何模型。点下面的按钮添加一个。"
   },
   "ai_customProvider": {
-    "message": "自訂模型"
+    "message": "自定义模型"
   },
   "ai_customProviderPlaceholder": {
-    "message": "例如：公司內部代理"
+    "message": "例如：公司内部代理"
   },
   "ai_customProviderHint": {
-    "message": "適合自建端點或中轉服務。協定按 OpenAI 相容處理。"
+    "message": "适合自建端点或中转服务。协议按 OpenAI 兼容处理。"
   },
   "ai_label": {
-    "message": "顯示名稱"
+    "message": "显示名称"
   },
   "ai_labelHint": {
-    "message": "只給你自己看，用來區分同一家廠商的多個端點。"
+    "message": "只给你自己看，用来区分同一家厂商的多个端点。"
   },
   "ai_providerKind": {
-    "message": "廠商類型"
+    "message": "厂商类型"
   },
   "ai_providerKindHint": {
-    "message": "決定用哪套 API 格式。改類型時，端點與模型名若仍是預設值會一起換掉。"
+    "message": "决定用哪套 API 格式。改类型时，端点与模型名若还是默认值会一起跟着换。"
   },
   "ai_add": {
-    "message": "新增"
+    "message": "添加"
   },
   "ai_cancel": {
     "message": "取消"
   },
   "ai_editTitle": {
-    "message": "編輯模型"
+    "message": "编辑模型"
   },
   "theme_label": {
     "message": "主题"
