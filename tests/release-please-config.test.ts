@@ -21,6 +21,7 @@ const config = JSON.parse(
 
 /** 非扩展产物路径：这些目录里的提交不应推高扩展版本号。 */
 const EXPECTED_EXCLUDES = [
+  '.claude',
   'website',
   'docs',
   'memory',

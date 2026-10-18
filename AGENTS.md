@@ -54,6 +54,55 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
 
 ---
 
+# AI 功能 = BYOK 与三条硬护栏
+
+给后续改 AI 功能的人看的要点。真相在 `src/ai/`（10 个模块）与相关 pane 的源码注释里，本节只提炼**不可回退的决策**。完整设计（功能清单 / 数据流 / 权限模型 / 取消语义 / 已知限制）见 `docs/design/ai-features.md`，验收步骤见 `docs/manual-test-plan.md` 的「套件 I」。
+
+## BYOK：不引入服务端代理、不托管 key
+
+- AI 全程 **Bring Your Own Key**：请求由扩展**直连用户自己填的端点**（`src/ai/provider.ts` 的 `complete()` / `streamComplete()`），不经我们的服务器中转，没有任何服务端代理层。
+- 唯一理由是**操作级 E2EE**：书签连同父节点/子节点/时间戳整体 AES-256-GCM 加密后才上行（`src/sync/opCrypto.ts`，迁移 0032），服务端只存 `{iv, ciphertext}`、连「有多少条书签」都数不出来 —— 任何服务端 AI 都得先把密钥传上去，官网「端到端加密」的承诺当场作废（`provider.ts:4-13`）。明文与 key 只在本机存在。
+- **key 存 `chrome.storage.local` 的 `ai.keys`**（`{[id]: key}` 映射），明文，与配置 `ai.providers` **分开存**。理由（`config.ts:25-31`）：① 导出/诊断时可 dump 配置而不带任何 key；② 将来若要把「哪些厂商配过」这类非敏感信息同步到别的设备，不会顺手把 key 一起带走。key 的存储位置是 `config.ts` 的模块不变式，禁止让 UI 直接碰 `api.storage.local`（`config.ts:234-243`）。
+- **绝不进 `chrome.storage.sync`** —— 那会让 key 随账号漫游到每一台设备，违背「只有我这台机器知道这个 key」（`config.ts:6-10`，与 `sync/keyManager.ts` 的口令一致：只落 local，从不漫游）。
+- 总开关 `enabled` **默认关**：装了扩展不等于授权把书签发出去，开关必须由用户点（`config.ts:219-221`）。开发期预填 key 的 `seedDevAiKey` 同样把 `enabled` 留 false、CI 拿不到 `.dev-creds.json` 即空串直接 return（三条自律见 `config.ts:403-415`）。
+
+## ★ 三条硬护栏（改用户书签树时不可违反）
+
+真源 `src/ai/organize.ts:12-35`。这三条不是保守，是**两次线上事故**换来的（2026-10-04 全量真删导致所有书签消失；2026-10-01 挂浏览器根下的 1488 个节点在其它设备投影时不可达），不做第三次。
+
+1. **永不调 `remove` / `removeTree`**，只做可逆的 `move` 与幂等的 `create`（链接体检可加 `update` 改 URL）。删节点会经 `onRemoved` → `pendingRemoved` 补调 → 墓碑 push 上云，把「本机丢数据」升级成「跨设备云端污染」（实测 3562 条 trash op）。AI 批量删除 = 把这个风险乘上「模型可能判错」这个因子。要删的东西交回用户自己点（`organize.ts:12-21`）。链接体检同款 —— `linkCheck.ts` 的 `applyRepairs` / `revertRepairs` 全程只 `update` 不 `remove`（`linkCheck.ts:32-34`、`:396-449`）。
+2. **新建文件夹只建在用户选定的范围内**（`create` 的 `parentId` 恒为 `plan.scopeId`），**绝不建在浏览器根**（`"0"` / `root________`）下 —— 根节点不能增删条目，挂在根下的 CRDT 节点在别的设备投影时会报 "Can't modify the root bookmark folders."（`organize.ts:29-35`、`:292`）。`listFolders` 也跳过浏览器根、只列落地根下的文件夹（`organize.ts:112-139`）。
+3. **撤销只把节点移回位置、不删新建的文件夹**。`revertApply` 逆序 `move` 回原 `(parentId, index)`，但**不删**本次创建的文件夹 —— 删文件夹同样会触发 `onRemoved` → 墓碑 → 跨设备删除（`organize.ts:329-352`）。空文件夹留在那儿由用户自己处理。本模块也不改标题，所以撤销不需要还原标题。
+
+## 模型输出不可信：显式确认 + 归一化校验
+
+- 三段式「选范围 → 出方案（只读）→ 落地（写）」，第 2 步 `planOrganize` 与第 3 步 `applyPlan` 之间隔着一次**用户显式确认**（勾选组 + 点应用）。模型返回的东西绝不自动生效（`organize.ts:4-10`、`classify.ts:34-38`、`PaneOrganize.vue` 的「为什么不自动应用」）。
+- 输出必须过归一化校验，**越界下标 / 重复 / 结构非法一律丢弃**：`classify.ts` 的 `normalizeGroups` 做四道过滤（必须是数组且 folder 为字符串、ids 必须是整数、下标在该批范围内防越界防串批、归一化后去重），`semanticDedupe.ts` 与 `linkCheck.ts` 的 `suggestRepairs` 同理只产建议、不动 `chrome.bookmarks`（`classify.ts:225-257`、`semanticDedupe.ts:22-26`）。
+- **精确去重根本不给模型**：`dedupe.ts` 是确定性字符串处理（零网络、零 token、可在几千条上全量跑），交给模型等于白花钱 + 白外发隐私 + 引入不确定性（`dedupe.ts:2-9`）。AI 未就绪时去重仍可用 —— gate 只挡真正依赖模型的那一块。
+
+## ★ host 权限两条约束（踩过就是功能静默失效）
+
+真源 `src/ai/hostAccess.ts:16-26`。默认 **0 权限**（主流服务商都回 CORS 头）；只有自建 / 中转 / 内网端点不回 CORS 时，才在运行时申请 host 权限（host 权限可绕过 CORS）。
+
+1. **必须在用户手势内、且是 click handler 的第一句**调用 `requestHostAccess()` / `requestBroadHostAccess()`。写成 `await something(); await request()` 必然失败 —— 第一个 await 就把手势吃掉了，`permissions.request()` 要求前台 UI 上下文且手势未被消费（`hostAccess.ts:18-21`；调用点纪律见 `PaneAI.vue` 的「申请 host 权限」、`PaneLinkCheck.vue` 的「授权」注释）。
+2. **manifest 必须先声明**：`public/manifest.json` 的 `optional_host_permissions` 与 `hostAccess.ts` 导出的 `OPTIONAL_HOST_PATTERNS`（`['https://*/*', 'http://*/*']`）**必须逐字一致**，没写的域 `request()` 直接被拒（`hostAccess.ts:30-31`、`public/manifest.json:15`；护栏用例 `tests/ai/hostAccess.test.ts` 的「★ 与 manifest 的 optional_host_permissions 逐字一致」）。用 https + http 通配而非 `<all_urls>`，权限面更小、商店审核好解释。
+
+- `history` 是另一条**可选权限**（`optional_permissions`，不是 host 权限），只有健康洞察的「沉睡书签」需要；同样受「手势第一句」约束（`src/lib/historyAccess.ts:1-22`）。没授权时 `sleeping` 记 `null`（不是 0），UI 显示「-- / 需历史权限」（`health.ts:27-31`）。
+
+## 改 AI 功能的回归要求
+
+改 `src/ai/` 或相关 pane 后，除本地 `pnpm check`（typecheck + lint + fmt:check + test）外，下列**护栏用例必须保持绿**：
+
+- `tests/ai/organize.test.ts` —— 三条硬护栏的守护用例：「★ 全程不调用任何 remove 类 API」「★ 新建文件夹建在选定范围下，绝不建在浏览器根」「把节点移回原位，且不删新建的文件夹」，以及越界下标丢弃、超单次上限直接拒绝、`shouldStop` 半程不回滚等。
+- `tests/ai/hostAccess.test.ts` —— manifest 一致性、双 pattern 全授予才算广域、非扩展环境安全降级、手势失效（抛错）一律视为未获批。
+- `tests/i18nPlaceholders.test.ts` —— 三侧（zh_CN / zh_TW / en）占位符编号集合一致、禁非法 `$N$`，防英文 UI 出现 "Moved $N bookmarks" 这种字面量（见提交 `b61b386` P0-2）。
+- `tests/optionsNav.test.ts` —— popup「整理书签」直达 organize 页的 onMounted 三分支，防 `store.ts` 的 `navPane` 初始值被回退成合法 id 使 session 传参变死代码（见提交 `3f6f85d` P0-1）。
+- `tests/ai/abort.test.ts` —— 取消语义（批次边界保留、已完成不丢），含一个变异探针，防取消测试假通过。
+
+> **zh_TW 维护策略（产品决策 D3，2026-10-18 已定案）**：zh_TW 维持为 zh_CN 的**逐字节简体副本**，不做繁体翻译（与官网 detectLocale 的 zh\* → 中文行为对齐）。新增键时 zh_TW 直接拷 zh_CN 条目。定案落地见提交 `aabaaae`；三侧占位符一致性由 `tests/i18nPlaceholders.test.ts` 守卫。
+
+---
+
 # 项目开发注意事项（原 Agent.md — bookmark-sync）
 
 给后续开发/维护的 agent 看的要点。**源目录即真相**（`src/`），构建产物目录（`extension/`、`extension-firefox/`）都在 `.gitignore`，不要直接改，也不要提交。

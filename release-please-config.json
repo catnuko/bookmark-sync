@@ -5,6 +5,7 @@
     ".": {
       "release-type": "node",
       "exclude-paths": [
+        ".claude",
         "website",
         "docs",
         "memory",
