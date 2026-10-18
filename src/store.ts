@@ -182,9 +182,23 @@ export const state = reactive({
 
   // 设置页导航。设置页只承载 popup 塞不下的功能（AI 配置 / 问答 / 整理 /
   // 链接体检 / 地址栏搜索 / 健康洞察），pane 清单真源在 OptionsView.vue 的
-  // panes 数组；这里给个存在的默认值兜底。健康洞察的「整理建议」也直接写这个字段
-  // 来跨 pane 跳转。
-  navPane: 'ai', // 见 OptionsView.vue → panes
+  // panes 数组。健康洞察的「整理建议」也直接写这个字段来跨 pane 跳转。
+  //
+  // ★ 初始值必须是**非法的 pane id**（''），不能填任何真实 id（如 'ai'）。
+  //
+  // 原因在 OptionsView.vue 的 onMounted：它靠 `isPaneId(state.navPane)` 判断
+  // 「用户是否已在同页内切过 pane」—— 返回 true 就直接 return，把读
+  // chrome.storage.session（popup 传来的目标 pane）整段逻辑跳过。
+  //
+  // 2026-10-18 事故：这里原本填的是合法值 'ai'，于是 popup 点「整理书签」
+  // （PopupView.vue → openSettingsPage 写 storage.session 的 options.pane）
+  // 后，设置页 **100% 落在 AI 配置页**，session 传参与「用完即删」全部白做，
+  // 且无任何报错。填 '' 让 isPaneId 返回 false，才会继续走「session 有值就用
+  // 它、没有就兜底到 panes[0]」的正常分支。
+  //
+  // 语义仍是「同页内保留用户选择」：onMounted 只跑一次，之后用户点侧栏
+  // 写进去的就是合法 id，下次同页渲染照样命中 return 分支。
+  navPane: '', // 见 OptionsView.vue → panes（初始值刻意非法，勿填真实 pane id）
 
   // toast 队列
   toasts: [] as Toast[],

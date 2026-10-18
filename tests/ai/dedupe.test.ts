@@ -135,12 +135,20 @@ describe('findDuplicates', () => {
     expect(groups[0].keepId).toBe('b');
   });
 
-  it('保留谁的结果是确定的（同树两次跑同一结果）', () => {
-    const tree = treeOf(
+  it('★ 完全同分时保留 id 字典序更小的那条（与输入顺序无关）', () => {
+    const pair = [
       { id: 'z', title: 'AB', url: 'https://x.com/p' },
       { id: 'y', title: 'AB', url: 'https://x.com/p' },
-    );
-    expect(findDuplicates(tree)[0].keepId).toBe(findDuplicates(tree)[0].keepId);
+    ];
+    // 标题同长、URL 同长 → 落到 pickKeeper 最后一级 tie-break：id 字典序升序。
+    // 'z' > 'y'，所以留 'y'。
+    //
+    // 为什么钉死具体值：pickKeeper 被 semanticDedupe 复用，规则必须同一份 ——
+    // 否则同一个组在「精确判重」与「语义判重」两个视图里会显示不同的保留项，
+    // 用户会以为界面出错了。而真实树里这两个节点的先后由文件夹顺序决定、随时会变，
+    // 所以两个输入顺序都必须给出同一个答案。
+    expect(findDuplicates(treeOf(pair[0], pair[1]))[0].keepId).toBe('y');
+    expect(findDuplicates(treeOf(pair[1], pair[0]))[0].keepId).toBe('y');
   });
 
   it('无重复返回空', () => {
@@ -179,13 +187,32 @@ describe('findDuplicates', () => {
     expect(findDuplicates(tree)).toEqual([]);
   });
 
-  it('组数超上限时截断，不静默少报', () => {
-    const items = Array.from({ length: 30 }, (_, i) => ({
-      id: `i${i}`,
-      title: 'SAME',
-      url: 'https://x.com/p',
-    }));
-    expect(findDuplicates(treeOf(...items))).toHaveLength(1); // 30 条同 URL = 1 组
+  it('★ 组数超 limit 时只返回 limit 组（不是把第 limit+1 组截短）', () => {
+    // 造 5 个**不同** URL 的重复组：同一个 URL 造多少条都只算 1 组，那样永远
+    // 碰不到 limit。每组 2 条，组内完全同分，让排序走 id 字典序兜底，
+    // 于是「留下哪几组」是可预期的（g0…g4 按 key 排序后取前 3）。
+    const items: Array<{ id: string; title: string; url: string }> = [];
+    for (let g = 0; g < 5; g++) {
+      const pad = String(g).padStart(2, '0');
+      items.push(
+        { id: `a${pad}`, title: 'SAME', url: `https://g${pad}.com/p` },
+        { id: `b${pad}`, title: 'SAME', url: `https://g${pad}.com/p?utm_source=x` },
+      );
+    }
+    const groups = findDuplicates(treeOf(...items), 3);
+    expect(groups).toHaveLength(3);
+    // 返回的是**完整**的组，不是截断成半截的组：每组仍带全量成员
+    expect(groups.map((g) => g.key)).toEqual([
+      'https://g00.com/p',
+      'https://g01.com/p',
+      'https://g02.com/p',
+    ]);
+    for (const g of groups) {
+      expect(g.dupIds).toHaveLength(1);
+      expect(g.urls).toHaveProperty(g.keepId);
+    }
+    // 不传 limit 时默认 200，5 组全返回 —— 证明上面真的是 limit 在起作用
+    expect(findDuplicates(treeOf(...items))).toHaveLength(5);
   });
 
   it('多条重复组按重复条数降序', () => {

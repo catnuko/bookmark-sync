@@ -228,10 +228,20 @@
           <button class="btn btn-ghost" :disabled="busy" @click="closeEditor">
             {{ t('ai_cancel') }}
           </button>
-          <button class="btn btn-ghost danger" :disabled="busy" @click="wipe">
-            <Icon name="trash" />
-            {{ t('ai_clear') }}
-          </button>
+          <!--
+            ★ 两步确认（ArmedButton），模式与超时（3 秒）对齐 PaneLinkCheck 的
+            「应用修复」。清除会删掉 ai.providers / ai.keys / ai.activeId /
+            ai.migrated 及旧结构键 —— 误点一次，用户配的全部端点与 key 一起丢，
+            且没有恢复路径。所以第一次点只进入 armed 态，倒计时内再点才真删。
+          -->
+          <ArmedButton
+            :label="t('ai_clear')"
+            :confirm-label="t('ai_clear')"
+            :armed="armed"
+            :countdown="armLeft"
+            :disabled="!!busy"
+            @press="onWipePress"
+          />
         </div>
       </div>
     </div>
@@ -257,7 +267,7 @@
  *   - 默认零 host 权限；自建端点挡 CORS 时才在用户手势内申请。
  *   - 用户不点「保存」就不落盘，避免半填状态被当成有效配置。
  */
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { t } from '../lib/i18n.js';
 import { showToast } from '../store.js';
 import { describeError } from '../lib/errors.js';
@@ -278,6 +288,7 @@ import {
 } from '../ai/config.js';
 import { hasHostAccess, requestHostAccess, originOf } from '../ai/hostAccess.js';
 import Icon from './ui/Icon.vue';
+import ArmedButton from './ui/ArmedButton.vue';
 
 const PROVIDERS = Object.keys(PROVIDER_DEFAULTS);
 const providerList = PROVIDERS.map((id) => ({ id, label: PROVIDER_DEFAULTS[id].label }));
@@ -298,6 +309,13 @@ const editorOpen = ref(false);
 const newLabel = ref('');
 const busy = ref(''); // '' | 'test' | 'save'
 const msg = ref('');
+/**
+ * 「清除」的两步确认状态（ArmedButton 需要父组件持有 armed / 倒计时）。
+ * 超时值与 PaneLinkCheck 的「应用修复」一致：3 秒后自动复位。
+ */
+const armed = ref(false);
+const armLeft = ref(0);
+let armTimer = null;
 const msgBad = ref(false);
 /** 测试报了 CORS 且尚未授权 → 露出「授权访问」按钮。 */
 const needHost = ref(false);
@@ -436,6 +454,9 @@ function closeEditor() {
   if (e) loadDraft(list.value, activeId.value, keys.value);
   msg.value = '';
   needHost.value = false;
+  // armed 态跟着弹窗一起复位：否则关掉再打开，清除按钮还挂着「(3)」倒计时，
+  // 用户以为只要再点一下就删 —— 那是没有意图的误触窗口。
+  armed.value = false;
 }
 
 async function remove(id) {
@@ -592,6 +613,40 @@ async function wipe() {
   setMsg(t('ai_cleared'));
   showToast('success', t('ai_clearedTitle'), '');
 }
+
+/**
+ * 「清除」的两步确认：第一次点只进入 armed 倒计时，倒计时内再点才真正执行。
+ *
+ * 为什么不能直接 `@click="wipe"`：`wipe()` → `clearAi()` 删掉全部 provider / key /
+ * 开关且**没有恢复路径**，误点一次的代价是用户重新配一遍所有端点。做法与
+ * PaneLinkCheck 的「应用修复」完全一致（含 3 秒超时），保持全仓统一的手感。
+ */
+function onWipePress() {
+  if (busy.value) return;
+  if (!armed.value) {
+    armed.value = true;
+    armLeft.value = 3;
+    clearInterval(armTimer ?? undefined);
+    armTimer = setInterval(() => {
+      armLeft.value -= 1;
+      if (armLeft.value <= 0) {
+        armed.value = false;
+        clearInterval(armTimer ?? undefined);
+        armTimer = null;
+      }
+    }, 1000);
+    return;
+  }
+  clearInterval(armTimer ?? undefined);
+  armTimer = null;
+  armed.value = false;
+  void wipe();
+}
+
+onUnmounted(() => {
+  clearInterval(armTimer ?? undefined);
+  armTimer = null;
+});
 </script>
 
 <style scoped>
@@ -689,5 +744,15 @@ select.input {
 }
 .btn-ghost.danger {
   color: var(--danger-text);
+}
+
+/*
+ * ArmedButton 自带 btn-sm（32px），与本行其它 36px 高的按钮并排会差一截。
+ * 只拉平高度与字号 —— armed 态的配色 / 脉冲动画仍来自 tokens.css 的 .btn-armed，
+ * 与 PaneLinkCheck、SpacesList、DevicesList 的两步确认视觉一致。
+ */
+.ai-actions .btn-sm {
+  height: var(--btn-h-md);
+  font-size: var(--fs-body);
 }
 </style>

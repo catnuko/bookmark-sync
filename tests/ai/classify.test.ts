@@ -111,11 +111,36 @@ describe('classifyBookmarks · 输出校验', () => {
     expect(r.unclassified).toEqual(['id1', 'id2']);
   });
 
-  it('组的数量有上限（防模型把 60 条拆成 60 个文件夹）', async () => {
+  it('★ 组的数量有上限（防模型把 60 条拆成 60 个文件夹）', async () => {
     const many = Array.from({ length: 30 }, (_, i) => ({ folder: `F${i}`, ids: [i] }));
     stubByCall([{ groups: many }]);
     const r = await classifyBookmarks(CFG, 'k', items(30));
-    expect(r.groups.length).toBeLessThanOrEqual(12);
+    // 源码是 raw.slice(0, 12)，30 组进来只能活 12 组。断言具体值而不是
+    // `toBeLessThanOrEqual(12)` —— 后者恒真，模型输出若有一天变成全量透传
+    // （或上限被误调成 30）它也照样绿。
+    //
+    // 被丢掉的组**不能**静默变成"已归类"：前 12 组（F0…F11）活着，
+    // 剩下 18 条书签必须如实落到 unclassified。
+    expect(r.groups).toHaveLength(12);
+    expect(r.groups.map((g) => g.folder)).toEqual([
+      'F0',
+      'F1',
+      'F2',
+      'F3',
+      'F4',
+      'F5',
+      'F6',
+      'F7',
+      'F8',
+      'F9',
+      'F10',
+      'F11',
+    ]);
+    expect(r.unclassified).toEqual(
+      items(30)
+        .slice(12)
+        .map((b) => b.id),
+    );
   });
 });
 

@@ -125,8 +125,15 @@ function isPaneId(v) {
 
 // 挂载后校正到真实 pane。三条来源，优先级从低到高：
 //   1. state.navPane —— 同页内切过 pane 时保留用户的选择
-//   2. 非法值（历史默认 'account' 已不存在）→ 兜底到第一项，否则空白页
+//   2. 非法值（store.ts 的初始值 '' 就是为此而设）→ 兜底到第一项，否则空白页
 //   3. storage.session 里 popup 传来的目标 pane（跨页专用，用完即删）
+//
+// ★ 分支 1 的 `return` 是**有意的短路**：它判的是「本页内用户已经选过」。
+//   正因为此，store.ts 里 navPane 的初始值**必须是非法 id**（''）——
+//   填成任何真实 pane id（如 'ai'）都会让首次打开恒命中这个 return，
+//   把 popup 通过 storage.session 传来的目标 pane 整段逻辑变成死代码。
+//   2026-10-18 就是这么错的：popup「整理书签」100% 落到 AI 配置页。
+//   回归测试见 tests/optionsNav.test.ts。
 onMounted(async () => {
   // 主题：读权威值回填分段控件。DOM 上的 data-theme 已由 main.ts 的 initTheme()
   // 在 createApp 之前设好，这里只同步控件的选中态。
