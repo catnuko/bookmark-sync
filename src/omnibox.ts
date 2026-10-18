@@ -34,6 +34,7 @@
  */
 
 import { api } from './lib/ext.js';
+import { t } from './lib/i18n.js';
 import { searchBookmarks } from './ai/qa.js';
 import type { ChromeTreeNode } from './sync/index.js';
 
@@ -102,7 +103,7 @@ export function registerOmnibox(): void {
   if (!omni) return;
 
   omni.setDefaultSuggestion({
-    description: '输入关键词搜索书签（纯本地，零外发）',
+    description: t('omnibox_defaultHint'),
   });
 
   omni.onInputStarted.addListener(() => {

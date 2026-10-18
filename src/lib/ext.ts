@@ -83,7 +83,9 @@ export interface ExtensionHistory {
   /** 某 URL 的访问记录。空数组 = 从未访问过。 */
   getVisits(details: { url: string }): Promise<Array<{ visitTime?: number }>>;
   /**
-   * 检索浏览历史。`text: ''` + `maxResults: 0` = 取全部（Chrome/Firefox 均支持）。
+   * 检索浏览历史。`text: ''` = 匹配全部。**不要依赖 `maxResults: 0` = 不限**的
+   * 语义（Chrome 视 0 为不限，Firefox 文档含糊）——健康洞察实际传一个大数上限
+   * （见 ai/health.ts 的 RECENT_VISIT_LIMIT），就是为了避开这个跨浏览器差异。
    *
    * ★ 健康洞察**必须用 search 而不是逐条 getVisits**：上千条书签各调一次
    * getVisits 是上千次异步往返，慢到不可接受；search 一次拿回整张历史表，

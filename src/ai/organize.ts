@@ -35,10 +35,10 @@
  */
 
 import type { AiConfig } from './provider.js';
-import { classifyBookmarks, fetchExistingFolders, hostOf, type ClassifyGroup } from './classify.js';
+import { classifyBookmarks, hostOf, type ClassifyGroup } from './classify.js';
 import { collectBookmarks } from './dedupe.js';
 import { resolveRoots } from '../sync/rootResolver.js';
-import type { ChromeBookmarksAPI, ChromeTreeNode } from '../sync/index.js';
+import type { ChromeTreeNode } from '../sync/index.js';
 
 /** 只做本功能需要的最小 API 面，便于单测注入 fake。 */
 export interface OrganizeBookmarksAPI {

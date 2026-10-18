@@ -558,8 +558,10 @@ async function testConnection() {
       keyInput.value.trim(),
       { messages: [{ role: 'user', content: 'ping' }], maxTokens: 1 },
     );
-    const usage = res.usage ? ` · ${res.usage.input}+${res.usage.output} tokens` : '';
-    setMsg(t('ai_testOk', res.model ?? draft.model, usage.replace(/^ · /, '')));
+    // AiResult 没有 model 字段（provider 不回传），显示用户自己填的 draft.model；
+    // usage 作为中性单位串追加在文案后，provider 未报量时不显示。
+    const usage = res.usage ? ` · ${res.usage.input}+${res.usage.output} tok` : '';
+    setMsg(`${t('ai_testOk', draft.model)}${usage}`);
     showToast('success', t('ai_testOkTitle'), draft.model);
   } catch (e) {
     // CORS 被挡 → 引导授权 host 权限。这是自建端点最常见的失败原因，

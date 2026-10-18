@@ -1144,7 +1144,10 @@
     "message": "Testing…"
   },
   "ai_testOk": {
-    "message": "Connected. The model replied."
+    "message": "Connected. $1 replied."
+  },
+  "omnibox_defaultHint": {
+    "message": "Type a keyword to search your bookmarks (100% local, nothing leaves your machine)"
   },
   "ai_testOkTitle": {
     "message": "Connection OK"

@@ -1141,7 +1141,10 @@
     "message": "测试中…"
   },
   "ai_testOk": {
-    "message": "连接成功，模型已响应。"
+    "message": "连接成功，$1 已响应。"
+  },
+  "omnibox_defaultHint": {
+    "message": "输入关键词搜索书签（纯本地，零外发）"
   },
   "ai_testOkTitle": {
     "message": "连接正常"
