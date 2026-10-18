@@ -1306,10 +1306,20 @@
     "message": "New folder"
   },
   "org_moreItems": {
-    "message": "$N more…"
+    "message": "$1 more…",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
   },
   "org_unclassified": {
-    "message": "$N bookmarks could not be classified and will stay put."
+    "message": "$1 bookmarks could not be classified and will stay put.",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
   },
   "org_usage": {
     "message": "Used: about $1 input and $2 output tokens.",
@@ -1348,13 +1358,28 @@
     }
   },
   "org_applied": {
-    "message": "Moved $N bookmarks"
+    "message": "Moved $1 bookmarks",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
   },
   "org_partialFail": {
-    "message": "$N items failed; see the console for details."
+    "message": "$1 items failed; see the console for details.",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
   },
   "org_createdFolders": {
-    "message": "Created $N folders."
+    "message": "Created $1 folders.",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
   },
   "org_revert": {
     "message": "Undo moves"
@@ -1363,7 +1388,12 @@
     "message": "Undoing…"
   },
   "org_reverted": {
-    "message": "Moved $N bookmarks back."
+    "message": "Moved $1 bookmarks back.",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
   },
   "org_done": {
     "message": "Done"
@@ -1378,10 +1408,18 @@
     "message": "Duplicates are only listed, never deleted for you. Deleting is your call."
   },
   "dpe_group": {
-    "message": "Group $1 · $N items",
+    "message": "Group $1 · $2 items",
     "placeholders": {
       "i": {
-        "content": "$1"
+        "content": "$1",
+        "placeholders": {
+          "i": {
+            "content": "$1"
+          },
+          "n": {
+            "content": "$2"
+          }
+        }
       }
     }
   },

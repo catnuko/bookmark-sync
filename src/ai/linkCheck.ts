@@ -274,13 +274,24 @@ export async function suggestRepairs(
   cfg: AiConfig,
   apiKey: string,
   broken: LinkCheckResult[],
-): Promise<{ items: RepairSuggestion[]; usage?: { input: number; output: number } }> {
+  signal?: AbortSignal,
+): Promise<{
+  items: RepairSuggestion[];
+  usage?: { input: number; output: number };
+  aborted?: boolean;
+}> {
   if (broken.length === 0) return { items: [] };
 
   const batches = chunk(broken, REPAIR_BATCH_SIZE);
-  const settled = await mapLimit(batches, REPAIR_CONCURRENCY, (batch) =>
-    suggestOneBatch(cfg, apiKey, batch).catch(() => null),
-  );
+  let aborted = false;
+  const settled = await mapLimit(batches, REPAIR_CONCURRENCY, (batch) => {
+    // ★ 批次边界：已取消则不再发起本批，已完成的批次结果保留（见 classify.ts 同名注释）。
+    if (signal?.aborted) {
+      aborted = true;
+      return Promise.resolve(null);
+    }
+    return suggestOneBatch(cfg, apiKey, batch, signal).catch(() => null);
+  });
 
   const items: RepairSuggestion[] = [];
   let input = 0;
@@ -295,13 +306,14 @@ export async function suggestRepairs(
       output += r.usage.output;
     }
   }
-  return { items, usage: sawUsage ? { input, output } : undefined };
+  return { items, usage: sawUsage ? { input, output } : undefined, aborted: aborted || undefined };
 }
 
 async function suggestOneBatch(
   cfg: AiConfig,
   apiKey: string,
   batch: LinkCheckResult[],
+  signal?: AbortSignal,
 ): Promise<{ items: RepairSuggestion[]; usage?: { input: number; output: number } }> {
   const list = batch
     .map((b, i) => {
@@ -330,6 +342,7 @@ async function suggestOneBatch(
     json: true,
     maxTokens: 1024,
     temperature: 0,
+    signal,
   });
 
   const raw = extractJson(res.text) as { items?: unknown };

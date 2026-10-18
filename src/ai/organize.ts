@@ -80,10 +80,12 @@ export interface OrganizePlan {
   /** 参与归类的散书签总数。 */
   total: number;
   groups: PlanGroup[];
-  /** 未能归类的书签（模型没返回 / 批次失败）。 */
+  /** 未能归类的书签（模型没返回 / 批次失败 / 被取消）。 */
   unclassified: Array<{ id: string; title: string; url: string }>;
   /** 本方案的粗略 token 消耗，用于给用户一个成本预期。 */
   usage?: { input: number; output: number };
+  /** 生成时被用户在批次边界取消（classify 半程中断）。已完成批次的方案保留。 */
+  aborted?: boolean;
 }
 
 /** apply 前的位置快照，供撤销使用。 */
@@ -176,6 +178,7 @@ export async function planOrganize(
   cfg: AiConfig,
   apiKey: string,
   scopeId: string,
+  signal?: AbortSignal,
 ): Promise<OrganizePlan> {
   const tree = await chrome.getTree();
   const scope = findNode(tree, scopeId);
@@ -195,7 +198,7 @@ export async function planOrganize(
   const childFolders = (scope.children ?? []).filter((c) => !c.url && (c.title ?? '').trim());
   const existingFolders = childFolders.map((f) => (f.title ?? '').trim());
 
-  const res = await classifyBookmarks(cfg, apiKey, items, existingFolders);
+  const res = await classifyBookmarks(cfg, apiKey, items, existingFolders, signal);
   const byId = new Map(items.map((i) => [i.id, i]));
 
   const groups: PlanGroup[] = res.groups
@@ -223,6 +226,7 @@ export async function planOrganize(
       .map((id) => byId.get(id))
       .filter((x): x is { id: string; title: string; url: string } => !!x),
     ...(res.usage ? { usage: res.usage } : {}),
+    ...(res.aborted ? { aborted: true } : {}),
   };
 }
 

@@ -58,6 +58,8 @@ export interface SemanticGroup {
 export interface SemanticResult {
   groups: SemanticGroup[];
   usage?: { input: number; output: number };
+  /** 用户在批次边界主动取消（signal.aborted）。已完成批次结果保留，未发起的不发。 */
+  aborted?: boolean;
 }
 
 const DEFAULT_MAX_PER_ITEM = 5;
@@ -189,6 +191,7 @@ export async function classifySemanticDupes(
   apiKey: string,
   items: SemanticItem[],
   pairs: CandidatePair[],
+  signal?: AbortSignal,
 ): Promise<SemanticResult> {
   if (pairs.length === 0) return { groups: [] };
 
@@ -197,16 +200,22 @@ export async function classifySemanticDupes(
   for (const p of pairs) scoreOf.set(pairKey(p.a, p.b), p.score);
 
   const batches = chunk(pairs, BATCH_SIZE);
-  const settled = await mapLimit(batches, CONCURRENCY, (batch) =>
-    classifyOneBatch(cfg, apiKey, batch, byId).catch(() => null),
-  );
+  let aborted = false;
+  const settled = await mapLimit(batches, CONCURRENCY, (batch) => {
+    // ★ 批次边界：已取消则不再发起本批，已完成的批次结果保留（见 classify.ts 同名注释）。
+    if (signal?.aborted) {
+      aborted = true;
+      return Promise.resolve(null);
+    }
+    return classifyOneBatch(cfg, apiKey, batch, byId, signal).catch(() => null);
+  });
 
   const found: Array<{ a: string; b: string; confidence: 'high' | 'medium'; reason: string }> = [];
   let input = 0;
   let output = 0;
   let sawUsage = false;
   for (const r of settled) {
-    if (!r) continue; // 整批失败：跳过，不猜
+    if (!r) continue; // 整批失败或被取消：跳过，不猜
     found.push(...r.pairs);
     if (r.usage) {
       sawUsage = true;
@@ -218,6 +227,7 @@ export async function classifySemanticDupes(
   return {
     groups: groupPairs(found, byId, scoreOf),
     usage: sawUsage ? { input, output } : undefined,
+    aborted: aborted || undefined,
   };
 }
 
@@ -226,6 +236,7 @@ async function classifyOneBatch(
   apiKey: string,
   batch: CandidatePair[],
   byId: Map<string, SemanticItem>,
+  signal?: AbortSignal,
 ): Promise<{
   pairs: Array<{ a: string; b: string; confidence: 'high' | 'medium'; reason: string }>;
   usage?: { input: number; output: number };
@@ -269,6 +280,7 @@ async function classifyOneBatch(
     json: true,
     maxTokens: 1024,
     temperature: 0,
+    signal,
   });
 
   const raw = extractJson(res.text) as { pairs?: unknown };

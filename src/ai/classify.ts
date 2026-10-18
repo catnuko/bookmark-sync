@@ -81,9 +81,11 @@ export interface ClassifyGroup {
 /** 单次调用的整体结果，含失败信息以便如实告知用户。 */
 export interface ClassifyResult {
   groups: ClassifyGroup[];
-  /** 未能归类（模型没返回、超时、报错）的书签 id。 */
+  /** 未能归类（模型没返回、超时、报错、或被取消）的书签 id。 */
   unclassified: string[];
   usage?: { input: number; output: number };
+  /** 用户在批次边界主动取消（signal.aborted）。已完成的批次结果保留，未发起的不发。 */
+  aborted?: boolean;
 }
 
 const BATCH_SIZE = 60;
@@ -115,13 +117,22 @@ export async function classifyBookmarks(
   apiKey: string,
   items: ClassifyItem[],
   existingFolders: string[] = [],
+  signal?: AbortSignal,
 ): Promise<ClassifyResult> {
   if (items.length === 0) return { groups: [], unclassified: [] };
 
   const batches = chunk(items, BATCH_SIZE);
-  const settled = await mapLimit(batches, CONCURRENCY, (batch) =>
-    classifyOneBatch(cfg, apiKey, batch, existingFolders).catch(() => null),
-  );
+  let aborted = false;
+  const settled = await mapLimit(batches, CONCURRENCY, (batch) => {
+    // ★ 批次边界：若用户已取消，不再发起本批请求（已发起的会自然跑完或被 fetch 中断）。
+    // 每批独立、互不依赖，所以只丢「未发起的批」，已完成的批次结果原样保留 —— 这正是
+    // 「取消后已完成的部分结果仍可用」的语义，与 applyPlan 半程失败不回滚同理。
+    if (signal?.aborted) {
+      aborted = true;
+      return Promise.resolve(null);
+    }
+    return classifyOneBatch(cfg, apiKey, batch, existingFolders, signal).catch(() => null);
+  });
 
   const groups: ClassifyGroup[] = [];
   const unclassified: string[] = [];
@@ -132,7 +143,7 @@ export async function classifyBookmarks(
   for (const [i, r] of settled.entries()) {
     const batch = batches[i];
     if (!r) {
-      // 整批失败 → 该批全部记为未归类，不猜、不丢
+      // 整批失败或被取消 → 该批全部记为未归类，不猜、不丢
       unclassified.push(...batch.map((b) => b.id));
       continue;
     }
@@ -145,7 +156,12 @@ export async function classifyBookmarks(
     }
   }
 
-  return { groups, unclassified, usage: sawUsage ? { input, output } : undefined };
+  return {
+    groups,
+    unclassified,
+    usage: sawUsage ? { input, output } : undefined,
+    aborted: aborted || undefined,
+  };
 }
 
 async function classifyOneBatch(
@@ -153,6 +169,7 @@ async function classifyOneBatch(
   apiKey: string,
   batch: ClassifyItem[],
   existingFolders: string[],
+  signal?: AbortSignal,
 ): Promise<{
   groups: ClassifyGroup[];
   unclassified: string[];
@@ -192,6 +209,7 @@ async function classifyOneBatch(
     json: true,
     maxTokens: 1024,
     temperature: 0,
+    signal,
   });
 
   const raw = extractJson(res.text) as { groups?: unknown };

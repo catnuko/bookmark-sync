@@ -36,6 +36,15 @@
               <Icon v-else name="star" />
               {{ planning ? t('org_planning') : t('org_start') }}
             </button>
+            <button
+              v-if="classifyController"
+              class="btn btn-ghost"
+              :disabled="planning"
+              @click="stopClassify"
+            >
+              <Icon name="stop" />
+              {{ t('org_stop') }}
+            </button>
           </div>
         </div>
 
@@ -111,7 +120,16 @@
               <Icon v-else name="check" />
               {{ t('org_apply', String(moveCount)) }}
             </button>
-            <button class="btn btn-ghost" :disabled="!plan" @click="backToScope">
+            <button
+              v-if="applying"
+              class="btn btn-ghost"
+              :disabled="applyShouldStop"
+              @click="stopApply"
+            >
+              <Icon name="stop" />
+              {{ t('org_stop') }}
+            </button>
+            <button v-else class="btn btn-ghost" :disabled="!plan" @click="backToScope">
               {{ t('org_cancel') }}
             </button>
           </div>
@@ -226,10 +244,21 @@
         <!-- 已开启但还没跑：给一个明确的入口与成本说明 -->
         <div v-else-if="!simScanned" class="card org-sim-start">
           <p class="org-banner-sub">{{ t('sdpe_startDesc') }}</p>
-          <button class="btn btn-primary btn-lg" @click="runSimCheck">
-            <Icon name="star" />
-            {{ t('sdpe_run') }}
-          </button>
+          <div class="org-actions">
+            <button class="btn btn-primary btn-lg" @click="runSimCheck">
+              <Icon name="star" />
+              {{ t('sdpe_run') }}
+            </button>
+            <button
+              v-if="simController"
+              class="btn btn-ghost"
+              :disabled="simLoading"
+              @click="stopSim"
+            >
+              <Icon name="stop" />
+              {{ t('org_stop') }}
+            </button>
+          </div>
         </div>
 
         <template v-else>
@@ -339,7 +368,7 @@
  * 的事故（见 organize.ts 文件头），不做第三次。
  */
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import { t } from '../lib/i18n.js';
 import { describeError } from '../lib/errors.js';
 import { api } from '../lib/ext.js';
@@ -389,6 +418,14 @@ const simError = ref('');
 /** id → { title, url, path }，供结果展示。 */
 let simMeta = new Map();
 
+// ---- 取消控制 ----
+/** 归类（buildPlan → planOrganize）的 AbortController；非空时显示「停止」按钮。 */
+const classifyController = ref(null);
+/** 语义判重（runSimCheck）的 AbortController；非空时显示「停止」按钮。 */
+const simController = ref(null);
+/** apply 的停止标志：置真后 applyPlan 的 shouldStop 在下一轮返回 true，停在已完成位置。 */
+const applyShouldStop = ref(false);
+
 /** 只有「有散书签可整理」的文件夹才是有效范围，looseCount=0 的列出来只是噪音。 */
 const eligible = computed(() => folders.value.filter((f) => f.looseCount > 0));
 const moveCount = computed(() =>
@@ -408,6 +445,17 @@ onMounted(async () => {
   }
 });
 
+/**
+ * 切走 pane（或关标签页）时中止在途请求：否则 promise 仍会跑完、继续烧 token、
+ * 把结果写进一个已经不可见的组件。归类与语义判重各自持有独立的 controller。
+ */
+onBeforeUnmount(() => {
+  classifyController.value?.abort();
+  simController.value?.abort();
+  classifyController.value = null;
+  simController.value = null;
+});
+
 function setStatus(text, bad = false) {
   statusMsg.value = text;
   statusBad.value = bad;
@@ -418,16 +466,35 @@ async function buildPlan() {
   if (!scopeId.value || planning.value) return;
   planning.value = true;
   setStatus('');
+  // 每次新开归类都新建 controller：上一轮的 abort 不影响本轮，也避免复用已 aborted 的 signal
+  classifyController.value = new AbortController();
+  const signal = classifyController.value.signal;
   try {
     const [cfg, key] = await Promise.all([readAiConfig(), readApiKey()]);
-    plan.value = await planOrganize(api.bookmarks, cfg, key, scopeId.value);
+    plan.value = await planOrganize(api.bookmarks, cfg, key, scopeId.value, signal);
     selected.value = plan.value.groups.map((g) => g.key);
     stage.value = 'plan';
+    // 取消语义：已完成批次的方案仍展示，但明确告知用户是「部分完成」，别假装全量跑完
+    if (plan.value.aborted) setStatus(t('org_partial', String(plan.value.groups.length)), false);
   } catch (e) {
+    // 用户主动取消不是错误：不弹红字，保持已生成的部分方案可见
+    if (signal.aborted) {
+      if (plan.value && plan.value.groups.length > 0) {
+        stage.value = 'plan';
+        setStatus(t('org_partial', String(plan.value.groups.length)), false);
+      }
+      return;
+    }
     setStatus(describeError(e), true);
   } finally {
     planning.value = false;
+    classifyController.value = null;
   }
+}
+
+/** 用户点「停止」：中止归类请求。已完成的批次结果保留，未发起的不发。 */
+function stopClassify() {
+  classifyController.value?.abort();
 }
 
 function toggleGroup(key) {
@@ -446,11 +513,20 @@ function backToScope() {
 async function apply() {
   if (!plan.value || applying.value) return;
   applying.value = true;
+  applyShouldStop.value = false;
   setStatus('');
+  // shouldStop 是个函数：applyPlan 每步前调用，返回 true 即停在已完成的位置（半程不回滚）
+  const shouldStop = () => applyShouldStop.value;
   try {
-    const r = await applyPlan(api.bookmarks, plan.value, selected.value, (done, total) => {
-      setStatus(t('org_progress', String(done), String(total)));
-    });
+    const r = await applyPlan(
+      api.bookmarks,
+      plan.value,
+      selected.value,
+      (done, total) => {
+        setStatus(t('org_progress', String(done), String(total)));
+      },
+      shouldStop,
+    );
     result.value = r;
     applied.value = true;
     if (r.ok) showToast('success', t('org_applied', String(r.movedCount)), '');
@@ -460,6 +536,11 @@ async function apply() {
   } finally {
     applying.value = false;
   }
+}
+
+/** 用户点「停止」：applyPlan 下一轮检查 shouldStop 时会停在已完成位置。 */
+function stopApply() {
+  applyShouldStop.value = true;
 }
 
 async function revert() {
@@ -531,6 +612,9 @@ async function runSimCheck() {
   simGroups.value = [];
   simUsage.value = null;
   simPairs.value = 0;
+  // 每次新开都新建 controller（同 buildPlan 的理由）
+  simController.value = new AbortController();
+  const signal = simController.value.signal;
   try {
     const tree = await api.bookmarks.getTree();
     const items = collectBookmarks(tree);
@@ -542,15 +626,29 @@ async function runSimCheck() {
       return;
     }
     const [cfg, key] = await Promise.all([readAiConfig(), readApiKey()]);
-    const r = await classifySemanticDupes(cfg, key, items, pairs);
+    const r = await classifySemanticDupes(cfg, key, items, pairs, signal);
     simGroups.value = r.groups;
     simUsage.value = r.usage ?? null;
     simScanned.value = true;
+    if (r.aborted) simError.value = t('sdpe_aborted', String(r.groups.length));
   } catch (e) {
+    // 用户主动取消不是错误：保留已生成的部分结果，不弹红字
+    if (signal.aborted) {
+      simScanned.value = true;
+      if (simGroups.value.length > 0)
+        simError.value = t('sdpe_aborted', String(simGroups.value.length));
+      return;
+    }
     simError.value = describeError(e);
   } finally {
     simLoading.value = false;
+    simController.value = null;
   }
+}
+
+/** 用户点「停止」：中止语义判重请求。已完成的批次结果保留，未发起的不发。 */
+function stopSim() {
+  simController.value?.abort();
 }
 
 function titleOf(id) {

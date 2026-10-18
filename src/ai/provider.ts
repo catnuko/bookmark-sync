@@ -268,6 +268,10 @@ export async function complete(cfg: AiConfig, apiKey: string, req: AiRequest): P
       signal: req.signal,
     });
   } catch (e) {
+    // ★ 用户主动取消（AbortController.abort）必须原样透传，绝不能包成 AiError。
+    // 否则上层无法区分「主动取消」与「真失败」，还会让一次本该静默中断的请求
+    // 被当成失败统计 / 报错。AbortError 在浏览器与 Node 里 name 都是 'AbortError'。
+    if (e instanceof Error && e.name === 'AbortError') throw e;
     // 网络层失败：区分「CORS 挡了」（可引导授权权限）与「真的网络不通」。
     if (isCorsBlocked(e)) {
       throw new AiError(
