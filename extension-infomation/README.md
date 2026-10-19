@@ -42,7 +42,7 @@ Bookmark Sync 让 Chrome、Edge、Firefox 三款浏览器的书签汇成同一�
 
 · 设备管理：自动登记参与同步的浏览器，可查看、重命名或解除绑定，随时控制哪些设备继续同步。
 
-· 免费起步，无需信用卡：免费计划即可同步 500 条书签，功能与付费版完全一致；需要更大容量时随时升级。
+· 免费起步，无需信用卡：免费计划即可同步 1,000 条书签，功能与付费版完全一致；需要更大容量时随时升级。
 
 【隐私与安全】
 
@@ -59,7 +59,7 @@ Bookmark Sync 让 Chrome、Edge、Firefox 三款浏览器的书签汇成同一�
 答：Chrome、Edge、Firefox（Manifest V3）。Safari 暂不支持。
 
 问：免费版能用吗？
-答：可以。免费 500 条书签，同步能力与付费版完全一致。
+答：可以。免费 1,000 条书签，同步能力与付费版完全一致。
 
 问：如何在新设备上恢复书签？
 答：安装扩展 → 登录同一账号 → 输入同一同步口令，完整书签树自动拉取。
@@ -87,7 +87,7 @@ Bookmark Sync merges the bookmarks of Chrome, Edge, and Firefox into one tree. I
 
 · Device management: Registered browsers are listed for review; rename or unbind any device at any time.
 
-· Free to start, no credit card: The free plan syncs up to 500 bookmarks with full functionality; upgrade whenever you need more capacity.
+· Free to start, no credit card: The free plan syncs up to 1,000 bookmarks with full functionality; upgrade whenever you need more capacity.
 
 【Privacy & Security】
 
@@ -104,7 +104,7 @@ Q: Which browsers are supported?
 A: Chrome, Edge, and Firefox (Manifest V3). Safari is not supported yet.
 
 Q: Can I use the free plan?
-A: Yes. The free plan includes 500 bookmarks with the same sync capabilities as paid plans.
+A: Yes. The free plan includes 1,000 bookmarks with the same sync capabilities as paid plans.
 
 Q: How do I restore bookmarks on a new device?
 A: Install the extension → sign in with the same account → enter the same sync passphrase, and your full bookmark tree is pulled automatically.

@@ -213,6 +213,6 @@ Under half an hour total, and it filters out most false claims. Deeper review be
 
 The technical base is the same: client-side encryption, ciphertext-only server.
 
-A few specific choices: AES-GCM for the cipher, with `space_id` as AAD so ciphertext can't be reused across spaces; key parameters (the salt) hosted server-side so switching devices needs only a passphrase rather than a 44-character key; quota metered in bytes rather than items — not laziness, but the consequence of the only metric an E2EE server can enforce. An encrypted bookmark runs about 2 KB, which is why Free pairs 500 items with 1 MB.
+A few specific choices: AES-GCM for the cipher, with `space_id` as AAD so ciphertext can't be reused across spaces; key parameters (the salt) hosted server-side so switching devices needs only a passphrase rather than a 44-character key; quota metered in bytes rather than items — not laziness, but the consequence of the only metric an E2EE server can enforce. An encrypted bookmark runs about 2 KB, which is why Free pairs 1,000 items with 5 MB — about 2 MB at that rate, plus headroom.
 
 Separately, the auto-organize feature only ever calls move and create, never delete. That limit comes from two data-loss incidents, not from technical constraints.

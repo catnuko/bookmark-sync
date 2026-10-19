@@ -187,6 +187,12 @@ export type SyncRunResult =
        * 详见 chromeBridge 的 `FALLBACK_ROOT_UUID` 注释。
        */
       unplaced?: number;
+      /**
+       * 免费档条数超额：本轮只推了删除，新增/移动仍留在队列。
+       * 与 `ok: false` 区分——同步本身成功了（拉取/删除都正常），
+       * 只是新书签推不上去，UI 要提示用户删减或升级。
+       */
+      itemLimitBlocked?: boolean;
       /** 同步途中空间被换绑/密钥被重置：本轮投影放弃，但数据不丢。 */
       superseded?: boolean;
     }
@@ -258,6 +264,25 @@ async function planCanCreateSpace(): Promise<boolean> {
     return isPaidPlan(p?.plan);
   } catch {
     return false;
+  }
+}
+
+/** 免费档可见书签上限（与对外定价口径一致）。 */
+export const FREE_ITEM_LIMIT = 1000;
+
+/**
+ * 当前账号的条数限额；付费档返回 undefined = 不限。
+ *
+ * 取不到 profile 时返回 undefined（**不拦**）：离线误判成免费会让付费用户在
+ * 断网时忽然同步不了新增书签，代价远大于「免费用户多推几条」。真正的硬上限
+ * 在服务端字节配额，这里只是免费档的条数闸门。
+ */
+async function planItemLimit(): Promise<number | undefined> {
+  try {
+    const p = await getProfile();
+    return isPaidPlan(p?.plan) ? undefined : FREE_ITEM_LIMIT;
+  } catch {
+    return undefined;
   }
 }
 
@@ -732,6 +757,9 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     await ensureActiveBridge(active);
 
     const coordinator = await getCoordinator(active.id, deviceId, key);
+    // 档位可能在 coordinator 生命周期内变化（升级 Plus / 退款降级），
+    // 每轮同步刷新一次限额，避免缓存单例拿着旧值一直拦人或一直放行。
+    coordinator.setItemLimit(await planItemLimit());
     console.log(
       `[bsync] === 同步开始 === space=${active.id} device=${deviceId} afterId=${coordinator.afterId} bare=${coordinator.replica.isBare()}`,
     );
@@ -843,7 +871,11 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     // 3) 推本地 → 远端（播种/本地变更的 op 尽快推送，减少 SW 回收导致
     //    pendingPush 丢失的窗口；推送成功后再落盘计数器，防冷启动 seq 冲突）
     const pushed = await coordinator.flushPush();
-    console.log(`[bsync] 推送: inserted=${pushed} counter=${coordinator.replica.counter}`);
+    const itemLimitBlocked = coordinator.itemLimitBlocked;
+    console.log(
+      `[bsync] 推送: inserted=${pushed} counter=${coordinator.replica.counter}` +
+        (itemLimitBlocked ? '（已达免费档条数上限，新增暂缓）' : ''),
+    );
     await api.storage.local.set({ [counterKey(active.id)]: coordinator.replica.counter });
 
     // 4) 反向应用：把合并后的 CRDT 可见树写回本机 chrome.bookmarks
@@ -946,6 +978,7 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
       restored,
       decryptFailed: allDecryptErrors.length,
       unplaced,
+      itemLimitBlocked,
     };
   } catch (e) {
     // 服务端语义码直接作为 reason（push/pull 抛出的 PostgREST 错误 message
@@ -1248,6 +1281,10 @@ export async function getCoordinator(
   // (device, seq) 冲突，服务端 ON CONFLICT DO NOTHING 静默丢弃 → 删除失效。
   const initialCounter = Number(stored[counterKey(spaceId)] ?? 0);
   const transport = new SupabaseOpLogTransport(supabase);
+  // 条数限额随档位走。每轮 runSync 还会再 setItemLimit 一次（档位可能在实例
+  // 生命周期内变化）；这里的初值是为了让 flushSoon 这类不经过 runSync 的
+  // 自动推送路径也拿得到限额。
+  const itemLimit = await planItemLimit();
   _coordinator = new SyncCoordinator({
     spaceId,
     deviceId,
@@ -1255,6 +1292,7 @@ export async function getCoordinator(
     key,
     afterId,
     initialCounter,
+    itemLimit,
     onOpEnqueued: () => schedulePersist(),
     onChunkPushed: async (sid, seqs) => {
       try {

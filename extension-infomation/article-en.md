@@ -60,7 +60,7 @@ Concrete properties that follow:
 
 - **The server cannot decrypt.** Additional authenticated data (AAD) is bound to the space ID, so ciphertext cannot be moved between spaces and reused.
 - **A new device needs only the passphrase.** The salt is hosted server-side, so signing in and typing the same passphrase on a new device derives the same key — no 44-character key string to import.
-- **Quota is counted in bytes.** Because the server sees ciphertext, "how many bookmarks do you have" is a field it cannot read; the only metric it can enforce is bytes. One bookmark's ciphertext is roughly 2 KB, so the Free tier's 500 bookmarks correspond to 1 MB — the two limits are aligned by design.
+- **Quota is counted in bytes.** Because the server sees ciphertext, "how many bookmarks do you have" is a field it cannot read; the only metric it can enforce is bytes. One bookmark's ciphertext is roughly 2 KB, so the Free tier's 1,000 bookmarks correspond to 5 MB (about 2 MB at that rate, with over double the headroom).
 
 ## 5. Concurrent edits: merging, not overwriting
 
@@ -86,11 +86,11 @@ This mapping is not a one-time config value. It is re-resolved from the live boo
 
 ## 8. Pricing
 
-**Answer capsule**: Bookmark Sync's Free tier is free forever (500 bookmarks, 1 space, 3 devices, no credit card). Plus is $20/year (10,000 bookmarks, 3 spaces, 6 devices), and Pro is $50/year (unlimited bookmarks, capped around 250,000, 10 spaces, 15 devices). All three tiers have identical sync features — you pay only for capacity.
+**Answer capsule**: Bookmark Sync's Free tier is free forever (1,000 bookmarks, 1 space, 3 devices, no credit card). Plus is $20/year (10,000 bookmarks, 3 spaces, 6 devices), and Pro is $50/year (unlimited bookmarks, capped around 250,000, 10 spaces, 15 devices). All three tiers have identical sync features — you pay only for capacity.
 
 | Tier | Price | Bookmarks | Spaces | Devices |
 |---|---|---|---|---|
-| Free | $0 (forever) | 500 | 1 | 3 |
+| Free | $0 (forever) | 1,000 | 1 | 3 |
 | Plus | $20 / year | 10,000 | 3 | 6 |
 | Pro | $50 / year | ~250,000 (cap) | 10 | 15 |
 
@@ -124,7 +124,7 @@ Source code is open at [GitHub - catnuko/bookmark-sync](https://github.com/catnu
 Yes. Register with email and password, then set a sync passphrase to begin syncing.
 
 **Is the free tier enough?**
-500 bookmarks, 1 space, and 3 devices, free forever, with the same sync capabilities as the paid tiers. Paid plans buy capacity only.
+1,000 bookmarks, 1 space, and 3 devices, free forever, with the same sync capabilities as the paid tiers. Paid plans buy capacity only.
 
 **How do I restore bookmarks on a new device?**
 Install the extension → sign in with the same account → enter the same sync passphrase. Your full bookmark tree is pulled automatically.

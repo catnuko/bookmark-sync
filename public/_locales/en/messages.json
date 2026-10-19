@@ -954,6 +954,12 @@
   "toast_quotaSub": {
     "message": "Upgrade to Plus or Pro"
   },
+  "toast_itemLimitTitle": {
+    "message": "Free plan limit reached (1,000)"
+  },
+  "toast_itemLimitSub": {
+    "message": "New bookmarks resume syncing after you delete some, or upgrade to Plus"
+  },
   "toast_deviceLimitTitle": {
     "message": "Device limit reached"
   },

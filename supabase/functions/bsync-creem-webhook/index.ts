@@ -31,11 +31,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY')!;
 const CREEM_WEBHOOK_SECRET = Deno.env.get('CREEM_WEBHOOK_SECRET') || '';
 
-// plan => 同步配额（字节）。按 0035 校准（2KB/条）对齐条数承诺：
-// Free 1MB（≈500 条）/ Plus 20MB（≈1 万条）/ Pro 500MB（≈25 万条封顶，数量不限档）。
-// 必须与迁移 0035 的 bsync_effective_quota_bytes 映射保持一致。
+// plan => 同步配额（字节）。按 2KB/条 校准对齐条数承诺：
+// Free 5MB（1,000 条）/ Plus 20MB（≈1 万条）/ Pro 500MB（≈25 万条封顶，数量不限档）。
+// ★ 必须与迁移 0048 的 bsync_effective_quota_bytes 映射保持一致——两处不一致
+//   会让「降级用户」与「存量用户」拿到不同额度（0035 到 0048 之间的分裂就是这么来的）。
 const PLAN_QUOTA_BYTES: Record<string, number> = {
-  free: 1 * 1024 * 1024,
+  free: 5 * 1024 * 1024,
   plus: 20 * 1024 * 1024,
   pro: 500 * 1024 * 1024,
 };

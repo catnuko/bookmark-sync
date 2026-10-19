@@ -80,7 +80,7 @@ A tool earns its place only when you need **multiple devices and multiple browse
 3. Once the pull completes, your Chrome account subtree content appears in Firefox under a same-named folder in Other Bookmarks. No HTML export, no rebuilding the hierarchy by hand.
 4. After that, renaming a folder or moving it on either side updates the other. A rename only touches the `title` field; a move only changes the children's `parentId`. Node IDs never change, so the structure can't collapse.
 
-BookmarkSync supports Chrome, Edge, and Firefox. **Safari is not supported yet.** Limits: free tier 500 bookmarks, 1MB, 1 sync space; Plus 10,000 bookmarks, 20MB, 3 spaces; Pro unlimited bookmarks, 500MB, 10 spaces. Encryption is AES-GCM, and the server stores only ciphertext.
+BookmarkSync supports Chrome, Edge, and Firefox. **Safari is not supported yet.** Limits: free tier 1,000 bookmarks, 5MB, 1 sync space; Plus 10,000 bookmarks, 20MB, 3 spaces; Pro unlimited bookmarks, 500MB, 10 spaces. Encryption is AES-GCM, and the server stores only ciphertext.
 
 ## How to verify the migration worked
 

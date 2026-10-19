@@ -15,6 +15,7 @@
 import {
   Replica,
   logMoveToOp,
+  TRASH_NODE_ID,
   type MoveOp,
   type Metadata,
   type SnapshotData,
@@ -49,6 +50,17 @@ export interface SyncCoordinatorOptions {
    * 分块后失败重试范围只剩未确认的块。
    */
   pushChunkSize?: number;
+  /**
+   * 免费档条数真限额（可见书签数上限）。为空 = 不限制（付费档）。
+   *
+   * 超额时只放行**删除类 op**（`p === TRASH_NODE_ID`），新增与移动留在队列。
+   * 为什么必须放行删除：删除本身也是一条 op（把节点移到 TRASH），若超额就
+   * 整批拒推，用户删掉书签也同步不上去，已用条数永远降不回来 —— 死锁。
+   *
+   * 判据取「本轮 push 前」的可见数，且一次 flushPush 只算一次：否则自己刚
+   * 推上去的删除会让同一批里剩下的新增「突然又行了」，限额变成「删一条换一条」。
+   */
+  itemLimit?: number;
   /** 本地 op 入队后回调（sync.js 用它调度 outbox 落盘 tick）。 */
   onOpEnqueued?: () => void;
   /** 每块推送确认后回调（sync.js 删除对应 outbox 行；漏删由服务端幂等去重兜底）。 */
@@ -70,6 +82,8 @@ export class SyncCoordinator {
   private readonly transport: OpLogTransport;
   private readonly key: CryptoKey;
   private readonly pushChunkSize: number;
+  /** 可变：档位在 coordinator 生命周期内可能变化（升级 / 退款降级）。 */
+  private itemLimit?: number;
   private readonly onOpEnqueued?: () => void;
   private readonly onChunkPushed?: (spaceId: string, seqs: number[]) => Promise<void> | void;
 
@@ -92,6 +106,8 @@ export class SyncCoordinator {
   afterId: number;
   /** 服务端标记：op_log 超过用户动态阈值或后台请求 GC，本机应配合压缩。 */
   private gcNeededFlag = false;
+  /** 上一轮 flushPush 是否因条数限额留下了未推送的新增/移动 op。 */
+  private itemLimitBlockedFlag = false;
 
   /**
    * 冷启动重放判定：replica 是新建的空壳（只有固定根），或持有 outbox 恢复
@@ -133,6 +149,21 @@ export class SyncCoordinator {
     return this.gcNeededFlag;
   }
 
+  /** 上一轮 flushPush 是否因条数限额留下了未推送的新增/移动 op。 */
+  get itemLimitBlocked(): boolean {
+    return this.itemLimitBlockedFlag;
+  }
+
+  /**
+   * 更新条数限额（undefined = 不限）。
+   *
+   * coordinator 是按空间缓存的单例，档位变化（升级 Plus / 退款降级）不会重建
+   * 实例。没有这个入口，升级后的用户要等到下次冷启动才恢复推送。
+   */
+  setItemLimit(limit: number | undefined): void {
+    this.itemLimit = limit;
+  }
+
   /**
    * 当前待推送 op 数（sync.js 换绑前 drainPush 轮询用）。
    * pendingPush 为私有字段；原 JS 版直接访问私有成员，迁 TS 后走公开 getter。
@@ -147,6 +178,7 @@ export class SyncCoordinator {
     this.transport = opts.transport;
     this.key = opts.key;
     this.pushChunkSize = Math.max(1, opts.pushChunkSize ?? 500);
+    this.itemLimit = opts.itemLimit;
     this.onOpEnqueued = opts.onOpEnqueued;
     this.onChunkPushed = opts.onChunkPushed;
     this.afterId = opts.afterId ?? 0;
@@ -238,14 +270,51 @@ export class SyncCoordinator {
    * 整批丢失」的数据丢失窗口就此关闭。重复推送由服务端
    * (space_id, device_id, seq) 幂等去重兜底。
    */
+  /**
+   * 当前可见书签数是否已达免费档上限。
+   *
+   * 与 `used_count` 同口径：CRDT 可见树里带 `url` 的节点（文件夹不计）。
+   * 取**当前** replica 状态而非事后计数——flushPush 一开始就固定判定结果，
+   * 本批自己推上去的删除不会让后续新增跟着放行。
+   */
+  private isOverItemLimit(): boolean {
+    if (!this.itemLimit) return false;
+    let n = 0;
+    for (const edge of this.replica.getVisibleTree()) {
+      if (typeof edge.meta?.url === 'string' && edge.meta.url) n++;
+      // 严格大于：恰好等于上限时用户仍可增删（这正是「1,000 条」的字面含义）。
+      if (n > this.itemLimit) return true;
+    }
+    return false;
+  }
+
   async flushPush(): Promise<number> {
     if (this.pushing) return 0; // flushSoon 与 runSync 并发触发时只跑一份
     if (this.pendingPush.length === 0) return 0;
     this.pushing = true;
+    this.itemLimitBlockedFlag = false;
     try {
+      // 限额判定只在进入分块循环前做一次（见 itemLimit 注释：避免「删一条换一条」）。
+      const overLimit = this.isOverItemLimit();
       let totalInserted = 0;
       while (this.pendingPush.length > 0) {
-        const chunk = this.pendingPush.slice(0, this.pushChunkSize);
+        // 超额时只挑删除类 op 推进去，其余留在队列。必须**按索引挑**而不是
+        // 先 slice 再 filter：splice 要删的是被推送的那几条在原数组里的位置，
+        // 用过滤后的数组长度去 splice 会删错行（顺带丢掉没推上去的新增）。
+        const chunk: MoveOp[] = [];
+        const takenIdx: number[] = [];
+        for (let i = 0; i < this.pendingPush.length && chunk.length < this.pushChunkSize; i++) {
+          const op = this.pendingPush[i];
+          if (overLimit && op.p !== TRASH_NODE_ID) continue;
+          chunk.push(op);
+          takenIdx.push(i);
+        }
+        if (chunk.length === 0) {
+          // 超额且队列里没有任何删除类 op：整批停手，等用户删到限额以内。
+          // 剩下的 op 留在 pendingPush（已落 outbox），不会丢。
+          this.itemLimitBlockedFlag = true;
+          break;
+        }
         const batch: PushOp[] = [];
         for (const op of chunk) {
           const envelope = await encryptMoveOp(op, this.key, this.spaceId);
@@ -259,11 +328,15 @@ export class SyncCoordinator {
         const result = await this.transport.push(this.spaceId, this.deviceId, batch);
         if (result.gc_needed) this.gcNeededFlag = true;
         totalInserted += result.inserted;
-        this.pendingPush.splice(0, chunk.length);
+        // 从后往前删，索引才不会随删除位移。
+        for (let k = takenIdx.length - 1; k >= 0; k--) this.pendingPush.splice(takenIdx[k], 1);
         const seqs = chunk.map((op) => op.t.counter);
         this.clearPendingJournal(chunk);
         await this.onChunkPushed?.(this.spaceId, seqs);
       }
+      // 超额时若推完删除后队列里仍留有新增/移动，同样算「被限额挡住」：
+      // 用户需要知道「删的书签同步上去了，但新加的还是推不出去」。
+      if (overLimit && this.pendingPush.length > 0) this.itemLimitBlockedFlag = true;
       // 返回实际插入数（ON CONFLICT DO NOTHING 可能跳过重复 seq），
       // 而非 batch.length——否则前端会误报「推送 N 条」但实际未落库。
       return totalInserted;
