@@ -951,6 +951,12 @@
   "toast_quotaSub": {
     "message": "请升级到 Plus 或 Pro"
   },
+  "toast_itemLimitTitle": {
+    "message": "已达免费档 1,000 条"
+  },
+  "toast_itemLimitSub": {
+    "message": "删除部分书签后新增会继续同步，或升级到 Plus"
+  },
   "toast_deviceLimitTitle": {
     "message": "设备数量已达上限"
   },

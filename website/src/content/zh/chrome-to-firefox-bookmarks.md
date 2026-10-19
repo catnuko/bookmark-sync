@@ -80,7 +80,7 @@ Firefox 有个内置书签文件夹叫 `tags________`，是浏览器用来内部
 3. 拉取完成后，Chrome 账号子树的内容会出现在 Firefox 的「其他书签」下的同名文件夹里。你不需要导 HTML，也不需要手动重新建层级。
 4. 之后你在任意一边改文件夹名、移动位置，另一边跟着变。改文件夹名只改 `title` 字段，移动只改子节点的 `parentId`，节点 ID 从头到尾不变，所以结构不会塌。
 
-BookmarkSync 支持 Chrome / Edge / Firefox。**Safari 暂时不支持。** 额度上免费档 500 条书签、1MB、1 个同步空间，Plus 10,000 条、20MB、3 个空间，Pro 不限条数、500MB、10 个空间。加密用 AES-GCM，服务端只存密文。
+BookmarkSync 支持 Chrome / Edge / Firefox。**Safari 暂时不支持。** 额度上免费档 1,000 条书签、5MB、1 个同步空间，Plus 10,000 条、20MB、3 个空间，Pro 不限条数、500MB、10 个空间。加密用 AES-GCM，服务端只存密文。
 
 ## 怎么验证迁移成功
 

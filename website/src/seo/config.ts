@@ -34,30 +34,30 @@ export const ROUTE_SEO: Record<string, Record<Locale, SeoCopy>> = {
     zh: {
       title: 'BookmarkSync · 跨浏览器书签同步与备份工具',
       description:
-        '跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox 之间书签自动同步，跨设备与跨时间保持一致。真树结构，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 500 条书签起步，Plus / Pro 按年订阅解锁更多条数。',
+        '跨浏览器书签云同步工具，支持 Chrome / Edge / Firefox 之间书签自动同步，跨设备与跨时间保持一致。真树结构，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 1,000 条书签起步，Plus / Pro 按年订阅解锁更多条数。',
       keywords:
         '书签同步,书签备份,跨浏览器书签,Chrome 书签同步,Edge 书签同步,Firefox 书签同步,书签云同步,书签多设备同步,书签迁移,文件夹改名不丢子项',
     },
     en: {
       title: 'BookmarkSync · Cross-browser bookmark sync & backup',
       description:
-        'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — tombstone-based deletes that never resurrect, and convergent multi-device merge with no overwrites. Start free with 500 bookmarks; Plus and Pro are yearly subscriptions for more.',
+        'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — tombstone-based deletes that never resurrect, and convergent multi-device merge with no overwrites. Start free with 1,000 bookmarks; Plus and Pro are yearly subscriptions for more.',
       keywords:
         'bookmark sync,bookmark backup,cross-browser bookmarks,Chrome bookmark sync,Edge bookmark sync,Firefox bookmark sync,bookmark cloud sync,bookmark multi-device sync,bookmark migration,folders no lost children',
     },
   },
   pricing: {
     zh: {
-      title: '定价 · BookmarkSync | 免费 500 条，Plus / Pro 按年订阅',
+      title: '定价 · BookmarkSync | 免费 1,000 条，Plus / Pro 按年订阅',
       description:
-        'BookmarkSync 定价：Free 最多 500 条书签永久免费、Plus $20/年 10,000 条、Pro $50/年 不限数量。三档同步功能完全一致，仅书签数量上限不同。订阅由 Creem 处理。',
+        'BookmarkSync 定价：Free 最多 1,000 条书签永久免费、Plus $20/年 10,000 条、Pro $50/年 不限数量。三档同步功能完全一致，仅书签数量上限不同。订阅由 Creem 处理。',
       keywords:
         'BookmarkSync 定价,书签同步价格,书签同步付费,书签同步订阅,书签同步 Plus,书签同步 Pro',
     },
     en: {
-      title: 'Pricing · BookmarkSync | Free 500 bookmarks, Plus / Pro yearly',
+      title: 'Pricing · BookmarkSync | Free 1,000 bookmarks, Plus / Pro yearly',
       description:
-        'BookmarkSync pricing: Free up to 500 bookmarks, Plus $20/yr for 10,000, Pro $50/yr unlimited. All tiers share identical sync features — only the bookmark limit differs. Subscriptions processed by Creem.',
+        'BookmarkSync pricing: Free up to 1,000 bookmarks, Plus $20/yr for 10,000, Pro $50/yr unlimited. All tiers share identical sync features — only the bookmark limit differs. Subscriptions processed by Creem.',
       keywords:
         'BookmarkSync pricing,bookmark sync price,bookmark sync plans,bookmark sync subscription,bookmark sync Plus,bookmark sync Pro',
     },
@@ -202,8 +202,8 @@ export function getSoftwareAppJsonLd(locale: Locale = 'zh'): JsonLd {
     operatingSystem: 'Chrome, Edge, Firefox',
     url: SITE.url,
     description: isZh
-      ? '跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox 之间书签自动同步。真树同步，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 500 条书签起步。'
-      : 'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — and convergent multi-device merge. Start free with 500 bookmarks.',
+      ? '跨浏览器书签云同步与备份工具，支持 Chrome / Edge / Firefox 之间书签自动同步。真树同步，文件夹改名/移动不丢子项；精准删除永不复活；多端并发编辑自动收敛、无覆盖写。免费 1,000 条书签起步。'
+      : 'Cross-browser bookmark cloud sync tool. Syncs bookmarks across Chrome, Edge, and Firefox with true-tree sync — renaming or moving folders never loses children — and convergent multi-device merge. Start free with 1,000 bookmarks.',
     offers: [
       {
         '@type': 'Offer',

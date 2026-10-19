@@ -4,7 +4,7 @@ description: Sync does nothing, the status stays on scheduled, or it works half 
 category: fix
 date: 2026-10-02
 seoTitle: Bookmark Sync Not Working · BookmarkSync
-seoDescription: Bookmark sync does nothing, stuck on scheduled, or fails intermittently? Key causes include rate_limited responses causing intermittent failures and the Free tier's 500-item / 1MB byte quota. Ordered steps and error code tables.
+seoDescription: Bookmark sync does nothing, stuck on scheduled, or fails intermittently? Key causes include rate_limited responses causing intermittent failures and the Free tier's 1,000-item limit and 5MB byte quota. Ordered steps and error code tables.
 keywords: bookmark sync not working,sync stuck scheduled,bookmarks not syncing,bookmark sync troubleshooting,rate limited sync,bookmark sync quota exceeded,e2ee sync error code,bookmark sync failed
 faq: true
 ---
@@ -64,16 +64,16 @@ The counterintuitive part: **quota is counted in bytes, not items.**
 
 | Tier | Item limit | Byte limit |
 |---|---|---|
-| Free | 500 items | 1 MB |
+| Free | 1,000 items | 5 MB |
 | Plus | 10,000 items | 20 MB |
 | Pro | Unlimited items (engineered to cap around 250,000) | 500 MB |
 
 Why bytes? Under end-to-end encryption the server holds ciphertext. **The only metering metric the server can enforce is bytes** — there's no item count in the ciphertext, so the server has no way to know how many bookmarks you have.
 
-That design produces a concrete number: **an encrypted bookmark averages about 2 KB.** Do the arithmetic and you see what 1 MB actually buys on Free.
+That design produces a concrete number: **an encrypted bookmark averages about 2 KB.** Do the arithmetic and you see what 5 MB actually buys on Free.
 
-- 500 × 2 KB ≈ 1 MB. So Free's item limit and byte limit are **exactly aligned.** 500 items is the design capacity, not a round number someone picked.
-- So why do people hit the ceiling below 500 items? Because record size isn't fixed. A bookmark with a long title, a long URL, and deep folder nesting runs noticeably larger. One bookmark with all three can be three or four times a typical one.
+- 1,000 × 2 KB ≈ 2 MB. Free gives you 5 MB — over twice that — so a typical bookmark (~0.5 KB) goes a lot further, and even large ones fit 1,000.
+- So why do people hit the ceiling below 1,000 items? Because record size isn't fixed. A bookmark with a long title, a long URL, and deep folder nesting runs noticeably larger. One bookmark with all three can be three or four times a typical one.
 - Symmetrically, Pro's 500 MB works out to roughly 250,000 items at 2 KB — which is where the "around 250,000" figure comes from.
 
 **Confirming whether you've hit the ceiling:**
@@ -171,17 +171,17 @@ The server returns `reason: 'rate_limited'`, and the signature is intermittency:
 
 Open the extension's developer console and read the sync response to tell them apart directly.
 
-### Free allows 500 items — why does sync stop below 500?
+### Free allows 1,000 items — why does sync stop below 500?
 
 Because quota is metered in bytes, not items.
 
-Under end-to-end encryption the server holds ciphertext, and bytes are the only metric it can enforce — there's no item count in the ciphertext. Free is 1 MB, an encrypted bookmark averages about 2 KB, and 500 × 2 KB is exactly 1 MB. The two limits are aligned by design.
+Under end-to-end encryption the server holds ciphertext, and bytes are the only metric it can enforce — there's no item count in the ciphertext. Free is 5 MB, which at ~2 KB per encrypted bookmark works out to roughly 2,500 items; if your bookmarks run large (long titles, long URLs, deep nesting), 5 MB can run out before 1,000.
 
-But record size isn't fixed. Long titles, long URLs, and deep nesting run noticeably larger — three or four times a typical entry. That's how you hit the ceiling under 500 items.
+But record size isn't fixed. Long titles, long URLs, and deep nesting run noticeably larger — three or four times a typical entry. That's how you hit the ceiling under 1,000 items.
 
 ### The dashboard doesn't show how many bytes I'm using — how do I check?
 
-Estimate: item count times 2 KB, against your tier's byte limit. Free is 1 MB, Plus 20 MB, Pro 500 MB.
+Estimate: item count times 2 KB, against your tier's byte limit. Free is 5 MB, Plus 20 MB, Pro 500 MB.
 
 Once your estimate exceeds 90% of the ceiling, treat it as exceeded. You can also open the developer console during a manual sync and look for an explicit quota error code — either route confirms it.
 

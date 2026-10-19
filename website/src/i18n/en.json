@@ -45,7 +45,7 @@
     "subtitle": "Install the extension, sign in, and your Chrome, Edge, and Firefox bookmarks become one tree. Keep organizing the way you always have — the sync engine handles the rest.",
     "ctaPrimary": "Download Free",
     "ctaSecondary": "View Pricing",
-    "trustBadge": "No credit card · 500 bookmarks free · End-to-end encryption on by default · Reorder once, synced everywhere",
+    "trustBadge": "No credit card · 1,000 bookmarks free · End-to-end encryption on by default · Reorder once, synced everywhere",
     "previewFolder1": "Development",
     "previewFolder2": "Design resources",
     "previewDeleted": "Deleted · never resurrected"
@@ -104,7 +104,7 @@
       },
       "quota": {
         "title": "Tiered by count, only for capacity",
-        "desc": "Start with 500 free, 10,000 on Plus, unlimited on Pro (capped at ~250,000). All tiers share identical sync features — upgrade purely for headroom."
+        "desc": "Start with 1,000 free, 10,000 on Plus, unlimited on Pro (capped at ~250,000). All tiers share identical sync features — upgrade purely for headroom."
       },
       "privacy": {
         "title": "Content encryption, your choice",
@@ -144,7 +144,7 @@
   "pricing": {
     "eyebrow": "Pricing",
     "title": "Identical sync on every tier, pay only for capacity",
-    "subtitle": "Free covers 500 bookmarks; Plus and Pro are yearly subscriptions for more. Whichever tier you choose, you get the full set of true-tree sync, precise deletes, and multi-device merging.",
+    "subtitle": "Free covers 1,000 bookmarks; Plus and Pro are yearly subscriptions for more. Whichever tier you choose, you get the full set of true-tree sync, precise deletes, and multi-device merging.",
     "monthly": "monthly",
     "onetime": "one-time",
     "popular": "Recommended",
@@ -156,7 +156,7 @@
         "unit": "free forever",
         "cta": "Get Started",
         "features": [
-          "Up to 500 bookmarks",
+          "Up to 1,000 bookmarks",
           "1 sync space",
           "Up to 3 devices",
           "True-tree sync — rename/move folders without losing items",
@@ -211,7 +211,7 @@
       "rows": [
         {
           "feature": "Bookmark limit",
-          "free": "500",
+          "free": "1,000",
           "plus": "10,000",
           "pro": "Unlimited (capped at ~250,000)"
         },
@@ -302,7 +302,7 @@
         },
         "freeLimit": {
           "q": "How many bookmarks does each tier hold?",
-          "a": "Bookmarks: Free up to 500, Plus up to 10,000, Pro unlimited (capped at ~250,000). Sync spaces: Free 1, Plus 3, Pro 10. Devices: Free 3, Plus 6, Pro 15."
+          "a": "Bookmarks: Free up to 1,000, Plus up to 10,000, Pro unlimited (capped at ~250,000). Sync spaces: Free 1, Plus 3, Pro 10. Devices: Free 3, Plus 6, Pro 15."
         },
         "payment": {
           "q": "What payment methods do you accept?",
@@ -338,7 +338,7 @@
         },
         "quotaUnit": {
           "q": "Is the quota counted by bookmarks or bytes?",
-          "a": "Enforcement is by bytes (the only server-enforceable metric under E2EE): Free 1MB / Plus 20MB / Pro 500MB, calibrated at ~2KB per bookmark to line up with the advertised counts — Free 500 / Plus 10,000 / Pro unlimited (500MB ≈ 250,000 cap). When over quota, new changes pause; delete bookmarks or spaces to free up space and sync resumes automatically. Already-synced data is unaffected."
+          "a": "Enforcement is by bytes (the only server-enforceable metric under E2EE): Free 5MB / Plus 20MB / Pro 500MB. Free and Plus are calibrated at ~2KB per bookmark with headroom (1,000 bookmarks → 5MB, 10,000 → 20MB); Pro is unlimited at 500MB ≈ a 250,000 cap. When over quota, new changes pause; delete bookmarks or spaces to free up space and sync resumes automatically. Already-synced data is unaffected."
         }
       }
     },
@@ -428,7 +428,7 @@
       },
       "plans": {
         "title": "3. Tiers and subscription",
-        "body": "The Service offers Free (up to 500 bookmarks), Plus ($20/yr, up to 10,000 bookmarks), and Pro ($50/yr, unlimited, capped at ~250,000) tiers. All three share identical sync features; only bookmark count, sync spaces (Free 1 / Plus 3 / Pro 10), and devices (Free 3 / Plus 6 / Pro 15) differ. Syncing pauses when the byte-level storage cap is reached and resumes automatically after bookmarks or spaces are removed. Plus and Pro are yearly subscriptions that auto-renew and can be cancelled at any time — after cancelling you retain access until the end of the current billing period. All payments are processed by Creem (Armitage Labs OÜ, registered in Estonia) as Merchant of Record. Invoices are issued directly by Creem."
+        "body": "The Service offers Free (up to 1,000 bookmarks), Plus ($20/yr, up to 10,000 bookmarks), and Pro ($50/yr, unlimited, capped at ~250,000) tiers. All three share identical sync features; only bookmark count, sync spaces (Free 1 / Plus 3 / Pro 10), and devices (Free 3 / Plus 6 / Pro 15) differ. Syncing pauses when the byte-level storage cap is reached and resumes automatically after bookmarks or spaces are removed. Plus and Pro are yearly subscriptions that auto-renew and can be cancelled at any time — after cancelling you retain access until the end of the current billing period. All payments are processed by Creem (Armitage Labs OÜ, registered in Estonia) as Merchant of Record. Invoices are issued directly by Creem."
       },
       "refund": {
         "title": "4. Refund policy",
@@ -520,7 +520,7 @@
         },
         "free": {
           "q": "Can I use the free plan?",
-          "a": "Yes. The free plan syncs 500 bookmarks with no credit card, and all sync features are identical to paid plans."
+          "a": "Yes. The free plan syncs 1,000 bookmarks with no credit card, and all sync features are identical to paid plans."
         },
         "restore": {
           "q": "How do I restore bookmarks on a new device?",

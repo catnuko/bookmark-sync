@@ -101,7 +101,7 @@ If you'll be using both Edge and Chrome long-term:
 3. Once the pull completes, both trees match, and folder renames and moves propagate. A rename only changes the `title` field; a move only changes the children's `parentId`. Node IDs never change, so structure can't collapse from a rename.
 4. When you hit an entry you can't delete, rename or move it instead of deleting. In a node-identity implementation a move only changes the parent relationship, which safely sidesteps the trap where a deletion is read as a path change.
 
-BookmarkSync supports Chrome, Edge, and Firefox; **Safari is not supported yet.** Limits: free tier 500 bookmarks, 1MB, 1 sync space; Plus 10,000 bookmarks, 20MB, 3 spaces; Pro unlimited bookmarks, 500MB, 10 spaces, each bindable to a different browser profile. Encryption is AES-GCM on by default and the server stores only ciphertext.
+BookmarkSync supports Chrome, Edge, and Firefox; **Safari is not supported yet.** Limits: free tier 1,000 bookmarks, 5MB, 1 sync space; Plus 10,000 bookmarks, 20MB, 3 spaces; Pro unlimited bookmarks, 500MB, 10 spaces, each bindable to a different browser profile. Encryption is AES-GCM on by default and the server stores only ciphertext.
 
 ## How to verify the migration worked
 

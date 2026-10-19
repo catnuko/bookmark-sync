@@ -21,6 +21,7 @@ import {
   renameDevice,
   getDeviceId,
   resetCoordinator,
+  FREE_ITEM_LIMIT,
   type SpaceInfo,
   type DeviceInfo,
   type ProfileInfo,
@@ -1100,7 +1101,13 @@ export async function syncNow(opts: boolean | { force?: boolean } = {}): Promise
     });
     await refreshStatus();
     if (r.ok) {
-      showToast('success', t('toast_syncDone'), summaryText(parseSummary(state.lastSyncSummary)));
+      // 条数超额时同步本身是成功的（拉取/删除都正常），但新书签推不上去。
+      // 只弹一条 warning 覆盖掉「同步完成」，否则用户会以为新加的书签已经上传。
+      if (r.itemLimitBlocked) {
+        showToast('warning', t('toast_itemLimitTitle'), t('toast_itemLimitSub'));
+      } else {
+        showToast('success', t('toast_syncDone'), summaryText(parseSummary(state.lastSyncSummary)));
+      }
     } else {
       showToast('danger', reasonDisplay(r.reason, r.error), '');
     }
@@ -1349,7 +1356,7 @@ export const planLabel = computed(() => {
   return 'Free';
 });
 
-// 额度按「条」展示（与定价一致：Free 500 / Plus 10,000 / Pro·Lifetime 不限）。
+// 额度按「条」展示（与定价一致：Free 1,000 / Plus 10,000 / Pro·Lifetime 不限）。
 // 已用条数优先取服务端 used_count（0016 迁移），未部署时回退本地基线统计。
 export const usedCount = computed(() => {
   if (state.profile && typeof state.profile.used_count === 'number') {
@@ -1361,7 +1368,7 @@ export const usedCount = computed(() => {
 export const quotaCount = computed(() => {
   const p = state.profile?.plan;
   if (p === 'pro' || p === 'lifetime') return null; // 不限数量（字节口径兜底）
-  return p === 'plus' || p === 'premium' ? 10000 : 500;
+  return p === 'plus' || p === 'premium' ? 10000 : FREE_ITEM_LIMIT;
 });
 
 // Pro/Lifetime 按字节口径预警：E2EE 下服务端以字节执行（0032），

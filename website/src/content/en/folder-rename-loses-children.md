@@ -76,7 +76,7 @@ Staying safe means locking files manually, which defeats the entire point of aut
 | A team or many devices, with automatic merging | The same, plus real conflict resolution |
 | Complete control of your own data | File-level sync, but accept the lack of merging |
 
-BookmarkSync supports Chrome, Edge, and Firefox, syncs node identity, and turns on end-to-end encryption by default — the server stores ciphertext, so we can't read your bookmarks either. The free tier covers 500 bookmarks, 1 sync space, and 3 devices, which is enough to verify whether this model is what you want.
+BookmarkSync supports Chrome, Edge, and Firefox, syncs node identity, and turns on end-to-end encryption by default — the server stores ciphertext, so we can't read your bookmarks either. The free tier covers 1,000 bookmarks, 1 sync space, and 3 devices, which is enough to verify whether this model is what you want.
 
 ## FAQ
 
