@@ -1,0 +1,31 @@
+# .worktreeinclude —— Claude Code 创建 worktree 时自动带入的本地文件
+#
+# ★ 这不是 git 的功能（`git worktree add` 只检出被跟踪的文件）。这是 Claude Code
+#   的约定：新建 worktree（EnterWorktree / `claude -w` / 子代理 worktree / 并行会话）
+#   时，把**同时满足**下面两个条件的文件从主仓库复制过去：
+#     ① 匹配本文件的模式（.gitignore 语法）
+#     ② 该文件本身在 .gitignore 里（被跟踪的文件永远不会复制，不会污染仓库）
+#
+# 为什么需要：`vite.config.js` 的 readDevCreds() 从仓库根的 `.dev-creds.json`
+# 读本地开发凭据，注入 `__DEV_CREDS__`。该文件已 gitignore、不在仓库里，所以
+# **新 worktree 天然没有它** → 构建时注入空值 → 测试包里登录邮箱/密码/口令全是空的，
+# 每次都要手输。2026-10-20 排查「Firefox 产物没有默认凭据」时就是栽在这里：
+# 加载的 worktree 缺这个文件，却因为目录里躺着旧的构建产物而看起来像是构建问题。
+#
+# ⚠ 安全边界（改动前必读）：
+#   · 复制过去的凭据会被 vite `define` **明文编译进构建产物**。带凭据的包只能用于
+#     本地测试，绝不能上传商店 —— CI 拿不到该文件，所以商店包天然不含凭据。
+#   · 本文件本身**可以且应该提交到仓库**（它不含任何秘密，只是文件名清单）。
+#   · 往这里加新条目时，确认该文件确实已进 .gitignore，否则它不会被复制
+#     （只匹配 gitignore 的文件，这是 Claude Code 的硬约束）。
+
+# 本地开发凭据：vite.config.js → __DEV_CREDS__（邮箱 / 密码 / E2EE 口令）
+.dev-creds.json
+
+# 商店提交凭证（见 AGENTS.md「商店发布注意」，CLI 会自动加载 .env.submit）
+.env.submit
+
+# 注意：只列 .gitignore 里确实存在的条目 —— 复制条件是「匹配模式 **且** 已被
+# gitignore」。`.env` / `.env.local` 当前**没有**被忽略（git check-ignore 验证过），
+# 写在这里不会生效，反而制造「已经覆盖了」的错觉。
+# 护栏：tests/worktreeinclude.test.ts 会逐条跑 git check-ignore 验证。
