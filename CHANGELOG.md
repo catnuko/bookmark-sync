@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.17.0](https://github.com/catnuko/bookmark-sync/compare/v2.16.2...v2.17.0) (2026-10-19)
+
+
+### Features
+
+* **store:** enlarge feature tag labels on promo screenshots (zh/en) ([4452cab](https://github.com/catnuko/bookmark-sync/commit/4452cab9ad80ba853ed1e4e1b9a2e6e5161b5bd5))
+* 免费档配额提升到 1,000 条并改为真限额 ([fc4efc8](https://github.com/catnuko/bookmark-sync/commit/fc4efc83f4caa3ce569dd61b239f22b6981ea5ad))
+
+
+### Bug Fixes
+
+* **ci:** 商店提交失败判定回退 outcome，闸门认任意 pending，加 Chrome 补发 ([6b5cdf6](https://github.com/catnuko/bookmark-sync/commit/6b5cdf63798b0291d3bb6e1ecbb7d980e17fb342))
+
 ## [2.16.2](https://github.com/catnuko/bookmark-sync/compare/v2.16.1...v2.16.2) (2026-10-15)
 
 
