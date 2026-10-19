@@ -1,9 +1,14 @@
 // tests/sync/no-bookmarks-api.test.ts — 没有 bookmarks API 的环境不得让后台崩掉
 //
-// 回归背景（2026-10-20）：Firefox for Android **不支持** bookmarks API（MDN 兼容表
-// 标 no support），而 manifest.firefox.json 通过 `gecko_android.strict_min_version`
-// 允许了 Android 安装。于是 `globalThis.chrome.bookmarks` 是 undefined，
+// 回归背景（2026-10-20）：Firefox for Android **不支持** bookmarks API（MDN
+// browser-compat-data 里 firefox_android 是 `version_added: false`，24 个子 API
+// 无一例外）。manifest 曾用 `gecko_android.strict_min_version` 允许安卓安装，
+// 于是 `globalThis.chrome.bookmarks` 是 undefined，
 // `registerLocalEventBridge()` 里的 `chrome.onCreated.addListener` 抛 TypeError。
+//
+// 安卓安装声明现已移除（护栏见 tests/firefox-android-manifest.test.ts），但本测试
+// **仍要保留**：这道判空是后台顶层不崩的最后防线，任何让插件跑到「没有 bookmarks
+// API」环境的路径都会走到这里。
 //
 // 致命之处不是这个异常本身，而是**它发生的位置**：registerLocalEventBridge 在
 // background.js 模块顶层被调用，异常会中断整个后台脚本的顶层执行 —— 后面的

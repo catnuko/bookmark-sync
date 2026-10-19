@@ -1079,10 +1079,16 @@ export function registerLocalEventBridge(hooks?: CaptureEventHooks): void {
   // ★ 没有 bookmarks API 就不接线（2026-10-20 修）。
   //   原注释断言「MV3 声明了 bookmarks 权限，SW 中 globalThis.chrome.bookmarks
   //   恒存在」—— 这条在 **Firefox for Android 上不成立**：该平台不支持
-  //   bookmarks API（MDN 兼容表标注 no support），而 manifest.firefox.json 又用
-  //   `gecko_android.strict_min_version: 142` 允许了 Android 安装。于是
+  //   bookmarks API（MDN browser-compat-data 里 firefox_android 是
+  //   `version_added: false`，24 个子 API 无一例外）。manifest 曾用
+  //   `gecko_android.strict_min_version: 142` 允许了安卓安装，于是
   //   nativeBookmarks() 返回 undefined，captureLocalEvents 里
   //   `chrome.onCreated.addListener` 抛 TypeError。
+  //
+  //   该声明已移除（见 tests/firefox-android-manifest.test.ts 护栏），但**这道
+  //   判空仍必须保留**：它是后台顶层崩不崩的最后一道防线 —— 任何未来让插件
+  //   跑到「没有 bookmarks API」环境里的路径（企业策略禁用、新平台、权限被
+  //   用户拒绝）都会走到这里。
   //
   //   致命之处在于**调用位置**：本函数在 background.js 模块顶层被调用，抛出的
   //   异常会中断整个后台脚本的顶层执行 → 后面的 scheduleAlarms()、onStartup、
