@@ -73,17 +73,32 @@ function resetRootReconcileTimer(): void {
 
 // MV3：chrome.* 持久事件监听必须在 SW 顶层注册（SW 每次被唤醒都会重跑本文件）。
 // 事件桥在 coordinator 未就绪（未登录/无空间）时安全跳过，由 runSync 播种兜底。
-registerLocalEventBridge({
-  // 每个书签事件重置静默计时器（登录拉取期间事件密集 → 拉取结束才收敛）。
-  onAnyEvent: () => resetRootReconcileTimer(),
-  onRealRootAppeared: (landingUuid, chromeId) => {
-    console.log(`[bsync] 检测到真账号根出现: landing=${landingUuid} chromeId=${chromeId}`);
-    rootReconcileArmed = true;
-    resetRootReconcileTimer();
-  },
-});
+//
+// ★ 顶层调用必须各自兜住异常（2026-10-20 修）：这里是**模块顶层**，任何一处
+//   抛错都会中断整个后台脚本的顶层执行 —— 后面的 scheduleAlarms()、onStartup、
+//   onMessage 全部注册不上，插件从此彻底不工作，且用户/后台都看不到任何线索。
+//   Firefox for Android 就是这样整机静默的（bookmarks API 不存在 →
+//   registerLocalEventBridge 抛 TypeError → 后面全没注册）。registerLocalEventBridge
+//   内部已自行判空，这里再加一道兜底，防止将来别的地方重蹈覆辙。
+try {
+  registerLocalEventBridge({
+    // 每个书签事件重置静默计时器（登录拉取期间事件密集 → 拉取结束才收敛）。
+    onAnyEvent: () => resetRootReconcileTimer(),
+    onRealRootAppeared: (landingUuid, chromeId) => {
+      console.log(`[bsync] 检测到真账号根出现: landing=${landingUuid} chromeId=${chromeId}`);
+      rootReconcileArmed = true;
+      resetRootReconcileTimer();
+    },
+  });
+} catch (e) {
+  void reportError('background', 'bridge_register_failed', e);
+}
 // 测试通道（仅 Firefox E2E；生产无测试桥扩展，通道天然不可达）
-registerTestChannel();
+try {
+  registerTestChannel();
+} catch (e) {
+  void reportError('background', 'test_channel_failed', e);
+}
 
 async function sync(): Promise<SyncRunResult> {
   try {
