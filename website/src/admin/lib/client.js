@@ -37,6 +37,7 @@ export const adminApi = {
     }),
   getUser: (userId) => callAdmin('admin_get_user', { p_user: userId }),
   // 0052：非 free 计划必须给到期时间（手工授予，到期自动降 free）
+  /** @param {string | null} [expiresAt] ISO 时间串；改回 free 时传 null */
   setUserPlan: (userId, plan, expiresAt = null) =>
     callAdmin('admin_set_user_plan', {
       p_user: userId,
