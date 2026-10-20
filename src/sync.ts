@@ -12,6 +12,7 @@
 // ------------------------------------------------------------------
 
 import { api } from './lib/ext.js';
+import { appVersion } from './lib/appVersion.js';
 import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
 import { reportError } from './lib/telemetry.js';
@@ -685,6 +686,9 @@ async function touchDevice(
     p_space: spaceId,
     p_device: deviceId,
     p_name: await detectDeviceName(),
+    // 0050：扩展版本，随心跳刷新（后台据此看用户停在哪个版本）。
+    // 必须与 name 分开上报 —— name 只写一次且可被用户改名，版本要每次覆盖。
+    p_app_version: appVersion(),
   });
   if (!error) return { ok: true };
   const msg = String(error.message ?? error);

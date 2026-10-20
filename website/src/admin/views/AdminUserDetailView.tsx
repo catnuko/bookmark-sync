@@ -23,6 +23,10 @@ type UserDetail = {
     used_count?: number;
     purchased_at?: string | null;
     e2ee_salt?: string | null;
+    /** 0052：auto = Creem 订阅驱动；manual = 管理员手工授予（微信转账等）。 */
+    plan_source?: 'auto' | 'manual';
+    /** 0052：手工授予的到期时间，到期自动降 free。 */
+    plan_expires_at?: string | null;
   };
   subscription?: {
     status: string;
@@ -38,7 +42,14 @@ type UserDetail = {
     device_count: number;
     created_at: string;
   }[];
-  devices?: { id: string; name?: string; space_name: string; last_seen_at: string | null }[];
+  devices?: {
+    id: string;
+    name?: string;
+    space_name: string;
+    last_seen_at: string | null;
+    /** 扩展版本（0050）。存量设备在下一次心跳前为空。 */
+    app_version?: string | null;
+  }[];
   recent_orders?: {
     id: string;
     created_at: string;
@@ -68,11 +79,26 @@ type GcStats = {
   }[];
 };
 
+/**
+ * 拼「浏览器 · 系统 · 版本」。
+ *
+ * `name` 是客户端 detectDeviceName() 生成的 "Edge · Windows"（见 src/sync.ts），
+ * 已经含浏览器与系统，这里只补版本；用户改过名的设备（bsync_device_rename）
+ * 可能不含这些信息，此时照样把版本接在后面 —— 版本才是这一列的重点。
+ * 存量设备在下次心跳前没有版本，显示「(版本未知)」而不是留空。
+ */
+function deviceLabel(name?: string, version?: string | null): string {
+  const base = (name || '').trim() || '(未命名)';
+  return version ? `${base} · ${version}` : `${base} · (版本未知)`;
+}
+
 export default function AdminUserDetailView({ userId }: { userId: string }) {
   const [data, setData] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newPlan, setNewPlan] = useState('');
+  /** 手工授予的到期时间（datetime-local 字符串）。0052：非 free 必填。 */
+  const [newPlanExpiresAt, setNewPlanExpiresAt] = useState('');
 
   const [clearing, setClearing] = useState(false);
   const [clearMsg, setClearMsg] = useState('');
@@ -123,9 +149,28 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
   }, [loadGc]);
 
   async function savePlan() {
-    if (!confirm(`确认将该用户 plan 改为 ${newPlan}？`)) return;
+    // 0052：非 free 计划必须给到期时间（手工授予，到期自动降 free）
+    let expiresAt: string | null = null;
+    if (newPlan !== 'free') {
+      if (!newPlanExpiresAt) {
+        alert('手工开通会员必须填写到期时间（到期后自动降为 free）');
+        return;
+      }
+      const d = new Date(newPlanExpiresAt);
+      if (!Number.isFinite(d.getTime()) || d.getTime() <= Date.now()) {
+        alert('到期时间必须晚于当前时间');
+        return;
+      }
+      expiresAt = d.toISOString();
+    }
+
+    const hint =
+      newPlan === 'free'
+        ? `确认将该用户 plan 改为 free？`
+        : `确认将该用户 plan 改为 ${newPlan}，到期时间 ${new Date(newPlanExpiresAt).toLocaleString()}？\n\n到期后会自动降为 free。`;
+    if (!confirm(hint)) return;
     try {
-      await adminApi.setUserPlan(userId, newPlan);
+      await adminApi.setUserPlan(userId, newPlan, expiresAt);
       setData(await adminApi.getUser(userId));
     } catch (e) {
       alert((e as Error).message);
@@ -227,6 +272,19 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
               </p>
               <p>条数：{formatCount(data.profile?.used_count)}</p>
               <p>购买时间：{formatTime(data.profile?.purchased_at)}</p>
+              <p>
+                计划来源：
+                {data.profile?.plan_source === 'manual' ? (
+                  <>
+                    <strong>手工授予</strong>
+                    {data.profile?.plan_expires_at
+                      ? `（到期 ${formatTime(data.profile.plan_expires_at)}）`
+                      : ''}
+                  </>
+                ) : (
+                  '自动（Creem 订阅）'
+                )}
+              </p>
               <p>E2EE salt：{data.profile?.e2ee_salt ? '已设置' : '未设置（未开启口令模式）'}</p>
               <div className={styles.actions}>
                 <select value={newPlan} onChange={(e) => setNewPlan(e.target.value)}>
@@ -235,6 +293,14 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
                   <option value="pro">pro</option>
                   <option value="lifetime">lifetime</option>
                 </select>
+                {newPlan !== 'free' ? (
+                  <input
+                    type="datetime-local"
+                    value={newPlanExpiresAt}
+                    onChange={(e) => setNewPlanExpiresAt(e.target.value)}
+                    title="手工授予必填：到期后自动降为 free"
+                  />
+                ) : null}
                 <button className={styles.btn} type="button" onClick={savePlan}>
                   保存 plan
                 </button>
@@ -305,7 +371,7 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
                 <table className={styles.mini}>
                   <thead>
                     <tr>
-                      <th>名称</th>
+                      <th>设备（浏览器 · 系统 · 版本）</th>
                       <th>空间</th>
                       <th>最后在线</th>
                     </tr>
@@ -313,7 +379,7 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
                   <tbody>
                     {data.devices?.map((d) => (
                       <tr key={d.id}>
-                        <td>{d.name || '(未命名)'}</td>
+                        <td>{deviceLabel(d.name, d.app_version)}</td>
                         <td>{d.space_name}</td>
                         <td>{formatTime(d.last_seen_at)}</td>
                       </tr>
