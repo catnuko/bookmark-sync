@@ -36,7 +36,13 @@ export const adminApi = {
       p_offset: params.offset ?? 0,
     }),
   getUser: (userId) => callAdmin('admin_get_user', { p_user: userId }),
-  setUserPlan: (userId, plan) => callAdmin('admin_set_user_plan', { p_user: userId, p_plan: plan }),
+  // 0052：非 free 计划必须给到期时间（手工授予，到期自动降 free）
+  setUserPlan: (userId, plan, expiresAt = null) =>
+    callAdmin('admin_set_user_plan', {
+      p_user: userId,
+      p_plan: plan,
+      p_expires_at: expiresAt,
+    }),
   resetUsage: (userId) => callAdmin('admin_reset_usage', { p_user: userId }),
   resetUserData: (userId) => callAdmin('admin_reset_user_data', { p_user: userId }),
   listOrders: (params) =>

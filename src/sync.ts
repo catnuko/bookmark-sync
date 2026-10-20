@@ -12,6 +12,7 @@
 // ------------------------------------------------------------------
 
 import { api } from './lib/ext.js';
+import { appVersion } from './lib/appVersion.js';
 import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
 import { reportError } from './lib/telemetry.js';
@@ -667,6 +668,54 @@ async function ensureSession(): Promise<Session | null> {
   return null;
 }
 
+/**
+ * 设备心跳：登记或刷新 bsync_devices.last_seen_at（后台「最后活跃」的唯一来源）。
+ *
+ * 为什么单独抽出来：它被 runSync 与事件桥的懒启动各调一次，两处对**失败**的
+ * 处理必须一致 —— 原先只有 `device_limit_reached` 被识别，其余错误（网络抖动、
+ * RLS、RPC 签名变更）被静默吞掉，同步照常往下跑，后台也就永远看不到这台设备
+ * 还活着。现在：device_limit 照旧回给 UI 做升级引导，其它错误**照常上报**
+ * （phase='sync'，reason='device_touch_failed'）但不阻断同步 —— 心跳是旁路，
+ * 不该让一次失败的网络请求拦住整轮同步。
+ */
+async function touchDevice(
+  spaceId: string,
+  deviceId: string,
+): Promise<{ ok: true } | { ok: false; reason: string; error: string }> {
+  const { error } = await supabase.rpc('bsync_device_touch', {
+    p_space: spaceId,
+    p_device: deviceId,
+    p_name: await detectDeviceName(),
+    // 0050：扩展版本，随心跳刷新（后台据此看用户停在哪个版本）。
+    // 必须与 name 分开上报 —— name 只写一次且可被用户改名，版本要每次覆盖。
+    p_app_version: appVersion(),
+  });
+  if (!error) return { ok: true };
+  const msg = String(error.message ?? error);
+  if (msg.includes('device_limit_reached')) {
+    return { ok: false, reason: 'device_limit_reached', error: msg };
+  }
+  // 非阻断：上报后继续同步（心跳失败不该拖垮数据同步本身）
+  void reportError('sync', 'device_touch_failed', error, { rpc: 'bsync_device_touch' });
+  return { ok: true };
+}
+
+/**
+ * 同步前置 gate 的**非异常**返回点：这些 reason 是正常控制流（不是抛错），
+ * 因此不会走 runSync 的 catch，也就从不进错误报表 —— 后台只能看到「用户不动了」，
+ * 看不到「用户卡在哪一步」。这里补一条轻量的产品信号上报。
+ *
+ * 隐私边界不变：phase/reason 都是枚举，context 只带 `handled: true` 这类标量，
+ * 不含任何书签内容、口令或明文（见 lib/telemetry.ts 顶部约束）。
+ *
+ * 节流：reportError 对同一 (phase, reason) 有 30 秒窗口；而 gate 是**每轮同步
+ * 命中一次**（alarm 30 分钟），不会形成错误风暴。服务端还有按用户 × 指纹的去重，
+ * 所以持续卡住的用户最终只会留下一行带 occurrences 的聚合记录。
+ */
+function reportGate(reason: string, context?: Record<string, unknown>): void {
+  void reportError('sync_gate', reason, reason, { handled: true, ...context });
+}
+
 // ---- 同步主入口 ----
 // 返回 { ok, pushed, pulled, reason?, error? }
 //
@@ -682,6 +731,8 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     if (!sess) {
       // 已知原因不附带 error 文案：展示层（store.reasonText）按 reason 码本地化，
       // 避免「请先在插件中登录 (请先在插件中登录)」式重复。
+      // 注意 reportError 在未登录时自己会跳过（它需要 session 才能上报），
+      // 所以这里只对「有 session 但续期失败」的情形留痕 —— 那才是真信号。
       return { ok: false, reason: 'not_authenticated' };
     }
 
@@ -692,6 +743,7 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     if (stale) {
       // 绑定的空间已被删除：不自动回落（那会在用户不知情时换掉同步目标），
       // 交给 UI 引导重新绑定。
+      reportGate('space_unbound');
       return { ok: false, reason: 'space_unbound' };
     }
     if (!bound) {
@@ -706,9 +758,15 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
           // 空间名跟着界面语言走：它出现在空间列表与 quota 卡里，硬编码中文会让
           // 英文界面下冒出一个中文空间名。
           const r = await createSpace(t('spaces_defaultName'));
-          if (!r.ok) return { ok: false, reason: 'no_space', error: r.error ?? t('err_noSpace') };
+          if (!r.ok) {
+            reportGate('no_space', { op: 'create_default' });
+            return { ok: false, reason: 'no_space', error: r.error ?? t('err_noSpace') };
+          }
           ({ spaces } = await getBoundSpace());
-          if (!spaces.length) return { ok: false, reason: 'no_space' };
+          if (!spaces.length) {
+            reportGate('no_space', { op: 'after_create' });
+            return { ok: false, reason: 'no_space' };
+          }
           await bindSpace(spaces[0].id);
           bound = spaces[0];
           break;
@@ -722,6 +780,7 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
           // 有真选择（≥2 个空间，或还能新建）：这台电脑加入哪个是**用户的决定**，
           // 交回 UI 挡出整页门禁。此处不绑定也不同步——绑定一旦写下，「本机从未
           // 绑定过」的事实就没了，用户再也没机会选（这正是本方案最容易踩的坑）。
+          reportGate('bind_needed', { n_spaces: spaces.length });
           return {
             ok: false,
             reason: 'bind_needed',
@@ -732,21 +791,25 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     const active = bound;
 
     const deviceId = await getDeviceId();
+
+    // 设备心跳（0033：新设备首次登记超计划上限时服务端 raise device_limit_reached）
+    //
+    // ★ 必须排在 ensureKey() **之前**（2026-10-20 修）。心跳只需要 space + device，
+    //   不需要 E2EE 密钥；原先排在口令检查之后，导致「已登录但还没设口令」的
+    //   用户一次心跳都不发 → 后台 bsync_devices.last_seen_at 永久停在登录时刻，
+    //   与「装完就卸载」完全无法区分（实测 19 个真实用户里 13 个如此，而其中
+    //   17 个的 token 续期与心跳同时停止，说明插件仍在、只是卡在口令门禁）。
+    //   挪到前面后，后台「最后活跃」反映的是**插件是否还活着**，而非是否配置完。
+    const touch = await touchDevice(active.id, deviceId);
+    if (!touch.ok) return { ok: false, reason: touch.reason, error: touch.error };
+
     const key = await keyManager.ensureKey();
     if (!key) {
       // 不再自动生成随机密钥：必须由用户设置口令派生。无密钥时直接拒绝同步，
       // 由 UI 引导用户在口令门禁页输入口令（文案按 reason 码在展示层本地化）。
+      // 注意此时心跳已经打过了：后台能看到这台设备仍在轮询，只是还没配口令。
+      reportGate('no_key');
       return { ok: false, reason: 'no_key' };
-    }
-
-    // 设备心跳（0033：新设备首次登记超计划上限时服务端 raise device_limit_reached）
-    const { error: touchError } = await supabase.rpc('bsync_device_touch', {
-      p_space: active.id,
-      p_device: deviceId,
-      p_name: await detectDeviceName(),
-    });
-    if (touchError && String(touchError.message ?? '').includes('device_limit_reached')) {
-      return { ok: false, reason: 'device_limit_reached', error: touchError.message };
     }
 
     // 绑定空间的映射桥 / 水位按空间分区：先确立活动桥（落地区恒为本环境原生
@@ -1016,15 +1079,47 @@ let _eventGuard: { suppressed: { value: boolean } } = { suppressed: { value: fal
 export function registerLocalEventBridge(hooks?: CaptureEventHooks): void {
   if (bridgeRegistered) return;
   bridgeRegistered = true;
+
+  // ★ 没有 bookmarks API 就不接线（2026-10-20 修）。
+  //   原注释断言「MV3 声明了 bookmarks 权限，SW 中 globalThis.chrome.bookmarks
+  //   恒存在」—— 这条在 **Firefox for Android 上不成立**：该平台不支持
+  //   bookmarks API（MDN browser-compat-data 里 firefox_android 是
+  //   `version_added: false`，24 个子 API 无一例外）。manifest 曾用
+  //   `gecko_android.strict_min_version: 142` 允许了安卓安装，于是
+  //   nativeBookmarks() 返回 undefined，captureLocalEvents 里
+  //   `chrome.onCreated.addListener` 抛 TypeError。
+  //
+  //   该声明已移除（见 tests/firefox-android-manifest.test.ts 护栏），但**这道
+  //   判空仍必须保留**：它是后台顶层崩不崩的最后一道防线 —— 任何未来让插件
+  //   跑到「没有 bookmarks API」环境里的路径（企业策略禁用、新平台、权限被
+  //   用户拒绝）都会走到这里。
+  //
+  //   致命之处在于**调用位置**：本函数在 background.js 模块顶层被调用，抛出的
+  //   异常会中断整个后台脚本的顶层执行 → 后面的 scheduleAlarms()、onStartup、
+  //   onMessage 全部注册不上，插件从此彻底不工作，且没有任何日志/上报。
+  //   实测证据：Android Firefox 用户 token 一直在续期（说明插件还装着），但
+  //   bsync_devices 一条记录都没有（心跳从未发出）；错误报表里
+  //   `can't access property "onCreated", e is undefined` 的栈顶正是
+  //   background.js:2（本调用）。
+  //
+  //   正确行为：没有书签 API 就跳过事件接线 —— 周期同步仍会跑（它不依赖事件桥），
+  //   只是不会实时捕获本地变更。后台其余部分必须照常启动。
+  const bookmarksApi = nativeBookmarks();
+  if (!bookmarksApi) {
+    console.warn(
+      '[bsync] 当前环境不支持 bookmarks API（如 Firefox for Android）：跳过本地事件接线',
+    );
+    return;
+  }
+
   // 映射桥按空间多变，事件处理器经 getter 取「当前活动空间」的映射表
   // （bootCoordinatorForEvent 解析出空间时会一并确立 _activeBridge）。
   const bridgeGetter = () => getActiveBridge();
   // 冷启动防丢事件：coordinator 未就绪（SW 刚被事件唤醒、runSync 尚未跑）时
   // 懒启动一个 coordinator，而不是静默丢弃本地事件。否则 SW 冷窗口内的删除
   // 不产生墓碑，「立即同步」的全量重放会把已删除节点拉回来。
-  // MV3 声明了 bookmarks 权限，SW 中 globalThis.chrome.bookmarks 恒存在。
   _eventGuard = captureLocalEvents(
-    nativeBookmarks() as ChromeBookmarksAPI,
+    bookmarksApi,
     () => getCoordinatorCached() ?? bootCoordinatorForEvent(),
     bridgeGetter,
     flushSoon,
@@ -1052,6 +1147,9 @@ function bootCoordinatorForEvent(): SyncCoordinator | null | Promise<SyncCoordin
         const { bound: active } = await getBoundSpace();
         if (!active) return null; // 未登录/无空间：无可同步对象，事件跳过是正确行为
         const deviceId = await getDeviceId();
+        // 心跳先于口令检查（与 runSync 同序，见 touchDevice 注释）：设备只要在
+        // 轮询就该被记为活跃，哪怕用户还没设口令。
+        await touchDevice(active.id, deviceId);
         const key = await keyManager.ensureKey();
         if (!key) return null; // 未设置口令：事件跳过，等用户设置后同步兜底
         if (gen !== _coordinatorGen) return null; // 密钥已变更，放弃本次 boot
