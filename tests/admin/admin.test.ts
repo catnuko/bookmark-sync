@@ -174,13 +174,30 @@ describe('adminApi 参数构造', () => {
     await expect(adminApi.overview()).rejects.toThrow('forbidden: not a bsync admin');
   });
 
-  it('setUserPlan 传 p_user / p_plan', async () => {
+  it('setUserPlan 传 p_user / p_plan / p_expires_at', async () => {
     rpcMock.mockResolvedValue({ data: null, error: null });
     const { adminApi } = await import('../../website/src/admin/lib/client.js');
-    await adminApi.setUserPlan('00000000-0000-0000-0000-000000000001', 'pro');
+    await adminApi.setUserPlan(
+      '00000000-0000-0000-0000-000000000001',
+      'pro',
+      '2027-01-01T00:00:00.000Z',
+    );
     expect(rpcMock).toHaveBeenCalledWith('admin_set_user_plan', {
       p_user: '00000000-0000-0000-0000-000000000001',
       p_plan: 'pro',
+      p_expires_at: '2027-01-01T00:00:00.000Z',
+    });
+  });
+
+  // 0052：到期时间可省略（改回 free 时不需要），省略即传 null
+  it('setUserPlan 不传到期时间时 p_expires_at 为 null', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: null });
+    const { adminApi } = await import('../../website/src/admin/lib/client.js');
+    await adminApi.setUserPlan('00000000-0000-0000-0000-000000000002', 'free');
+    expect(rpcMock).toHaveBeenCalledWith('admin_set_user_plan', {
+      p_user: '00000000-0000-0000-0000-000000000002',
+      p_plan: 'free',
+      p_expires_at: null,
     });
   });
 
