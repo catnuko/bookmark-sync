@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.18.0](https://github.com/catnuko/bookmark-sync/compare/v2.17.0...v2.18.0) (2026-10-20)
+
+
+### Features
+
+* **admin:** 手工开通会员 + 到期自动降级（微信转账等站外支付） ([08f7f42](https://github.com/catnuko/bookmark-sync/commit/08f7f42b4bd01be7fa54f79a27d3828907ed7d84))
+* **admin:** 设备数修正 + 设备版本追踪 + 手工开通会员（到期自动降级） ([fabbdc4](https://github.com/catnuko/bookmark-sync/commit/fabbdc4f971f814aef670f5ba2439b446a812000))
+* **admin:** 设备版本随心跳刷新，后台显示「浏览器 · 系统 · 版本」 ([588a8d2](https://github.com/catnuko/bookmark-sync/commit/588a8d2308a83039a4ac12460ff371df3bd3c0c0))
+
+
+### Bug Fixes
+
+* **admin:** setUserPlan 的 expiresAt 补 JSDoc 类型标注 ([4766b28](https://github.com/catnuko/bookmark-sync/commit/4766b2811ab9ae191c1928e4d3ac144e0f98fb50))
+* **firefox:** 移除 gecko_android，不再允许安装到 Firefox for Android ([345978c](https://github.com/catnuko/bookmark-sync/commit/345978c5c2b36b040861409189850490f9ab63ea))
+* **supabase:** 后台用户列表设备数按设备行数统计 ([9731aae](https://github.com/catnuko/bookmark-sync/commit/9731aaee1cfe5d384f8be66826925e1ffdc3dd09))
+* **sync:** 心跳前移、gate 上报、Firefox Android 启动崩溃 ([1cc8da3](https://github.com/catnuko/bookmark-sync/commit/1cc8da3aed9909154124ea84fbc16a7d35c68cfc))
+* **sync:** 心跳前移、gate 上报、Firefox 安卓崩溃与安装声明 ([bbe1d29](https://github.com/catnuko/bookmark-sync/commit/bbe1d29e7f6c41499d27290b65d9455ef0226f10))
+
 ## [2.17.0](https://github.com/catnuko/bookmark-sync/compare/v2.16.2...v2.17.0) (2026-10-19)
 
 
