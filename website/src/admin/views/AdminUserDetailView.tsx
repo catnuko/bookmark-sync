@@ -38,7 +38,14 @@ type UserDetail = {
     device_count: number;
     created_at: string;
   }[];
-  devices?: { id: string; name?: string; space_name: string; last_seen_at: string | null }[];
+  devices?: {
+    id: string;
+    name?: string;
+    space_name: string;
+    last_seen_at: string | null;
+    /** 扩展版本（0050）。存量设备在下一次心跳前为空。 */
+    app_version?: string | null;
+  }[];
   recent_orders?: {
     id: string;
     created_at: string;
@@ -67,6 +74,19 @@ type GcStats = {
     snapshot_created_at?: string | null;
   }[];
 };
+
+/**
+ * 拼「浏览器 · 系统 · 版本」。
+ *
+ * `name` 是客户端 detectDeviceName() 生成的 "Edge · Windows"（见 src/sync.ts），
+ * 已经含浏览器与系统，这里只补版本；用户改过名的设备（bsync_device_rename）
+ * 可能不含这些信息，此时照样把版本接在后面 —— 版本才是这一列的重点。
+ * 存量设备在下次心跳前没有版本，显示「(版本未知)」而不是留空。
+ */
+function deviceLabel(name?: string, version?: string | null): string {
+  const base = (name || '').trim() || '(未命名)';
+  return version ? `${base} · ${version}` : `${base} · (版本未知)`;
+}
 
 export default function AdminUserDetailView({ userId }: { userId: string }) {
   const [data, setData] = useState<UserDetail | null>(null);
@@ -305,7 +325,7 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
                 <table className={styles.mini}>
                   <thead>
                     <tr>
-                      <th>名称</th>
+                      <th>设备（浏览器 · 系统 · 版本）</th>
                       <th>空间</th>
                       <th>最后在线</th>
                     </tr>
@@ -313,7 +333,7 @@ export default function AdminUserDetailView({ userId }: { userId: string }) {
                   <tbody>
                     {data.devices?.map((d) => (
                       <tr key={d.id}>
-                        <td>{d.name || '(未命名)'}</td>
+                        <td>{deviceLabel(d.name, d.app_version)}</td>
                         <td>{d.space_name}</td>
                         <td>{formatTime(d.last_seen_at)}</td>
                       </tr>

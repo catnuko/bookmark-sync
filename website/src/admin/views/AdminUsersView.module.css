@@ -71,6 +71,17 @@
   text-align: right;
   word-break: break-all;
 }
+/* 0051：设备标签「浏览器 · 系统 · 版本」，一台一行，窄屏也不挤在一起 */
+.deviceLabels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.deviceLabel {
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
 .uOpen {
   display: inline-block;
   margin-top: 8px;

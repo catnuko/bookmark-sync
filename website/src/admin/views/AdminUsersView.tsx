@@ -16,6 +16,8 @@ type UserRow = {
   used_count: number;
   device_count: number;
   space_count: number;
+  /** 0051：「浏览器 · 系统 · 版本」，按最近活跃倒序，最多 10 台。 */
+  device_labels?: string[];
   created_at: string;
   last_seen_at: string | null;
 };
@@ -78,6 +80,22 @@ export default function AdminUsersView() {
     },
     { key: 'count', header: '条数', cell: (r) => formatCount(r.used_count) },
     { key: 'devices', header: '设备', cell: (r) => r.device_count },
+    {
+      key: 'device_labels',
+      header: '设备 · 版本',
+      cell: (r) =>
+        r.device_labels?.length ? (
+          <div className={styles.deviceLabels}>
+            {r.device_labels.map((l, i) => (
+              <span key={i} className={styles.deviceLabel}>
+                {l}
+              </span>
+            ))}
+          </div>
+        ) : (
+          '—'
+        ),
+    },
     { key: 'spaces', header: '空间', cell: (r) => r.space_count },
     { key: 'created', header: '注册时间', cell: (r) => formatTime(r.created_at) },
     { key: 'last', header: '最后活跃', cell: (r) => formatTime(r.last_seen_at) },
@@ -155,6 +173,12 @@ export default function AdminUsersView() {
                 {r.device_count} / {r.space_count}
               </span>
             </div>
+            {r.device_labels?.length ? (
+              <div className={styles.uRow}>
+                <span className={styles.uK}>设备 · 版本</span>
+                <span className={styles.uV}>{r.device_labels.join('、')}</span>
+              </div>
+            ) : null}
             <div className={styles.uRow}>
               <span className={styles.uK}>注册时间</span>
               <span className={styles.uV}>{formatTime(r.created_at)}</span>
