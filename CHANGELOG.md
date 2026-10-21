@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.18.1](https://github.com/catnuko/bookmark-sync/compare/v2.18.0...v2.18.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **admin:** setUserPlan 的 expiresAt 类型标注改到参数上 ([8cbd5d7](https://github.com/catnuko/bookmark-sync/commit/8cbd5d73e073ec8ba4d7caf9b9bf59fa6c7732e5))
+* 标出「本机有书签但云端为空」，条数超额改为持续状态 ([31c03ec](https://github.com/catnuko/bookmark-sync/commit/31c03ec89e60b209b6adf61d6e423106f8ec6661))
+
 ## [2.18.0](https://github.com/catnuko/bookmark-sync/compare/v2.17.0...v2.18.0) (2026-10-20)
 
 
