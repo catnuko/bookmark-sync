@@ -26,6 +26,7 @@ import {
   type DeviceInfo,
   type ProfileInfo,
   type SyncRunResult,
+  type ItemLimitState,
 } from './sync.js';
 import { decryptMoveOp, bindGateNeeded, isPaidPlan, type ChromeTreeNode } from './sync/index.js';
 import {
@@ -113,6 +114,8 @@ export const state = reactive({
   lastSyncStatusDetail: '',
   lastSyncSummary: '',
   lastDecryptErrors: null as DecryptErrors | null,
+  // 条数超额状态（sync.ts 落盘）：非空 = 云端有书签没传上去。持续状态，不是 toast。
+  itemLimitState: null as ItemLimitState | null,
 
   // 密钥
   keyValue: '',
@@ -938,12 +941,14 @@ export async function refreshStatus(extra?: string): Promise<void> {
     'lastSyncStatusDetail',
     'lastSyncSummary',
     'lastDecryptErrors',
+    'itemLimitState',
   ]);
   state.lastSyncAt = (s.lastSyncAt as number | undefined) ?? null;
   state.lastSyncStatus = (s.lastSyncStatus as string | undefined) ?? '';
   state.lastSyncStatusDetail = (s.lastSyncStatusDetail as string | undefined) ?? '';
   state.lastSyncSummary = (s.lastSyncSummary as string | undefined) ?? '';
   state.lastDecryptErrors = (s.lastDecryptErrors as DecryptErrors | undefined) ?? null;
+  state.itemLimitState = (s.itemLimitState as ItemLimitState | undefined) ?? null;
   if (extra) showToast('info', extra);
 }
 
@@ -1396,10 +1401,18 @@ export const usagePct = computed(() => {
   return Math.min(100, Math.round((usedCount.value / quotaCount.value) * 100));
 });
 
+/** 条数超额且新增/移动推不上去（sync.ts 落盘的持续状态）。 */
+export const itemLimitBlocked = computed(() => !!state.itemLimitState);
+
 export const quotaState = computed(() => {
   // Pro 字节口径：≥80% 提醒、≥100% 阻断（约 25 万条封顶）
   if (byteUsagePct.value >= 100) return 'over';
   if (byteUsagePct.value >= 80) return 'warn';
+  // 条数超额且**已被挡住**：这不是「快满了」，是「现在的改动传不上去」。
+  // 只看 usedCount/quotaCount 比值判断不够 —— 免费档超一点时比值仍是 warn，
+  // 而实际推送已经停了（2,828/1,000 那种情况更会被算成 over，但 1,050/1,000
+  // 只会显示 warn，误导用户「还能用」）。
+  if (itemLimitBlocked.value) return 'over';
   if (usedCount.value == null || !quotaCount.value) return 'ok';
   const pct = (usedCount.value / quotaCount.value) * 100;
   if (pct >= 100) return 'over';
@@ -1428,7 +1441,17 @@ export const quotaFoot = computed(() => {
   let remain: string;
   if (quotaState.value === 'over') {
     if (byteUsagePct.value >= 100) return t('quota_footOverBytes');
-    return t('quota_footOver', ((usedCount.value ?? 0) - (quotaCount.value ?? 0)).toLocaleString());
+    const over = (usedCount.value ?? 0) - (quotaCount.value ?? 0);
+    // 已被条数闸门挡住（sync.ts 落盘的 itemLimitState）：必须点明**云端还没传
+    // 上去**。只说「请升级后继续同步」会让用户以为已经传完，换电脑才发现是空的。
+    if (itemLimitBlocked.value) {
+      // 条数可能还没上报回来（刚登录 / used_count 取不到）→ 差值 ≤ 0，不能说
+      // 「超出 -12 条」，用不带数字的版本。
+      return over > 0
+        ? t('quota_footOverBlocked', over.toLocaleString())
+        : t('quota_footOverBlockedNoCount');
+    }
+    return t('quota_footOver', over.toLocaleString());
   }
   if (quotaState.value === 'warn') {
     if (byteUsagePct.value >= 80 && proByteLabel.value)

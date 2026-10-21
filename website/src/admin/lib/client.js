@@ -37,8 +37,9 @@ export const adminApi = {
     }),
   getUser: (userId) => callAdmin('admin_get_user', { p_user: userId }),
   // 0052：非 free 计划必须给到期时间（手工授予，到期自动降 free）
-  /** @param {string | null} [expiresAt] ISO 时间串；改回 free 时传 null */
-  setUserPlan: (userId, plan, expiresAt = null) =>
+  // 类型标注必须写在**参数上**：写在对象属性上方（main 分支 4766b28 的做法）
+  // tsc 不采纳，仍从默认值 null 推断成 null | undefined，传 ISO 串的调用方报 TS2345。
+  setUserPlan: (userId, plan, /** @type {string | null} */ expiresAt = null) =>
     callAdmin('admin_set_user_plan', {
       p_user: userId,
       p_plan: plan,

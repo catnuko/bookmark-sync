@@ -38,6 +38,13 @@
   text-decoration: none;
 }
 
+/* 0053：本机有书签但云端 op_log 为空 —— 加粗标红，避免和正常 0 B 混淆。
+   色值取自 StatusBadge 的 t-danger（后台没有全局 --color-danger 变量）。 */
+.stalled {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 /* 移动端卡片 */
 .uCard {
   border: 1px solid var(--color-border);

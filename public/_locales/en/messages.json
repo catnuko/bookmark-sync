@@ -261,6 +261,17 @@
       }
     }
   },
+  "quota_footOverBlocked": {
+    "message": "Over the free limit by $COUNT$ items — not uploaded to the cloud yet. Delete some or upgrade to sync them.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_footOverBlockedNoCount": {
+    "message": "Free plan limit reached — new bookmarks are not uploaded to the cloud yet. Delete some or upgrade to sync them."
+  },
   "quota_footWarnBytes": {
     "message": "$LABEL$ — nearing the cap; free up space by removing bookmarks",
     "placeholders": {
