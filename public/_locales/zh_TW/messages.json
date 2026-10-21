@@ -261,6 +261,17 @@
       }
     }
   },
+  "quota_footOverBlocked": {
+    "message": "已超出免费额度 $COUNT$ 条 · 尚未上传到云端，删减或升级后会自动补传",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "quota_footOverBlockedNoCount": {
+    "message": "已达免费档上限 · 新增书签尚未上传到云端，删减或升级后会自动补传"
+  },
   "quota_footWarnBytes": {
     "message": "$LABEL$ · 即将触顶，可清理书签释放容量",
     "placeholders": {

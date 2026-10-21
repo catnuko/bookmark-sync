@@ -272,6 +272,22 @@ async function planCanCreateSpace(): Promise<boolean> {
 export const FREE_ITEM_LIMIT = 1000;
 
 /**
+ * 条数超额状态（`sync.ts` 落盘到 storage.local 的 `itemLimitState`）。
+ *
+ * 为什么需要它：`itemLimitBlocked` 原本只是 runSync 的瞬时返回值，popup 弹一次
+ * toast 就没了。但「被限额挡住」是**持续状态** —— 用户不删减/不升级，新增就永远
+ * 推不上去。实测（2026-10-22）2,828 条免费用户云端 op_log 0 行、后台用量 0 B，
+ * 而界面上只剩一条一闪而过、刷新即消失的提示，用户与客服都看不出异常。
+ */
+export interface ItemLimitState {
+  /** 云端还差多少条（未推送的 CRDT op 数，非书签数，仅用于「有东西没上去」的量级）。 */
+  pending: number;
+  /** 触发时的免费档上限（服务端常量可能调整，落盘时固化一份）。 */
+  limit: number;
+  at: number;
+}
+
+/**
  * 当前账号的条数限额；付费档返回 undefined = 不限。
  *
  * 取不到 profile 时返回 undefined（**不拦**）：离线误判成免费会让付费用户在
@@ -940,6 +956,30 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
         (itemLimitBlocked ? '（已达免费档条数上限，新增暂缓）' : ''),
     );
     await api.storage.local.set({ [counterKey(active.id)]: coordinator.replica.counter });
+
+    // ★ 条数超额必须**落盘**（2026-10-22）。原本只是一个瞬时返回值，popup 弹一次
+    //   toast 就没了；而「被限额挡住」是**持续状态**（用户不删减/不升级就一直传
+    //   不上去），刷新界面后看不出任何异常 —— 实测账号 2,828 条免费用户云端
+    //   op_log 0 行、后台用量 0 B，界面上只留一条一闪而过的提示。
+    //   同时记下未推送 op 数：这是「云端还差多少没上去」的客观量，配额卡据此
+    //   显示「未上传 N 条」。清空时机：本轮成功且不再被挡（升级 / 删到限额内）。
+    try {
+      if (itemLimitBlocked) {
+        await api.storage.local.set({
+          itemLimitState: {
+            pending: coordinator.pendingPushCount,
+            limit: FREE_ITEM_LIMIT,
+            at: Date.now(),
+          },
+        });
+      } else {
+        // 本轮没被挡（升级 / 删到限额内 / 队列本来就不超）→ 清掉旧标记，
+        // 否则升级后的用户会一直看到「未上传」。
+        await api.storage.local.remove('itemLimitState');
+      }
+    } catch {
+      /* 状态落盘失败不影响同步本身 */
+    }
 
     // 4) 反向应用：把合并后的 CRDT 可见树写回本机 chrome.bookmarks
     //    （远端新书签/移动/删除在本机生效；事件守卫防回环）
@@ -1717,6 +1757,7 @@ export async function resetSyncState(): Promise<void> {
     'lastSyncAt',
     'lastSyncError',
     'lastDecryptErrors',
+    'itemLimitState',
     'lastUsedReport',
     'lastUsedReportError',
     'lastGcAt',

@@ -18,6 +18,10 @@ type UserRow = {
   space_count: number;
   /** 0051：「浏览器 · 系统 · 版本」，按最近活跃倒序，最多 10 台。 */
   device_labels?: string[];
+  /** 0053：云端 op_log 行数（与 used_bytes 同口径来源）。 */
+  op_count?: number;
+  /** 0053：本机报过条数，但云端 op_log 与快照都是空的 → 数据没上传成功。 */
+  upload_stalled?: boolean;
   created_at: string;
   last_seen_at: string | null;
 };
@@ -76,9 +80,24 @@ export default function AdminUsersView() {
     {
       key: 'usage',
       header: '用量',
-      cell: (r) => `${formatBytes(r.used_bytes)} / ${formatBytes(r.quota_bytes)}`,
+      cell: (r) => (
+        <span className={r.upload_stalled ? styles.stalled : undefined}>
+          {formatBytes(r.used_bytes)} / {formatBytes(r.quota_bytes)}
+        </span>
+      ),
     },
     { key: 'count', header: '条数', cell: (r) => formatCount(r.used_count) },
+    {
+      // 0053：云端实际收到的 op 行数。与「条数」并排看，0 行 = 一条都没上去。
+      key: 'op_count',
+      header: '云端 op',
+      cell: (r) =>
+        r.upload_stalled ? (
+          <StatusBadge label="未上传" tone="danger" />
+        ) : (
+          formatCount(r.op_count ?? 0)
+        ),
+    },
     { key: 'devices', header: '设备', cell: (r) => r.device_count },
     {
       key: 'device_labels',
@@ -173,6 +192,14 @@ export default function AdminUsersView() {
                 {r.device_count} / {r.space_count}
               </span>
             </div>
+            {r.upload_stalled ? (
+              <div className={styles.uRow}>
+                <span className={styles.uK}>云端 op</span>
+                <span className={styles.uV}>
+                  <StatusBadge label="未上传" tone="danger" />
+                </span>
+              </div>
+            ) : null}
             {r.device_labels?.length ? (
               <div className={styles.uRow}>
                 <span className={styles.uK}>设备 · 版本</span>
