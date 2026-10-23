@@ -124,6 +124,9 @@
   "err_noKey": {
     "message": "请先设置同步口令"
   },
+  "err_unsupportedPlatform": {
+    "message": "此浏览器不支持书签同步（如 Firefox for Android），请改用桌面版 Chrome / Edge / Firefox"
+  },
   "err_timeout": {
     "message": "Service Worker 未响应"
   },

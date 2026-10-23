@@ -1006,6 +1006,10 @@ export function reasonText(reason: string | null | undefined): string {
       return t('err_bindNeeded');
     case 'no_key':
       return t('err_noKey');
+    case 'unsupported_platform':
+      // 这台设备没有 bookmarks API（Firefox for Android 等）。必须明说，
+      // 否则用户会以为同步正常 —— 心跳在走、口令也设了，只是永远 0 条。
+      return t('err_unsupportedPlatform');
     case 'timeout':
     case 'no_response':
       return t('err_timeout');

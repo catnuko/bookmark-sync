@@ -17,6 +17,7 @@ import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
 import { reportError } from './lib/telemetry.js';
 import { t } from './lib/i18n.js';
+import { createSerialQueue } from './lib/serialQueue.js';
 import {
   SupabaseOpLogTransport,
   SyncCoordinator,
@@ -729,8 +730,44 @@ async function touchDevice(
  * 所以持续卡住的用户最终只会留下一行带 occurrences 的聚合记录。
  */
 function reportGate(reason: string, context?: Record<string, unknown>): void {
-  void reportError('sync_gate', reason, reason, { handled: true, ...context });
+  void reportError('sync_gate', reason, reason, {
+    handled: true,
+    // ★ 2026-10-23：`no_key` 单独看分不清两种完全不同的情况 ——
+    //   ① 用户还没设口令（正常 onboarding，等他自己操作即可）；
+    //   ② 这台设备**根本没有 bookmarks API**（如 Firefox for Android），
+    //      设了口令也一条都捕获不到，云端永远 0 条。
+    //   实测（gemzghost@gmail.com）：Firefox · Android · 2.18.1，salt 已写、
+    //   心跳正常、used_count=0、op=0 —— 后台只能看到 no_key，看不出是②。
+    //   这三个标量都是枚举/布尔，不含任何书签内容或明文。
+    has_bookmarks_api: !!nativeBookmarks(),
+    ...context,
+  });
 }
+
+/**
+ * 同步串行队列（同一时刻只允许一轮 `runSync` 在跑，见 lib/serialQueue.ts）。
+ *
+ * ★ 为什么必须有（2026-10-23 实测，新设备首次同步把每个节点复制成 3 份）：
+ *   一台新设备走完门禁会**连续触发多轮**同步，彼此交叠 ——
+ *     ① 登录成功 → `syncNow()`（store.ts）
+ *     ② 口令通过 → `syncNow()`（store.ts）
+ *     ③ 首绑成功 → SW 内 `await sync()`（background.ts）
+ *     ④ 事件桥 / alarm / 手动点击
+ *   交叠的两轮各自持有同一份 coordinator 与映射桥，同时对本机 Chrome 树做
+ *   `captureLocalTree` + `reverseApplyIntoChrome`，产生两类确定性故障：
+ *
+ *   a) **重复书签**：`reverseApplyIntoChrome` 的事件抑制是**单个布尔量**
+ *      （`guard.suppressed.value`）。A 轮先结束就把它置回 false，B 轮仍在投影
+ *      中的 `chrome.create()` 触发 onCreated 时抑制已失效 → 按「未映射」处理 →
+ *      `randomUUID()` 再建一份 CRDT 节点。每多一轮交叠就多一整套副本。
+ *   b) **假首绑门禁**：`getBoundSpace()` 先查云端空间、再读本地绑定。`create_default`
+ *      那轮「刚建完空间、还没写完绑定」的窗口里，另一轮读到「空间=1 / 绑定=空」，
+ *      `firstBindAction(1, false, canCreate)` 判成 `ask_user` → 返回 `bind_needed`，
+ *      用户看到的是「空间明明刚建好却又要选一次」。
+ *
+ * 串行化后两类故障都消失：任何一轮开始时，上一轮的投影与绑定写入都已落定。
+ */
+const _syncQueue = createSerialQueue();
 
 // ---- 同步主入口 ----
 // 返回 { ok, pushed, pulled, reason?, error? }
@@ -738,7 +775,13 @@ function reportGate(reason: string, context?: Record<string, unknown>): void {
 // 事件桥（registerLocalEventBridge）在 SW 顶层注册 chrome.bookmarks 监听，
 // 本地变更 → coordinator 入队 → flushSoon 去抖推送；本函数负责周期/手动全量
 // 同步：拉远端 → 播种（仅云端为空且本机未播种时）→ 推本地。
-export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
+//
+// ★ 必须经队列串行进入 `runSyncOnce`，见上面队列注释。
+export function runSync(opts: unknown = {}): Promise<SyncRunResult> {
+  return _syncQueue.run(() => runSyncOnce(opts));
+}
+
+async function runSyncOnce(_opts: unknown = {}): Promise<SyncRunResult> {
   const runGen = _coordinatorGen;
   try {
     // SW 冷启动 / 跨上下文登录态脱节：用 ensureSession 兜底，避免 popup 已登录
@@ -818,6 +861,17 @@ export async function runSync(_opts: unknown = {}): Promise<SyncRunResult> {
     //   挪到前面后，后台「最后活跃」反映的是**插件是否还活着**，而非是否配置完。
     const touch = await touchDevice(active.id, deviceId);
     if (!touch.ok) return { ok: false, reason: touch.reason, error: touch.error };
+
+    // ★ 平台不支持 bookmarks API（Firefox for Android 等）：直接给一个**明确的**
+    //   失败原因，而不是让流程往下走到 captureLocalTree 静默 `return 0`。
+    //   原行为：心跳/口令/绑定全部正常，只有捕获恒为 0 —— 后台看到的是
+    //   「设备在线、salt 已写、used_count=0、op=0」，界面上也没有任何提示，
+    //   用户以为同步正常。实测 gemzghost@gmail.com（Firefox·Android·2.18.1）正是此形状。
+    //   放在心跳之后：设备仍应被记为活跃（它确实活着，只是这个平台干不了这活）。
+    if (!nativeBookmarks()) {
+      reportGate('unsupported_platform', { platform: await detectDeviceName() });
+      return { ok: false, reason: 'unsupported_platform' };
+    }
 
     const key = await keyManager.ensureKey();
     if (!key) {

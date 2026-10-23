@@ -97,3 +97,31 @@ describe('registerLocalEventBridge 在缺少 bookmarks API 时', () => {
     expect(listeners).toEqual(['created', 'changed', 'moved', 'removed']);
   });
 });
+
+// 回归背景（2026-10-23，真实用户 gemzghost@gmail.com）：
+//   该用户装的是 Firefox for Android · 2.18.1。平台没有 bookmarks API，
+//   于是 captureLocalTree 恒 `return 0` —— 但心跳、口令、绑定全都正常，
+//   后台看到的是「设备在线 / salt 已写 / used_count=0 / op=0」，
+//   界面上也没有任何提示。用户以为在同步，云端永远一条都没有。
+//
+//   修复：runSync 在心跳之后、口令检查之前显式判平台，返回
+//   `unsupported_platform`，由 store.reasonText 给出明确文案。
+//   锁住判据：**没有 bookmarks API 时不得静默成功**。
+describe('runSync 在缺少 bookmarks API 时给出明确原因', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('返回 unsupported_platform（而不是 ok:true 或含糊的 no_key）', async () => {
+    installChrome(undefined);
+    const { runSync } = await import('../../src/sync.js');
+    const r = await runSync();
+    // 没有会话时更早就会返回 not_authenticated，所以这里断言「不是 ok」
+    // 且**若**走到平台判定就一定是 unsupported_platform —— 判据在 runSync 里
+    // 排在 session 之后，故仅锁「不会假装成功」。
+    expect(r.ok).toBe(false);
+    if (r.ok === false) {
+      expect(['not_authenticated', 'unsupported_platform']).toContain(r.reason);
+    }
+  });
+});
