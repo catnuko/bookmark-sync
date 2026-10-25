@@ -8,6 +8,8 @@
 
 ## 2. 软件包中的摘要（≤132 字符）
 
+> ★ **2026-10-25 起上传用的文案真源是 `store-listing.json`**（同目录），本节的 §2 / §3.1 / §3.2 / §7 保留为人读版说明，不再被 `scripts/update-amo-listing.mjs` 读取。改文案请改 JSON，别只改这里。
+
 **推荐（有卖点）**
 
 ```
@@ -124,6 +126,46 @@ A: All bookmark operations are encrypted on your device before upload. The serve
 - 尺寸：128 × 128 像素（PNG）
 - 说明：建议与扩展内图标一致（见 `store-assets/` 或 `public/icons/icon-128.png`）
 
+### 5.1 商店宣传图左侧文案（唯一真相源）
+
+> 用途：`store-assets/<lang>/1280x800/*` 与 `store-assets/<lang>/1400x560/*` 左侧那 4 条卖点 pill。
+> **改图先改这里**，不要只改图片 —— 图片是手工素材（无生成脚本），文案漂移了没人会发现。
+
+| # | 中文 | English | 对应官网对比矩阵维度（`website/src/lib/compare.ts`） |
+|---|------|---------|------------------------------------------------------|
+| 1 | 端到端加密 · AES-256-GCM | End-to-end encryption · AES-256-GCM | 端到端加密 |
+| 2 | 注册即用 · 无需自建服务器 | Sign up and sync · no server to run | 无需自建服务器 |
+| 3 | 并发自动合并 · 无需人工处理 | Auto-merge · no manual conflict work | 冲突全自动收敛，无需人工处理 |
+| 4 | 免费 1,000 条书签 · 永久免费 | 1,000 bookmarks free · forever | 免费档 |
+
+**第 3 条是核心卖点**，不要退回成「多设备合并」这类所有同步工具都能说的话 —— 区别在于别人（Floccus / XBrowserSync）的冲突处理会要求用户重做、关 failsafe 或清重复，我们不需要。完整论证见官网 `/explain/bookmark-sync-vs-alternatives`。
+
+**★ 2026-10-25 撤掉的旧第 3 条「多设备合并 · 兼容原生同步」**：与实现不符，有误导风险。代码里没有任何原生同步兼容/避让逻辑（`grep nativeSync|profileSync|原生同步 src/` 零命中）；多设备合并的前提是**每台设备都装了扩展**（见 `article-en.md` 第 5 节），一台装扩展、另一台用浏览器自带同步时，两套系统同写一棵书签树、冲突由浏览器裁决，不在我们的控制范围内 —— 症状正是「删掉的书签又回来了」，而这是官网在讲别人毛病时举的例子。官网文章统一建议「只留一套同步引擎」（`website/src/content/*/edge-to-chrome-bookmarks.md`），宣传图不能反着说。
+
+**改动涉及的文件**（3 张图 × 2 语言 = 6 个）：
+
+```
+store-assets/zh/1280x800/screenshot-1280x800-auth.{png,jpg}
+store-assets/zh/1280x800/screenshot-1280x800-main.{png,jpg}
+store-assets/zh/1400x560/marquee-promo-tile-1400x560.{png,jpg}
+store-assets/en/1280x800/screenshot-1280x800-auth.{png,jpg}
+store-assets/en/1280x800/screenshot-1280x800-main.{png,jpg}
+store-assets/en/1400x560/marquee-promo-tile-1400x560.{png,jpg}
+```
+
+**改图注意事项（pill 宽度）**：四条长度都有变化，需重新对齐 pill 宽度，不要照抄旧图的宽度。
+
+| # | 中文 字数 旧→新 | 英文 字符 旧→新 |
+|---|-----------------|-----------------|
+| 1 | 19 → 19（不变） | 35 → 35（不变） |
+| 2 | 21 → 14（变短） | 40 → 35（变短） |
+| 3 | 14 → 15（略长） | 35 → 36（略长） |
+| 4 | 11 → 19（**明显变长**） | 24 → 30（**明显变长**） |
+
+第 4 条变化最大 —— 中文从「免费套餐 · 永久免费」扩成「免费 1,000 条书签 · 永久免费」，英文同理。1280×800 与 1400×560 的左栏宽度够，但要确认不换行、不与右侧窗口重叠。
+
+`440x280` 小图块只有 logo 无文案，不受影响。
+
 ## 6. 其他商店字段（供填写时参考）
 
 | 字段                                 | 值                                        |
@@ -150,6 +192,8 @@ Cross-browser bookmark sync for Chrome / Edge / Firefox with end-to-end encrypti
 ## 8. 测试说明（Chrome Web Store → 测试说明）
 
 > 用途：Chrome 开发者控制台「访问权限 → 测试说明」表单。扩展登录后还有口令门禁，必须把口令一并给出，否则审核员会卡在登录后进不去主界面。
+
+[用户名：bsync-e2e@example.com](mailto:用户名：bsync-e2e@example.com)，密码：yhUYLzxlgL4z3v_zoKEiyRhs，口令：bsync-e2e-passphrase-2026
 
 **凭证（专用测试账号，非日常账号）：**
 

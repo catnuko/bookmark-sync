@@ -181,6 +181,18 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
     --edge-zip dist/bookmark-sync-chromium-<ver>.zip
   ```
 
+### ★ 商店 listing（简介/效果图）：只有 AMO 能走 API，用 `scripts/update-amo-listing.mjs`
+
+- **能力边界（2026-10-25 核对官方文档，勿凭搜索摘要下结论）**：
+  - **Firefox AMO**：API v5 支持全部 listing 元数据 —— `PATCH /api/v5/addons/addon/{id}/`（summary/description，翻译字段必须传 `{locale: 文案}` 对象，纯字符串会被拒）+ `/previews/`（截图增删）。
+  - **Edge：REST API 没有元数据端点**。官方文档原文 "There aren't REST API endpoints for: updating a product's metadata"——API 只能传包 + 发布；改简介/截图必须进 Partner Center 网页。搜索摘要里出现的 `uploadAddonsMedia` 端点在 Edge Add-ons API 里并不存在。
+  - **Chrome**：CWS API v2 只有传包/发布/状态/灰度，listing 文案与截图无端点；manifest 的 `description`（短描述）随包更新，详细简介和截图只能进 Dashboard。
+- **用法**：`node scripts/update-amo-listing.mjs [--dry-run|--screenshots|--screenshots-only|--locales en-US]`。
+  - **★ 内容源（单一真相）是 `extension-infomation/store-listing.json`**（2026-10-25 起）：三家商店共用一份文案，字段 `locales.<locale>.{name,shortDescription,summary,description}`。**改文案只改这个 JSON，不要另存副本**；README 的 §2 / §3.1 / §3.2 / §7 仍保留为人读版说明，但**不再是上传脚本的输入**（两处并存必然漂移 —— Chrome 线上曾被手改，README 从未记录，导致三家三个版本）。
+  - 三家能力不同：AMO 可 API 全自动推文案；**Edge 无元数据端点、Chrome 无元数据端点**，这两家的简介/截图只能进各自后台手填，JSON 对它们是「照抄源」。
+  - 写入需 `FIREFOX_JWT_ISSUER` / `FIREFOX_JWT_SECRET`（环境变量或 `.env.submit`）；`--dry-run` 只读不需要。AMO 元数据修改即时生效，无需重新审核。
+  - AMO previews 上传的位置字段官方拼写就是 **`postion`**（非笔误）；caption 创建时不接受，要建完再 PATCH。
+
 ## 6. 与用户协作约定
 
 - 改代码前先对齐方案，不自动 commit/push（需明确授权）。
