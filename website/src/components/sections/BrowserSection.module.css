@@ -1,7 +1,10 @@
+/* ★ 2026-10 随 FeatureSection 删除一起调整：原来靠「灰(Pain) → 白(Feature) →
+   灰(Browser) → 灰(Compare)」交替，删掉中间的白色区块后就成了连续三段灰底。
+   把这一块改成白底，恢复 灰/白/灰 的节奏。
+   边框：上边界由 PainSection 的 border-bottom 提供、下边界由 CompareSection 的
+   border-top 提供，这里再加就是相邻两条 1px 叠成 2px 的粗线，所以两条都去掉。 */
 .sectionBrowsers {
-  background: var(--color-bg-soft);
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
 }
 
 .sectionHeader {

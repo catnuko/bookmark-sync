@@ -112,6 +112,10 @@
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
+  /* ★ 窄屏下不要「把列挤成竖排」：表格内容（尤其首列维度名）被压成
+     每行两三个字，比横向滚动难读得多。给一个下限，让 .tableWrap 去横滚。
+     560px ≈ 三列表格在 390px 屏上刚好可读的宽度。 */
+  min-width: 560px;
 }
 
 .cb .table th {
@@ -130,6 +134,13 @@
   color: var(--color-text-soft);
   line-height: 1.65;
   vertical-align: top;
+}
+
+/* 首列是「维度名」，被挤窄就会一行两三个字（见 2026-10 对比文章的窄屏实测）。
+   给一个下限，宽度不够时由 .tableWrap 横滚承担。 */
+.cb .table th:first-child,
+.cb .table td:first-child {
+  min-width: 7em;
 }
 
 .cb .table tr:last-child td {
