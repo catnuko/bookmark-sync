@@ -110,7 +110,16 @@ async function request(method, url, { headers = {}, body } = {}, retry = 0) {
     const wait = (Number(/available in (\d+) seconds/i.exec(text)?.[1]) || 60) * 1000 + 2000;
     console.warn(`⏳ 429 限流，${Math.round(wait / 1000)}s 后重试…`);
     await new Promise((r) => setTimeout(r, wait));
-    return request(method, url, { headers, body }, retry + 1);
+    // JWT 只有 60 秒寿命：等了可能远超 60s，重试前必须重签（2026-10-25 实测：
+    // 等待 17 分钟后带旧 token 重试 → 401 "Signature has expired"）
+    const retryHeaders = { ...headers };
+    if (
+      typeof retryHeaders.Authorization === 'string' &&
+      retryHeaders.Authorization.startsWith('JWT ')
+    ) {
+      Object.assign(retryHeaders, amoAuthHeaders());
+    }
+    return request(method, url, { headers: retryHeaders, body }, retry + 1);
   }
   if (!res.ok) {
     const text = await res.text();
@@ -209,20 +218,39 @@ async function fetchAddon() {
 }
 
 /**
- * AMO 会把 description 按 HTML 清洗后存储：裸 URL 包成
+ * AMO 会把 description 按 Markdown 渲染成 HTML 清洗后存储：裸 URL 包成
  * `<a href="https://prod.outgoing.prod.webservices.mozgcp.net/...">原文</a>` 外链跳转、
- * `&` 转义成 `&amp;`。这是它的标准行为（页面上渲染成可点击链接），不是写入失败；
- * 比对前先把这层表示还原成纯文本，否则每次 diff 都会误报。
+ * 编号/无序列表变 `<ol><li>`、`&` 转义成 `&amp;` 等。这是它的标准行为（页面上
+ * 渲染成可点击链接/列表），不是写入失败；比对前先把这层表示还原成纯文本，
+ * 否则每次 diff 都会误报。
  */
 function normalizeAmoHtml(s) {
-  return (s ?? '')
-    .replace(/<a\s[^>]*>([\s\S]*?)<\/a>/gi, '$1')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
-    .replace(/&amp;/g, '&');
+  return (
+    (s ?? '')
+      .replace(/<a\s[^>]*>([\s\S]*?)<\/a>/gi, '$1')
+      // <ol>/<ul> 还原成 Markdown 源里的「1. / · 」前缀（AMO 把编号列表渲染成了 HTML 列表）
+      .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_, inner) => {
+        const items = [...inner.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map(
+          (m, i) => `${i + 1}. ${m[1].trim()}`,
+        );
+        return `\n${items.join('\n')}\n`;
+      })
+      .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_, inner) => {
+        const items = [...inner.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map(
+          (m) => `· ${m[1].trim()}`,
+        );
+        return `\n${items.join('\n')}\n`;
+      })
+      .replace(/<\/?(?:li|p|h[1-6]|ol|ul|dl|dt|dd|blockquote|table|tr|td|th)[^>]*>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#0?39;/g, "'")
+      .replace(/&amp;/g, '&')
+  );
 }
 
 /**
