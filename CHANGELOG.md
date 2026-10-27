@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.19.0](https://github.com/catnuko/bookmark-sync/compare/v2.18.1...v2.19.0) (2026-10-27)
+
+
+### Features
+
+* **store:** refresh promo tag copy on store screenshots (zh/en) ([0ae5ad1](https://github.com/catnuko/bookmark-sync/commit/0ae5ad14d8be0bb86487039b2653d30b570f0d60))
+* **website:** 首页新增产品对比矩阵，替换九宫格功能卡 ([8bfa057](https://github.com/catnuko/bookmark-sync/commit/8bfa0576e0fdaaae5821302dc5f6490361c15d6a))
+
+
+### Bug Fixes
+
+* **sync:** 串行化 runSync 修复新设备首次同步重复书签 ([101a928](https://github.com/catnuko/bookmark-sync/commit/101a9287d30c50d9cce9d649f52324cc0b3577ef))
+* **sync:** 串行化 runSync，修复新设备首次同步重复书签 ([c53df53](https://github.com/catnuko/bookmark-sync/commit/c53df538f97a1d97d49de04b3e33a817cacaf664))
+
 ## [2.18.1](https://github.com/catnuko/bookmark-sync/compare/v2.18.0...v2.18.1) (2026-10-21)
 
 
