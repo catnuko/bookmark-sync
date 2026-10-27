@@ -1,8 +1,8 @@
 import { type Locale } from '@/i18n/t';
 import HeroSection from '@/components/sections/HeroSection';
 import PainSection from '@/components/sections/PainSection';
-import FeatureSection from '@/components/sections/FeatureSection';
 import BrowserSection from '@/components/sections/BrowserSection';
+import CompareSection from '@/components/sections/CompareSection';
 import PricingPreview from '@/components/sections/PricingPreview';
 import CTASection from '@/components/sections/CTASection';
 import styles from './HomePage.module.css';
@@ -12,8 +12,17 @@ export default function HomePage({ locale }: { locale: Locale }) {
     <div className={styles.home}>
       <HeroSection locale={locale} />
       <PainSection locale={locale} />
-      <FeatureSection locale={locale} />
+      {/* ★ 2026-10 删除「为真实同步场景打磨的引擎」整块（原 FeatureSection，9 张功能卡）。
+           理由：它讲的是「我们有什么能力」，而访客真正想知道的是「和你已经在用的那个
+           差在哪」——后者一张对比矩阵就说清了，前者的信息量被稀释在 9 个卡片的标题里。
+           卡片里的细节（真树/墓碑删除/多空间等）仍然在对比矩阵的维度行与
+           /explain/bookmark-sync-vs-alternatives 里，没有丢。 */}
       <BrowserSection />
+      {/* 对比放在「支持哪些浏览器」之后、「定价」之前：
+          访客此时已知道自己要解决什么、我们支持什么，接下来最想知道的是
+          「和我已经在用的那个有什么不一样」——回答完再谈钱，顺序才顺。
+          表格只放结论，完整理由链到 /explain/bookmark-sync-vs-alternatives。 */}
+      <CompareSection locale={locale} />
       <PricingPreview locale={locale} />
       {/* ★ 首页不放 FAQ。
            原来这里复用了定价页的 FAQSection（读 pricing.faq，同一份 12 条），

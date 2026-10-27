@@ -181,6 +181,21 @@ Supabase 自 2026-10-30 起停止对 public schema 的**新建**表/序列自动
     --edge-zip dist/bookmark-sync-chromium-<ver>.zip
   ```
 
+### ★ 商店 listing（简介/效果图）：只有 AMO 能走 API，用 `scripts/update-amo-listing.mjs`
+
+- **能力边界（2026-10-25 核对官方文档，勿凭搜索摘要下结论）**：
+  - **Firefox AMO**：API v5 支持全部 listing 元数据 —— `PATCH /api/v5/addons/addon/{id}/`（summary/description，翻译字段必须传 `{locale: 文案}` 对象，纯字符串会被拒）+ `/previews/`（截图增删）。
+  - **Edge：REST API 没有元数据端点**。官方文档原文 "There aren't REST API endpoints for: updating a product's metadata"——API 只能传包 + 发布；改简介/截图必须进 Partner Center 网页。搜索摘要里出现的 `uploadAddonsMedia` 端点在 Edge Add-ons API 里并不存在。
+  - **Chrome**：CWS API v2 只有传包/发布/状态/灰度，listing 文案与截图无端点；manifest 的 `description`（短描述）随包更新，详细简介和截图只能进 Dashboard。
+- **用法**：`node scripts/update-amo-listing.mjs [--dry-run|--screenshots|--screenshots-only|--locales en-US]`。
+  - **★ 内容源（单一真相）是 `extension-infomation/store-listing.json`**（2026-10-25 起）：三家商店共用一份文案，字段 `locales.<locale>.{name,shortDescription,summary,description}`。**改文案只改这个 JSON，不要另存副本**；README 的 §2 / §3.1 / §3.2 / §7 仍保留为人读版说明，但**不再是上传脚本的输入**（两处并存必然漂移 —— Chrome 线上曾被手改，README 从未记录，导致三家三个版本）。
+  - 三家能力不同：AMO 可 API 全自动推文案；**Edge 无元数据端点、Chrome 无元数据端点**，这两家的简介/截图只能进各自后台手填，JSON 对它们是「照抄源」。
+  - 写入需 `FIREFOX_JWT_ISSUER` / `FIREFOX_JWT_SECRET`（环境变量或 `.env.submit`）；`--dry-run` 只读不需要。AMO 元数据修改即时生效，无需重新审核。
+  - **AMO 写接口限流极紧**：突发连删 3~4 张就 429；更狠的是**日级写配额**——一天内写多了（实测 ~15 次写）会被锁到次日（提示等 22 小时），期间连写重试都无用。脚本已内置自愈：429 按响应体秒数等待后重试（**重签 JWT**——token 只有 60 秒寿命，等久了不重签会 401）、写请求间 10s 间隔、删除 404 容错（可安全续跑）。大改截图放后台跑；撞到日配额就改天再跑剩余步骤。
+  - AMO previews 上传的位置字段官方拼写是 **`postion`**（非笔误），但**实测不生效**（全为 0）；展示顺序实际按上传先后（id 序）兜底。要显式钉顺序：`PATCH /previews/{id}/` 传 `{position}`（caption/position 创建时都不接受，要建完再 PATCH）。
+  - **Chrome Dashboard 可用 ego-browser 自动化**（2026-10-25 实测跑通：切语言页填说明、删传截图、保存草稿、提请审核）。要点：①每个上传槽一个 `input[type=file]`（DOM 顺序：商店图标 / 语言页截图 / 全球截图 / 小图块 / 大图块），截图处理要 20~45s，别用短超时；②删除图片有确认弹窗；③listing 提交也走「提请审核」，保持「过审后自动发布」勾选。
+  - description 比对必须先还原 AMO 的 HTML 清洗（URL 变外链、`1. 2.` 编号列表变 `<ol>`、`&` 变 `&amp;`），脚本 `normalizeAmoHtml` 已处理；线上渲染效果正确，别当差异上报。
+
 ## 6. 与用户协作约定
 
 - 改代码前先对齐方案，不自动 commit/push（需明确授权）。

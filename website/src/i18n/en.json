@@ -52,32 +52,32 @@
   },
   "pain": {
     "eyebrow": "Why you need it",
-    "title": "The real pains of bookmark management",
-    "subtitle": "Your bookmarks are scattered everywhere — once lost, duplicated, or scrambled, they're hard to get back.",
+    "title": "You have probably already run into these",
+    "subtitle": "When bookmarks go wrong, it is rarely that they disappear — it is that they stop being right. Structure breaks, order changes, edits get overwritten, and nothing tells you.",
     "items": {
-      "lost": {
-        "title": "Bookmarks silently disappear",
-        "desc": "Mistakes, browser crashes, sync failures — years of curated links gone in a flash."
-      },
       "crossBrowser": {
-        "title": "Browsers don't talk to each other",
-        "desc": "Chrome, Edge, and Firefox each keep their own set, and the same bookmarks never line up across them."
+        "title": "Saved in Chrome, missing in Edge",
+        "desc": "Three browsers, three separate sets. Opening a link you saved in Chrome from Edge means exporting, importing, and reorganizing by hand."
       },
-      "migration": {
-        "title": "One reorganization scrambles everything",
-        "desc": "Rename, move, or merge a folder and children often vanish or the hierarchy turns into a mess — fixing it is a nightmare."
+      "treeLost": {
+        "title": "Rename a folder and its contents vanish",
+        "desc": "Many sync tools store bookmarks as path strings, so when a parent folder is renamed the children can no longer find their place. One cleanup, one batch lost."
       },
-      "history": {
-        "title": "Deletes resurrect and edits overwrite",
-        "desc": "A bookmark you deleted on computer A comes back; two devices edit at once and one side silently overwrites the other."
+      "resurrect": {
+        "title": "A deleted bookmark comes back two days later",
+        "desc": "You deleted it on computer A, but computer B still had stale data, so sync wrote it back. Delete, return, repeat — eventually you stop deleting."
       },
-      "mixed": {
-        "title": "Work and personal bookmarks collide",
-        "desc": "Everything sits in one tree: work links and personal saves get tangled together, and splitting them apart means hand-sorting folders."
+      "overwrite": {
+        "title": "Two devices edit at once, one side's work disappears",
+        "desc": "Laptop and desktop each changed half. After syncing only one side took effect. No error, no warning — the other half of the work is simply gone."
       },
-      "lock": {
-        "title": "Native sync locks you into a vendor cloud",
-        "desc": "Chrome and Edge native sync stores your bookmarks in plaintext in the browser vendor's cloud: switch browsers and it breaks, privacy is out of your hands, and browsers never talk to each other."
+      "order": {
+        "title": "You drag your bookmarks into order, then another device scrambles them",
+        "desc": "The arrangement does not travel with the sync; on the next device it becomes alphabetical or internal-ID order, and you sort it all over again."
+      },
+      "plaintext": {
+        "title": "Native sync keeps your bookmarks in the vendor's cloud, unencrypted",
+        "desc": "Chrome and Edge native sync has no end-to-end encryption — bookmark contents are visible to the service. Switch browsers and it breaks; privacy is not yours to decide."
       }
     }
   },
@@ -140,6 +140,22 @@
       "name": "Mozilla Firefox",
       "desc": "Firefox Add-ons"
     }
+  },
+  "compare": {
+    "eyebrow": "Comparison",
+    "title": "How it differs from what you are already using",
+    "subtitle": "Everyone says \"bookmark sync\". Some tools move your bookmarks into their own panel; others write straight into the browser's own bookmarks bar. This table only lists facts you can check.",
+    "caption": "BookmarkSync compared with common bookmark sync tools and bookmark managers",
+    "colFeature": "Criterion",
+    "scrollHint": "Scroll the table sideways to see every product",
+    "legend": {
+      "yes": "Supported",
+      "partial": "Partial / conditional",
+      "no": "Not supported",
+      "na": "Not applicable (not a sync tool)"
+    },
+    "cta": "See the full comparison and the reasoning",
+    "disclaimer": "Competitor details are drawn from each product's public documentation (Oct 2026). They change between releases — the vendor's own docs are authoritative."
   },
   "pricing": {
     "eyebrow": "Pricing",

@@ -124,6 +124,9 @@
   "err_noKey": {
     "message": "Set your sync passphrase first"
   },
+  "err_unsupportedPlatform": {
+    "message": "This browser does not support bookmark sync (e.g. Firefox for Android). Use desktop Chrome / Edge / Firefox."
+  },
   "err_timeout": {
     "message": "The service worker did not respond"
   },

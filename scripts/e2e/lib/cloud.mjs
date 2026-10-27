@@ -57,12 +57,20 @@ export function cliAvailable() {
   }
 }
 
-/** 执行 SQL，返回行数组（JSON）。 */
+/** 执行 SQL，返回行数组（JSON）。
+ *
+ * ★ 必须兼容两种输出形状（2026-10-23）：新版 CLI（≥2.11x）返回
+ * `{rows: [...], boundary: "..."}`，旧版直接返回 `[...]`。只认数组的话
+ * `sql(...).at(0)` / `rows[0]` 会静默拿到 undefined，场景表现为「云端没有账号」
+ * 这类完全误导的失败（create-account.mjs 实测踩到）。 */
 export function sql(query) {
   const out = cli(['db', 'query', '--linked', '--output-format', 'json', query]);
   const start = out.search(/[[{]/);
   if (start < 0) throw new Error(`无法解析 SQL 输出:\n${out.slice(0, 400)}`);
-  return JSON.parse(out.slice(start));
+  const parsed = JSON.parse(out.slice(start));
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.rows)) return parsed.rows;
+  throw new Error(`SQL 输出形状无法识别（既非数组也无 rows）:\n${out.slice(0, 400)}`);
 }
 
 /** 执行 SQL 但不解析返回（用于 DO 块等无结果语句）。 */

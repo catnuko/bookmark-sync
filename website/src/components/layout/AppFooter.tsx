@@ -2,8 +2,11 @@ import { makeT, type Locale } from '@/i18n/t';
 import LocalizedLink from './LocalizedLink';
 import styles from './AppFooter.module.css';
 
+// ★ 「功能」原先指向 /#features（首页 FeatureSection 的锚点）。该区块 2026-10 已删除，
+//   锚点随之消失 —— 指向 /#compare 会更好：对比矩阵现在承担了「我们有什么能力」这件事，
+//   而且它是首页上唯一能被外部直接引用的能力说明。
 const PRODUCT_LINKS = [
-  { label: 'nav.features', to: '/#features' },
+  { label: 'nav.features', to: '/#compare' },
   { label: 'nav.pricing', to: '/pricing' },
   { label: 'nav.download', to: '/download' },
 ];
