@@ -1064,6 +1064,9 @@
   "feedback_privacyHint": {
     "message": "Please don't paste bookmarks, URLs or other sensitive data."
   },
+  "feedback_githubIssues": {
+    "message": "Open a GitHub issue / view known issues"
+  },
   "help_sub": {
     "message": "Common questions and key behaviors. Click an item to expand."
   },

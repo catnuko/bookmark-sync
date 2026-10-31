@@ -48,6 +48,17 @@
 
     <p class="foot">{{ t('feedback_envNote') }}</p>
     <p class="foot">{{ t('feedback_privacyHint') }}</p>
+    <p class="foot">
+      <button
+        type="button"
+        class="link-btn"
+        :title="t('common_opensInNewTab')"
+        @click="openFeedbackIssues()"
+      >
+        {{ t('feedback_githubIssues') }}
+        <Icon class="foot-ext" name="external-link" />
+      </button>
+    </p>
   </div>
 </template>
 
@@ -57,7 +68,7 @@
 // 而不像 telemetry 那样静默。服务端见 supabase/migrations/0045_feedback.sql。
 import { ref, computed } from 'vue';
 import { t } from '../lib/i18n.js';
-import { submitFeedback } from '../lib/feedback.js';
+import { submitFeedback, openFeedbackIssues } from '../lib/feedback.js';
 import SegTabs from './ui/SegTabs.vue';
 import Icon from './ui/Icon.vue';
 
@@ -113,5 +124,10 @@ async function submit() {
 .fb-hint {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
+}
+.foot-ext {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.12em;
 }
 </style>

@@ -18,9 +18,13 @@
  */
 import { supabase } from './supabase.js';
 import { appVersion, platformTag, getLastErrorPhase } from './telemetry.js';
+import { api } from './ext.js';
 
 /** 对外客服邮箱（与官网 SITE.email / i18n contact.supportEmail 保持一致）。 */
 export const SUPPORT_EMAIL = 'support@bookmark-sync.top';
+
+/** 反馈专用仓库的 Issues 页（新反馈自动建 issue 的就是这里，与触发器指向对齐）。 */
+export const FEEDBACK_ISSUES_URL = 'https://github.com/catnuko/bookmark-sync-feedback/issues';
 
 /** 反馈类型白名单 —— 与服务端 CHECK (kind in ('bug','idea','other')) 对齐。 */
 export type FeedbackKind = 'bug' | 'idea' | 'other';
@@ -97,4 +101,13 @@ export function buildMailto(subject = 'Feedback', intro = ''): string {
     `locale: ${uiLanguage() || 'unknown'}`,
   ].join('\n');
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(`${intro}\n${signature}`)}`;
+}
+
+/** 在新标签打开反馈仓库的 Issues 页（弹窗随即失焦自动关闭）。 */
+export function openFeedbackIssues(): void {
+  if (api.tabs?.create) {
+    api.tabs.create({ url: FEEDBACK_ISSUES_URL });
+  } else {
+    window.open(FEEDBACK_ISSUES_URL, '_blank');
+  }
 }

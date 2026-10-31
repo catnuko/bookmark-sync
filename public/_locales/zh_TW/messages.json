@@ -1061,6 +1061,9 @@
   "feedback_privacyHint": {
     "message": "请勿粘贴书签、网址等敏感信息。"
   },
+  "feedback_githubIssues": {
+    "message": "到 GitHub 提 Issue / 查看已知問題"
+  },
   "help_sub": {
     "message": "常见问题与关键行为说明。点击条目展开。"
   },

@@ -3,7 +3,12 @@
 // 与 telemetry 的关键差异：反馈是**用户主动行为**，失败必须能被 UI 看见。
 // 所以这里的重点是「结果码正确、且永不抛错」——而不是像 telemetry 那样断言静默。
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { submitFeedback, buildMailto, SUPPORT_EMAIL } from '../src/lib/feedback.js';
+import {
+  submitFeedback,
+  buildMailto,
+  SUPPORT_EMAIL,
+  FEEDBACK_ISSUES_URL,
+} from '../src/lib/feedback.js';
 
 const h = vi.hoisted(() => ({
   rpcCalls: [] as Array<{ name: string; args: Record<string, unknown> }>,
@@ -105,5 +110,11 @@ describe('buildMailto（未登录兜底）', () => {
     expect(decodeURIComponent(href)).toContain('2.7.0');
     expect(decodeURIComponent(href)).toContain('Chrome 137');
     expect(decodeURIComponent(href)).toContain('正文');
+  });
+});
+
+describe('GitHub Issues 链接', () => {
+  it('指向反馈专用仓库 bookmark-sync-feedback 的 issues 页（不是主仓库）', () => {
+    expect(FEEDBACK_ISSUES_URL).toBe('https://github.com/catnuko/bookmark-sync-feedback/issues');
   });
 });
