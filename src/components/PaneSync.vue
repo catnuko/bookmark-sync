@@ -44,7 +44,7 @@
         </ListRow>
       </ListGroup>
       <p
-        class="mt-2 ml-3.5 text-caption leading-(--text-caption--line-height) text-(--text-secondary-c)"
+        class="mt-2 ml-3 text-caption leading-(--text-caption--line-height) text-(--text-secondary-c)"
       >
         {{ t('sync_foot') }}
       </p>

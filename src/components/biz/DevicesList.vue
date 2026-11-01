@@ -1,7 +1,7 @@
 <template>
   <div>
     <h4
-      class="mb-2 ml-3.5 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase"
+      class="mb-2 ml-3 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase"
     >
       {{ t('devices_title') }}
     </h4>
@@ -73,7 +73,7 @@
       <span>{{ t('devices_empty') }}</span>
     </Alert>
     <p
-      class="mt-2 ml-3.5 text-caption leading-(--text-caption--line-height) text-(--text-secondary-c)"
+      class="mt-2 ml-3 text-caption leading-(--text-caption--line-height) text-(--text-secondary-c)"
     >
       {{ t('devices_foot') }}
     </p>

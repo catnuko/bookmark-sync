@@ -1,6 +1,6 @@
 <template>
   <div
-    class="rounded-lg bg-card px-3.5 py-3"
+    class="rounded-lg bg-card px-3 py-2.5"
     data-test="quota"
     :class="
       quotaState === 'over'

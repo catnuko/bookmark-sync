@@ -998,6 +998,12 @@
   "feedback_title": {
     "message": "反馈"
   },
+  "feedback_menuGithub": {
+    "message": "GitHub 反馈"
+  },
+  "feedback_menuEmail": {
+    "message": "邮件反馈"
+  },
   "feedback_sub": {
     "message": "告诉我们哪里出了问题，或你希望增加什么"
   },

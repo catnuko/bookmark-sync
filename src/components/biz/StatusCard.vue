@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex items-center gap-2.5 rounded-lg bg-card px-3.5 py-3"
+    class="flex items-center gap-2.5 rounded-lg bg-card px-3 py-2.5"
     :class="
       syncState === 'error'
         ? 'bg-destructive-tint shadow-[inset_0_0_0_1px_var(--destructive-border)]'

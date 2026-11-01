@@ -2,7 +2,7 @@
   <div>
     <h4
       v-if="!bare"
-      class="mb-2 ml-3.5 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase"
+      class="mb-2 ml-3 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase"
     >
       {{ t('feedback_title') }}
     </h4>

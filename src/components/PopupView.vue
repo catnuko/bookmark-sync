@@ -10,7 +10,7 @@
       <span class="text-caption font-semibold">Bookmark Sync</span>
     </PopupChrome>
 
-    <div class="scroll-y flex flex-col gap-3 px-4 py-3.5">
+    <div class="scroll-y flex flex-col gap-2 px-3 py-3">
       <StatusCard />
 
       <Alert
@@ -109,7 +109,7 @@
       </Button>
       <span class="text-body-sm font-semibold">{{ drawerTitle }}</span>
     </PopupChrome>
-    <div class="scroll-y flex flex-col gap-3.5 px-4 py-3.5">
+    <div class="scroll-y flex flex-col gap-3 px-3 py-3">
       <SpacesDrawer v-if="state.drawer === 'spaces'" />
       <KeyPanel v-else-if="state.drawer === 'key'" />
       <PaneAccount v-else-if="state.drawer === 'account'" bare />
