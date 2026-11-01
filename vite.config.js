@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
 
@@ -36,7 +37,7 @@ function readDevCreds() {
 // 产物输出到 extension/，manifest.json 由 public/ 一并拷贝。
 export default defineConfig({
   base: './',
-  plugins: [vue()],
+  plugins: [vue(), tailwindcss()],
   define: {
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __DEV_CREDS__: JSON.stringify(readDevCreds()),
