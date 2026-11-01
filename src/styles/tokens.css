@@ -285,60 +285,65 @@
   --progress-track: rgba(255, 255, 255, 0.16);
 }
 
-/* ---- 全局基础（§3.3 保留样式） ---- */
-html,
-body {
-  margin: 0;
-  padding: 0;
-}
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  line-height: 21px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  transition:
-    background var(--dur-base) var(--ease-standard),
-    color var(--dur-base) var(--ease-standard);
-}
-button {
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-input,
-textarea {
-  font-family: inherit;
-}
-h1,
-h2,
-h3,
-h4,
-p {
-  margin: 0;
-}
-ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-/* 默认尺寸是**兜底**，不是设定：<svg> 是替换元素，没给尺寸时按 300×150 渲染，
-   放进 flex 行会把 `flex: 1` 的文本列挤成 0（中文一字一行、行高暴涨）。
-   任何更具体的规则（lucide 的 size-4/5 类等）优先级更高，照常覆盖。 */
-svg {
-  display: block;
-  flex: none;
-  width: 20px;
-  height: 20px;
-}
-:focus {
-  outline: none;
-}
-:focus-visible {
-  box-shadow: var(--focus-ring);
+/* ---- 全局基础（§3.3 保留样式） ----
+   必须在 @layer base 里：未分层的普通规则在级联中赢过所有 @layer（含 utilities），
+   之前 button { color: inherit } 因此压掉 text-primary-foreground，黑底按钮内文字变黑。
+   收进 base 后 Tailwind 工具类照常覆盖。 */
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 21px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition:
+      background var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard);
+  }
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  input,
+  textarea {
+    font-family: inherit;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  p {
+    margin: 0;
+  }
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* 默认尺寸是**兜底**，不是设定：<svg> 是替换元素，没给尺寸时按 300×150 渲染，
+     放进 flex 行会把 `flex: 1` 的文本列挤成 0（中文一字一行、行高暴涨）。
+     任何更具体的规则（lucide 的 size-4/5 类等）优先级更高，照常覆盖。 */
+  svg {
+    display: block;
+    flex: none;
+    width: 20px;
+    height: 20px;
+  }
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    box-shadow: var(--focus-ring);
+  }
 }
 .mono {
   font-family: var(--font-mono);
