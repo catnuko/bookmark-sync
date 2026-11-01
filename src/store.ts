@@ -2,6 +2,7 @@
 // 说明：popup.html 与 options.html 各自独立挂载 App，模块级单例在各自页面
 // 内共享；不跨页面通信（页面间依赖 chrome.storage / Supabase 作为权威）。
 import { reactive, computed, type ComputedRef } from 'vue';
+import { toast } from 'vue-sonner';
 import { api, type ExtensionMessage } from './lib/ext.js';
 import { describeError } from './lib/errors.js';
 import { supabase } from './lib/supabase.js';
@@ -242,13 +243,18 @@ async function hydrateRemote(): Promise<void> {
 let armedTimer: ReturnType<typeof setInterval> | null = null;
 
 // ---- Toast ----
+// vue-sonner 接管渲染（Toaster 挂在 App.vue）；本函数只是语义映射适配层：
+// 签名不变（旧 ToastLevel → sonner type，danger→error），调用方零改动。
 export function showToast(level: ToastLevel, title: string, sub = ''): void {
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  state.toasts.push({ id, level, title, sub });
-  setTimeout(() => {
-    const i = state.toasts.findIndex((t) => t.id === id);
-    if (i >= 0) state.toasts.splice(i, 1);
-  }, 3200);
+  const fn =
+    level === 'danger'
+      ? toast.error
+      : level === 'warning'
+        ? toast.warning
+        : level === 'success'
+          ? toast.success
+          : toast.info;
+  fn(title, { description: sub || undefined, duration: 3200 });
 }
 
 // ---- 危险操作两步确认：首次点击进入 armed 倒计时（3→1），再次点击执行 ----

@@ -1,18 +1,23 @@
 <script setup>
 // 根组件：登录分发 + 弹窗/设置页布局 + 全局模态与 Toast 容器
 // 业务逻辑集中在 src/store.js（弹窗与设置页共用同一套状态与动作）
-import { onMounted } from 'vue';
+import { onMounted, h } from 'vue';
 import { state, init } from './store.js';
 import { describeError } from './lib/errors.js';
+import { Toaster } from 'vue-sonner';
+import 'vue-sonner/style.css';
+import { CircleCheck, CircleAlert, Info, LoaderCircle } from '@lucide/vue';
 import AuthView from './components/AuthView.vue';
 import PopupView from './components/PopupView.vue';
 import OptionsView from './components/OptionsView.vue';
 import PhraseGate from './components/PhraseGate.vue';
 import BindSpaceGate from './components/BindSpaceGate.vue';
 import ModalUpgrade from './components/ModalUpgrade.vue';
-import ToastHost from './components/ui/ToastHost.vue';
 
 const props = defineProps({ popup: { type: Boolean, default: false } });
+
+// vue-sonner icons 接的是组件（不带 props），包一层把尺寸/线宽固定成全局约定
+const toastIcon = (C) => () => h(C, { size: 18, 'stroke-width': 1.75 });
 
 // init() 现在保证「本地优先 + 已知路径不抛错」，但它仍是异步的，而 onMounted 不会
 // 接住返回的 promise —— 一旦有意外 reject，Chrome 扩展错误列表里只剩一个
@@ -28,8 +33,11 @@ onMounted(() => {
 <template>
   <AuthView v-if="!state.session" />
   <!-- 门禁判定中：显示启动占位，保证「登录 → 门禁 → 主界面」顺序，不闪现主界面 -->
-  <div v-else-if="!state.gateChecked" class="boot-splash">
-    <span class="spinner" />
+  <div
+    v-else-if="!state.gateChecked"
+    class="grid min-h-screen place-items-center text-muted-foreground"
+  >
+    <LoaderCircle class="size-5 animate-spin" :stroke-width="1.75" />
   </div>
   <!-- 口令门禁是硬门槛：未设置/未验证口令前不渲染任何主界面 -->
   <PhraseGate v-else-if="state.phraseGateVisible" />
@@ -40,13 +48,23 @@ onMounted(() => {
   <OptionsView v-else />
 
   <ModalUpgrade v-if="state.showUpgradeModal" />
-  <ToastHost />
+  <Toaster
+    position="bottom-center"
+    :offset="20"
+    :visible-toasts="3"
+    :icons="{
+      success: toastIcon(CircleCheck),
+      error: toastIcon(CircleAlert),
+      warning: toastIcon(CircleAlert),
+      info: toastIcon(Info),
+    }"
+  />
 </template>
 
 <style>
 @import './styles/tokens.css';
 
-/* popup 视口固定：宽高由令牌决定，内容溢出由 .popup-body 自己滚动（不再用 100vh 撑高窗口） */
+/* popup 视口固定：宽高由令牌决定，内容溢出由弹窗内容区自己滚动（不再用 100vh 撑高窗口） */
 body.popup {
   width: var(--popup-width);
   height: var(--popup-height);
@@ -54,13 +72,5 @@ body.popup {
 }
 body.popup #app {
   height: 100%;
-}
-
-/* 门禁判定期间的启动占位（popup 与 options 共用） */
-.boot-splash {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
 }
 </style>

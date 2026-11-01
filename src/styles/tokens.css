@@ -457,6 +457,19 @@ svg {
     background: var(--card);
   }
 }
+.modal-glass {
+  animation: modalIn var(--dur-slow) var(--ease-decelerate) both;
+}
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
 
 /* 统一滚动条（8px、thumb=border-strong、全圆角） */
 * {
