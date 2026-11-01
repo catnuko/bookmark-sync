@@ -33,7 +33,11 @@
       </div>
 
       <div class="mt-4 flex gap-2">
-        <Button variant="ghost" class="flex-1" @click="dialogOpen = false">
+        <Button
+          variant="ghost"
+          class="flex-1 border border-(--border-strong)"
+          @click="dialogOpen = false"
+        >
           {{ t('upgrade_later') }}
         </Button>
       </div>

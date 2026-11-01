@@ -8,7 +8,9 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/85 active:bg-primary',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-muted active:bg-muted',
+        // --secondary 与 --card 两主题同值，纯色底贴卡片会隐形，inset 描边给最低可见形态
+        secondary:
+          'bg-secondary text-secondary-foreground shadow-[inset_0_0_0_1px_var(--border-subtle)] hover:bg-muted active:bg-muted',
         ghost: 'bg-transparent text-foreground hover:bg-scrim',
         // 现状 destructive 是「透明底+红字+红边框」，与 shadcn 默认实底红不同（规范 §4.1）
         'outline-destructive':

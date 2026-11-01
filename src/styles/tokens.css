@@ -363,6 +363,7 @@
   }
 }
 .modal-glass {
+  background: var(--material-thick);
   animation: modalIn var(--dur-slow) var(--ease-decelerate) both;
 }
 /* 居中由 DialogContent 的 translate 属性负责，这里只做 scale+opacity，
