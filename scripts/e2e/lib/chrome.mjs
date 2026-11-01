@@ -188,8 +188,14 @@ class Page {
          return true;
        })()`,
     );
-    if (!ok)
-      throw new Error(`[${this.name}] 文案含「${text}」的可点击元素不存在（选择器 ${selector}）`);
+    if (!ok) {
+      // 失败时带上页面当前文案，方便判断是「元素不在」还是「停在了别的屏」
+      const hint =
+        (await this.tryEval(`document.body.innerText.replace(/\\s+/g, ' ').slice(0, 200)`)) ?? '';
+      throw new Error(
+        `[${this.name}] 文案含「${text}」的可点击元素不存在（选择器 ${selector}）｜页面文案: ${hint}`,
+      );
+    }
     await sleep(120);
   }
 

@@ -170,7 +170,7 @@ export async function run({ cfg, report }) {
       const errCheck = await dev2.i18n('gate_errCheck');
       const shown = await p2.waitUntil(
         async (pg) => {
-          const e = await pg.textOf('.gate-err');
+          const e = await pg.textOf('[data-test="phrase-err"]');
           return e ? e : null;
         },
         { timeoutMs: 40_000, intervalMs: 400 },

@@ -1,6 +1,7 @@
 <template>
   <div
     class="rounded-lg bg-card px-3.5 py-3"
+    data-test="quota"
     :class="
       quotaState === 'over'
         ? 'bg-destructive-tint shadow-[inset_0_0_0_1px_var(--destructive-border)]'

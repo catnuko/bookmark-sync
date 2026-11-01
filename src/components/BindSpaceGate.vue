@@ -19,6 +19,7 @@
       <!-- 选空间：单选，必选。点即选。 -->
       <RadioGroupRoot
         class="mt-4.5 flex flex-col gap-1.5"
+        data-test="bind-space-group"
         :aria-label="t('bind_title')"
         :model-value="spaceModel"
         :disabled="state.bindBusy"

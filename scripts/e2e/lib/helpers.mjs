@@ -179,6 +179,8 @@ export async function pickBindSpace(page, name) {
  * 只有走 UI 才测得到（走 RPC 就绕过了 plan_locked 的界面反馈）。
  */
 export async function createSpaceViaUI(page, device, name, { timeoutMs = 25_000 } = {}) {
+  // popup 里空间入口在「账号」抽屉第二级：主界面 → 账号行 → 空间与设备 → 空间抽屉
+  await page.clickByText('[data-test="open-account"]', await device.i18n('popup_accountRow'));
   await page.clickByText('[data-test="open-spaces"]', await device.i18n('spaces_title'));
   if (!(await page.waitForSelector('[data-test="spaces-new"]', 8_000))) {
     throw new Error(`[${device.name}] 空间抽屉没打开`);
@@ -197,13 +199,19 @@ export async function createSpaceViaUI(page, device, name, { timeoutMs = 25_000 
   return true;
 }
 
-/** 关掉抽屉，回到主界面（抽屉打开时 `#syncNow` 不在 DOM 里，会撞到后续断言）。 */
+/**
+ * 关掉抽屉，回到主界面（抽屉打开时 `#syncNow` 不在 DOM 里，会撞到后续断言）。
+ * 抽屉是二级的（空间/密钥从「账户」进入），返回键一次只退一层，所以循环点直到主屏。
+ */
 export async function closeDrawer(page) {
-  const ok = await page.tryEval(
-    `(() => { const b = document.querySelector('[data-test="drawer-back"]'); if (!b) return false; b.click(); return true; })()`,
-  );
-  if (!ok) throw new Error('抽屉关闭按钮（[data-test="drawer-back"]）不存在');
-  await page.waitForSelector('#syncNow', 10_000);
+  for (let i = 0; i < 4; i++) {
+    const ok = await page.tryEval(
+      `(() => { const b = document.querySelector('[data-test="drawer-back"]'); if (!b) return false; b.click(); return true; })()`,
+    );
+    if (!ok) throw new Error('抽屉关闭按钮（[data-test="drawer-back"]）不存在');
+    if (await page.waitForSelector('#syncNow', 10_000)) return;
+  }
+  throw new Error('连点返回键后仍未回到主界面（#syncNow 没出现）');
 }
 
 /** 书签树摊平（含根节点，folder=true 表示没有 url）。 */
