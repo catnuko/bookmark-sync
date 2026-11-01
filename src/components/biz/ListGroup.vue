@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="overflow-hidden rounded-lg bg-card [&>*+*]:border-t [&>*+*]:border-(--border-subtle)"
-  >
+  <div class="overflow-hidden rounded-lg bg-card [&>*+*]:border-t [&>*+*]:border-(--border-subtle)">
     <slot />
   </div>
 </template>

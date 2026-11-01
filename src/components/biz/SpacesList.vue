@@ -1,6 +1,8 @@
 <template>
   <div>
-    <h4 class="mb-2 ml-3.5 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase">
+    <h4
+      class="mb-2 ml-3.5 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase"
+    >
       {{ t('spaceslist_title') }}
     </h4>
     <ListGroup>
@@ -82,13 +84,15 @@
             class="min-w-0 flex-1 text-body-sm leading-(--text-body-sm--line-height) text-(--text-secondary-c) [overflow-wrap:anywhere]"
           >
             {{
-              t(
-                state.activeSpace ? 'spaceslist_rebindConfirm' : 'spaceslist_bindConfirm',
-                s.name,
-              )
+              t(state.activeSpace ? 'spaceslist_rebindConfirm' : 'spaceslist_bindConfirm', s.name)
             }}
           </span>
-          <Button variant="outline-destructive" size="sm" :disabled="state.spaceBusy" @click="doRebindSpace(s)">
+          <Button
+            variant="outline-destructive"
+            size="sm"
+            :disabled="state.spaceBusy"
+            @click="doRebindSpace(s)"
+          >
             {{ t('spaceslist_rebindBtn') }}
           </Button>
           <Button variant="ghost" size="sm" @click="state.rebindTarget = ''">

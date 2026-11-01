@@ -1,26 +1,29 @@
 <template>
-  <div class="gate-wrap">
-    <div class="gate-card">
-      <div class="gate-ico"><Icon name="shield" /></div>
-      <h2 class="gate-title">
+  <div class="flex min-h-screen items-center justify-center p-6">
+    <div class="w-full max-w-[360px] text-center" data-test="phrase-gate">
+      <div
+        class="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-scrim text-foreground"
+      >
+        <ShieldCheck class="size-[26px]" :stroke-width="1.75" />
+      </div>
+      <h2 class="mb-2 text-[20px] font-semibold" data-test="phrase-title">
         {{ state.phraseGateMode === 'setup' ? t('gate_titleSetup') : t('gate_titleVerify') }}
       </h2>
-      <p class="gate-sub">
+      <p class="mb-5 text-body-sm leading-relaxed text-(--text-secondary-c)">
         {{ state.phraseGateMode === 'setup' ? t('gate_hintSetup') : t('gate_hintVerify') }}
       </p>
 
-      <div class="gate-row">
-        <input
+      <div class="flex flex-col gap-2.5">
+        <Input
           v-model="state.phraseGateInput"
-          class="input"
           type="password"
           :placeholder="state.phraseGateMode === 'setup' ? t('gate_phSetup') : t('gate_phVerify')"
           autocomplete="new-password"
           :disabled="state.phraseGateBusy"
           @keyup.enter="submitPhraseGate"
         />
-        <button
-          class="btn btn-primary"
+        <Button
+          data-test="phrase-cta"
           :disabled="!state.phraseGateInput || state.phraseGateBusy"
           @click="submitPhraseGate"
         >
@@ -31,10 +34,16 @@
                 ? t('gate_ctaSetup')
                 : t('gate_ctaVerify')
           }}
-        </button>
+        </Button>
       </div>
 
-      <p v-if="state.phraseGateMsg" class="gate-err">{{ state.phraseGateMsg }}</p>
+      <p
+        v-if="state.phraseGateMsg"
+        class="mt-3 text-body-sm text-destructive-text"
+        data-test="phrase-err"
+      >
+        {{ state.phraseGateMsg }}
+      </p>
     </div>
   </div>
 </template>
@@ -42,58 +51,9 @@
 <script setup>
 // 口令门禁页（唯一入口）：登录后未设置/未验证口令前，App.vue 不渲染任何主界面。
 // setup = 第一台设备设新口令；verify = 其它设备输入既有口令（用云端密文验证）。
+import { ShieldCheck } from '@lucide/vue';
 import { state, submitPhraseGate } from '../store.js';
 import { t } from '../lib/i18n.js';
-import Icon from './ui/Icon.vue';
+import Button from './ui/button/Button.vue';
+import Input from './ui/input/Input.vue';
 </script>
-
-<style scoped>
-.gate-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 24px;
-  box-sizing: border-box;
-}
-.gate-card {
-  width: 100%;
-  max-width: 360px;
-  text-align: center;
-}
-.gate-ico {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 16px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-scrim, rgba(128, 128, 128, 0.15));
-  color: var(--text-primary);
-}
-.gate-ico svg {
-  width: 26px;
-  height: 26px;
-}
-.gate-title {
-  margin: 0 0 8px;
-  font-size: 20px;
-}
-.gate-sub {
-  margin: 0 0 20px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-.gate-row {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.gate-err {
-  color: var(--danger-text, #d33);
-  margin-top: 12px;
-  font-size: 13px;
-}
-</style>

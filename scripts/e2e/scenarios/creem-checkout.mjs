@@ -123,7 +123,7 @@ export async function run({ cfg, report }) {
     const upgradeLabel = await dev.i18n('common_upgrade');
     const upgradeVisible = await page.waitUntil(
       async (pg) =>
-        (await pg.tryEval(`!![...document.querySelectorAll('.card.quota button')]
+        (await pg.tryEval(`!![...document.querySelectorAll('[data-test="quota"] button')]
              .find((b) => b.innerText.includes(${JSON.stringify(upgradeLabel)}))`)) === true
           ? true
           : null,
@@ -135,8 +135,8 @@ export async function run({ cfg, report }) {
       (await page.text()).split('\n').filter(Boolean).slice(0, 10).join(' | '),
     );
 
-    await page.clickByText('.card.quota button', upgradeLabel);
-    const modalOk = await page.waitForSelector('.modal .plan-card', 10_000);
+    await page.clickByText('[data-test="quota"] button', upgradeLabel);
+    const modalOk = await page.waitForSelector('[data-test="upgrade-modal"]', 10_000);
     report.assert(`点「${upgradeLabel}」后弹出订阅弹窗`, modalOk);
     if (!modalOk) {
       report.fail('订阅弹窗里的 Plus 按钮（未执行）', '弹窗没打开，后续断言会退化');
@@ -145,7 +145,7 @@ export async function run({ cfg, report }) {
 
     const plusLabel = await dev.i18n('plan_subPlus');
     report.info('点 Plus 按钮', plusLabel);
-    await page.clickByText('.modal .plan-card button', plusLabel);
+    await page.clickByText('[data-test="plan-plus"] button', plusLabel);
 
     // ------------------------------------------------------------ 收银台
     report.section('收银台');
@@ -203,7 +203,7 @@ export async function run({ cfg, report }) {
     // ------------------------------------------------------------ 失败路径
     report.section('失败路径不该出现');
     const modalGone = await page.waitUntil(
-      async (pg) => ((await pg.exists('.modal .plan-card')) ? null : true),
+      async (pg) => ((await pg.exists('[data-test="upgrade-modal"]')) ? null : true),
       { timeoutMs: 10_000, intervalMs: 300 },
     );
     report.assert('成功路径：订阅弹窗自动关闭', !!modalGone, '弹窗仍在 = 可能走了失败分支');

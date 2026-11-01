@@ -79,7 +79,7 @@ export async function ensureSpace(page, name = 'E2E 空间') {
   const hasSpaceRow = await page.eval(`!![...document.querySelectorAll('.space-row')].length`);
   if (hasSpaceRow) {
     // 关闭抽屉（主视图 v-if 随抽屉开关卸载，不关闭会挡住后续 #syncNow 点击）
-    await page.eval(`document.querySelector('.drawer-chrome .icon-btn')?.click()`);
+    await page.eval(`document.querySelector('[data-test="drawer-back"]')?.click()`);
     await sleep(400);
     return true;
   }
@@ -103,7 +103,7 @@ export async function ensureSpace(page, name = 'E2E 空间') {
     await sleep(2000);
   }
   // 关闭抽屉（主视图 v-if 随抽屉开关卸载，不关闭会挡住后续 #syncNow 点击）
-  await page.eval(`document.querySelector('.drawer-chrome .icon-btn')?.click()`);
+  await page.eval(`document.querySelector('[data-test="drawer-back"]')?.click()`);
   await sleep(400);
   return true; // duplicate/成功都视为已保证存在
 }
@@ -115,7 +115,7 @@ export async function ensureSpace(page, name = 'E2E 空间') {
  */
 export async function clickSyncAndWait(page, timeoutMs = 90000) {
   // 若抽屉开着，主视图（#syncNow）不在 DOM：先关抽屉再点
-  await page.eval(`document.querySelector('.drawer-chrome .icon-btn')?.click()`);
+  await page.eval(`document.querySelector('[data-test="drawer-back"]')?.click()`);
   await sleep(300);
   const before = await readStorageLocal(page, 'lastSyncAt');
   await page.eval(`document.querySelector('#syncNow')?.click()`);

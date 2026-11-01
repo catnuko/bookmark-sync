@@ -35,7 +35,7 @@ onMounted(() => {
   <!-- 门禁判定中：显示启动占位，保证「登录 → 门禁 → 主界面」顺序，不闪现主界面 -->
   <div
     v-else-if="!state.gateChecked"
-    class="grid min-h-screen place-items-center text-muted-foreground"
+    class="boot-splash grid min-h-screen place-items-center text-muted-foreground"
   >
     <LoaderCircle class="size-5 animate-spin" :stroke-width="1.75" />
   </div>

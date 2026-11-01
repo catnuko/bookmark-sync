@@ -1,49 +1,63 @@
 <template>
-  <section class="pane active">
-    <h2>{{ t('sync_title') }}</h2>
-    <p class="pane-sub">{{ t('sync_sub') }}</p>
+  <section class="max-w-[620px]">
+    <h2 class="text-[22px] font-semibold tracking-[-0.02em]">{{ t('sync_title') }}</h2>
+    <p class="mt-1 text-body-sm text-(--text-secondary-c)">{{ t('sync_sub') }}</p>
 
-    <div class="grp">
-      <div class="inset-group">
-        <div class="inset-row">
-          <span class="lede"><Icon name="sync" /></span>
-          <div class="r-main">
-            <div class="r-title">{{ t('sync_auto') }}</div>
-            <div class="r-sub">{{ t('sync_autoSub') }}</div>
+    <div class="mt-[22px]">
+      <ListGroup>
+        <ListRow>
+          <template #leading>
+            <RefreshCw :stroke-width="1.75" />
+          </template>
+          <div class="min-w-0 flex-1">
+            <div class="text-body font-medium">{{ t('sync_auto') }}</div>
+            <div class="text-body-sm text-(--text-secondary-c)">{{ t('sync_autoSub') }}</div>
           </div>
-          <span class="badge badge-success badge-sub">{{ t('common_enabled') }}</span>
-        </div>
-        <div class="inset-row">
-          <span class="lede"><Icon name="list" /></span>
-          <div class="r-main">
-            <div class="r-title">{{ t('sync_conflict') }}</div>
-            <div class="r-sub">{{ t('sync_conflictSub') }}</div>
+          <Badge variant="success">{{ t('common_enabled') }}</Badge>
+        </ListRow>
+        <ListRow>
+          <template #leading>
+            <List :stroke-width="1.75" />
+          </template>
+          <div class="min-w-0 flex-1">
+            <div class="text-body font-medium">{{ t('sync_conflict') }}</div>
+            <div class="text-body-sm text-(--text-secondary-c)">{{ t('sync_conflictSub') }}</div>
           </div>
-          <span class="badge badge-neutral badge-sub">{{ t('sync_builtin') }}</span>
-        </div>
-        <div class="inset-row">
-          <span class="lede"><Icon name="refresh" /></span>
-          <div class="r-main">
-            <div class="r-title">{{ t('sync_now') }}</div>
-            <div class="r-sub">
+          <Badge variant="secondary">{{ t('sync_builtin') }}</Badge>
+        </ListRow>
+        <ListRow>
+          <template #leading>
+            <LoaderCircle v-if="state.syncBusy" class="animate-spin" :stroke-width="1.75" />
+            <RefreshCw v-else :stroke-width="1.75" />
+          </template>
+          <div class="min-w-0 flex-1">
+            <div class="text-body font-medium">{{ t('sync_now') }}</div>
+            <div class="text-body-sm text-(--text-secondary-c)">
               {{
                 t('sync_lastSync', fmtRelative(state.lastSyncAt), (usedCount ?? 0).toLocaleString())
               }}
             </div>
           </div>
-          <button class="btn btn-primary btn-sm" :disabled="state.syncBusy" @click="syncNow()">
-            <span v-if="state.syncBusy" class="spinner" />
+          <Button :disabled="state.syncBusy" size="sm" @click="syncNow()">
             {{ state.syncBusy ? t('sync_syncing') : t('sync_do') }}
-          </button>
-        </div>
-      </div>
-      <p class="foot">{{ t('sync_foot') }}</p>
+          </Button>
+        </ListRow>
+      </ListGroup>
+      <p
+        class="mt-2 ml-3.5 text-caption leading-(--text-caption--line-height) text-(--text-secondary-c)"
+      >
+        {{ t('sync_foot') }}
+      </p>
     </div>
   </section>
 </template>
 
 <script setup>
+import { List, LoaderCircle, RefreshCw } from '@lucide/vue';
 import { state, syncNow, fmtRelative, usedCount } from '../store.js';
 import { t } from '../lib/i18n.js';
-import Icon from './ui/Icon.vue';
+import Badge from './ui/badge/Badge.vue';
+import Button from './ui/button/Button.vue';
+import ListGroup from './biz/ListGroup.vue';
+import ListRow from './biz/ListRow.vue';
 </script>

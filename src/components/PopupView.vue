@@ -1,33 +1,32 @@
 <template>
   <!-- 主屏 -->
-  <div v-if="!state.drawer" class="popup-root">
-    <div class="popup-chrome">
-      <span class="ext-ico">B</span>
-      <span class="ext-name">Bookmark Sync</span>
-      <span class="win-dots"><i></i><i></i><i></i></span>
-    </div>
+  <div v-if="!state.drawer" class="flex h-full flex-col">
+    <PopupChrome>
+      <span
+        class="grid size-[18px] flex-none place-items-center rounded-xs bg-primary text-[9px] font-bold text-primary-foreground"
+        aria-hidden="true"
+        >B</span
+      >
+      <span class="text-caption font-semibold">Bookmark Sync</span>
+    </PopupChrome>
 
-    <div class="popup-body">
+    <div class="scroll-y flex flex-col gap-3 px-4 py-3.5">
       <StatusCard />
 
-      <div
+      <Alert
         v-if="syncState === 'never' && state.keyStateLoaded && !state.hasKeyNow"
-        class="banner banner-info"
+        variant="info"
       >
-        <Icon name="info" />
+        <Info :stroke-width="1.75" />
         <span>{{ t('popup_keyBanner') }}</span>
-      </div>
+      </Alert>
 
       <QuotaCard />
 
-      <button
-        id="syncNow"
-        class="btn btn-primary btn-lg"
-        :disabled="state.syncBusy"
-        @click="syncNow()"
-      >
-        <span v-if="state.syncBusy" class="spinner" />
-        <Icon v-else :name="syncState === 'error' ? 'refresh' : 'plus'" />
+      <Button id="syncNow" size="xl" :disabled="state.syncBusy" @click="syncNow()">
+        <LoaderCircle v-if="state.syncBusy" class="animate-spin" :stroke-width="1.75" />
+        <RefreshCw v-else-if="syncState === 'error'" :stroke-width="1.75" />
+        <Plus v-else :stroke-width="1.75" />
         {{
           state.syncBusy
             ? t('popup_syncing')
@@ -35,67 +34,82 @@
               ? t('popup_resync')
               : t('popup_syncNow')
         }}
-      </button>
+      </Button>
 
-      <div class="inset-group">
-        <button type="button" class="inset-row clickable" @click="openDrawer('account')">
-          <span class="lede"><Icon name="user" /></span>
-          <span class="r-main"
-            ><span class="r-title">{{ t('popup_accountRow') }}</span></span
-          >
-          <span class="sc-tail">{{ planLabel }}</span>
-          <Icon class="chev" name="chevron-right" />
-        </button>
-        <button type="button" class="inset-row clickable" @click="openDrawer('help')">
-          <span class="lede"><Icon name="help" /></span>
-          <span class="r-main"
-            ><span class="r-title">{{ t('common_help') }}</span></span
-          >
-          <span class="sc-tail">{{ t('popup_helpTail') }}</span>
-          <Icon class="chev" name="chevron-right" />
-        </button>
+      <ListGroup>
+        <ListRow as="button" clickable data-test="open-account" @click="openDrawer('account')">
+          <template #leading>
+            <User :stroke-width="1.75" />
+          </template>
+          <div class="text-body font-medium">{{ t('popup_accountRow') }}</div>
+          <template #tail>
+            <span class="text-body-sm text-(--text-secondary-c)">{{ planLabel }}</span>
+            <ChevronRight class="size-4 text-quaternary" :stroke-width="1.75" />
+          </template>
+        </ListRow>
+        <ListRow as="button" clickable @click="openDrawer('help')">
+          <template #leading>
+            <CircleHelp :stroke-width="1.75" />
+          </template>
+          <div class="text-body font-medium">{{ t('common_help') }}</div>
+          <template #tail>
+            <span class="text-body-sm text-(--text-secondary-c)">{{ t('popup_helpTail') }}</span>
+            <ChevronRight class="size-4 text-quaternary" :stroke-width="1.75" />
+          </template>
+        </ListRow>
         <!-- 点击会打开商店网页（不是抽屉面板），故行尾用外链图标而非 chevron -->
-        <button
-          type="button"
-          class="inset-row clickable"
+        <ListRow
+          as="button"
+          clickable
           :title="t('common_opensInNewTab')"
           @click="openStoreReview()"
         >
-          <span class="lede"><Icon name="star" /></span>
-          <span class="r-main"
-            ><span class="r-title">{{ t('popup_rateRow') }}</span></span
-          >
-          <Icon class="ext" name="external-link" />
-        </button>
-        <button type="button" class="inset-row clickable" @click="openDrawer('feedback')">
-          <span class="lede"><Icon name="mail" /></span>
-          <span class="r-main"
-            ><span class="r-title">{{ t('feedback_title') }}</span></span
-          >
-          <Icon class="chev" name="chevron-right" />
-        </button>
-        <button type="button" class="inset-row clickable" @click="openDrawer('system')">
-          <span class="lede"><Icon name="info" /></span>
-          <span class="r-main"
-            ><span class="r-title">{{ t('sys_title') }}</span></span
-          >
-          <span class="sc-tail">v{{ version }}</span>
-          <Icon class="chev" name="chevron-right" />
-        </button>
-      </div>
+          <template #leading>
+            <Star :stroke-width="1.75" />
+          </template>
+          <div class="text-body font-medium">{{ t('popup_rateRow') }}</div>
+          <template #tail>
+            <ExternalLink class="size-4 text-quaternary" :stroke-width="1.75" />
+          </template>
+        </ListRow>
+        <ListRow as="button" clickable @click="openDrawer('feedback')">
+          <template #leading>
+            <Mail :stroke-width="1.75" />
+          </template>
+          <div class="text-body font-medium">{{ t('feedback_title') }}</div>
+          <template #tail>
+            <ChevronRight class="size-4 text-quaternary" :stroke-width="1.75" />
+          </template>
+        </ListRow>
+        <ListRow as="button" clickable @click="openDrawer('system')">
+          <template #leading>
+            <Info :stroke-width="1.75" />
+          </template>
+          <div class="text-body font-medium">{{ t('sys_title') }}</div>
+          <template #tail>
+            <span class="text-body-sm text-(--text-secondary-c)">v{{ version }}</span>
+            <ChevronRight class="size-4 text-quaternary" :stroke-width="1.75" />
+          </template>
+        </ListRow>
+      </ListGroup>
     </div>
   </div>
 
   <!-- 二级面板（抽屉） -->
-  <div v-else class="popup-root">
-    <div class="drawer-chrome">
-      <button class="icon-btn" :aria-label="t('common_back')" @click="closeDrawer">
-        <Icon name="chevron-left" />
-      </button>
-      <span class="ext-name">{{ drawerTitle }}</span>
-      <span class="win-dots"><i></i><i></i><i></i></span>
-    </div>
-    <div class="drawer-body">
+  <div v-else class="flex h-full flex-col">
+    <PopupChrome drawer>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        data-test="drawer-back"
+        :aria-label="t('common_back')"
+        @click="closeDrawer"
+      >
+        <ChevronLeft :stroke-width="1.75" />
+      </Button>
+      <span class="text-body-sm font-semibold">{{ drawerTitle }}</span>
+    </PopupChrome>
+    <div class="scroll-y flex flex-col gap-3.5 px-4 py-3.5">
       <SpacesDrawer v-if="state.drawer === 'spaces'" />
       <KeyPanel v-else-if="state.drawer === 'key'" />
       <PaneAccount v-else-if="state.drawer === 'account'" bare />
@@ -108,19 +122,36 @@
 
 <script setup>
 import { computed } from 'vue';
+import {
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  ExternalLink,
+  Info,
+  LoaderCircle,
+  Mail,
+  Plus,
+  RefreshCw,
+  Star,
+  User,
+} from '@lucide/vue';
 import { state, openDrawer, closeDrawer, syncNow, syncState, planLabel } from '../store.js';
 import { t } from '../lib/i18n.js';
 import { openStoreReview } from '../lib/storeLink.js';
 import { appVersion } from '../lib/appVersion.js';
-import StatusCard from './StatusCard.vue';
-import QuotaCard from './QuotaCard.vue';
+import Alert from './ui/alert/Alert.vue';
+import Button from './ui/button/Button.vue';
+import ListGroup from './biz/ListGroup.vue';
+import ListRow from './biz/ListRow.vue';
+import PopupChrome from './biz/PopupChrome.vue';
+import StatusCard from './biz/StatusCard.vue';
+import QuotaCard from './biz/QuotaCard.vue';
 import SpacesDrawer from './SpacesDrawer.vue';
-import KeyPanel from './KeyPanel.vue';
+import KeyPanel from './biz/KeyPanel.vue';
 import PaneAccount from './PaneAccount.vue';
 import PaneFeedback from './PaneFeedback.vue';
 import PaneSystem from './PaneSystem.vue';
 import PaneHelp from './PaneHelp.vue';
-import Icon from './ui/Icon.vue';
 
 const drawerTitles = {
   spaces: () => t('spaces_title'),

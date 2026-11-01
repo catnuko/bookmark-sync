@@ -16,7 +16,9 @@
         v-if="quotaBtn === 'upgrade'"
         variant="ghost"
         size="sm"
-        :class="quotaState === 'over' ? 'bg-primary text-primary-foreground hover:bg-primary/85' : ''"
+        :class="
+          quotaState === 'over' ? 'bg-primary text-primary-foreground hover:bg-primary/85' : ''
+        "
         @click="openUpgrade"
       >
         {{ t('common_upgrade') }}

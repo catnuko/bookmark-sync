@@ -7,7 +7,10 @@
       <span class="text-title font-semibold">{{ name }}</span>
       <Badge v-if="reco" variant="secondary">{{ t('plan_reco') }}</Badge>
       <span class="ml-auto font-mono text-title font-semibold">
-        {{ price }}<small class="font-sans text-caption font-normal text-(--text-secondary-c)">{{ t('plan_perYear') }}</small>
+        {{ price
+        }}<small class="font-sans text-caption font-normal text-(--text-secondary-c)">{{
+          t('plan_perYear')
+        }}</small>
       </span>
     </div>
     <ul class="mt-2.5 flex flex-col gap-1.5">

@@ -1,7 +1,11 @@
 <template>
   <Button
     variant="outline-destructive"
-    :class="armed ? 'animate-armed border-transparent bg-armed text-white hover:bg-armed-hover active:bg-armed-hover' : ''"
+    :class="
+      armed
+        ? 'animate-armed border-transparent bg-armed text-white hover:bg-armed-hover active:bg-armed-hover'
+        : ''
+    "
     :disabled="disabled"
     @click="$emit('press')"
   >

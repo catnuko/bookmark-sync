@@ -471,6 +471,19 @@ svg {
   }
 }
 
+/* 扩大热区（旧 .icon-btn/.link-btn/.seg 的 hit-slop，规范 §5.9）：
+   伪元素从元素向外扩 6px，让小控件更容易点中。宿主需自带 position:relative。 */
+.hit-slop::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+.hit-slop-y::before {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
 /* 统一滚动条（8px、thumb=border-strong、全圆角） */
 * {
   scrollbar-width: thin;

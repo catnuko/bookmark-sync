@@ -21,7 +21,7 @@ export const buttonVariants = cva(
         // lg：主 CTA 全宽（旧 .btn-lg，h-44px）
         xl: 'h-11 w-full',
         // 32×32 图标按钮（旧 .icon-btn）
-        'icon-sm': 'size-8 rounded-sm text-muted-foreground hover:text-foreground p-0',
+        'icon-sm': 'hit-slop size-8 rounded-sm text-muted-foreground hover:text-foreground p-0',
       },
     },
     defaultVariants: {

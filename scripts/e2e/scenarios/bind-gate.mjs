@@ -182,7 +182,7 @@ export async function run({ cfg, report }) {
       bg.buttons.join(' | '),
     );
     const closeIcons = await r2.page.eval(
-      `document.querySelectorAll('.bg-wrap .icon-btn, .bg-wrap [aria-label*="close" i]').length`,
+      `document.querySelectorAll('[data-test="bind-gate"] .icon-btn, [data-test="bind-gate"] [aria-label*="close" i]').length`,
     );
     report.equals('门禁里也没有关闭图标按钮', closeIcons, 0);
 
@@ -212,7 +212,7 @@ export async function run({ cfg, report }) {
 
     // ------------------------------------------------------ 提交绑定
     report.section('设备 2：选 B 空间并加入 → 断言用户的选择被尊重');
-    await r2.page.click('.bg-actions .btn-primary');
+    await r2.page.click('[data-test="bind-cta"]');
     const afterBind = await waitGate(
       r2.page,
       (g) => g.kind !== 'bind' && g.kind !== 'boot',
@@ -252,12 +252,12 @@ export async function run({ cfg, report }) {
 /** 点「新建一个空间」那个单选项（value="__new__"）。 */
 async function pickNew(page) {
   const ok = await page.tryEval(`(() => {
-    const input = document.querySelector('.bg-group input[value="__new__"]');
+    const input = document.querySelector('[data-test="bind-space-group"] [role="radio"][data-value="__new__"]');
     if (!input) return false;
     input.click();
     return true;
   })()`);
   if (!ok)
     throw new Error('首绑门禁里没有「新建一个空间」单选项（页面未渲染或 canCreateSpace=false）');
-  await page.waitForSelector('.bg-new input.input', 8_000);
+  await page.waitForSelector('[data-test="bind-new-input"]', 8_000);
 }

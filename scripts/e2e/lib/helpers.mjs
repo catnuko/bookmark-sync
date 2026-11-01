@@ -111,7 +111,7 @@ export async function reachMain(device, cfg, report, { bind = 'auto' } = {}) {
   if (gate.kind === 'bind') {
     bindGate = await readBindGate(page);
     if (bind === 'auto') {
-      await page.click('.bg-actions .btn-primary');
+      await page.click('[data-test="bind-cta"]');
       gate = await waitGate(page, (g) => g.kind !== 'bind' && g.kind !== 'boot', cfg.timeouts.gate);
       trail.push(gate.kind);
     }
@@ -130,17 +130,22 @@ export async function reachMain(device, cfg, report, { bind = 'auto' } = {}) {
 export async function readBindGate(page) {
   return page.eval(`(() => {
     const txt = (el) => (el?.innerText ?? '').trim();
-    const labels = [...document.querySelectorAll('.bg-group label.bg-opt')];
-    const opts = labels.map((l) => ({
-      value: l.querySelector('input')?.value ?? '',
-      title: txt(l.querySelector('.r-title')),
-      selected: !!l.querySelector('input')?.checked,
-    }));
-    const cta = document.querySelector('.bg-actions .btn-primary, .bg-actions .btn-destructive');
-    const allButtons = [...document.querySelectorAll('.bg-wrap button')].map(txt).filter(Boolean);
+    const items = [...document.querySelectorAll('[data-test="bind-space-group"] [role="radio"]')];
+    const opts = items.map((el) => {
+      const label = el.closest('label');
+      return {
+        value: el.getAttribute('data-value') ?? '',
+        title: txt(label),
+        selected: el.getAttribute('aria-checked') === 'true',
+      };
+    });
+    const cta = document.querySelector('[data-test="bind-cta"]');
+    const allButtons = [...document.querySelectorAll('[data-test="bind-gate"] button')]
+      .map(txt)
+      .filter(Boolean);
     return {
-      title: txt(document.querySelector('.bg-title')),
-      sub: txt(document.querySelector('.bg-sub')),
+      title: txt(document.querySelector('[data-test="bind-title"]')),
+      sub: txt(document.querySelector('[data-test="bind-sub"]')),
       opts,
       spaceOpts: opts.filter((o) => o.value && o.value !== '__new__'),
       hasNewOption: opts.some((o) => o.value === '__new__'),
@@ -148,7 +153,7 @@ export async function readBindGate(page) {
       ctaDisabled: cta ? !!cta.disabled : null,
       // 整页门禁必须**不可关闭**：出现任何一个这类按钮就是契约被破坏
       dismissButtons: allButtons.filter((b) => /稍后|later|关闭|close|skip|取消|cancel/i.test(b)),
-      hint: txt(document.querySelector('.bg-hint')),
+      hint: txt(document.querySelector('[data-test="bind-hint"]')),
       buttons: allButtons,
     };
   })()`);
@@ -157,12 +162,11 @@ export async function readBindGate(page) {
 /** 在首绑门禁里选一个空间（按名字包含匹配）。返回被选空间的 id。 */
 export async function pickBindSpace(page, name) {
   const id = await page.eval(`(() => {
-    const label = [...document.querySelectorAll('.bg-group label.bg-opt')]
-      .find((l) => ((l.querySelector('.r-title')?.innerText ?? '').includes(${JSON.stringify(name)})));
-    if (!label) return null;
-    const input = label.querySelector('input');
-    input.click();
-    return input.value;
+    const item = [...document.querySelectorAll('[data-test="bind-space-group"] [role="radio"]')]
+      .find((el) => ((el.closest('label')?.innerText ?? '').includes(${JSON.stringify(name)})));
+    if (!item) return null;
+    item.click();
+    return item.getAttribute('data-value') ?? '';
   })()`);
   if (!id) throw new Error(`首绑门禁里找不到名字含「${name}」的空间`);
   return id;
@@ -175,19 +179,16 @@ export async function pickBindSpace(page, name) {
  * 只有走 UI 才测得到（走 RPC 就绕过了 plan_locked 的界面反馈）。
  */
 export async function createSpaceViaUI(page, device, name, { timeoutMs = 25_000 } = {}) {
-  await page.clickByText('.inset-row.clickable', await device.i18n('spaces_title'));
-  if (!(await page.waitForSelector('.inset-row.clickable', 8_000))) {
+  await page.clickByText('[data-test="open-spaces"]', await device.i18n('spaces_title'));
+  if (!(await page.waitForSelector('[data-test="spaces-new"]', 8_000))) {
     throw new Error(`[${device.name}] 空间抽屉没打开`);
   }
-  await page.clickByText(
-    '.inset-group button.inset-row.clickable',
-    await device.i18n('spaceslist_new'),
-  );
-  if (!(await page.waitForSelector('.inset-group input.input', 8_000))) {
+  await page.clickByText('[data-test="spaces-new"]', await device.i18n('spaceslist_new'));
+  if (!(await page.waitForSelector('[data-test="spaces-new-input"]', 8_000))) {
     throw new Error(`[${device.name}] 「新建空间」输入框没出现`);
   }
-  await page.fill('.inset-group input.input', name);
-  await page.clickByText('.inset-group .btn-primary', await device.i18n('spaceslist_create'));
+  await page.fill('[data-test="spaces-new-input"]', name);
+  await page.clickByText('[data-test="spaces-new-submit"]', await device.i18n('spaceslist_create'));
   const ok = await page.waitUntil(async (pg) => (await pg.text()).includes(name), {
     timeoutMs,
     intervalMs: 400,
@@ -199,9 +200,9 @@ export async function createSpaceViaUI(page, device, name, { timeoutMs = 25_000 
 /** 关掉抽屉，回到主界面（抽屉打开时 `#syncNow` 不在 DOM 里，会撞到后续断言）。 */
 export async function closeDrawer(page) {
   const ok = await page.tryEval(
-    `(() => { const b = document.querySelector('.drawer-chrome .icon-btn'); if (!b) return false; b.click(); return true; })()`,
+    `(() => { const b = document.querySelector('[data-test="drawer-back"]'); if (!b) return false; b.click(); return true; })()`,
   );
-  if (!ok) throw new Error('抽屉关闭按钮（.drawer-chrome .icon-btn）不存在');
+  if (!ok) throw new Error('抽屉关闭按钮（[data-test="drawer-back"]）不存在');
   await page.waitForSelector('#syncNow', 10_000);
 }
 
@@ -347,11 +348,11 @@ export async function syncWithRetry(
  * 不能在 SW 里直接 `chrome.storage` 抹掉 key（那就绕开了被测对象）。
  */
 export async function logoutViaUI(page, device, { timeoutMs = 25_000 } = {}) {
-  await page.clickByText('.inset-row.clickable', await device.i18n('adv_title'));
-  if (!(await page.waitForSelector('.drawer-chrome', 8_000))) {
+  await page.clickByText('[data-test="open-account"]', await device.i18n('popup_accountRow'));
+  if (!(await page.waitForSelector('[data-test="drawer-back"]', 8_000))) {
     throw new Error(`[${device.name}] 高级抽屉没打开`);
   }
-  await page.clickByText('.drawer-body button.btn-secondary', await device.i18n('account_logout'));
+  await page.clickByText('[data-test="logout"]', await device.i18n('account_logout'));
   const back = await page.waitUntil(
     async (pg) => ((await pg.exists('#authSubmit')) ? true : null),
     {

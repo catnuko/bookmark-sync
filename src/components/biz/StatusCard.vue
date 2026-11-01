@@ -1,7 +1,11 @@
 <template>
   <div
     class="flex items-center gap-2.5 rounded-lg bg-card px-3.5 py-3"
-    :class="syncState === 'error' ? 'bg-destructive-tint shadow-[inset_0_0_0_1px_var(--destructive-border)]' : ''"
+    :class="
+      syncState === 'error'
+        ? 'bg-destructive-tint shadow-[inset_0_0_0_1px_var(--destructive-border)]'
+        : ''
+    "
   >
     <span class="grid size-[22px] flex-none place-items-center" :class="iconCls">
       <LoaderCircle v-if="syncState === 'syncing'" class="animate-spin" :stroke-width="1.75" />
@@ -15,7 +19,9 @@
       </div>
       <div
         class="text-body-sm leading-(--text-body-sm--line-height)"
-        :class="syncState === 'error' ? 'text-(--text-on-tint-secondary)' : 'text-(--text-secondary-c)'"
+        :class="
+          syncState === 'error' ? 'text-(--text-on-tint-secondary)' : 'text-(--text-secondary-c)'
+        "
       >
         {{ syncSub }}
       </div>

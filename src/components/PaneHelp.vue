@@ -1,22 +1,12 @@
 <template>
-  <section class="pane active">
+  <section class="max-w-[620px]">
     <template v-if="!bare">
-      <h2>{{ t('common_help') }}</h2>
-      <p class="pane-sub">{{ t('help_sub') }}</p>
+      <h2 class="text-[22px] font-semibold tracking-[-0.02em]">{{ t('common_help') }}</h2>
+      <p class="mt-1 text-body-sm text-(--text-secondary-c)">{{ t('help_sub') }}</p>
     </template>
 
-    <div class="grp">
-      <div class="acc">
-        <div v-for="(item, i) in items" :key="i" class="acc-item" :class="{ open: openIdx === i }">
-          <button type="button" class="acc-head" @click="openIdx = openIdx === i ? -1 : i">
-            <span class="acc-t">{{ item.title }}</span>
-            <Icon class="chev" name="chevron-right" />
-          </button>
-          <div class="acc-body">
-            <div class="acc-inner" v-html="item.body"></div>
-          </div>
-        </div>
-      </div>
+    <div class="mt-[22px]">
+      <Accordion :items="items" />
     </div>
   </section>
 </template>
@@ -24,7 +14,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { t } from '../lib/i18n.js';
-import Icon from './ui/Icon.vue';
+import Accordion from './ui/accordion/Accordion.vue';
 
 defineProps({ bare: { type: Boolean, default: false } });
 
@@ -40,25 +30,26 @@ const items = computed(() =>
 </script>
 
 <style>
-.acc-inner table.help-tbl {
+/* 帮助条目内嵌表格（i18n 带 <table class="help-tbl">），全局样式承接（规范 §4.1） */
+table.help-tbl {
   width: 100%;
   border-collapse: collapse;
   margin: 10px 0;
-  font-size: var(--fs-secondary);
+  font-size: 13px;
 }
-.acc-inner table.help-tbl th,
-.acc-inner table.help-tbl td {
+table.help-tbl th,
+table.help-tbl td {
   text-align: left;
   padding: 7px 10px;
-  border-bottom: 1px solid var(--border-strong, rgba(128, 128, 128, 0.2));
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
-.acc-inner table.help-tbl th {
-  color: var(--text-primary);
-  font-weight: var(--fw-semibold, 600);
+table.help-tbl th {
+  color: var(--foreground);
+  font-weight: 600;
 }
-.acc-inner table.help-tbl td:first-child {
+table.help-tbl td:first-child {
   white-space: nowrap;
-  color: var(--text-primary);
+  color: var(--foreground);
 }
 </style>

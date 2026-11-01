@@ -15,8 +15,8 @@ import { sleep } from './cdp.mjs';
 export const SELECTORS = {
   boot: '.boot-splash',
   auth: '#authSubmit',
-  phrase: '.gate-card',
-  bind: '.bg-wrap',
+  phrase: '[data-test="phrase-gate"]',
+  bind: '[data-test="bind-gate"]',
   main: '#syncNow', // popup 主屏；options 页没有它
 };
 
@@ -33,17 +33,17 @@ export async function readGate(page) {
   if (await has(SELECTORS.phrase)) {
     return {
       kind: 'phrase',
-      title: await page.textOf('.gate-title'),
-      cta: await page.textOf('.gate-card .btn-primary'),
-      err: await page.textOf('.gate-err'),
+      title: await page.textOf('[data-test="phrase-title"]'),
+      cta: await page.textOf('[data-test="phrase-cta"]'),
+      err: await page.textOf('[data-test="phrase-err"]'),
       text,
     };
   }
   if (await has(SELECTORS.bind)) {
     return {
       kind: 'bind',
-      title: await page.textOf('.bg-title'),
-      cta: await page.textOf('.bg-actions .btn-primary'),
+      title: await page.textOf('[data-test="bind-title"]'),
+      cta: await page.textOf('[data-test="bind-cta"]'),
       err: '',
       text,
     };
@@ -77,8 +77,8 @@ export async function waitGate(page, pred, timeoutMs = 40_000, intervalMs = 300)
 
 /** 在口令门禁页提交口令（输入 + 点 CTA）。 */
 export async function submitPhrase(page, phrase) {
-  await page.fill('.gate-card input.input', phrase);
-  await page.click('.gate-card .btn-primary');
+  await page.fill('[data-test="phrase-gate"] input', phrase);
+  await page.click('[data-test="phrase-cta"]');
 }
 
 /**
@@ -106,5 +106,5 @@ export async function login(page, { email, password }, timeoutMs = 40_000) {
 
 /** 口令门禁的当前错误文案（`.gate-err`），无错误时返回空串。 */
 export async function phraseError(page) {
-  return page.textOf('.gate-err');
+  return page.textOf('[data-test="phrase-err"]');
 }

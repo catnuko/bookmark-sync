@@ -13,8 +13,7 @@
       :aria-checked="String(modelValue === opt.value)"
       :tabindex="modelValue === opt.value ? 0 : -1"
       :class="[
-        // ::before 撑出 6px 扩大热区（旧 hit-slop 约定，规范 §5.9 键盘/热区）
-        'relative h-8 flex-1 rounded-[calc(var(--radius)-4px)] text-body-sm font-medium transition-colors duration-160 before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[""]',
+        'hit-slop-y relative h-8 flex-1 rounded-[calc(var(--radius)-4px)] text-body-sm font-medium transition-colors duration-160',
         modelValue === opt.value
           ? 'bg-background text-foreground shadow-raised'
           : 'text-(--text-on-inset) hover:text-foreground',

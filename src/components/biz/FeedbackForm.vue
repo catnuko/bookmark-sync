@@ -1,6 +1,9 @@
 <template>
   <div>
-    <h4 v-if="!bare" class="mb-2 ml-3.5 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase">
+    <h4
+      v-if="!bare"
+      class="mb-2 ml-3.5 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase"
+    >
       {{ t('feedback_title') }}
     </h4>
     <p class="mb-2.5 text-body-sm leading-(--text-body-sm--line-height) text-(--text-secondary-c)">

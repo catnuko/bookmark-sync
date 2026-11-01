@@ -1,6 +1,8 @@
 <template>
   <div>
-    <h4 class="mb-2 ml-3.5 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase">
+    <h4
+      class="mb-2 ml-3.5 text-caption font-semibold tracking-[0.06em] text-(--text-secondary-c) uppercase"
+    >
       {{ t('devices_title') }}
     </h4>
     <ListGroup v-if="state.devices.length">
@@ -31,10 +33,6 @@
           </Button>
         </template>
         <template v-else>
-          <template #leading>
-            <Smartphone v-if="isMobile(d)" :stroke-width="1.75" />
-            <Monitor v-else :stroke-width="1.75" />
-          </template>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 text-body font-medium [overflow-wrap:anywhere]">
               {{ deviceLabel(d) }}
@@ -74,7 +72,9 @@
       <Monitor :stroke-width="1.75" />
       <span>{{ t('devices_empty') }}</span>
     </Alert>
-    <p class="mt-2 ml-3.5 text-caption leading-(--text-caption--line-height) text-(--text-secondary-c)">
+    <p
+      class="mt-2 ml-3.5 text-caption leading-(--text-caption--line-height) text-(--text-secondary-c)"
+    >
       {{ t('devices_foot') }}
     </p>
   </div>
