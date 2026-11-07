@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.21.0](https://github.com/catnuko/bookmark-sync/compare/v2.20.0...v2.21.0) (2026-11-07)
+
+
+### Features
+
+* **open-source:** feedback entry to main repo, website open-source section, user-facing README ([3e30a6b](https://github.com/catnuko/bookmark-sync/commit/3e30a6b773290489095b247f0e777aa4cf27a84f))
+* **open-source:** 反馈入口指向主仓库、官网永久开源说明、README 面向使用者重构 ([a71b781](https://github.com/catnuko/bookmark-sync/commit/a71b7815646bf8112d3bcf7431c79120fc7db1b1))
+
+
+### Bug Fixes
+
+* **i18n:** 补齐 zh_TW 缺失的 plan 设备数 key，删除死 key plan_devicesUnlimited ([f22b030](https://github.com/catnuko/bookmark-sync/commit/f22b03052860bf333cd305aeaaa6872470007854))
+
 ## [2.20.0](https://github.com/catnuko/bookmark-sync/compare/v2.19.0...v2.20.0) (2026-11-01)
 
 
