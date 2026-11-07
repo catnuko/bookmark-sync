@@ -15,13 +15,13 @@
 
 ## 全历史命中明细（gitleaks 8 条）
 
-| 文件 | 提交 | 类别 | 判定与处置 |
-| --- | --- | --- | --- |
+| 文件                                                | 提交                   | 类别                                                      | 判定与处置                                                 |
+| --------------------------------------------------- | ---------------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
 | `src/lib/supabase.js`（现为 `src/lib/supabase.ts`） | `4bcfdd72`、`7f95dc85` | Supabase URL + anon/publishable key（`sb_publishable_…`） | **设计上公开**。客户端密钥，安全边界靠 RLS。保留，无需轮换 |
-| `src/preview.js`（现为 `src/preview.ts`） | `45e271c4`、`7f95dc85` | 同上（本地预览页用同一 anon key） | **设计上公开**。保留 |
-| `website/src/lib/supabase.js` | `7f95dc85`、`8d4bdf46` | 官网用同一 Supabase URL + anon/publishable key | **设计上公开**。保留 |
-| `macos-app/Tests/.../SupabaseAuthClientTests.swift` | `e08af890` | 测试桩 URL `https://abcdefghijklm.supabase.co` | **误报**（占位符，非真实项目） |
-| `macos-app/Tests/.../SupabaseRpcClientTests.swift` | `2175f432` | 同上 | **误报** |
+| `src/preview.js`（现为 `src/preview.ts`）           | `45e271c4`、`7f95dc85` | 同上（本地预览页用同一 anon key）                         | **设计上公开**。保留                                       |
+| `website/src/lib/supabase.js`                       | `7f95dc85`、`8d4bdf46` | 官网用同一 Supabase URL + anon/publishable key            | **设计上公开**。保留                                       |
+| `macos-app/Tests/.../SupabaseAuthClientTests.swift` | `e08af890`             | 测试桩 URL `https://abcdefghijklm.supabase.co`            | **误报**（占位符，非真实项目）                             |
+| `macos-app/Tests/.../SupabaseRpcClientTests.swift`  | `2175f432`             | 同上                                                      | **误报**                                                   |
 
 ## trufflehog 全历史命中（11 条候选，0 条验证通过）
 
@@ -35,14 +35,14 @@
 
 ## 工作区命中（gitleaks --no-git 31 条，全部未跟踪 / gitignore 内）
 
-| 路径 | 内容 | 判定与处置 |
-| --- | --- | --- |
-| `.dev-creds.json` | 测试账号邮箱/密码/口令/aiKey 键名 | **本地开发凭证**，已 gitignore，从未入库。继续留在 ignore 名单 |
-| `.env.submit` | 商店提交通 | 同上，从未入库 |
-| `.workbuddy/e2e.env` | E2E 真实测试账号 | 同上 |
-| `.claude/worktrees/*/` | 上述凭证的本地工作树副本 | 同上 |
-| `website/.next/**` 缓存、`.workbuddy/xb-profiles/firefox/cache2/**` | 构建缓存/浏览器缓存里的 anon key 残留 | 未跟踪，构建产物不入库 |
-| `src/lib/supabase.ts`、`src/preview.ts`、`website/src/lib/supabase.js` | 当前跟踪文件中的 anon/publishable key | **设计上公开**（与全历史命中相同） |
+| 路径                                                                   | 内容                                  | 判定与处置                                                     |
+| ---------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
+| `.dev-creds.json`                                                      | 测试账号邮箱/密码/口令/aiKey 键名     | **本地开发凭证**，已 gitignore，从未入库。继续留在 ignore 名单 |
+| `.env.submit`                                                          | 商店提交通                            | 同上，从未入库                                                 |
+| `.workbuddy/e2e.env`                                                   | E2E 真实测试账号                      | 同上                                                           |
+| `.claude/worktrees/*/`                                                 | 上述凭证的本地工作树副本              | 同上                                                           |
+| `website/.next/**` 缓存、`.workbuddy/xb-profiles/firefox/cache2/**`    | 构建缓存/浏览器缓存里的 anon key 残留 | 未跟踪，构建产物不入库                                         |
+| `src/lib/supabase.ts`、`src/preview.ts`、`website/src/lib/supabase.js` | 当前跟踪文件中的 anon/publishable key | **设计上公开**（与全历史命中相同）                             |
 
 ## 清单 1.1 指定的三个误报类确认
 

@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: Something in the extension or backend is broken
-title: "[Bug] "
+title: '[Bug] '
 labels: bug
 assignees: ''
 ---
@@ -11,6 +11,7 @@ A clear and concise description of what went wrong.
 
 **To reproduce**
 Steps to reproduce the behavior:
+
 1. Go to '...'
 2. Click on '...'
 3. See error
@@ -19,6 +20,7 @@ Steps to reproduce the behavior:
 What you expected to happen instead.
 
 **Environment (please complete):**
+
 - Browser and version (e.g. Chrome 141 / Firefox 144 / Edge 141):
 - Extension version (from the options page or the store listing):
 - OS:

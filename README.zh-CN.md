@@ -24,11 +24,11 @@
 
 推荐直接从商店安装你所用浏览器的版本，更新自动处理：
 
-| 浏览器 | 安装 |
-| --- | --- |
-| Chrome | [Chrome 应用商店](https://chromewebstore.google.com/detail/emmjhpmhfepapemiflddnbmikicklfml) |
-| Edge | [Edge 加载项](https://microsoftedge.microsoft.com/addons/detail/bookmark-sync/ilhfggggmdgfnliiimnkhdbaijjombah) |
-| Firefox | [Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/bookmark-sync-app) |
+| 浏览器  | 安装                                                                                                            |
+| ------- | --------------------------------------------------------------------------------------------------------------- |
+| Chrome  | [Chrome 应用商店](https://chromewebstore.google.com/detail/emmjhpmhfepapemiflddnbmikicklfml)                    |
+| Edge    | [Edge 加载项](https://microsoftedge.microsoft.com/addons/detail/bookmark-sync/ilhfggggmdgfnliiimnkhdbaijjombah) |
+| Firefox | [Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/bookmark-sync-app)                             |
 
 Safari 暂不支持——它不提供 `bookmarks` API，扩展侧书签同步在 Safari 上当前不可行。
 
