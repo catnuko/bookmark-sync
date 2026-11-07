@@ -1,79 +1,73 @@
 # bookmark-sync
 
-跨浏览器书签云同步扩展（Manifest V3）。以 Supabase（Postgres + Auth）为后端，扩展直连 Supabase，无需自建服务器。支持 **Chrome / Edge / Firefox**，一套代码多端构建。
+**Cross-browser bookmark cloud sync extension (Manifest V3).** Supabase (Postgres + Auth) as the backend — the extension talks to Supabase directly, no server of your own to run. One codebase, three browsers: **Chrome / Edge / Firefox**.
 
-- 登录/注册复用 Supabase 官方 Auth（邮箱 + 密码），RLS 行级隔离，每个用户只能读写自己的书签。
-- 同步引擎 v2：**Move-CRDT 操作日志模型**（取代旧的「快照 + 墓碑」三态合并）。书签增删改/移动转成 MoveOp（Kleppmann 树 CRDT），经 AES-256-GCM 操作级加密写入 `bsync_op_log`，多设备按 Lamport 时间戳收敛，不丢书签、不成环。
-- **端到端加密默认开启**：每一条书签操作在设备上加密后才上传，服务器只见密文（快照 GC 同理）。密钥由口令派生（PBKDF2，盐存云端按用户同步）或导出/导入，新设备登录 + 输入同一口令即可解密。
-- 已通过 **Chromium × Firefox × Edge 三浏览器联合验证**（`scripts/e2e/e2e-triple-sync.mjs`），含书签菜单双向同步与冷重启保留。
-- 同步权威在 MV3 Service Worker：chrome.bookmarks 事件 → 本地 op 入队 → 去抖推送；popup 通过 `chrome.runtime.sendMessage` 触发同步（见 `src/background.js` / `src/sync.js`）。
+English | [简体中文](README.zh-CN.md)
 
-## 技术栈
+## Features
 
-- 前端：Vue 3 + Vite（选项页 / 弹窗）+ MV3 service worker（后台同步引擎）
-- 后端：Supabase（Postgres + Auth + RLS）
-- 多浏览器：Chromium 通用 manifest + Firefox 专用 manifest 两套构建
+- **End-to-end encryption by default.** Every bookmark operation is encrypted on your device (AES-256-GCM) before it is uploaded — the server only ever sees ciphertext. Keys are derived from a passphrase (PBKDF2, salt stored per-user in the cloud) or exported/imported manually; sign in on a new device, enter the same passphrase, and everything decrypts.
+- **Sync engine v2 — Move-CRDT operation log.** Bookmark create/delete/move operations become MoveOps (Kleppmann tree CRDT), encrypted and appended to `bsync_op_log`. Devices converge by Lamport timestamp: no lost bookmarks, no cycles, no merge conflicts you have to resolve.
+- **Auth you don't have to manage.** Email + password sign-in reuses Supabase Auth; Row Level Security isolates every user's data.
+- **Store-ready release pipeline.** release-please + GitHub Actions produce signed store zips for Chromium, Firefox and an AMO source package.
 
-## 目录结构
+## Browser support
 
-- `src/` — 扩展源码（选项页、service worker、同步引擎）；**这里才是源码真相**
-- `supabase/` — 数据库迁移（`bsync_*` 表 + RPC，迁移代码已直接入库，非 submodule）
-- `public/` — `manifest.json`（Chromium）；`manifest.firefox.json`（Firefox）；图标
-- `extension/` — Chromium 构建产物（gitignore，勿提交）
-- `extension-firefox/` — Firefox 构建产物（gitignore，勿提交）
-- `scripts/` — 构建钩子与本地验证脚本
-- `website/` — 官网（Vue 3 + Vite，Vercel 部署，独立工程/依赖）
-- `bookmark-sync/` — Xcode Safari 壳工程（macOS/iOS），构建产物 gitignore
-- `store-assets/` — 商店截图与 logo
-- `docs/` — 设计文档、重构方案、手工测试计划
-- `tests/` — 单元测试（vitest）
-- `AGENTS.md` — 开发注意事项
+| Browser | Status | Install |
+| --- | --- | --- |
+| Chrome / Edge | Supported | [Chrome Web Store](https://chromewebstore.google.com/detail/emmjhpmhfepapemiflddnbmikicklfml) (works in Edge; a dedicated [Edge Add-ons listing](https://microsoftedge.microsoft.com/addons/detail/bookmark-sync/ilhfggggmdgfnliiimnkhdbaijjombah) is also available) |
+| Firefox | Supported | [Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/bookmark-sync-app) |
+| Safari (macOS / iOS) | **Not supported** | Safari exposes no `bookmarks` API, so extension-side bookmark sync is not feasible there today |
 
-## 快速开始
+## How sync works
 
-### 1. 初始化 Supabase
+The sync authority lives in the MV3 Service Worker: `chrome.bookmarks` events → local op queue → debounced push. The popup triggers syncs via `chrome.runtime.sendMessage` (see `src/background.ts` / `src/sync/`). The sync engine, CRDT and crypto layers are all in `src/` — that directory is the source of truth.
 
-1. 在 [Supabase Dashboard](https://supabase.com/dashboard) 打开项目，进入 **SQL Editor**，按顺序执行 `supabase/migrations/` 下全部迁移（当前共 37 个，从 `0001_init.sql` 起；或用本地 `supabase db push` 一键应用）。
-2. 开启注册即用：**Authentication → Providers → Email → 关闭「Confirm email」**。
-3. 把 `src/lib/supabase.js` 里的 `SUPABASE_URL` 与 `SUPABASE_ANON_KEY` 改成你自己项目的值。
+## Self-hosting
 
-### 2. 构建
+You can run everything against your own Supabase project — database migrations, the optional billing edge functions, and building the extension with your own endpoints are documented in [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md). Self-hosted instances do **not** use the hosted service's billing (Creem) subscription; quotas are yours to configure via the `quota_bytes` column.
+
+## Pricing (hosted service)
+
+The hosted service (default Supabase project in this repo) has a free tier of **1,000 items / 5 MiB** per account, with paid plans (Plus / Pro / Lifetime) for higher quotas. If you self-host, you decide your own quotas. Details may change; the extension always shows your current plan and quota.
+
+## Development
 
 ```bash
 pnpm install
-npx vite build        # Chrome / Edge -> extension/
-node scripts/build-firefox.mjs   # Firefox  -> extension-firefox/
+pnpm dev            # local preview of the options/popup UI
+pnpm build          # Chromium build -> extension/ (includes Safari shell post-build step)
+pnpm build:firefox  # Firefox build -> extension-firefox/
+pnpm check          # typecheck + lint + format check + unit tests
+pnpm test           # vitest unit tests
 ```
 
-> 说明：也可用 `pnpm build`（含 Safari 同步）与 `pnpm build:firefox`，但 CI 发版只用上面的裸命令，避免触发 Xcode 编译。`pnpm dev` 可本地预览选项页 UI。
+- `src/` — extension source (options page, popup, service worker, sync engine); **the source of truth**
+- `supabase/` — database migrations (`bsync_*` tables + RPCs), checked in directly
+- `scripts/` — build hooks, packaging and local verification scripts (incl. `scripts/e2e/` triple-browser E2E)
+- `website/` — the marketing site (Vue 3 + Vite, deployed on Vercel, separate dependency tree)
+- `docs/` — design docs, self-hosting and privacy documentation
 
-### 3. 在浏览器中加载
+Load the build in a browser:
 
-- Chrome：`chrome://extensions` → 开发者模式 → 加载已解压 → 选 `extension/`。
-- Edge：`edge://extensions` → 开发人员模式 → 加载解压缩 → 选 `extension/`。
-- Firefox：`about:debugging#/runtime/this-firefox` → 「临时载入附加组件」→ 选 `extension-firefox/manifest.json`（正式分发需 AMO 签名）。
+- Chrome: `chrome://extensions` → Developer mode → Load unpacked → `extension/`
+- Edge: `edge://extensions` → Load unpacked → `extension/`
+- Firefox: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `extension-firefox/manifest.json` (store distribution requires AMO signing)
 
-加载后打开扩展选项页，登录账号即可同步。
+Releases are automated: Conventional Commits pushed to `main` go through release-please; merging the release PR bumps the version, tags it and attaches three zips (chromium / firefox / source) to a GitHub Release. A quality gate (typecheck + lint + format + tests) runs before release.
 
-## 发布（CI 自动发版）
+## Contributing
 
-推送 `feat:`/`fix:` 提交（Conventional Commits）到 `main` 后，GitHub Actions 自动完成：升级版本号 → 生成 `CHANGELOG.md` → 开 release PR → 合并后打 tag 并发布，产出**三个 zip** 挂到 Release：
+Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md). In short: commits must be signed off (`git commit -s`, the [DCO](https://developercertificate.org/)) and follow Conventional Commits.
 
-- `bookmark-sync-chromium-<ver>.zip`（Chrome / Edge）
-- `bookmark-sync-firefox-<ver>.zip`（Firefox）
-- `bookmark-sync-source-<ver>.zip`（AMO 审核用源码包，含 `BUILD.md` 构建说明；Chrome / Edge 商店不需要）
+## Privacy
 
-合并到 `main` 后会自动跑 **Quality Gate**（`tsc` 类型检查 + lint + 格式检查 + vitest 单测），未通过不会发版。本项目是单人开发，PR 阶段不重复跑 CI —— 四项检查与本地 `pnpm check` 完全一致，合并前本地一键自检即可。
+What the server can and cannot see, and how error reporting works, is documented in [docs/PRIVACY.md](docs/PRIVACY.md) and the website privacy policy (https://www.bookmark-sync.top/privacy).
 
-## 已知限制
+## Security
 
-- **Safari 暂不支持**：Safari（含 iOS）不提供 `bookmarks` API，扩展侧书签同步在 Safari 上不可行，当前发布范围不包含 Safari。详见 `AGENTS.md`。
-- 商店发布要求（隐私政策、AMO 源码包等）见 `AGENTS.md`。
+Found a vulnerability? Please **do not open a public issue** — see [SECURITY.md](SECURITY.md) for private reporting channels.
 
-## 许可与隐私
+## License
 
-本扩展会收集登录邮箱与书签数据，隐私政策：https://www.bookmark-sync.top/privacy
-
-## 更多
-
-- 开发注意事项：见 [AGENTS.md](AGENTS.md)（构建命令、CI 发版关键点、同步协议、Safari 硬约束、协作约定）。
+This project is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later), covering the extension, the Supabase backend (migrations + edge functions), the website and all scripts in this repository.

@@ -2,6 +2,7 @@
   "name": "bookmark-sync",
   "private": true,
   "version": "2.19.0",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
