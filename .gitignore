@@ -61,3 +61,5 @@ docs/admin/
 .codebuddy
 .claude
 .qoder
+
+supabase/AGENTS.md
