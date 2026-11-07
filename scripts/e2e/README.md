@@ -53,7 +53,7 @@ npm run e2e -- <场景>                                # 同一个入口
 `E2E_PASSPHRASE` 只用于测试账号——`--fresh` 会把账号的 E2EE 盐清掉，换盐后旧口令
 解不开历史数据。
 
-支付类场景另有两个**不写进文件**的变量（用命令行前缀传，避免把 live 密钥落到磁盘）：
+支付类场景另有几个环境变量（用命令行前缀传，避免把 live 密钥落到磁盘）：
 
 ```bash
 # 只建收银台会话、不付款；给了 CREEM_API_KEY 才能反查会话详情
@@ -61,6 +61,10 @@ CREEM_API_KEY=creem_xxx node scripts/e2e/run.mjs creem-checkout
 # 验签 + 落库（密钥取自 Creem 后台「设置 → 网络钩子 → 该端点 → 签名密钥」）
 CREEM_WEBHOOK_SECRET=whsec_xxx node scripts/e2e/run.mjs creem-webhook
 ```
+
+`CREEM_PRODUCT_PLUS` / `CREEM_PRODUCT_PRO`：live 产品 id（Creem 后台「产品」页可查；
+测试模式有另一套 id，别混用），`creem-checkout` / `creem-webhook` 用它们钉期望值。
+同样命令行前缀传入，或写进 gitignore 的 `.workbuddy/e2e.env`；不配则用占位符，场景会失败。
 
 `creem-webhook` 会**临时**改测试账号的 plan/quota 并插一条带 `_e2e` 前缀的订阅/订单，
 `finally` 里按原值还原并删掉（中途抛错也生效）；`creem-checkout` 因为升级入口只在
@@ -213,7 +217,7 @@ EMAIL=你的测试账号邮箱 PASSWORD='你的密码' node e2e/e2e-gc.mjs   # �
   - `e2e/test-bridge/`：桥扩展 content script 用 **`window.postMessage`** 桥（内容脚本↔
     页面标准通道，结构化克隆无 Xray 问题）把页面消息转发到 bookmark-sync。
   - **死路（勿重试）**：wrappedJSObject 赋值函数 / `Cu.exportFunction` / DOM CustomEvent
-    跨 realm / WebDriver 与 JS 跳转 moz-extension://（全部失败，见 NEXT-STEPS.md 2.5）。
+    跨 realm / WebDriver 与 JS 跳转 moz-extension://（全部失败）。
 - **根 id 差异**：Chrome 根是数字 `"0"/"1"/"2"/"3"`，Firefox 是 guid
   `root________/toolbar_____/unfiled_____/mobile______`（另有 `menu________`）。
   `chromeBridge.ts` 的 backward（uuid→chromeId）**只 seed 本环境根**（UA 判定

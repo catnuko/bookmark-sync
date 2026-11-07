@@ -34,7 +34,7 @@ const PORT = 9344;
 const PROJECT_REF = process.env.SUPABASE_PROJECT ?? 'cwtqnsbpcetvqopdkcou';
 const WEBHOOK_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/bsync-creem-webhook`;
 const WEBHOOK_SECRET = process.env.CREEM_WEBHOOK_SECRET ?? '';
-const PLUS_PRODUCT = 'prod_6Oht2olsdpCDPC62dE8tz4';
+const PLUS_PRODUCT = process.env.CREEM_PRODUCT_PLUS ?? 'prod_PLUS_ID_PLACEHOLDER';
 /** 与 bsync-creem-webhook 的 PLAN_QUOTA_BYTES 对齐（0035 校准：plus 20MiB） */
 const PLUS_QUOTA_BYTES = 20 * 1024 * 1024;
 

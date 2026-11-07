@@ -47,6 +47,17 @@ website/public/downloads/
 # 本地开发用的登录凭据（vite.config.js 的 define 注入，绝不入 git / 不进商店包）
 .dev-creds.json
 
+# 开源准备：内部文件保留在本地工作区但不再跟踪（清理清单 docs/security/sensitive-content-cleanup-2026-11-07.md A 组）
+AGENTS.md
+memory/
+docs/NEXT-STEPS.md
+docs/refactor-plan.md
+docs/manual-test-plan.md
+docs/ci-test-job.patch
+docs/design-shadcn-rewrite.md
+docs/safari-sync-research.md
+docs/admin/
+
 .codebuddy
 .claude
 .qoder
