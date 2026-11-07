@@ -17,7 +17,7 @@ name: Publish to stores
 #      同源的那份字节；商店提交必须是同一份，不能再多出一条「第二份 zip」的路径。
 #   2) artifact 只活在产生它的那次 run 里（默认 90 天过期），而商店提交失败往往
 #      隔几天才修好凭证重试 —— 那时 Release 资产仍在。
-#   3) 私有仓库匿名 curl 下载 Release 资产返回 404（AGENTS.md 已记），所以走
+#   3) 私有仓库匿名 curl 下载 Release 资产返回 404，所以走
 #      gh CLI + GITHUB_TOKEN，不裸 curl。
 #
 # ★ 手动触发默认**不**碰商店（本工作流本身就是手动触发的，且只提交不打包）：

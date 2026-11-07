@@ -35,12 +35,13 @@ const CREEM_API_BASE = process.env.CREEM_API_BASE ?? 'https://api.creem.io';
 
 /**
  * live 产品 id（Creem 后台「产品」页可查）。
- * 测试模式有**另一套** id —— 两套混用是「付了钱但没开通」的经典成因，所以这里硬编码
- * 期望值，而不是从 secrets 读（从 secrets 读就变成自证了）。
+ * 测试模式有**另一套** id —— 两套混用是「付了钱但没开通」的经典成因，所以这里以环境变量
+ * 注入期望值，而不是从 secrets 读（从 secrets 读就变成自证了）。
+ * 本地注入方式：在 .dev-creds.json / e2e.env（均 gitignore）里配 CREEM_PRODUCT_PLUS / CREEM_PRODUCT_PRO。
  */
 export const LIVE_PRODUCT_ID = {
-  plus: 'prod_6Oht2olsdpCDPC62dE8tz4',
-  pro: 'prod_5a84DlDi1XPzOiTmoUEvuk',
+  plus: process.env.CREEM_PRODUCT_PLUS ?? 'prod_PLUS_ID_PLACEHOLDER',
+  pro: process.env.CREEM_PRODUCT_PRO ?? 'prod_PRO_ID_PLACEHOLDER',
 };
 
 export const meta = {

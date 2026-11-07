@@ -23,8 +23,8 @@ import { api } from './ext.js';
 /** 对外客服邮箱（与官网 SITE.email / i18n contact.supportEmail 保持一致）。 */
 export const SUPPORT_EMAIL = 'support@bookmark-sync.top';
 
-/** 反馈专用仓库的 Issues 页（新反馈自动建 issue 的就是这里，与触发器指向对齐）。 */
-export const FEEDBACK_ISSUES_URL = 'https://github.com/catnuko/bookmark-sync-feedback/issues';
+/** 主仓库的 Issues 页（反馈入口；数据库侧 issue 同步同样指向主仓库，见迁移 0055）。 */
+export const FEEDBACK_ISSUES_URL = 'https://github.com/catnuko/bookmark-sync/issues';
 
 /** 反馈类型白名单 —— 与服务端 CHECK (kind in ('bug','idea','other')) 对齐。 */
 export type FeedbackKind = 'bug' | 'idea' | 'other';
