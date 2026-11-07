@@ -573,5 +573,12 @@
         "terms": "服务条款"
       }
     }
+  },
+  "opensource": {
+    "eyebrow": "开源",
+    "title": "永久免费，完全开源",
+    "subtitle": "bookmark-sync 在 AGPL-3.0 下完全开源——浏览器扩展、Supabase 后端与官网全部代码公开。欢迎查阅与审查代码，也可以部署到你自己的 Supabase 项目上。",
+    "repoCta": "在 GitHub 查看",
+    "selfHostCta": "自部署指南"
   }
 }

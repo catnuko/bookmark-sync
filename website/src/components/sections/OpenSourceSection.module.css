@@ -1,0 +1,35 @@
+.openSourceSection {
+  background: var(--color-bg);
+}
+
+.openSourceCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-8);
+}
+
+.eyebrow {
+  margin: 0;
+}
+
+.subtitle {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .openSourceCard {
+    padding: var(--space-8) var(--space-5);
+  }
+}

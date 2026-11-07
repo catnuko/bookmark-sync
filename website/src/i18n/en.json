@@ -573,5 +573,12 @@
         "terms": "Terms of Service"
       }
     }
+  },
+  "opensource": {
+    "eyebrow": "Open source",
+    "title": "Forever free & open source",
+    "subtitle": "bookmark-sync is fully open source under AGPL-3.0 — the browser extension, the Supabase backend and this website. Read the code, audit it, or run the whole stack on your own Supabase project.",
+    "repoCta": "View on GitHub",
+    "selfHostCta": "Self-hosting guide"
   }
 }

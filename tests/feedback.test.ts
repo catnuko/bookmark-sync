@@ -114,7 +114,7 @@ describe('buildMailto（未登录兜底）', () => {
 });
 
 describe('GitHub Issues 链接', () => {
-  it('指向反馈专用仓库 bookmark-sync-feedback 的 issues 页（不是主仓库）', () => {
-    expect(FEEDBACK_ISSUES_URL).toBe('https://github.com/catnuko/bookmark-sync-feedback/issues');
+  it('指向主仓库 catnuko/bookmark-sync 的 issues 页', () => {
+    expect(FEEDBACK_ISSUES_URL).toBe('https://github.com/catnuko/bookmark-sync/issues');
   });
 });

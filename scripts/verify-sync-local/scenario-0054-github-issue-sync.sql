@@ -1,8 +1,8 @@
--- ============ 0054 本地验证：反馈 → GitHub issue 同步链路（占位 token） ============
+-- ============ 0054/0055 本地验证：反馈 → GitHub issue 同步链路（占位 token） ============
 -- 依赖：**supabase 本地栈**（需要真实 vault 与 pg_net，裸 Postgres 重放跑不了本文件）。
 -- 运行：
 --   supabase start
---   supabase db reset          # 或 supabase migration up（应用 0001~0054）
+--   supabase db reset          # 或 supabase migration up（应用 0001~0055；0055 把目标改为主仓库）
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
 --        -v ON_ERROR_STOP=1 -f scripts/verify-sync-local/scenario-0054-github-issue-sync.sql
 -- 预期：载荷形状断言全过；网络链路用**占位 token** 实测 —— GitHub 返回 401
@@ -80,7 +80,7 @@ begin
     if exists (
       select 1 from net.http_response
        where created > now() - interval '1 minute'
-         and url like '%api.github.com/repos/catnuko/bookmark-sync-feedback/issues%'
+         and url like '%api.github.com/repos/catnuko/bookmark-sync/issues%'
     ) then
       exit;
     end if;
@@ -97,7 +97,7 @@ begin
   select status_code, content::text as body, error_msg, timed_out
     into r
     from net.http_response
-   where url like '%api.github.com/repos/catnuko/bookmark-sync-feedback/issues%'
+   where url like '%api.github.com/repos/catnuko/bookmark-sync/issues%'
    order by id desc
    limit 1;
   if not found then

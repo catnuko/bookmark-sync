@@ -1,5 +1,6 @@
 import { type Locale } from '@/i18n/t';
 import HeroSection from '@/components/sections/HeroSection';
+import OpenSourceSection from '@/components/sections/OpenSourceSection';
 import PainSection from '@/components/sections/PainSection';
 import BrowserSection from '@/components/sections/BrowserSection';
 import CompareSection from '@/components/sections/CompareSection';
@@ -11,6 +12,8 @@ export default function HomePage({ locale }: { locale: Locale }) {
   return (
     <div className={styles.home}>
       <HeroSection locale={locale} />
+      {/* ★ 2026-11-07 新增：仓库转 public 后，hero 正下方放「永久开源」说明（catnuko 要求显眼处）。 */}
+      <OpenSourceSection locale={locale} />
       <PainSection locale={locale} />
       {/* ★ 2026-10 删除「为真实同步场景打磨的引擎」整块（原 FeatureSection，9 张功能卡）。
            理由：它讲的是「我们有什么能力」，而访客真正想知道的是「和你已经在用的那个
