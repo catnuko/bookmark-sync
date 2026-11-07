@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.20.0](https://github.com/catnuko/bookmark-sync/compare/v2.19.0...v2.20.0) (2026-11-01)
+
+
+### Features
+
+* **db:** 新反馈自动同步为 GitHub issue（pg_net 触发器 + Vault 存 token） ([1b49c24](https://github.com/catnuko/bookmark-sync/commit/1b49c2466219dad2e257607f62fd4a96f11f6106))
+* **feedback:** 反馈面板新增跳转 GitHub Issues 入口 ([ab6ac0b](https://github.com/catnuko/bookmark-sync/commit/ab6ac0bdf78bdffeea68fddcc0b404566c40ca62))
+* **ui:** shadcn 业务组件层（shadcn 重写 3/5） ([51a39df](https://github.com/catnuko/bookmark-sync/commit/51a39dfd5bbfa2fac24c085e803f46c01e7e64fe))
+* **ui:** shadcn-vue 原子层组件与 vue-sonner Toast（shadcn 重写 2/5） ([7b32cdd](https://github.com/catnuko/bookmark-sync/commit/7b32cddf30d33a351a7f93d29eb3f64d4530bb0a))
+* **ui:** 接入 Tailwind v4 与 shadcn 设计 token 基建（shadcn 重写 1/5） ([8b18eb0](https://github.com/catnuko/bookmark-sync/commit/8b18eb0c6d98a699570010e219eda0e01934f829))
+* **ui:** 视图层重写（shadcn 重写 4/5） ([25eb6c4](https://github.com/catnuko/bookmark-sync/commit/25eb6c492c5e3be5ea89f3e93cea8635bb3b29f6))
+
+
+### Bug Fixes
+
+* **ui:** 全局元素基础样式收入 [@layer](https://github.com/layer) base，修复黑底按钮内文字变黑 ([677be2e](https://github.com/catnuko/bookmark-sync/commit/677be2eaba85cb9ecbffada09f9e17829f88f199))
+* **ui:** 恢复弹窗玻璃底色 + 订阅/稍后再说按钮可见形态 ([d719b42](https://github.com/catnuko/bookmark-sync/commit/d719b42ef353634c277861b6c9f154cda1cfd064))
+* **ui:** 真机目验四处观感修复——弹窗居中/头像压字/反馈两级菜单/留白收紧 ([7d6e83d](https://github.com/catnuko/bookmark-sync/commit/7d6e83de8965a39e217023d621a7723d590b85db))
+
 ## [2.19.0](https://github.com/catnuko/bookmark-sync/compare/v2.18.1...v2.19.0) (2026-10-27)
 
 
