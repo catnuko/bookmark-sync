@@ -67,14 +67,14 @@ supabase functions deploy bsync-creem-webhook
 
 and set their secrets (`supabase secrets set ...`):
 
-| Secret | Purpose |
-| --- | --- |
-| `CREEM_API_KEY` | Your Creem API key |
-| `CREEM_WEBHOOK_SECRET` | Webhook signing secret from Creem |
+| Secret                                     | Purpose                                           |
+| ------------------------------------------ | ------------------------------------------------- |
+| `CREEM_API_KEY`                            | Your Creem API key                                |
+| `CREEM_WEBHOOK_SECRET`                     | Webhook signing secret from Creem                 |
 | `CREEM_PRODUCT_PLUS` / `CREEM_PRODUCT_PRO` | Your Creem product IDs for the Plus and Pro tiers |
-| `CREEM_SUCCESS_URL` | Where to send users after a successful checkout |
-| `CREEM_API_BASE` | Optional; defaults to `https://api.creem.io` |
-| `SUPABASE_URL` / `SERVICE_ROLE_KEY` | Set automatically by the Supabase CLI / platform |
+| `CREEM_SUCCESS_URL`                        | Where to send users after a successful checkout   |
+| `CREEM_API_BASE`                           | Optional; defaults to `https://api.creem.io`      |
+| `SUPABASE_URL` / `SERVICE_ROLE_KEY`        | Set automatically by the Supabase CLI / platform  |
 
 The extension-side plan display (`PlanCard`, `QuotaCard`, upgrade modal) reads your plan from `bsync_profiles`; if no billing functions exist it simply shows the free quota.
 
@@ -90,7 +90,7 @@ update public.bsync_profiles set quota_bytes = 52428800 where user_id = '<uuid>'
 
 The extension reports sync errors (metadata only — never bookmark content, see [docs/PRIVACY.md](PRIVACY.md)) to the `bsync_error_reports` table via RPC. On a self-hosted instance these reports land in **your** database and stay there; nothing is forwarded anywhere else. If you don't want them, you can revoke the RPC or ignore the table.
 
-## What is *not* part of self-hosting
+## What is _not_ part of self-hosting
 
 - The Creem subscription of the hosted service (its product IDs, customers and webhooks belong to it).
 - The hosted service's account data — a self-hosted project starts empty; the extension does not migrate accounts between Supabase projects.

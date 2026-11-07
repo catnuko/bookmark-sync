@@ -27,15 +27,15 @@ pnpm dev            # local preview of the options/popup UI
 
 ## Useful commands
 
-| Command | What it does |
-| --- | --- |
-| `pnpm build` | Chromium build → `extension/` |
-| `pnpm build:firefox` | Firefox build → `extension-firefox/` |
-| `pnpm test` | vitest unit tests |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm lint` | oxlint over `src/`, `scripts/e2e/`, `tests/`, `website/` |
-| `pnpm fmt:check` | format check (oxfmt) |
-| `pnpm check` | typecheck + lint + fmt + tests — run this before opening a PR |
+| Command              | What it does                                                  |
+| -------------------- | ------------------------------------------------------------- |
+| `pnpm build`         | Chromium build → `extension/`                                 |
+| `pnpm build:firefox` | Firefox build → `extension-firefox/`                          |
+| `pnpm test`          | vitest unit tests                                             |
+| `pnpm typecheck`     | `tsc --noEmit`                                                |
+| `pnpm lint`          | oxlint over `src/`, `scripts/e2e/`, `tests/`, `website/`      |
+| `pnpm fmt:check`     | format check (oxfmt)                                          |
+| `pnpm check`         | typecheck + lint + fmt + tests — run this before opening a PR |
 
 ## Where things live
 

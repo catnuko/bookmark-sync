@@ -1,7 +1,7 @@
 ---
 name: Feature request
 about: Suggest an idea for bookmark-sync
-title: "[Feature] "
+title: '[Feature] '
 labels: enhancement
 assignees: ''
 ---

@@ -24,11 +24,11 @@ Browser bookmark sync usually locks you into one ecosystem: Chrome only syncs to
 
 The easiest way is the store listing for your browser — updates are handled automatically:
 
-| Browser | Install |
-| --- | --- |
-| Chrome | [Chrome Web Store](https://chromewebstore.google.com/detail/emmjhpmhfepapemiflddnbmikicklfml) |
-| Edge | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/bookmark-sync/ilhfggggmdgfnliiimnkhdbaijjombah) |
-| Firefox | [Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/bookmark-sync-app) |
+| Browser | Install                                                                                                          |
+| ------- | ---------------------------------------------------------------------------------------------------------------- |
+| Chrome  | [Chrome Web Store](https://chromewebstore.google.com/detail/emmjhpmhfepapemiflddnbmikicklfml)                    |
+| Edge    | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/bookmark-sync/ilhfggggmdgfnliiimnkhdbaijjombah) |
+| Firefox | [Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/bookmark-sync-app)                              |
 
 Safari is not supported today — it exposes no `bookmarks` API, so extension-side bookmark sync is not feasible there.
 
