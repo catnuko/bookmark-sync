@@ -1193,11 +1193,13 @@ export async function submit(): Promise<void> {
   }
 }
 
-export async function logout(): Promise<void> {
-  await supabase.auth.signOut();
-  // **不要**清 `boundSpaceId`：绑定是「账号 × 设备」的事实，同账号重登必须还是
-  // 原来的绑定（清掉的话每次重登都会被当成新设备、重新问一遍「加入哪个空间」）。
-  // 换账号由记录里的归属账号兜住——`parseBinding` 判到不符即按从未绑定处理。
+/**
+ * 退出登录 / 注销账户共用的本地状态清理。
+ * **不要**清 `boundSpaceId`：绑定是「账号 × 设备」的事实，同账号重登必须还是
+ * 原来的绑定（清掉的话每次重登都会被当成新设备、重新问一遍「加入哪个空间」）。
+ * 换账号由记录里的归属账号兜住——`parseBinding` 判到不符即按从未绑定处理。
+ */
+function clearSessionState(): void {
   state.session = null;
   state.profile = null;
   state.serverCount = null;
@@ -1212,10 +1214,33 @@ export async function logout(): Promise<void> {
   state.bindSpaces = [];
   state.drawer = '';
   state.armed = '';
+}
+
+export async function logout(): Promise<void> {
+  await supabase.auth.signOut();
+  clearSessionState();
   state.status = t('toast_loggedOut');
   // 首屏缓存跟着会话走：不清的话，换账号登录会把上个账号的空间名/设备名先画出来。
   await clearUiCache();
   showToast('info', t('toast_loggedOut'), '');
+}
+
+// ---- 注销账户（自助删除）----
+// 调 bsync_delete_account（迁移 0056）：服务端删 auth.users 行，bsync_* 外键
+// on delete cascade 级联清理全部云端数据，并按 0023 口径写审计日志。
+// 浏览器本地书签不在任何删除路径上，天然保留；这里只清会话与本地状态。
+export async function deleteAccount(): Promise<void> {
+  const { error } = await supabase.rpc('bsync_delete_account');
+  if (error) {
+    showToast('danger', t('delacct_failTitle'), describeError(error));
+    throw error;
+  }
+  // 账户已在服务端删除：signOut 只是清本地会话（远端 /logout 会 401，忽略即可）。
+  await supabase.auth.signOut().catch(() => {});
+  clearSessionState();
+  state.status = t('delacct_doneTitle');
+  await clearUiCache();
+  showToast('success', t('delacct_doneTitle'), t('delacct_doneSub'));
 }
 
 // ---- 弹窗抽屉 / 设置页导航 ----

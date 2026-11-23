@@ -34,7 +34,7 @@ The extension includes a minimal, always-on diagnostic channel (`src/lib/telemet
 ## Data retention and deletion
 
 - Delete a bookmark → a delete op is recorded and the content stays encrypted as usual; server-side snapshot garbage collection removes old ciphertext.
-- Delete your account (via the hosted service or your own Supabase project) → Supabase Auth deletion plus the per-user rows (protected by RLS / foreign keys) removes your ciphertext, metadata and profile.
+- Delete your account (Options → Account → danger zone in the extension, the hosted service admin, or your own Supabase project) → Supabase Auth deletion plus the per-user rows (protected by RLS / foreign keys) removes your ciphertext, metadata and profile. Bookmarks stored in the browser are not touched.
 
 ## Third parties
 

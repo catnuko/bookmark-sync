@@ -821,6 +821,51 @@
   "pay_checkoutFail": {
     "message": "创建支付会话失败"
   },
+  "account_dangerTitle": {
+    "message": "危险操作"
+  },
+  "account_dangerSub": {
+    "message": "影响账户本身的操作，执行前请仔细确认。"
+  },
+  "delacct_rowTitle": {
+    "message": "注销账户"
+  },
+  "delacct_rowSub": {
+    "message": "永久删除账户与全部云端同步数据，浏览器本地书签保留。"
+  },
+  "delacct_open": {
+    "message": "注销账户"
+  },
+  "delacct_title": {
+    "message": "注销账户"
+  },
+  "delacct_body1": {
+    "message": "此操作不可恢复。"
+  },
+  "delacct_body2": {
+    "message": "将删除账户及全部云端同步数据：空间、操作日志、快照、设备登记、个人资料。"
+  },
+  "delacct_body3": {
+    "message": "浏览器本地书签不受影响。"
+  },
+  "delacct_cancel": {
+    "message": "取消"
+  },
+  "delacct_confirm": {
+    "message": "我已了解，永久注销"
+  },
+  "delacct_busy": {
+    "message": "注销中…"
+  },
+  "delacct_doneTitle": {
+    "message": "账户已注销"
+  },
+  "delacct_doneSub": {
+    "message": "云端数据已全部删除，浏览器本地书签已保留。"
+  },
+  "delacct_failTitle": {
+    "message": "注销失败"
+  },
   "pay_tryLater": {
     "message": "请稍后重试"
   },

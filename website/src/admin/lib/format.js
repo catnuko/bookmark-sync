@@ -157,6 +157,7 @@ export function actionLabel(action) {
       set_plan: '改 plan',
       reset_usage: '重置用量',
       reset_user_data: '清空数据',
+      delete_account: '注销账户',
       set_gc_threshold: '改 GC 阈值',
       request_gc: '请求 GC',
       mark_feedback: '标记反馈',
