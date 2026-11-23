@@ -24,6 +24,7 @@ const ACTION_OPTIONS = [
   { value: 'set_plan', label: '改 plan' },
   { value: 'reset_usage', label: '重置用量' },
   { value: 'reset_user_data', label: '清空数据' },
+  { value: 'delete_account', label: '注销账户' },
   { value: 'set_gc_threshold', label: '改 GC 阈值' },
   { value: 'request_gc', label: '请求 GC' },
 ];

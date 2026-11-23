@@ -75,11 +75,36 @@
         {{ t('account_foot') }}
       </p>
     </div>
+
+    <!-- 危险操作区（ALNA-248）：注销账户 = 自助删除 auth.users 行，云端数据级联清理，
+         本地书签不在删除路径上。删除前必须经过弹窗内的明确二次确认。 -->
+    <div class="mt-6">
+      <h3 class="text-body font-semibold text-destructive-text">{{ t('account_dangerTitle') }}</h3>
+      <p class="mt-1 text-body-sm text-(--text-secondary-c)">{{ t('account_dangerSub') }}</p>
+      <div class="mt-3 rounded-xl border border-destructive-border p-4">
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <div class="text-body font-medium">{{ t('delacct_rowTitle') }}</div>
+            <div class="text-body-sm text-(--text-secondary-c)">{{ t('delacct_rowSub') }}</div>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            class="flex-none"
+            data-test="delete-account"
+            @click="confirmOpen = true"
+          >
+            {{ t('delacct_open') }}
+          </Button>
+        </div>
+      </div>
+    </div>
+    <ModalDeleteAccount v-model:open="confirmOpen" />
   </section>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { ChevronRight, CircleCheck, Lock, Monitor } from '@lucide/vue';
 import {
   state,
@@ -98,8 +123,11 @@ import Badge from './ui/badge/Badge.vue';
 import Button from './ui/button/Button.vue';
 import ListGroup from './biz/ListGroup.vue';
 import ListRow from './biz/ListRow.vue';
+import ModalDeleteAccount from './ModalDeleteAccount.vue';
 
 defineProps({ bare: { type: Boolean, default: false } });
+
+const confirmOpen = ref(false);
 
 const planFoot = computed(() => {
   if (quotaCount.value == null) return t('account_planFootUnlimited');

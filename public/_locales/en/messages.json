@@ -821,6 +821,51 @@
   "pay_checkoutFail": {
     "message": "Couldn't start checkout"
   },
+  "account_dangerTitle": {
+    "message": "Danger zone"
+  },
+  "account_dangerSub": {
+    "message": "Actions that affect the account itself. Double-check before continuing."
+  },
+  "delacct_rowTitle": {
+    "message": "Delete account"
+  },
+  "delacct_rowSub": {
+    "message": "Permanently delete the account and all cloud sync data. Local bookmarks are kept."
+  },
+  "delacct_open": {
+    "message": "Delete account"
+  },
+  "delacct_title": {
+    "message": "Delete account"
+  },
+  "delacct_body1": {
+    "message": "This action cannot be undone."
+  },
+  "delacct_body2": {
+    "message": "Deletes the account and all cloud sync data: spaces, operation log, snapshots, device registrations, and profile."
+  },
+  "delacct_body3": {
+    "message": "Bookmarks stored in this browser are not affected."
+  },
+  "delacct_cancel": {
+    "message": "Cancel"
+  },
+  "delacct_confirm": {
+    "message": "I understand, delete permanently"
+  },
+  "delacct_busy": {
+    "message": "Deleting…"
+  },
+  "delacct_doneTitle": {
+    "message": "Account deleted"
+  },
+  "delacct_doneSub": {
+    "message": "All cloud data was removed. Bookmarks in this browser were kept."
+  },
+  "delacct_failTitle": {
+    "message": "Delete failed"
+  },
   "pay_tryLater": {
     "message": "Please try again later"
   },
