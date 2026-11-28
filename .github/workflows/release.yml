@@ -206,16 +206,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           # 必须 22+：@supabase/realtime-js 要求原生 WebSocket（Node 20 无全局 WebSocket），
-          # 质量门的单测在 import 阶段构造 supabase client 时会直接抛错。
+          # 单测在 import 阶段构造 supabase client 时会直接抛错。
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: pnpm install --frozen-lockfile
-
-      # 发版前质量门：类型检查 + lint + 单测全过后才打包（防止坏代码进 Release）。
-      - name: Quality gate
-        run: pnpm typecheck && pnpm lint && pnpm test
 
       # 注意：release-please 的 extra-files(json) 在当前版本实测不生效
       # （v2.3.0 的 release PR 未更新 manifest，见 PR #13），这里按 package.json

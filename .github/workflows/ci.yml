@@ -29,11 +29,10 @@ name: Quality Gate
 #   悬挂的 run 立即作废并被记成 failure。识别特征：**0 个 job**。
 #   这是 GitHub 侧行为，不是代码问题；本文件不再监听 pull_request 后不会再出现。
 #
-# ★ 坏代码为什么仍进不了 Release
+# ★ 校验边界
 #
-#   release.yml 的 build job 里有一道独立的发版前质量门
-#   （`pnpm typecheck && pnpm lint && pnpm test`），打包前执行。
-#   删掉 PR 触发不影响它 —— Release 的守门人是 release.yml，不是本文件。
+#   main 树由本工作流的 typecheck / lint / fmt / test 兜底；release.yml 的 build
+#   不再重复跑同一套校验，打包复用 main 上本 Quality Gate 的结果。
 
 on:
   push:
@@ -63,6 +62,8 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: pnpm install --frozen-lockfile
 
       - name: Type check
